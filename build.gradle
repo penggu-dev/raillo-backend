@@ -2,7 +2,6 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.5.0'
     id 'io.spring.dependency-management' version '1.1.7'
-    id 'jacoco'
 }
 
 group = 'com.sudo'
@@ -25,51 +24,54 @@ repositories {
 }
 
 dependencies {
+    // Spring Boot Starters
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-batch'
-    compileOnly 'org.projectlombok:lombok'
+
+    // Database
     runtimeOnly 'com.mysql:mysql-connector-j'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // Development Tools
+    developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
+    compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    // Test Dependencies
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testRuntimeOnly 'com.h2database:h2'
     testImplementation 'com.github.codemonstur:embedded-redis:1.4.3'
-    testImplementation "com.navercorp.fixturemonkey:fixture-monkey-starter:1.1.14"
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.batch:spring-batch-test'
     testImplementation 'com.icegreen:greenmail:2.1.3'
     testImplementation 'com.icegreen:greenmail-junit5:2.1.3'
 
-
-    /* JWT */
-    // https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-api
+    // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
-    // https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-impl
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.2'
-    // https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-jackson
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.2'
 
-    /* QueryDSL */
+    // QueryDSL
     implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
     annotationProcessor "com.querydsl:querydsl-apt:${dependencyManagement.importedProperties['querydsl.version']}:jakarta"
     annotationProcessor "jakarta.annotation:jakarta.annotation-api"
     annotationProcessor "jakarta.persistence:jakarta.persistence-api"
 
-    /* swagger */
+    // swagger
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
 
-    /* Apache POI */
+    // Apache POI
     implementation 'org.apache.poi:poi-ooxml:5.4.1'
 
-    /* Actuator & Prometheus */
+    // Actuator & Prometheus
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
 }
@@ -78,7 +80,7 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
-/* QueryDSL 설정부 */
+// QueryDSL 설정부
 def querydslSrcDir = layout.buildDirectory.dir("generated/querydsl").get().asFile
 
 sourceSets {
@@ -93,48 +95,3 @@ tasks.withType(JavaCompile) {
 clean {
     delete file(querydslSrcDir)
 }
-
-test {
-    useJUnitPlatform()
-    finalizedBy 'jacocoTestReport'
-}
-
-jacoco {
-    toolVersion = '0.8.13'
-}
-
-jacocoTestReport {
-    reports {
-        html.required = true
-        xml.required = true
-        csv.required = false
-    }
-
-    afterEvaluate {
-        classDirectories.setFrom(
-                sourceSets.main.output.asFileTree.matching {
-                    include "**/application/**"
-                    include "**/infrastructure/*RepositoryCustomImpl.class"
-                    include "**/security/jwt/Token*.class"
-                    exclude "**/train/infrastructure/excel/**"
-                    exclude "**/application/dto/**"
-                }
-        )
-    }
-
-    finalizedBy 'jacocoTestCoverageVerification'
-}
-
-jacocoTestCoverageVerification {
-    violationRules {
-        rule {
-            element = 'CLASS'
-
-            excludes = [
-                    '*.test.*',
-                    '*.Q*'
-            ]
-        }
-    }
-}
-

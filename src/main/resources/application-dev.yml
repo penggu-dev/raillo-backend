@@ -6,13 +6,17 @@ spring:
       - optional:file:.env[.properties]
       - classpath:train-template.yml
 
+  docker:
+    compose:
+      lifecycle-management: start_only
+
   jackson:
     time-zone: Asia/Seoul
 
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+      host: localhost
+      port: 6379
 
   datasource:
     url: ${DB_URL}
