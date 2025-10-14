@@ -1,14 +1,9 @@
 package com.sudo.raillo.train.infrastructure;
 
-import static com.sudo.raillo.booking.domain.QReservation.*;
-import static com.sudo.raillo.booking.domain.QSeatReservation.*;
-import static com.sudo.raillo.train.domain.QSeat.*;
-import static com.sudo.raillo.train.domain.QTrainCar.*;
-
-import java.util.List;
-import java.util.Optional;
-
-import org.springframework.stereotype.Repository;
+import static com.sudo.raillo.booking.domain.QReservation.reservation;
+import static com.sudo.raillo.booking.domain.QSeatReservation.seatReservation;
+import static com.sudo.raillo.train.domain.QSeat.seat;
+import static com.sudo.raillo.train.domain.QTrainCar.trainCar;
 
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.CaseBuilder;
@@ -17,9 +12,11 @@ import com.sudo.raillo.train.application.TrainCarSeatInfo;
 import com.sudo.raillo.train.application.dto.projection.QSeatProjection;
 import com.sudo.raillo.train.application.dto.projection.SeatProjection;
 import com.sudo.raillo.train.domain.QScheduleStop;
-
+import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
@@ -36,7 +33,7 @@ public class SeatRepositoryCustomImpl implements SeatRepositoryCustom {
 	 */
 	@Override
 	public TrainCarSeatInfo findTrainCarSeatDetail(Long trainCarId, Long trainScheduleId, Long departureStationId,
-		Long arrivalStationId) {
+												   Long arrivalStationId) {
 
 		// 1. 객차 기본 정보 조회
 		Tuple carInfo = queryFactory.select(

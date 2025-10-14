@@ -53,26 +53,4 @@ public class ScheduleStop {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "station_id")
 	private Station station;
-
-	private ScheduleStop(int stopOrder, LocalTime arrivalTime, LocalTime departureTime,
-		Station station, TrainSchedule trainSchedule) {
-
-		this.stopOrder = stopOrder;
-		this.arrivalTime = arrivalTime;
-		this.departureTime = departureTime;
-		this.station = station;
-		this.trainSchedule = trainSchedule;
-	}
-
-	/* 정적 팩토리 메서드 */
-	public static ScheduleStop create(ScheduleStopTemplate template, TrainSchedule trainSchedule) {
-
-		return new ScheduleStop(
-			template.getStopOrder(),
-			template.getArrivalTime(),
-			template.getDepartureTime(),
-			template.getStation(),
-			trainSchedule
-		);
-	}
 }

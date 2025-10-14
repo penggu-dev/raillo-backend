@@ -4,7 +4,6 @@ spring:
       on-profile: dev
     import:
       - optional:file:.env[.properties]
-      - classpath:train-template.yml
 
   docker:
     compose:
@@ -57,12 +56,6 @@ spring:
       enabled: false
 
 train:
-  schedule:
-    excel:
-      filename: ${TRAIN_SCHEDULE_FILENAME}
-  station-fare:
-    excel:
-      filename: ${STATION_FARE_FILENAME}
   standing:
     ratio: 0.15
 

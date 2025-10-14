@@ -4,7 +4,6 @@ spring:
       on-profile: prod
     import:
       - optional:file:.env[.properties]
-      - classpath:train-template.yml
 
   jackson:
     time-zone: Asia/Seoul
@@ -53,12 +52,6 @@ spring:
       enabled: false
 
 train:
-  schedule:
-    excel:
-      filename: ${TRAIN_SCHEDULE_FILENAME}
-  station-fare:
-    excel:
-      filename: ${STATION_FARE_FILENAME}
   standing:
     ratio: 0.15
 
