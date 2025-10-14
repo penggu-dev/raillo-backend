@@ -8,32 +8,16 @@
         <a href="https://github.com/Ogu1208"><img src="https://avatars.githubusercontent.com/u/76902448?v=4" width="100px;" alt="김민아"/><br /></a>
       </td>
       <td align="center">
-        <a href="https://github.com/EndlessMilkyway"><img src="https://avatars.githubusercontent.com/u/26517746?v=4" width="100px;" alt="김영렬"/><br /></a>
-      </td>
-      <td align="center">
-        <a href="https://github.com/karlislepark"><img src="https://avatars.githubusercontent.com/u/64067168?v=4" width="100px;" alt="박범진"/><br /></a>
-      </td>
-      <td align="center">
         <a href="https://github.com/Jimin730"><img src="https://avatars.githubusercontent.com/u/108002997?v=4" width="100px;" alt="신지민"/><br /></a>
-      </td>
-      <td align="center">
-        <a href="https://github.com/Friox"><img src="https://avatars.githubusercontent.com/u/10986386?v=4" width="100px;" alt="이승훈"/><br /></a>
       </td>
       <td align="center">
         <a href="https://github.com/chanwonlee"><img src="https://avatars.githubusercontent.com/u/116537544?v=4" width="100px;" alt="이찬원"/><br /></a>
       </td>
-      <td align="center">
-        <a href="https://github.com/Yunsung-Jo"><img src="https://avatars.githubusercontent.com/u/135187534?v=4" width="100px;" alt="조윤성"/><br /></a>
-      </td>
     </tr>
     <tr>
       <td align="center"><a href="https://github.com/Ogu1208">김민아</a></td>
-      <td align="center"><a href="https://github.com/EndlessMilkyway">김영렬</a></td>
-      <td align="center"><a href="https://github.com/karlislepark">박범진</a></td>
       <td align="center"><a href="https://github.com/Jimin730">신지민</a></td>
-      <td align="center"><a href="https://github.com/Friox">이승훈</a></td>
       <td align="center"><a href="https://github.com/chanwonlee">이찬원</a></td>
-      <td align="center"><a href="https://github.com/Yunsung-Jo">조윤성</a></td>
     </tr>
   </tbody>
 </table>
