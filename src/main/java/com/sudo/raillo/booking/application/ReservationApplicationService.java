@@ -12,16 +12,13 @@ import com.sudo.raillo.booking.application.dto.response.ReservationCreateRespons
 import com.sudo.raillo.booking.application.mapper.SeatPassengerMapper;
 import com.sudo.raillo.booking.application.service.ReservationDeletionService;
 import com.sudo.raillo.booking.application.service.ReservationQueryService;
+import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.domain.Reservation;
-import com.sudo.raillo.booking.domain.SeatReservation;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
-import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.train.domain.ScheduleStop;
-import com.sudo.raillo.train.domain.Seat;
-import com.sudo.raillo.train.infrastructure.SeatRepository;
 
 import lombok.RequiredArgsConstructor;
 

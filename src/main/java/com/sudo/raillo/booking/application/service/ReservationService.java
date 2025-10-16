@@ -1,35 +1,23 @@
-package com.sudo.raillo.booking.application;
+package com.sudo.raillo.booking.application.service;
 
 import java.math.BigDecimal;
-import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sudo.raillo.booking.application.dto.ReservationInfo;
-import com.sudo.raillo.booking.application.dto.projection.SeatReservationProjection;
+import com.sudo.raillo.booking.application.FareCalculationService;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
-import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
-import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
-import com.sudo.raillo.booking.application.dto.response.SeatReservationDetail;
 import com.sudo.raillo.booking.application.generator.ReservationCodeGenerator;
-import com.sudo.raillo.booking.application.mapper.ReservationMapper;
 import com.sudo.raillo.booking.config.BookingConfig;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.reservation.ReservationRepository;
-import com.sudo.raillo.booking.infrastructure.reservation.ReservationRepositoryCustom;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
