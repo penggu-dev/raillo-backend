@@ -22,6 +22,7 @@ import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
 import com.sudo.raillo.booking.application.dto.response.SeatReservationDetail;
 import com.sudo.raillo.booking.application.generator.ReservationCodeGenerator;
+import com.sudo.raillo.booking.application.mapper.ReservationMapper;
 import com.sudo.raillo.booking.config.BookingConfig;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
@@ -57,6 +58,7 @@ public class ReservationService {
 	private final ReservationRepositoryCustom reservationRepositoryCustom;
 	private final SeatRepository seatRepository;
 	private final ReservationCodeGenerator reservationCodeGenerator;
+	private final ReservationMapper reservationMapper;
 
 	/**
 	 * 예약을 생성하는 메서드
@@ -106,7 +108,7 @@ public class ReservationService {
 			throw new BusinessException(BookingError.RESERVATION_EXPIRED);
 		}
 
-		return convertToReservationDetail(reservationInfo);
+		return reservationMapper.convertToReservationDetail(reservationInfo);
 	}
 
 	/**
@@ -138,7 +140,7 @@ public class ReservationService {
 			deleteReservation(expiredReservationIds);
 		}
 
-		return convertToReservationDetail(validReservations);
+		return reservationMapper.convertToReservationDetail(validReservations);
 	}
 
 	/**
@@ -248,41 +250,6 @@ public class ReservationService {
 		if (trainSchedule.getOperationStatus() == OperationStatus.CANCELLED) {
 			throw new BusinessException(TrainErrorCode.TRAIN_OPERATION_CANCELLED);
 		}
-	}
-
-	public List<ReservationDetail> convertToReservationDetail(List<ReservationInfo> reservationInfos) {
-		return reservationInfos.stream()
-			.map(this::convertToReservationDetail)
-			.toList();
-	}
-
-	public ReservationDetail convertToReservationDetail(ReservationInfo reservationInfo) {
-		return ReservationDetail.of(
-			reservationInfo.reservationId(),
-			reservationInfo.reservationCode(),
-			String.format("%03d", reservationInfo.trainNumber()),
-			reservationInfo.trainName(),
-			reservationInfo.departureStationName(),
-			reservationInfo.arrivalStationName(),
-			reservationInfo.departureTime(),
-			reservationInfo.arrivalTime(),
-			reservationInfo.operationDate(),
-			reservationInfo.expiresAt(),
-			reservationInfo.fare(),
-			convertToSeatReservationDetail(reservationInfo.seats())
-		);
-	}
-
-	private List<SeatReservationDetail> convertToSeatReservationDetail(List<SeatReservationProjection> projection) {
-		return projection.stream()
-			.map(p -> SeatReservationDetail.of(
-				p.getSeatReservationId(),
-				p.getPassengerType(),
-				p.getCarNumber(),
-				p.getCarType(),
-				p.getSeatNumber()
-			))
-			.toList();
 	}
 
 	private Reservation generateReservation(

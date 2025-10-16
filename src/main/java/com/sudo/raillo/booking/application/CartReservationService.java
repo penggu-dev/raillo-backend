@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.sudo.raillo.booking.application.dto.ReservationInfo;
 import com.sudo.raillo.booking.application.dto.request.CartReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
+import com.sudo.raillo.booking.application.mapper.ReservationMapper;
 import com.sudo.raillo.booking.domain.CartReservation;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -27,11 +28,11 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class CartReservationService {
 
-	private final ReservationService reservationService;
 	private final MemberRepository memberRepository;
 	private final ReservationRepository reservationRepository;
 	private final ReservationRepositoryCustom reservationRepositoryCustom;
 	private final CartReservationRepository cartReservationRepository;
+	private final ReservationMapper reservationMapper;
 
 	/**
 	 * 장바구니에 예약 등록
@@ -75,7 +76,7 @@ public class CartReservationService {
 		// 예약 조회
 		List<ReservationInfo> reservationInfos = reservationRepositoryCustom.findReservationDetail(
 			member.getId(), reservationIds);
-		return reservationService.convertToReservationDetail(reservationInfos);
+		return reservationMapper.convertToReservationDetail(reservationInfos);
 	}
 
 	private void validateReservationAccess(Member member, Reservation reservation) {
