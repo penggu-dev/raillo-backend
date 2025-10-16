@@ -21,6 +21,7 @@ import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
 import com.sudo.raillo.booking.application.dto.response.SeatReservationDetail;
+import com.sudo.raillo.booking.application.generator.ReservationCodeGenerator;
 import com.sudo.raillo.booking.config.BookingConfig;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
@@ -55,6 +56,7 @@ public class ReservationService {
 	private final ReservationRepository reservationRepository;
 	private final ReservationRepositoryCustom reservationRepositoryCustom;
 	private final SeatRepository seatRepository;
+	private final ReservationCodeGenerator reservationCodeGenerator;
 
 	/**
 	 * 예약을 생성하는 메서드
@@ -202,26 +204,6 @@ public class ReservationService {
 		return reservationInfo.expiresAt().isBefore(now);
 	}
 
-	/***
-	 * 고객용 예매번호를 생성하는 메서드
-	 * @return 고객용 예매번호
-	 */
-	private String generateReservationCode() {
-		// yyyyMMddHHmmss<랜덤4자리> 형식
-		LocalDateTime now = LocalDateTime.now();
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-		String dateTimeStr = now.format(formatter);
-
-		String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-		StringBuilder randomStr = new StringBuilder();
-		SecureRandom secureRandom = new SecureRandom();
-		for (int i = 0; i < 4; i++) {
-			int idx = secureRandom.nextInt(chars.length());
-			randomStr.append(chars.charAt(idx));
-		}
-		return dateTimeStr + randomStr;
-	}
-
 	private ScheduleStop getStopStation(TrainSchedule trainSchedule, Long request) {
 		return scheduleStopRepository.findByTrainScheduleIdAndStationId(trainSchedule.getId(), request)
 			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
@@ -314,7 +296,7 @@ public class ReservationService {
 		return Reservation.builder()
 			.trainSchedule(trainSchedule)
 			.member(member)
-			.reservationCode(generateReservationCode())
+			.reservationCode(reservationCodeGenerator.generateReservationCode())
 			.tripType(request.tripType())
 			.totalPassengers(request.passengers().stream().mapToInt(PassengerSummary::getCount).sum())
 			.passengerSummary(convertPassengersToJson(request))
