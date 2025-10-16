@@ -23,8 +23,6 @@ jobs:
       JWT_KEY: ${{ secrets.JWT_KEY }}
       MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
       MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
-      STATION_FARE_FILENAME: ${{ secrets.STATION_FARE_FILENAME }}
-      TRAIN_SCHEDULE_FILENAME: ${{ secrets.TRAIN_SCHEDULE_FILENAME }}
 
     steps:
       - uses: actions/checkout@v4
