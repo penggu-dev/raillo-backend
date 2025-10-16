@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
+import com.sudo.raillo.booking.application.service.ReservationDeletionService;
+import com.sudo.raillo.booking.application.service.ReservationQueryService;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
@@ -42,6 +44,12 @@ class ReservationServiceTest {
 
 	@Autowired
 	private ReservationService reservationService;
+
+	@Autowired
+	private ReservationDeletionService reservationDeletionService;
+
+	@Autowired
+	private ReservationQueryService reservationQueryService;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -111,7 +119,7 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when
-		ReservationDetail result = reservationService.getReservation(memberNo, entity.getId());
+		ReservationDetail result = reservationQueryService.getReservation(memberNo, entity.getId());
 
 		// then
 		assertThat(result.reservationId()).isEqualTo(entity.getId());
@@ -134,7 +142,7 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when & then
-		assertThatThrownBy(() -> reservationService.getReservation(memberNo, 2L))
+		assertThatThrownBy(() -> reservationQueryService.getReservation(memberNo, 2L))
 			.isInstanceOf(BusinessException.class);
 
 		reservationRepository.save(reservation);
@@ -161,7 +169,7 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when & then
-		assertThatThrownBy(() -> reservationService.getReservation(memberNo, entity.getId()))
+		assertThatThrownBy(() -> reservationQueryService.getReservation(memberNo, entity.getId()))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.RESERVATION_EXPIRED.getMessage());
 	}
@@ -195,7 +203,7 @@ class ReservationServiceTest {
 		Reservation entity2 = reservationRepository.save(reservation2);
 
 		// when
-		List<ReservationDetail> result = reservationService.getReservations(memberNo);
+		List<ReservationDetail> result = reservationQueryService.getReservations(memberNo);
 
 		// then
 		assertThat(result.size()).isEqualTo(2);
@@ -258,7 +266,7 @@ class ReservationServiceTest {
 		Reservation entity2 = reservationRepository.save(reservation2);
 
 		// when
-		List<ReservationDetail> result = reservationService.getReservations(memberNo);
+		List<ReservationDetail> result = reservationQueryService.getReservations(memberNo);
 
 		// then
 		assertThat(result.size()).isEqualTo(1);
@@ -283,7 +291,7 @@ class ReservationServiceTest {
 		ReservationDeleteRequest request = new ReservationDeleteRequest(entity.getId());
 
 		// when
-		reservationService.deleteReservation(request);
+		reservationDeletionService.deleteReservation(request);
 
 		// then
 		List<Reservation> result = reservationRepository.findAll();
@@ -312,7 +320,7 @@ class ReservationServiceTest {
 		}
 
 		// when
-		reservationService.expireReservations();
+		reservationDeletionService.expireReservations();
 
 		// then
 		List<Reservation> result = reservationRepository.findAll();

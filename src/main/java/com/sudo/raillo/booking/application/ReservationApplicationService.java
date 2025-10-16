@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
 import com.sudo.raillo.booking.application.mapper.SeatPassengerMapper;
+import com.sudo.raillo.booking.application.service.ReservationDeletionService;
+import com.sudo.raillo.booking.application.service.ReservationQueryService;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.SeatReservation;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
@@ -31,6 +33,8 @@ public class ReservationApplicationService {
 	private final SeatReservationService seatReservationService;
 	private final TicketService ticketService;
 	private final SeatPassengerMapper seatPassengerMapper;
+	private final ReservationQueryService reservationQueryService;
+	private final ReservationDeletionService reservationDeletionService;
 
 	@Transactional
 	public ReservationCreateResponse createReservation(ReservationCreateRequest request, String memberNo) {
@@ -58,7 +62,7 @@ public class ReservationApplicationService {
 
 	@Transactional
 	public void deleteReservationsByMember(Member member) {
-		reservationService.deleteAllByMemberId(member.getId());
+		reservationDeletionService.deleteAllByMemberId(member.getId());
 	}
 
 	private static void validateStopSequence(Reservation reservation) {
