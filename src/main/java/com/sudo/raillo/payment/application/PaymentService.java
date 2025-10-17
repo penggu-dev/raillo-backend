@@ -6,7 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sudo.raillo.booking.application.ReservationApplicationService;
+import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.application.TicketService;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -43,7 +43,7 @@ public class PaymentService {
 	private final MemberRepository memberRepository;
 	private final PaymentRepository paymentRepository;
 	private final PaymentKeyGenerator paymentKeyGenerator;
-	private final ReservationApplicationService reservationApplicationService;
+	private final ReservationFacade reservationFacade;
 	private final TicketService ticketService;
 
 	/**
@@ -219,7 +219,7 @@ public class PaymentService {
 
 	private void markReservationAsCancelled(Reservation reservation) {
 		reservation.cancel();
-		reservationApplicationService.cancelReservation(reservation);
+		reservationFacade.cancelReservation(reservation);
 
 		log.info("예약 취소 처리: reservationId={}", reservation.getId());
 	}

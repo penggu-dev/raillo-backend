@@ -12,6 +12,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
+import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.SeatReservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
@@ -34,7 +35,7 @@ import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 
 @ServiceTest
-class ReservationApplicationServiceTest {
+class ReservationFacadeTest {
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -52,7 +53,7 @@ class ReservationApplicationServiceTest {
 	private SeatReservationRepository seatReservationRepository;
 
 	@Autowired
-	private ReservationApplicationService reservationApplicationService;
+	private ReservationFacade reservationFacade;
 
 	private Train train;
 	private TrainScheduleWithStopStations scheduleWithStops;
@@ -82,7 +83,7 @@ class ReservationApplicationServiceTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when
-		var response = reservationApplicationService.createReservation(request, memberNo);
+		var response = reservationFacade.createReservation(request, memberNo);
 
 		// then
 		Reservation savedReservation = reservationRepository.findById(response.reservationId()).orElseThrow();
@@ -99,7 +100,7 @@ class ReservationApplicationServiceTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when
-		var response = reservationApplicationService.createReservation(request, memberNo);
+		var response = reservationFacade.createReservation(request, memberNo);
 
 		// then
 		List<SeatReservation> savedSeatReservations = seatReservationRepository.findByReservationId(response.reservationId());
@@ -119,7 +120,7 @@ class ReservationApplicationServiceTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when
-		var response = reservationApplicationService.createReservation(request, memberNo);
+		var response = reservationFacade.createReservation(request, memberNo);
 
 		// then
 		assertThat(response.seatReservationIds()).containsExactlyElementsOf(standardSeatIds);
@@ -134,7 +135,7 @@ class ReservationApplicationServiceTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when & then
-		assertThatThrownBy(() -> reservationApplicationService.createReservation(request, memberNo))
+		assertThatThrownBy(() -> reservationFacade.createReservation(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.RESERVATION_CREATE_SEATS_INVALID.getMessage());
 	}
@@ -147,7 +148,7 @@ class ReservationApplicationServiceTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when & then
-		assertThatThrownBy(() -> reservationApplicationService.createReservation(request, memberNo))
+		assertThatThrownBy(() -> reservationFacade.createReservation(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.SEAT_NOT_FOUND.getMessage());
 	}
@@ -157,10 +158,10 @@ class ReservationApplicationServiceTest {
 	void shouldThrowsExceptionWhenSeatAlreadyReserved() {
 		// given
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
-		reservationApplicationService.createReservation(request, memberNo);
+		reservationFacade.createReservation(request, memberNo);
 
 		// when & then
-		assertThatThrownBy(() -> reservationApplicationService.createReservation(request, memberNo))
+		assertThatThrownBy(() -> reservationFacade.createReservation(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.SEAT_ALREADY_RESERVED.getMessage());
 	}
@@ -173,7 +174,7 @@ class ReservationApplicationServiceTest {
 		trainScheduleTestHelper.createOrUpdateStationFare("부산", "서울", 50000, 10000);
 
 		// when & then
-		assertThatThrownBy(() -> reservationApplicationService.createReservation(request, memberNo))
+		assertThatThrownBy(() -> reservationFacade.createReservation(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.TRAIN_NOT_OPERATIONAL.getMessage());
 	}

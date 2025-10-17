@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.sudo.raillo.booking.application.ReservationApplicationService;
+import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
@@ -31,7 +31,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ReservationController implements ReservationControllerDocs {
 
-	private final ReservationApplicationService reservationApplicationService;
+	private final ReservationFacade reservationFacade;
 	private final ReservationService reservationService;
 	private final ReservationDeletionService reservationDeletionService;
 	private final ReservationQueryService reservationQueryService;
@@ -46,7 +46,7 @@ public class ReservationController implements ReservationControllerDocs {
 		@RequestBody ReservationCreateRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
-		ReservationCreateResponse response = reservationApplicationService
+		ReservationCreateResponse response = reservationFacade
 			.createReservation(request, userDetails.getUsername());
 		return SuccessResponse.of(ReservationSuccess.RESERVATION_CREATE_SUCCESS, response);
 	}

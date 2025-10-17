@@ -1,4 +1,4 @@
-package com.sudo.raillo.booking.application;
+package com.sudo.raillo.booking.application.facade;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -7,25 +7,23 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sudo.raillo.booking.application.SeatReservationService;
+import com.sudo.raillo.booking.application.TicketService;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
 import com.sudo.raillo.booking.application.mapper.SeatPassengerMapper;
 import com.sudo.raillo.booking.application.service.ReservationDeletionService;
-import com.sudo.raillo.booking.application.service.ReservationQueryService;
 import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
-import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.train.domain.ScheduleStop;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class ReservationApplicationService {
+public class ReservationFacade {
 
 	private final ReservationService reservationService;
 	private final SeatReservationService seatReservationService;
