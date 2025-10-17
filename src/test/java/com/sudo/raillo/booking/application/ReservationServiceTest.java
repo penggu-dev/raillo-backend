@@ -2,6 +2,7 @@ package com.sudo.raillo.booking.application;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -94,8 +95,10 @@ class ReservationServiceTest {
 			TripType.OW
 		);
 
+		BigDecimal totalFare = BigDecimal.valueOf(80000);
+
 		// when
-		Reservation reservation = reservationService.createReservation(request, member.getMemberDetail().getMemberNo());
+		Reservation reservation = reservationService.createReservation(request, member.getMemberDetail().getMemberNo(), totalFare);
 
 		// then
 		Reservation savedReservation = reservationRepository.findById(reservation.getId())

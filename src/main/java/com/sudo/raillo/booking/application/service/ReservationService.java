@@ -38,7 +38,6 @@ public class ReservationService {
 
 	private final ObjectMapper objectMapper;
 	private final BookingConfig bookingConfig;
-	private final FareCalculationService fareCalculationService;
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final MemberRepository memberRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
@@ -53,13 +52,11 @@ public class ReservationService {
 	 * @return 예약 레코드
 	 */
 	@Transactional
-	public Reservation createReservation(ReservationCreateRequest request, String memberNo) {
+	public Reservation createReservation(ReservationCreateRequest request, String memberNo, BigDecimal totalFare) {
 		TrainSchedule trainSchedule = getTrainSchedule(request);
 		Member member = memberRepository.getMember(memberNo);
 		ScheduleStop departureStop = getStopStation(trainSchedule, request.departureStationId());
 		ScheduleStop arrivalStop = getStopStation(trainSchedule, request.arrivalStationId());
-		CarType carType = findCarType(request.seatIds());
-		BigDecimal totalFare = getTotalFare(request, carType);
 
 		validateTrainOperating(trainSchedule);
 
@@ -79,19 +76,10 @@ public class ReservationService {
 			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
 	}
 
-	private BigDecimal getTotalFare(ReservationCreateRequest request, CarType carType) {
-		return fareCalculationService.calculateFare(
-			request.departureStationId(),
-			request.arrivalStationId(),
-			request.passengers(),
-			carType
-		);
-	}
-
 	/**
 	 * 객차 타입 조회
 	 */
-	private CarType findCarType(List<Long> seatIds) {
+	public CarType findCarType(List<Long> seatIds) {
 		List<CarType> carTypes = seatRepository.findCarTypes(seatIds);
 
 		// 입석 체크

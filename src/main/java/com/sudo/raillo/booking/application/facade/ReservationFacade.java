@@ -1,5 +1,6 @@
 package com.sudo.raillo.booking.application.facade;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sudo.raillo.booking.application.FareCalculationService;
 import com.sudo.raillo.booking.application.SeatReservationService;
 import com.sudo.raillo.booking.application.TicketService;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
@@ -18,6 +20,7 @@ import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.train.domain.type.CarType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,13 +32,22 @@ public class ReservationFacade {
 	private final SeatReservationService seatReservationService;
 	private final TicketService ticketService;
 	private final ReservationDeletionService reservationDeletionService;
+	private final FareCalculationService fareCalculationService;
 	private final SeatPassengerMapper seatPassengerMapper;
 	private final ReservationValidator reservationValidator;
 
 	@Transactional
 	public ReservationCreateResponse createReservation(ReservationCreateRequest request, String memberNo) {
 		// TODO: 요청 파라미터를 여기서 모두 검증할지, 각 서비스에서 검증할지 결정 필요
-		Reservation reservation = reservationService.createReservation(request, memberNo);
+		CarType carType = reservationService.findCarType(request.seatIds());
+		BigDecimal totalFare = fareCalculationService.calculateFare(
+			request.departureStationId(),
+			request.arrivalStationId(),
+			request.passengers(),
+			carType
+		);
+
+		Reservation reservation = reservationService.createReservation(request, memberNo, totalFare);
 		reservationValidator.validateStopSequence(reservation);
 
 		// 승객 정보, 좌석 정보 정렬 (승객 정보는 PassengerType에 정의한 순서대로, 좌석 정보는 오름차순)
@@ -56,7 +68,6 @@ public class ReservationFacade {
 		ticketService.deleteTicketByReservationId(reservationId);
 	}
 
-	@Transactional
 	public void deleteReservationsByMember(Member member) {
 		reservationDeletionService.deleteAllByMemberId(member.getId());
 	}

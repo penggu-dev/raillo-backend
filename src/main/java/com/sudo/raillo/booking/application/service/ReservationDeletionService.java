@@ -77,6 +77,7 @@ public class ReservationDeletionService {
 		} while (expiredPage.hasNext());
 	}
 
+	@Transactional
 	public void deleteAllByMemberId(Long memberId) {
 		reservationRepository.deleteAllByMemberId(memberId);
 	}
