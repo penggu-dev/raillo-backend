@@ -13,6 +13,7 @@ import com.sudo.raillo.booking.application.mapper.SeatPassengerMapper;
 import com.sudo.raillo.booking.application.service.ReservationDeletionService;
 import com.sudo.raillo.booking.application.service.ReservationQueryService;
 import com.sudo.raillo.booking.application.service.ReservationService;
+import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -29,15 +30,15 @@ public class ReservationApplicationService {
 	private final ReservationService reservationService;
 	private final SeatReservationService seatReservationService;
 	private final TicketService ticketService;
-	private final SeatPassengerMapper seatPassengerMapper;
-	private final ReservationQueryService reservationQueryService;
 	private final ReservationDeletionService reservationDeletionService;
+	private final SeatPassengerMapper seatPassengerMapper;
+	private final ReservationValidator reservationValidator;
 
 	@Transactional
 	public ReservationCreateResponse createReservation(ReservationCreateRequest request, String memberNo) {
 		// TODO: 요청 파라미터를 여기서 모두 검증할지, 각 서비스에서 검증할지 결정 필요
 		Reservation reservation = reservationService.createReservation(request, memberNo);
-		validateStopSequence(reservation);
+		reservationValidator.validateStopSequence(reservation);
 
 		// 승객 정보, 좌석 정보 정렬 (승객 정보는 PassengerType에 정의한 순서대로, 좌석 정보는 오름차순)
 		List<PassengerSummary> passengers = new ArrayList<>(request.passengers());
@@ -60,13 +61,5 @@ public class ReservationApplicationService {
 	@Transactional
 	public void deleteReservationsByMember(Member member) {
 		reservationDeletionService.deleteAllByMemberId(member.getId());
-	}
-
-	private static void validateStopSequence(Reservation reservation) {
-		ScheduleStop departureStop = reservation.getDepartureStop();
-		ScheduleStop arrivalStop = reservation.getArrivalStop();
-		if (departureStop.getStopOrder() > arrivalStop.getStopOrder()) {
-			throw new BusinessException(BookingError.TRAIN_NOT_OPERATIONAL);
-		}
 	}
 }

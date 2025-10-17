@@ -46,6 +46,7 @@ public class ReservationService {
 	private final SeatRepository seatRepository;
 	private final ReservationCodeGenerator reservationCodeGenerator;
 
+
 	/**
 	 * 예약을 생성하는 메서드
 	 * @param request 예약 생성 요청 DTO

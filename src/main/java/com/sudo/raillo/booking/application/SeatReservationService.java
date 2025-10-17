@@ -6,6 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.SeatReservation;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -24,6 +25,7 @@ public class SeatReservationService {
 
 	private final SeatReservationRepository seatReservationRepository;
 	private final SeatRepository seatRepository;
+	private final ReservationValidator reservationValidator;
 
 	/***
 	 * 새로운 좌석 예약 현황을 생성하고 예약하는 메서드
@@ -46,7 +48,7 @@ public class SeatReservationService {
 				.findByTrainScheduleAndSeatWithLock(trainScheduleId, seatId);
 
 			// 3. 락이 걸린 상태에서 충돌 검증 (원자성 보장)
-			validateConflictWithExistingReservations(reservation, existingReservations);
+			reservationValidator.validateConflictWithExistingReservations(reservation, existingReservations);
 
 			SeatReservation seatReservation = SeatReservation.builder()
 				.trainSchedule(reservation.getTrainSchedule())
@@ -71,24 +73,5 @@ public class SeatReservationService {
 	@Transactional
 	public void deleteSeatReservationByReservationId(Long reservationId) {
 		seatReservationRepository.deleteAllByReservationId(reservationId);
-	}
-
-	/**
-	 * 기존 예약들과 충돌 검증 (락이 걸린 상태에서 수행)
-	 */
-	private void validateConflictWithExistingReservations(
-		Reservation newReservation,
-		List<SeatReservation> existingReservations
-	) {
-		int newDepartureOrder = newReservation.getDepartureStop().getStopOrder();
-		int newArrivalOrder = newReservation.getArrivalStop().getStopOrder();
-
-		existingReservations.forEach(existingReservation -> {
-			int existingDepartureOrder = existingReservation.getReservation().getDepartureStop().getStopOrder();
-			int existingArrivalOrder = existingReservation.getReservation().getArrivalStop().getStopOrder();
-			if (existingDepartureOrder < newArrivalOrder && existingArrivalOrder > newDepartureOrder) {
-				throw new BusinessException(BookingError.SEAT_ALREADY_RESERVED);
-			}
-		});
 	}
 }
