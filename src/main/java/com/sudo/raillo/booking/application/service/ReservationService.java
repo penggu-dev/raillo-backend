@@ -66,16 +66,6 @@ public class ReservationService {
 		return reservationRepository.save(reservation);
 	}
 
-	private ScheduleStop getStopStation(TrainSchedule trainSchedule, Long request) {
-		return scheduleStopRepository.findByTrainScheduleIdAndStationId(trainSchedule.getId(), request)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
-	}
-
-	private TrainSchedule getTrainSchedule(ReservationCreateRequest request) {
-		return trainScheduleRepository.findById(request.trainScheduleId())
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
-	}
-
 	/**
 	 * 객차 타입 조회
 	 */
@@ -95,6 +85,16 @@ public class ReservationService {
 			throw new BusinessException(BookingError.INVALID_CAR_TYPE);
 		}
 		return carTypes.get(0);
+	}
+
+	private ScheduleStop getStopStation(TrainSchedule trainSchedule, Long request) {
+		return scheduleStopRepository.findByTrainScheduleIdAndStationId(trainSchedule.getId(), request)
+			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
+	}
+
+	private TrainSchedule getTrainSchedule(ReservationCreateRequest request) {
+		return trainScheduleRepository.findById(request.trainScheduleId())
+			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
 	}
 
 	private static void validateTrainOperating(TrainSchedule trainSchedule) {
