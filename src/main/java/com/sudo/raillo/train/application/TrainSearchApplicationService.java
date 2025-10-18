@@ -29,6 +29,7 @@ import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
 import com.sudo.raillo.train.application.mapper.TrainSearchResponseMapper;
+import com.sudo.raillo.train.application.service.TrainCalendarService;
 import com.sudo.raillo.train.application.validator.TrainSearchValidator;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.type.CarType;
@@ -52,6 +53,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TrainSearchApplicationService {
 
 	private final TrainSearchValidator trainSearchValidator;
+	private final TrainCalendarService trainCalendarService;
 	private final TrainSearchService trainSearchService;
 	private final TrainSeatQueryService trainCarService;
 	private final SeatAvailabilityCalculator seatAvailabilityCalculator;
@@ -62,7 +64,7 @@ public class TrainSearchApplicationService {
 	 * 금일로부터 한달간의 운행 스케줄 캘린더를 조회
 	 */
 	public List<OperationCalendarItem> getOperationCalendar() {
-		return trainSearchService.getOperationCalendar();
+		return trainCalendarService.getOperationCalendar();
 	}
 
 	/**
