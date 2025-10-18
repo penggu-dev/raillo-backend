@@ -1,4 +1,4 @@
-package com.sudo.raillo.train.application;
+package com.sudo.raillo.train.application.dto;
 
 import java.util.List;
 

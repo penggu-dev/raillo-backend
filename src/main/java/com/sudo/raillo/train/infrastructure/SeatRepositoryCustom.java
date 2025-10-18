@@ -1,6 +1,6 @@
 package com.sudo.raillo.train.infrastructure;
 
-import com.sudo.raillo.train.application.TrainCarSeatInfo;
+import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
 
 /**
  * 좌석 조회 Repository

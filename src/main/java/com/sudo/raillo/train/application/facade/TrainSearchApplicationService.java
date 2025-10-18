@@ -1,16 +1,16 @@
-package com.sudo.raillo.train.application;
+package com.sudo.raillo.train.application.facade;
 
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.train.application.TrainSearchService.SeatCalculationResult;
+import com.sudo.raillo.train.application.service.TrainSearchService;
+import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.application.calculator.SeatAvailabilityCalculator;
 import com.sudo.raillo.train.application.dto.SeatReservationInfo;
 import com.sudo.raillo.train.application.dto.SectionSeatStatus;
@@ -21,8 +21,6 @@ import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
-import com.sudo.raillo.train.application.dto.response.SeatTypeInfo;
-import com.sudo.raillo.train.application.dto.response.StandingTypeInfo;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
 import com.sudo.raillo.train.application.dto.response.TrainCarListResponse;
 import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse;

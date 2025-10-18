@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.global.success.SuccessResponse;
-import com.sudo.raillo.train.application.TrainSearchApplicationService;
-import com.sudo.raillo.train.application.TrainSearchService;
+import com.sudo.raillo.train.application.facade.TrainSearchApplicationService;
+import com.sudo.raillo.train.application.service.TrainSearchService;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;

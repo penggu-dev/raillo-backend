@@ -1,14 +1,9 @@
-package com.sudo.raillo.train.application;
+package com.sudo.raillo.train.application.service;
 
-import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -16,24 +11,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.SeatReservationInfo;
-import com.sudo.raillo.train.application.dto.SectionSeatStatus;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
-import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
-import com.sudo.raillo.train.application.dto.response.SeatTypeInfo;
-import com.sudo.raillo.train.application.dto.response.StandingTypeInfo;
-import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
-import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
-import com.sudo.raillo.train.application.validator.TrainSearchValidator;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.SeatReservationRepositoryCustom;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
-import com.sudo.raillo.train.infrastructure.StationRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepositoryCustom;
 
