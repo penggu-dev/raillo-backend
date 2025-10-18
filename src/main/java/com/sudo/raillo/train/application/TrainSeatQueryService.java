@@ -21,15 +21,14 @@ import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-@Slf4j
 public class TrainSeatQueryService {
 
 	private final TrainCarQueryRepositoryCustom trainCarQueryRepositoryCustom;
 	private final SeatRepositoryCustom seatRepositoryCustom;
-
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final TrainCarRepository trainCarRepository;
 	private final StationRepository stationRepository;
