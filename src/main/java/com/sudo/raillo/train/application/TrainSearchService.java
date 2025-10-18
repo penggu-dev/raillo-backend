@@ -180,26 +180,6 @@ public class TrainSearchService {
 			trainScheduleIds, departureStationId, arrivalStationId);
 	}
 
-	/**
-	 * 좌석 타입별 잔여 좌석 계산
-	 */
-	public SeatCalculationResult calculateRemainingSeats(Map<CarType, Integer> totalSeats,
-		List<SeatReservationInfo> overlappingReservations) {
-		// 예약된 좌석 수 계산
-		Map<CarType, Long> reservedSeats = overlappingReservations.stream()
-			.collect(Collectors.groupingBy(SeatReservationInfo::carType, Collectors.counting()));
-
-		int standardTotal = totalSeats.getOrDefault(CarType.STANDARD, 0);
-		int firstClassTotal = totalSeats.getOrDefault(CarType.FIRST_CLASS, 0);
-		int standardReserved = reservedSeats.getOrDefault(CarType.STANDARD, 0L).intValue();
-		int firstClassReserved = reservedSeats.getOrDefault(CarType.FIRST_CLASS, 0L).intValue();
-
-		return new SeatCalculationResult(
-			Math.max(0, standardTotal - standardReserved), standardTotal,
-			Math.max(0, firstClassTotal - firstClassReserved), firstClassTotal
-		);
-	}
-
 	// ============================================
 	// Service Layer 전용 내부 Records
 	// ============================================
