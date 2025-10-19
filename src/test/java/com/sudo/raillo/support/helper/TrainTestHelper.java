@@ -1,7 +1,11 @@
 package com.sudo.raillo.support.helper;
 
+import com.sudo.raillo.support.fixture.SeatFixture;
+import com.sudo.raillo.support.fixture.TrainCarFixture;
+import com.sudo.raillo.support.fixture.TrainFixture;
+import com.sudo.raillo.train.infrastructure.TrainRepository;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,7 +26,6 @@ import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.domain.type.SeatType;
 import com.sudo.raillo.train.domain.type.TrainType;
 import com.sudo.raillo.train.infrastructure.TrainCarRepository;
-import com.sudo.raillo.train.infrastructure.TrainRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -99,7 +102,7 @@ public class TrainTestHelper {
 	 */
 	@Transactional
 	public Train createRealisticTrain(int standardCarCount, int firstClassCarCount,
-		int standardRowsPerCar, int firstClassRowsPerCar) {
+									  int standardRowsPerCar, int firstClassRowsPerCar) {
 
 		// 입력값 검증
 		validateTrainConfiguration(standardCarCount, firstClassCarCount, standardRowsPerCar, firstClassRowsPerCar);
@@ -162,24 +165,24 @@ public class TrainTestHelper {
 	}
 
 	private Train createKTXTrain() {
-		return Train.create(1, TrainType.KTX, "KTX", 2);
+		return TrainFixture.create(1, TrainType.KTX, "KTX", 2);
 	}
 
 	private Train createKTXTrain(int totalCars) {
-		return Train.create(1, TrainType.KTX, "KTX", totalCars);
+		return TrainFixture.create(1, TrainType.KTX, "KTX", totalCars);
 	}
 
 	private Train saveTrainWithCarsAndSeats(Train savedTrain, List<CarSpec> carSpecs) {
 		TrainTemplate trainTemplate = new TrainTemplate(carSpecs);
 		Map<CarType, SeatLayout> seatLayouts = createSeatLayouts();
 
-		List<TrainCar> trainCars = savedTrain.generateTrainCars(seatLayouts, trainTemplate);
+		List<TrainCar> trainCars = TrainCarFixture.generateTrainCars(savedTrain, seatLayouts, trainTemplate);
 		List<TrainCar> savedTrainCars = trainCarRepository.saveAll(trainCars);
 
 		savedTrainCars.forEach(trainCar -> {
 			CarSpec carSpec = getCarSpecByCarNumber(carSpecs, trainCar.getCarNumber());
 			SeatLayout seatLayout = seatLayouts.get(trainCar.getCarType());
-			List<Seat> seats = trainCar.generateSeats(carSpec, seatLayout);
+			List<Seat> seats = SeatFixture.generateSeats(trainCar, carSpec, seatLayout);
 			testSeatRepository.saveAll(seats);
 		});
 
@@ -187,16 +190,16 @@ public class TrainTestHelper {
 	}
 
 	private Train saveTrainWithCarsAndSeats(Train savedTrain, List<CarSpec> carSpecs,
-		Map<CarType, SeatLayout> seatLayouts) {
+											Map<CarType, SeatLayout> seatLayouts) {
 		TrainTemplate trainTemplate = new TrainTemplate(carSpecs);
 
-		List<TrainCar> trainCars = savedTrain.generateTrainCars(seatLayouts, trainTemplate);
+		List<TrainCar> trainCars = TrainCarFixture.generateTrainCars(savedTrain, seatLayouts, trainTemplate);
 		List<TrainCar> savedTrainCars = trainCarRepository.saveAll(trainCars);
 
 		savedTrainCars.forEach(trainCar -> {
 			CarSpec carSpec = getCarSpecByCarNumber(carSpecs, trainCar.getCarNumber());
 			SeatLayout seatLayout = seatLayouts.get(trainCar.getCarType());
-			List<Seat> seats = trainCar.generateSeats(carSpec, seatLayout);
+			List<Seat> seats = SeatFixture.generateSeats(trainCar, carSpec, seatLayout);
 			testSeatRepository.saveAll(seats);
 		});
 
@@ -208,7 +211,7 @@ public class TrainTestHelper {
 	}
 
 	private Map<CarType, SeatLayout> createSeatLayouts() {
-		Map<CarType, SeatLayout> layouts = new HashMap<>();
+		Map<CarType, SeatLayout> layouts = new EnumMap<>(CarType.class);
 
 		List<SeatColumn> standardColumns = List.of(
 			new SeatColumn("A", SeatType.WINDOW),
@@ -231,7 +234,7 @@ public class TrainTestHelper {
 	 * - 특실: 3석/행 (2+1 배치)
 	 */
 	private Map<CarType, SeatLayout> createRealisticSeatLayouts() {
-		Map<CarType, SeatLayout> layouts = new HashMap<>();
+		Map<CarType, SeatLayout> layouts = new EnumMap<>(CarType.class);
 
 		// 일반실: 2+2 배치 (AB 통로 CD) - 4석/행
 		List<SeatColumn> standardColumns = List.of(
@@ -254,7 +257,7 @@ public class TrainTestHelper {
 	}
 
 	private void validateTrainConfiguration(int standardCarCount, int firstClassCarCount,
-		int standardRowsPerCar, int firstClassRowsPerCar) {
+											int standardRowsPerCar, int firstClassRowsPerCar) {
 		if (standardCarCount < 0 || firstClassCarCount < 0) {
 			throw new IllegalArgumentException("객차 수는 0 이상이어야 합니다.");
 		}

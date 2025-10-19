@@ -1,12 +1,6 @@
 package com.sudo.raillo.support.helper;
 
-import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.*;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithStopStations;
 
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.SeatReservation;
@@ -20,8 +14,11 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
@@ -36,7 +33,7 @@ public class ReservationTestHelper {
 	 * 기본 예약 생성 메서드
 	 */
 	public Reservation createReservation(Member member,
-		TrainScheduleWithStopStations scheduleWithStops) {
+										 TrainScheduleWithStopStations scheduleWithStops) {
 		Reservation reservation = Reservation.builder()
 			.trainSchedule(scheduleWithStops.trainSchedule())
 			.member(member)
@@ -68,11 +65,11 @@ public class ReservationTestHelper {
 	 * @return 생성된 Reservation 객체
 	 */
 	public Reservation createReservationWithSeatIds(Member member,
-		TrainScheduleWithStopStations scheduleWithStops,
-		ScheduleStop departureStop,
-		ScheduleStop arrivalStop,
-		List<Long> seatIds,
-		PassengerType passengerType) {
+													TrainScheduleWithStopStations scheduleWithStops,
+													ScheduleStop departureStop,
+													ScheduleStop arrivalStop,
+													List<Long> seatIds,
+													PassengerType passengerType) {
 
 		Reservation reservation = Reservation.builder()
 			.trainSchedule(scheduleWithStops.trainSchedule())
@@ -104,10 +101,10 @@ public class ReservationTestHelper {
 	 * @return 생성된 Reservation 객체
 	 */
 	public Reservation createStandingReservation(Member member,
-		TrainScheduleWithStopStations scheduleWithStops,
-		ScheduleStop departureStop,
-		ScheduleStop arrivalStop,
-		int standingCount) {
+												 TrainScheduleWithStopStations scheduleWithStops,
+												 ScheduleStop departureStop,
+												 ScheduleStop arrivalStop,
+												 int standingCount) {
 
 		Reservation reservation = Reservation.builder()
 			.trainSchedule(scheduleWithStops.trainSchedule())

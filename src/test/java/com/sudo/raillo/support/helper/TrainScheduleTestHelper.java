@@ -10,18 +10,20 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sudo.raillo.support.fixture.ScheduleStopFixture;
+import com.sudo.raillo.support.fixture.StationFareFixture;
+import com.sudo.raillo.support.fixture.StationFixture;
+import com.sudo.raillo.support.fixture.TrainScheduleFixture;
 import com.sudo.raillo.train.domain.ScheduleStop;
-import com.sudo.raillo.train.domain.ScheduleStopTemplate;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.domain.TrainScheduleTemplate;
+import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
 import com.sudo.raillo.train.infrastructure.StationRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
-import com.sudo.raillo.train.infrastructure.TrainScheduleTemplateRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,11 +34,10 @@ public class TrainScheduleTestHelper {
 
 	public static final int EVERYDAY = 127;
 
-	private final TrainScheduleRepository trainScheduleRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final StationRepository stationRepository;
 	private final StationFareRepository stationFareRepository;
-	private final TrainScheduleTemplateRepository trainScheduleTemplateRepository;
+	private final TrainScheduleRepository trainScheduleRepository;
 
 	/**
 	 * 기본 스케줄 생성 메서드
@@ -68,7 +69,7 @@ public class TrainScheduleTestHelper {
 		Station departure = getOrCreateStation(from);
 		Station arrival = getOrCreateStation(to);
 
-		StationFare fare = StationFare.create(departure, arrival, standardFare, firstClassFare);
+		StationFare fare = StationFareFixture.create(departure, arrival, standardFare, firstClassFare);
 		stationFareRepository.save(fare);
 	}
 
@@ -87,7 +88,7 @@ public class TrainScheduleTestHelper {
 	 */
 	public Station getOrCreateStation(String stationName) {
 		return stationRepository.findByStationName(stationName)
-			.orElseGet(() -> stationRepository.save(Station.create(stationName)));
+			.orElseGet(() -> stationRepository.save(StationFixture.create(stationName)));
 	}
 
 	/**
@@ -132,10 +133,8 @@ public class TrainScheduleTestHelper {
 			validateStops();
 			setDepartureAndArrivalTime();
 			Map<String, Station> stationMap = resolveStations();
-			List<ScheduleStopTemplate> stopTemplates = buildStopTemplates(stationMap);
-			TrainScheduleTemplate template = saveTemplate(stationMap, stopTemplates);
-			TrainSchedule schedule = saveSchedule(template);
-			List<ScheduleStop> savedStops = saveScheduleStops(template, schedule);
+			TrainSchedule schedule = saveSchedule(stationMap);
+			List<ScheduleStop> savedStops = saveScheduleStops(schedule, stationMap);
 			return new TrainScheduleWithStopStations(schedule, savedStops);
 		}
 
@@ -169,43 +168,39 @@ public class TrainScheduleTestHelper {
 			return map;
 		}
 
-		private List<ScheduleStopTemplate> buildStopTemplates(Map<String, Station> stationMap) {
-			return stops.stream()
-				.map(s -> ScheduleStopTemplate.create(
-					s.stopOrder(),
-					s.arrivalTime(),
-					s.departureTime(),
-					stationMap.get(s.stationName())
-				)).toList();
-		}
-
-		private TrainScheduleTemplate saveTemplate(Map<String, Station> stationMap,
-			List<ScheduleStopTemplate> stopTemplates) {
+		private TrainSchedule saveSchedule(Map<String, Station> stationMap) {
 			Station departure = stationMap.get(stops.get(0).stationName());
 			Station arrival = stationMap.get(stops.get(stops.size() - 1).stationName());
 
-			TrainScheduleTemplate template = TrainScheduleTemplate.create(
+			TrainSchedule schedule = TrainScheduleFixture.create(
 				scheduleName,
-				operatingDays,
+				operationDate,
 				departureTime,
 				arrivalTime,
+				OperationStatus.ACTIVE,
 				train,
 				departure,
-				arrival,
-				stopTemplates
+				arrival
 			);
-			return trainScheduleTemplateRepository.save(template);
+			return trainScheduleRepository.save(schedule);
 		}
 
-		private TrainSchedule saveSchedule(TrainScheduleTemplate template) {
-			return trainScheduleRepository.save(TrainSchedule.create(operationDate, template));
-		}
+		private List<ScheduleStop> saveScheduleStops(TrainSchedule schedule, Map<String, Station> stationMap) {
+			List<ScheduleStop> scheduleStops = new ArrayList<>();
 
-		private List<ScheduleStop> saveScheduleStops(TrainScheduleTemplate template, TrainSchedule schedule) {
-			List<ScheduleStop> stops = template.getScheduleStops().stream()
-				.map(t -> ScheduleStop.create(t, schedule))
-				.toList();
-			return scheduleStopRepository.saveAll(stops);
+			for (StopInfo stopInfo : stops) {
+				Station station = stationMap.get(stopInfo.stationName());
+				ScheduleStop scheduleStop = ScheduleStopFixture.create(
+					stopInfo.stopOrder(),
+					stopInfo.arrivalTime(),
+					stopInfo.departureTime(),
+					schedule,
+					station
+				);
+				scheduleStops.add(scheduleStop);
+			}
+
+			return scheduleStopRepository.saveAll(scheduleStops);
 		}
 	}
 

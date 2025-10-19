@@ -20,12 +20,4 @@ public class Station {
 	private Long id;
 
 	private String stationName;
-
-	private Station(String stationName) {
-		this.stationName = stationName;
-	}
-
-	public static Station create(String stationName) {
-		return new Station(stationName);
-	}
 }

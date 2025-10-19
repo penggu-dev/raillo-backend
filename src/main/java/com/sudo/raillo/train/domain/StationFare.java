@@ -35,17 +35,4 @@ public class StationFare {
 	private int standardFare;
 
 	private int firstClassFare;
-
-	private StationFare(Station departureStation, Station arrivalStation, int standardFare, int firstClassFare) {
-		this.departureStation = departureStation;
-		this.arrivalStation = arrivalStation;
-		this.standardFare = standardFare;
-		this.firstClassFare = firstClassFare;
-	}
-
-	public static StationFare create(Station departureStation, Station arrivalStation,
-		int standardFare, int firstClassFare) {
-
-		return new StationFare(departureStation, arrivalStation, standardFare, firstClassFare);
-	}
 }
