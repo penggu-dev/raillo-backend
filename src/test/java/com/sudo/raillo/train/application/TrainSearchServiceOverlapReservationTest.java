@@ -25,7 +25,7 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
-import com.sudo.raillo.train.application.service.TrainSearchService;
+import com.sudo.raillo.train.application.facade.TrainSearchApplicationService;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
@@ -39,7 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TrainSearchServiceOverlapReservationTest {
 
 	@Autowired
-	private TrainSearchService trainSearchService;
+	private TrainSearchApplicationService trainSearchApplicationService;
 
 	@Autowired
 	private ReservationTestHelper reservationTestHelper;
@@ -167,7 +167,7 @@ public class TrainSearchServiceOverlapReservationTest {
 			10,
 			"00"
 		);
-		TrainSearchSlicePageResponse response = trainSearchService.searchTrains(request, PageRequest.of(0, 20));
+		TrainSearchSlicePageResponse response = trainSearchApplicationService.searchTrains(request, PageRequest.of(0, 20));
 
 		// then
 		assertThat(response.content()).hasSize(1);
