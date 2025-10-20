@@ -1,4 +1,4 @@
-package com.sudo.raillo.booking.application;
+package com.sudo.raillo.booking.application.service;
 
 import java.math.BigDecimal;
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.sudo.raillo.booking.application;
+package com.sudo.raillo.booking.application.scheduler;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;

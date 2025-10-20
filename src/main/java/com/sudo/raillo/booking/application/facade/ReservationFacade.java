@@ -8,9 +8,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sudo.raillo.booking.application.FareCalculationService;
-import com.sudo.raillo.booking.application.SeatReservationService;
-import com.sudo.raillo.booking.application.TicketService;
+import com.sudo.raillo.booking.application.service.FareCalculationService;
+import com.sudo.raillo.booking.application.service.SeatReservationService;
+import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
 import com.sudo.raillo.booking.application.mapper.SeatPassengerMapper;

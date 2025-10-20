@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.facade.ReservationFacade;
-import com.sudo.raillo.booking.application.TicketService;
+import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.reservation.ReservationRepository;
