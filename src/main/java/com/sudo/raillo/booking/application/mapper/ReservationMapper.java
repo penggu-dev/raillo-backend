@@ -4,13 +4,23 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sudo.raillo.booking.application.dto.ReservationInfo;
 import com.sudo.raillo.booking.application.dto.projection.SeatReservationProjection;
+import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
 import com.sudo.raillo.booking.application.dto.response.SeatReservationDetail;
+import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.global.exception.error.BusinessException;
+
+import lombok.RequiredArgsConstructor;
 
 @Component
+@RequiredArgsConstructor
 public class ReservationMapper {
+
+	private final ObjectMapper objectMapper;
 
 	public List<ReservationDetail> convertToReservationDetail(List<ReservationInfo> reservationInfos) {
 		return reservationInfos.stream()
@@ -35,6 +45,14 @@ public class ReservationMapper {
 		);
 	}
 
+	public String convertPassengersToJson(ReservationCreateRequest request) {
+		try {
+			return objectMapper.writeValueAsString(request.passengers());
+		} catch (JsonProcessingException e) {
+			throw new BusinessException(BookingError.RESERVATION_CREATE_FAILED);
+		}
+	}
+
 	private List<SeatReservationDetail> convertToSeatReservationDetail(List<SeatReservationProjection> projection) {
 		return projection.stream()
 			.map(p -> SeatReservationDetail.of(
@@ -46,4 +64,6 @@ public class ReservationMapper {
 			))
 			.toList();
 	}
+
+
 }

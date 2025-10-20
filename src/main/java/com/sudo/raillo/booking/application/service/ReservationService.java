@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sudo.raillo.booking.application.FareCalculationService;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.generator.ReservationCodeGenerator;
+import com.sudo.raillo.booking.application.mapper.ReservationMapper;
 import com.sudo.raillo.booking.config.BookingConfig;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
@@ -36,7 +37,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ReservationService {
 
-	private final ObjectMapper objectMapper;
 	private final BookingConfig bookingConfig;
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final MemberRepository memberRepository;
@@ -44,6 +44,7 @@ public class ReservationService {
 	private final ReservationRepository reservationRepository;
 	private final SeatRepository seatRepository;
 	private final ReservationCodeGenerator reservationCodeGenerator;
+	private final ReservationMapper reservationMapper;
 
 
 	/**
@@ -117,20 +118,12 @@ public class ReservationService {
 			.reservationCode(reservationCodeGenerator.generateReservationCode())
 			.tripType(request.tripType())
 			.totalPassengers(request.passengers().stream().mapToInt(PassengerSummary::getCount).sum())
-			.passengerSummary(convertPassengersToJson(request))
+			.passengerSummary(reservationMapper.convertPassengersToJson(request))
 			.reservationStatus(ReservationStatus.RESERVED)
 			.expiresAt(LocalDateTime.now().plusMinutes(bookingConfig.getExpiration().getReservation()))
 			.fare(totalFare.intValue())
 			.departureStop(departureStop)
 			.arrivalStop(arrivalStop)
 			.build();
-	}
-
-	private String convertPassengersToJson(ReservationCreateRequest request) {
-		try {
-			return objectMapper.writeValueAsString(request.passengers());
-		} catch (JsonProcessingException e) {
-			throw new BusinessException(BookingError.RESERVATION_CREATE_FAILED);
-		}
 	}
 }
