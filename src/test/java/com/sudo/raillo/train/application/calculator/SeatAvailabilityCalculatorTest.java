@@ -24,7 +24,7 @@ class SeatAvailabilityCalculatorTest {
 	private SeatAvailabilityCalculator calculator;
 
 	@Test
-	@DisplayName("일반실 좌석 계산: 50석 중 10석 예약 → 40석 남음")
+	@DisplayName("일반실 좌석 잔여석을 총 좌석에서 예약 좌석을 뺀 값으로 계산한다")
 	void calculateStandardSeats() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -44,7 +44,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("특실 좌석 계산: 30석 중 15석 예약 → 15석 남음")
+	@DisplayName("특실 좌석 잔여석을 총 좌석에서 예약 좌석을 뺀 값으로 계산한다")
 	void calculateFirstClassSeats() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -64,7 +64,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("예약이 없을 때 전체 좌석 수와 잔여석이 동일하다")
+	@DisplayName("예약이 없는 경우 전체 좌석 수와 잔여석이 동일하다")
 	void calculateWithNoReservations() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -84,7 +84,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("전체 예약 시 잔여석이 0이 된다")
+	@DisplayName("모든 좌석이 예약된 경우 잔여석이 0이 된다")
 	void calculateWithFullReservations() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -108,7 +108,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("예약 수가 전체 좌석보다 많아도 음수가 되지 않는다")
+	@DisplayName("예약 수가 전체 좌석보다 많아도 잔여석은 음수가 되지 않는다")
 	void neverNegative() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -126,7 +126,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("일반실과 특실 혼합 예약 시 각각 정확하게 계산된다")
+	@DisplayName("일반실과 특실 예약이 혼합된 경우 각 좌석 타입별로 정확하게 계산한다")
 	void calculateWithMixedReservations() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -150,7 +150,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("일반실 예약 가능: 충분한 잔여석이 있을 때")
+	@DisplayName("요청 인원보다 일반실과 특실 잔여석이 충분한 경우 모두 예약 가능으로 판단한다")
 	void standardReservable() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -175,7 +175,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("특실만 예약 가능: 일반실 부족, 특실 충분")
+	@DisplayName("일반실이 부족하고 특실이 충분한 경우 특실만 예약 가능으로 판단한다")
 	void onlyFirstClassReservable() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -200,7 +200,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("입석만 가능: 일반실 매진, 입석 잔여")
+	@DisplayName("일반실과 특실이 모두 매진되고 입석이 충분한 경우 입석만 예약 가능으로 판단한다")
 	void standingOnlyAvailable() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -235,7 +235,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("전체 매진: 좌석과 입석 모두 부족")
+	@DisplayName("좌석과 입석이 모두 부족한 경우 전체 매진으로 판단한다")
 	void fullySoldOut() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -269,7 +269,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("입석 잔여 계산: 총 좌석의 15% 계산")
+	@DisplayName("입석 잔여석은 총 좌석의 15%에서 예약된 입석을 뺀 값으로 계산한다")
 	void calculateStandingRemaining() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
