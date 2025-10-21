@@ -72,7 +72,7 @@ public class ReservationDeletionServiceTest {
 		ReservationDeleteRequest request = new ReservationDeleteRequest(entity.getId());
 
 		// when
-		reservationDeletionService.deleteReservation(request);
+		reservationDeletionService.deleteReservation(request.reservationId());
 
 		// then
 		List<Reservation> result = reservationRepository.findAll();

@@ -58,7 +58,7 @@ public class ReservationController implements ReservationControllerDocs {
 	 */
 	@DeleteMapping
 	public SuccessResponse<?> deleteReservation(@RequestBody ReservationDeleteRequest request) {
-		reservationDeletionService.deleteReservation(request);
+		reservationDeletionService.deleteReservation(request.reservationId());
 		return SuccessResponse.of(ReservationSuccess.RESERVATION_DELETE_SUCCESS);
 	}
 

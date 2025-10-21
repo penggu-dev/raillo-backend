@@ -25,24 +25,16 @@ public class ReservationDeletionService {
 	private final ReservationRepository reservationRepository;
 
 	/**
-	 * 특정 예약을 삭제하는 메서드 - DTO 사용
-	 * @param request 예약 삭제 요청 DTO
-	 */
-	@Transactional
-	public void deleteReservation(ReservationDeleteRequest request) {
-		try {
-			deleteReservation(request.reservationId());
-		} catch (Exception e) {
-			throw new BusinessException(BookingError.RESERVATION_DELETE_FAILED);
-		}
-	}
-
-	/**
 	 * 특정 예약을 삭제하는 메서드 - 단수 예약 ID 사용
 	 * @param reservationId 삭제할 예약의 ID
 	 */
+	@Transactional
 	public void deleteReservation(Long reservationId) {
-		reservationRepository.deleteById(reservationId);
+		try{
+			reservationRepository.deleteById(reservationId);
+		} catch (Exception e) {
+			throw new BusinessException(BookingError.RESERVATION_DELETE_FAILED);
+		}
 	}
 
 	/**
