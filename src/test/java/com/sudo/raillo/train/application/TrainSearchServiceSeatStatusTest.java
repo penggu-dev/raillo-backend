@@ -27,6 +27,7 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
+import com.sudo.raillo.train.application.facade.TrainSearchApplicationService;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
@@ -44,7 +45,7 @@ public class TrainSearchServiceSeatStatusTest {
 	private ObjectMapper objectMapper;
 
 	@Autowired
-	private TrainSearchService trainSearchService;
+	private TrainSearchApplicationService trainSearchApplicationService;
 
 	@Autowired
 	private ReservationTestHelper reservationTestHelper;
@@ -188,7 +189,7 @@ public class TrainSearchServiceSeatStatusTest {
 		// when
 		TrainSearchRequest request = new TrainSearchRequest(seoul.getId(), busan.getId(), searchDate,
 			scenario.passengerCount, "00");
-		TrainSearchSlicePageResponse response = trainSearchService.searchTrains(request, PageRequest.of(0, 20));
+		TrainSearchSlicePageResponse response = trainSearchApplicationService.searchTrains(request, PageRequest.of(0, 20));
 
 		// then
 		assertThat(response.content()).hasSize(1);
@@ -261,7 +262,7 @@ public class TrainSearchServiceSeatStatusTest {
 		// when
 		TrainSearchRequest request = new TrainSearchRequest(
 			seoul.getId(), busan.getId(), searchDate, 2, "00");
-		TrainSearchSlicePageResponse response = trainSearchService.searchTrains(request, PageRequest.of(0, 20));
+		TrainSearchSlicePageResponse response = trainSearchApplicationService.searchTrains(request, PageRequest.of(0, 20));
 
 		// then
 		assertThat(response.content()).hasSize(2);
@@ -290,7 +291,7 @@ public class TrainSearchServiceSeatStatusTest {
 		// when
 		TrainSearchRequest request = new TrainSearchRequest(
 			seoul.getId(), busan.getId(), searchDate, 3, "00");
-		TrainSearchSlicePageResponse response = trainSearchService.searchTrains(request, PageRequest.of(0, 20));
+		TrainSearchSlicePageResponse response = trainSearchApplicationService.searchTrains(request, PageRequest.of(0, 20));
 
 		// then
 		List<TrainSearchResponse> standingTrains = response.content().stream()
@@ -324,7 +325,7 @@ public class TrainSearchServiceSeatStatusTest {
 		// when
 		TrainSearchRequest request = new TrainSearchRequest(
 			seoul.getId(), busan.getId(), searchDate, 4, "00");
-		TrainSearchSlicePageResponse response = trainSearchService.searchTrains(request, PageRequest.of(0, 20));
+		TrainSearchSlicePageResponse response = trainSearchApplicationService.searchTrains(request, PageRequest.of(0, 20));
 
 		// then
 		List<TrainSearchResponse> standingTrains = response.content().stream()
@@ -358,7 +359,7 @@ public class TrainSearchServiceSeatStatusTest {
 		// when
 		TrainSearchRequest request = new TrainSearchRequest(
 			seoul.getId(), busan.getId(), searchDate, 2, "00");
-		TrainSearchSlicePageResponse response = trainSearchService.searchTrains(request, PageRequest.of(0, 20));
+		TrainSearchSlicePageResponse response = trainSearchApplicationService.searchTrains(request, PageRequest.of(0, 20));
 
 		// then
 		TrainSearchResponse soldOutTrain = findTrainByTime(response.content(), LocalTime.of(10, 10));

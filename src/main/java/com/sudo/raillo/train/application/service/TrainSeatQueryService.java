@@ -1,4 +1,4 @@
-package com.sudo.raillo.train.application;
+package com.sudo.raillo.train.application.service;
 
 import java.util.List;
 
@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
 import com.sudo.raillo.train.application.dto.projection.SeatProjection;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.response.SeatDetail;
@@ -21,15 +22,14 @@ import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-@Slf4j
 public class TrainSeatQueryService {
 
 	private final TrainCarQueryRepositoryCustom trainCarQueryRepositoryCustom;
 	private final SeatRepositoryCustom seatRepositoryCustom;
-
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final TrainCarRepository trainCarRepository;
 	private final StationRepository stationRepository;
