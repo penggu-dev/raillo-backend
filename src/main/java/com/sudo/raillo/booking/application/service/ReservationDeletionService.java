@@ -30,17 +30,14 @@ public class ReservationDeletionService {
 	 */
 	@Transactional
 	public void deleteReservation(Long reservationId) {
-		try{
-			reservationRepository.deleteById(reservationId);
-		} catch (Exception e) {
-			throw new BusinessException(BookingError.RESERVATION_DELETE_FAILED);
-		}
+		reservationRepository.deleteById(reservationId);
 	}
 
 	/**
 	 * 다수의 예약을 삭제하는 메서드 - 복수 예약 ID 사용
 	 * @param reservationIds 삭제할 예약의 ID를 원소로 하는 리스트
 	 */
+	@Transactional
 	public void deleteReservation(List<Long> reservationIds) {
 		reservationRepository.deleteAllByIdInBatch(reservationIds);
 	}
