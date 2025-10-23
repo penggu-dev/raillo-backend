@@ -29,14 +29,6 @@ public class SeatPassengerMapper {
 		List<PassengerSummary> passengers,
 		List<Long> seatIds
 	) {
-		// 요청 승객 수와 선택한 좌석 수를 비교하여 좌석 수가 승객 수보다 많으면 오류 발생
-		int passengersCnt = passengers.stream()
-			.mapToInt(PassengerSummary::getCount)
-			.sum();
-		if (passengersCnt != seatIds.size()) {
-			throw new BusinessException(BookingError.RESERVATION_CREATE_SEATS_INVALID);
-		}
-
 		// 좌석 차례대로 승객 할당
 		int idx = 0;
 		List<Long> seatReservationIds = new ArrayList<>();
