@@ -6,9 +6,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sudo.raillo.booking.application.dto.SeatPassengerPair;
+import com.sudo.raillo.booking.application.mapper.SeatPassengerMapper;
 import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.SeatReservation;
+import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.SeatReservationRepository;
@@ -26,6 +29,7 @@ public class SeatReservationService {
 	private final SeatReservationRepository seatReservationRepository;
 	private final SeatRepository seatRepository;
 	private final ReservationValidator reservationValidator;
+	private final SeatPassengerMapper seatPassengerMapper;
 
 	/***
 	 * 새로운 좌석 예약 현황을 생성하고 예약하는 메서드
@@ -61,6 +65,21 @@ public class SeatReservationService {
 			// 동시성 문제 및 유니크 제약 위반 발생
 			throw new BusinessException(BookingError.SEAT_ALREADY_RESERVED);
 		}
+	}
+
+	@Transactional
+	public List<Long> createSeatReservations(
+		Reservation reservation,
+		List<PassengerSummary> passengers,
+		List<Long> seatIds
+	) {
+		List<Seat> seats = seatRepository.findAllById(seatIds);
+		List<SeatPassengerPair> pairs = seatPassengerMapper.mapSeatsToPassengers(passengers, seats);
+
+		return pairs.stream()
+			.map(pair -> reserveNewSeat(reservation, pair.seat(), pair.passengerType()))
+			.map(SeatReservation::getId)
+			.toList();
 	}
 
 	@Transactional

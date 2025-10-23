@@ -57,7 +57,7 @@ public class ReservationFacade {
 		seatIds.sort(Comparator.naturalOrder());
 
 		reservationValidator.validatePassengerSeatCount(passengers, seatIds);
-		List<Long> seatReservationIds = seatPassengerMapper.mapSeatsToPassengers(reservation, passengers, seatIds);
+		List<Long> seatReservationIds = seatReservationService.createSeatReservations(reservation, passengers, seatIds);
 
 		return new ReservationCreateResponse(reservation.getId(), seatReservationIds);
 	}
