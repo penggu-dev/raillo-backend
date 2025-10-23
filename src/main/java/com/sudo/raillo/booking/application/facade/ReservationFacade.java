@@ -33,7 +33,6 @@ public class ReservationFacade {
 	private final TicketService ticketService;
 	private final ReservationDeletionService reservationDeletionService;
 	private final FareCalculationService fareCalculationService;
-	private final SeatPassengerMapper seatPassengerMapper;
 	private final ReservationValidator reservationValidator;
 
 	@Transactional
