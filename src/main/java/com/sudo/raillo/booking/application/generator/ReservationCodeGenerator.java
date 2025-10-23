@@ -9,6 +9,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class ReservationCodeGenerator {
 
+	private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	private static final int RANDOM_LENGTH = 4;
+	private final SecureRandom secureRandom = new SecureRandom();
+
 	/***
 	 * 고객용 예매번호를 생성하는 메서드
 	 * @return 고객용 예매번호
@@ -19,12 +23,10 @@ public class ReservationCodeGenerator {
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 		String dateTimeStr = now.format(formatter);
 
-		String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 		StringBuilder randomStr = new StringBuilder();
-		SecureRandom secureRandom = new SecureRandom();
-		for (int i = 0; i < 4; i++) {
-			int idx = secureRandom.nextInt(chars.length());
-			randomStr.append(chars.charAt(idx));
+		for (int i = 0; i < RANDOM_LENGTH; i++) {
+			int idx = secureRandom.nextInt(CHARS.length());
+			randomStr.append(CHARS.charAt(idx));
 		}
 		return dateTimeStr + randomStr;
 	}
