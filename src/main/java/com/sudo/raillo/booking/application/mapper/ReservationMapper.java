@@ -15,7 +15,9 @@ import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ReservationMapper {
@@ -49,6 +51,7 @@ public class ReservationMapper {
 		try {
 			return objectMapper.writeValueAsString(request.passengers());
 		} catch (JsonProcessingException e) {
+			log.error("승객 정보 JSON 변환 실패: {}", request.passengers(), e);
 			throw new BusinessException(BookingError.RESERVATION_CREATE_FAILED);
 		}
 	}
