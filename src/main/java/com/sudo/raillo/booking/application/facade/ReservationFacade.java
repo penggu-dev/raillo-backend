@@ -68,6 +68,7 @@ public class ReservationFacade {
 		ticketService.deleteTicketByReservationId(reservationId);
 	}
 
+	@Transactional
 	public void deleteReservationsByMember(Member member) {
 		reservationDeletionService.deleteAllByMemberId(member.getId());
 	}
