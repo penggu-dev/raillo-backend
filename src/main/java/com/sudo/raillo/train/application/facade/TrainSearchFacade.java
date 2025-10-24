@@ -55,7 +55,7 @@ public class TrainSearchFacade {
 	private final TrainCalendarService trainCalendarService;
 	private final CarRecommendationService carRecommendationService;
 	private final TrainSearchService trainSearchService;
-	private final TrainSeatQueryService trainCarService;
+	private final TrainSeatQueryService trainSeatQueryService;
 	private final SeatAvailabilityCalculator seatAvailabilityCalculator;
 	private final TrainSearchResponseMapper responseMapper;
 
@@ -73,7 +73,7 @@ public class TrainSearchFacade {
 	 */
 	public TrainSearchSlicePageResponse searchTrains(TrainSearchRequest request, Pageable pageable) {
 		// 1. 비즈니스 검증
-		trainSearchValidator.validateTrainSearchRequest(request); // TODO : 의미있는 네이밍 명으로 변경 필요
+		trainSearchValidator.validateScheduleSearchRequest(request); // TODO : 의미있는 네이밍 명으로 변경 필요
 
 		// 2. 기본 열차 정보 조회
 		Slice<TrainBasicInfo> trainInfoSlice = trainSearchService.findTrainBasicInfo(request, pageable);
@@ -104,14 +104,17 @@ public class TrainSearchFacade {
 	 * 선택한 열차의 잔여 좌석이 있는 객차 목록을 조회하고, 추천 객차를 선정
 	 */
 	public TrainCarListResponse getAvailableTrainCars(TrainCarListRequest request) {
-		// 1. 열차 스케줄 기본 정보 조회
+		// 1. 비즈니스 검증
+		trainSearchValidator.validateTrainCarListRequest(request);
+
+		// 2. 열차 스케줄 기본 정보 조회
 		TrainScheduleBasicInfo scheduleInfo = trainSearchService.getTrainScheduleBasicInfo(request.trainScheduleId());
 
-		// 2. 잔여 좌석이 있는 객차 목록 조회
-		List<TrainCarInfo> availableCars = trainCarService.getAvailableTrainCars(
+		// 3. 잔여 좌석이 있는 객차 목록 조회
+		List<TrainCarInfo> availableCars = trainSeatQueryService.getAvailableTrainCars(
 			request.trainScheduleId(), request.departureStationId(), request.arrivalStationId());
 
-		// 3. 승객 수에 맞는 추천 객차 선택 (Application Service 책임)
+		// 4. 승객 수에 맞는 추천 객차 선택 (Application Service 책임)
 		String recommendedCarNumber = carRecommendationService.selectRecommendedCar(availableCars, request.passengerCount());
 
 		log.info("열차 객차 목록 조회 완료: {}개 객차, 추천 객차={}, 열차={}-{}",
@@ -132,11 +135,13 @@ public class TrainSearchFacade {
 	 * 열차 객차 좌석 상세 조회
 	 */
 	public TrainCarSeatDetailResponse getTrainCarSeatDetail(TrainCarSeatDetailRequest request) {
+		trainSearchValidator.validateTrainCarSeatDetailRequest(request);
+
 		log.info("열차 객차 좌석 상세 조회: trainCarId={}, trainScheduleId={}, {}역 -> {}역",
 			request.trainCarId(), request.trainScheduleId(),
 			request.departureStationId(), request.arrivalStationId());
 
-		return trainCarService.getTrainCarSeatDetail(request);
+		return trainSeatQueryService.getTrainCarSeatDetail(request);
 	}
 
 	// ===== Private Helper Methods =====
