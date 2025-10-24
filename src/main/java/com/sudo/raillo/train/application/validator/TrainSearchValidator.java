@@ -33,8 +33,8 @@ public class TrainSearchValidator {
 	 * - 출발 시간 유효성
 	 */
 	public void validateScheduleSearchRequest(TrainSearchRequest request) {
-		validateStationsExistAndNotSame(request.departureStationId(), request.arrivalStationId());
 		validateOperationDateRange(request);
+		validateStationsExistAndNotSame(request.departureStationId(), request.arrivalStationId());
 		validateDepartureTimeNotPassed(request);
 	}
 
