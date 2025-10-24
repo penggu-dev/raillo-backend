@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.train.application.service.CarRecommendationService;
 import com.sudo.raillo.train.application.service.TrainSearchService;
 import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.application.calculator.SeatAvailabilityCalculator;
@@ -52,6 +53,7 @@ public class TrainSearchFacade {
 
 	private final TrainSearchValidator trainSearchValidator;
 	private final TrainCalendarService trainCalendarService;
+	private final CarRecommendationService carRecommendationService;
 	private final TrainSearchService trainSearchService;
 	private final TrainSeatQueryService trainCarService;
 	private final SeatAvailabilityCalculator seatAvailabilityCalculator;
@@ -110,7 +112,7 @@ public class TrainSearchFacade {
 			request.trainScheduleId(), request.departureStationId(), request.arrivalStationId());
 
 		// 3. 승객 수에 맞는 추천 객차 선택 (Application Service 책임)
-		String recommendedCarNumber = selectRecommendedCar(availableCars, request.passengerCount());
+		String recommendedCarNumber = carRecommendationService.selectRecommendedCar(availableCars, request.passengerCount());
 
 		log.info("열차 객차 목록 조회 완료: {}개 객차, 추천 객차={}, 열차={}-{}",
 			availableCars.size(), recommendedCarNumber,
@@ -223,25 +225,4 @@ public class TrainSearchFacade {
 			trainInfo, sectionStatus, fare, passengerCount,
 			seatAvailabilityCalculator.getStandingRatio());
 	}
-
-
-	/**
-	 * 승객 수에 맞는 추천 객차 선택
-	 * TODO: 조금 더 고도화된 객차 추천 알고리즘 필요
-	 */
-	private String selectRecommendedCar(List<TrainCarInfo> availableCars, int passengerCount) {
-		// 승객 수보다 잔여 좌석이 많은 객차 필터링
-		List<TrainCarInfo> suitableCars = availableCars.stream()
-			.filter(car -> car.remainingSeats() >= passengerCount)
-			.toList();
-
-		// 적합한 객차가 있으면 중간 위치 선택, 없으면 첫 번째 객차
-		if (!suitableCars.isEmpty()) {
-			int middleIndex = suitableCars.size() / 2;
-			return suitableCars.get(middleIndex).carNumber();
-		}
-
-		return availableCars.get(0).carNumber();
-	}
-
 }
