@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.global.success.SuccessResponse;
-import com.sudo.raillo.train.application.facade.TrainSearchApplicationService;
+import com.sudo.raillo.train.application.facade.TrainSearchFacade;
 import com.sudo.raillo.train.application.service.TrainSearchService;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
@@ -37,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TrainSearchController {
 
 	private final TrainSearchService trainSearchService;
-	private final TrainSearchApplicationService trainSearchApplicationService;
+	private final TrainSearchFacade trainSearchFacade;
 
 	/**
 	 * 운행 캘린더 조회
@@ -46,7 +46,7 @@ public class TrainSearchController {
 	@Operation(summary = "운행 캘린더 조회", description = "금일로부터 한 달간의 운행 캘린더를 조회합니다.")
 	public SuccessResponse<List<OperationCalendarItem>> getOperationCalendar() {
 		log.info("운행 캘린더 조회");
-		List<OperationCalendarItem> calendar = trainSearchApplicationService.getOperationCalendar();
+		List<OperationCalendarItem> calendar = trainSearchFacade.getOperationCalendar();
 		log.info("운행 캘린더 조회: {} 건", calendar.size());
 
 		return SuccessResponse.of(TrainSearchSuccess.OPERATION_CALENDAR_SUCCESS, calendar);
@@ -70,7 +70,7 @@ public class TrainSearchController {
 			request.operationDate(), request.passengerCount(), request.departureHour(),
 			pageable.getPageNumber(), pageable.getPageSize());
 
-		TrainSearchSlicePageResponse response = trainSearchApplicationService.searchTrains(request, pageable);
+		TrainSearchSlicePageResponse response = trainSearchFacade.searchTrains(request, pageable);
 
 		return SuccessResponse.of(TrainSearchSuccess.TRAIN_SEARCH_SUCCESS, response);
 	}
@@ -90,7 +90,7 @@ public class TrainSearchController {
 			request.trainScheduleId(), request.departureStationId(),
 			request.arrivalStationId(), request.passengerCount());
 
-		TrainCarListResponse response = trainSearchApplicationService.getAvailableTrainCars(request);
+		TrainCarListResponse response = trainSearchFacade.getAvailableTrainCars(request);
 
 		log.info("열차 객차 목록 조회 완료: {}개 객차 조회됨, 추천 객차={}",
 			response.carInfos().size(), response.recommendedCarNumber());
@@ -109,7 +109,7 @@ public class TrainSearchController {
 			request.trainCarId(), request.trainScheduleId(),
 			request.departureStationId(), request.arrivalStationId());
 
-		TrainCarSeatDetailResponse response = trainSearchApplicationService.getTrainCarSeatDetail(request);
+		TrainCarSeatDetailResponse response = trainSearchFacade.getTrainCarSeatDetail(request);
 
 		log.info("열차 객차 좌석 상세 조회 완료: 객차={}, 전체좌석={}, 잔여좌석={}",
 			response.carNumber(), response.totalSeatCount(), response.remainingSeatCount());

@@ -30,7 +30,7 @@ import com.sudo.raillo.train.application.dto.response.TrainCarListResponse;
 import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
-import com.sudo.raillo.train.application.facade.TrainSearchApplicationService;
+import com.sudo.raillo.train.application.facade.TrainSearchFacade;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainCar;
@@ -41,10 +41,10 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @ServiceTest
-class TrainSearchApplicationServiceTest {
+class TrainSearchFacadeTest {
 
 	@Autowired
-	private TrainSearchApplicationService trainSearchApplicationService;
+	private TrainSearchFacade trainSearchFacade;
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -72,7 +72,7 @@ class TrainSearchApplicationServiceTest {
 		createTrainSchedule(train1, nextWeek, "KTX 005", LocalTime.of(10, 0), LocalTime.of(13, 0));
 
 		// when
-		List<OperationCalendarItem> operationCalendar = trainSearchApplicationService.getOperationCalendar();
+		List<OperationCalendarItem> operationCalendar = trainSearchFacade.getOperationCalendar();
 
 		// then
 		// 1. 캘린더가 한 달치 날짜를 포함하는지 확인 (약 30일)
@@ -177,7 +177,7 @@ class TrainSearchApplicationServiceTest {
 					Pageable pageable = PageRequest.of(0, 20);
 
 					// when
-					TrainSearchSlicePageResponse response = trainSearchApplicationService.searchTrains(request,
+					TrainSearchSlicePageResponse response = trainSearchFacade.searchTrains(request,
 						pageable);
 
 					// then
@@ -214,7 +214,7 @@ class TrainSearchApplicationServiceTest {
 		);
 
 		// when
-		TrainCarListResponse response = trainSearchApplicationService.getAvailableTrainCars(request);
+		TrainCarListResponse response = trainSearchFacade.getAvailableTrainCars(request);
 
 		// then
 		assertThat(response.trainClassificationCode()).isEqualTo("KTX");
@@ -322,7 +322,7 @@ class TrainSearchApplicationServiceTest {
 					);
 
 					// when
-					TrainCarListResponse response = trainSearchApplicationService.getAvailableTrainCars(request);
+					TrainCarListResponse response = trainSearchFacade.getAvailableTrainCars(request);
 
 					// then
 					assertThat(response.carInfos()).isNotEmpty();
@@ -395,7 +395,7 @@ class TrainSearchApplicationServiceTest {
 		);
 
 		// when
-		TrainCarSeatDetailResponse response = trainSearchApplicationService.getTrainCarSeatDetail(request);
+		TrainCarSeatDetailResponse response = trainSearchFacade.getTrainCarSeatDetail(request);
 
 		// then
 		assertThat(response.carNumber()).isEqualTo(Integer.valueOf(firstCar.getCarNumber()).toString());
@@ -427,7 +427,7 @@ class TrainSearchApplicationServiceTest {
 		);
 		Pageable pageable = PageRequest.of(0, 20);
 
-		TrainSearchSlicePageResponse searchResponse = trainSearchApplicationService.searchTrains(searchRequest,
+		TrainSearchSlicePageResponse searchResponse = trainSearchFacade.searchTrains(searchRequest,
 			pageable);
 
 		// 2: 검색된 열차의 객차 조회
@@ -436,7 +436,7 @@ class TrainSearchApplicationServiceTest {
 			seoul.getId(), busan.getId(), 2
 		);
 
-		TrainCarListResponse carResponse = trainSearchApplicationService.getAvailableTrainCars(carRequest);
+		TrainCarListResponse carResponse = trainSearchFacade.getAvailableTrainCars(carRequest);
 
 		// 3: 선택된 객차의 좌석 상세 조회
 		String selectedCarNumber = carResponse.recommendedCarNumber();
@@ -451,7 +451,7 @@ class TrainSearchApplicationServiceTest {
 			seoul.getId(), busan.getId()
 		);
 
-		TrainCarSeatDetailResponse seatResponse = trainSearchApplicationService.getTrainCarSeatDetail(seatRequest);
+		TrainCarSeatDetailResponse seatResponse = trainSearchFacade.getTrainCarSeatDetail(seatRequest);
 
 		// then
 		// === Step 1: 열차 검색 결과 검증 ===

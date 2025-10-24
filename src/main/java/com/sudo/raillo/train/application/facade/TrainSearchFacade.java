@@ -48,7 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class TrainSearchApplicationService {
+public class TrainSearchFacade {
 
 	private final TrainSearchValidator trainSearchValidator;
 	private final TrainCalendarService trainCalendarService;

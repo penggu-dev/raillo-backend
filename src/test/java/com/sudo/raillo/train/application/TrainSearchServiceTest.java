@@ -28,7 +28,7 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
-import com.sudo.raillo.train.application.facade.TrainSearchApplicationService;
+import com.sudo.raillo.train.application.facade.TrainSearchFacade;
 import com.sudo.raillo.train.application.service.TrainSearchService;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
@@ -44,7 +44,7 @@ class TrainSearchServiceTest {
 	private TrainSearchService trainSearchService;
 
 	@Autowired
-	private TrainSearchApplicationService trainSearchApplicationService;
+	private TrainSearchFacade trainSearchFacade;
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -122,7 +122,7 @@ class TrainSearchServiceTest {
 					Pageable pageable = PageRequest.of(0, 20);
 
 					// when
-					TrainSearchSlicePageResponse response = trainSearchApplicationService.searchTrains(request, pageable);
+					TrainSearchSlicePageResponse response = trainSearchFacade.searchTrains(request, pageable);
 
 					// then - 기본 검증
 					assertThat(response.content()).hasSize(scenario.expectedTrainCount);
@@ -216,11 +216,11 @@ class TrainSearchServiceTest {
 		pagingTests.forEach(test -> {
 			// 첫 번째 페이지
 			Pageable firstPage = PageRequest.of(0, test.pageSize);
-			TrainSearchSlicePageResponse firstResponse = trainSearchApplicationService.searchTrains(request, firstPage);
+			TrainSearchSlicePageResponse firstResponse = trainSearchFacade.searchTrains(request, firstPage);
 
 			// 두 번째 페이지
 			Pageable secondPage = PageRequest.of(1, test.pageSize);
-			TrainSearchSlicePageResponse secondResponse = trainSearchApplicationService.searchTrains(request, secondPage);
+			TrainSearchSlicePageResponse secondResponse = trainSearchFacade.searchTrains(request, secondPage);
 
 			// then - 첫 번째 페이지 검증
 			assertThat(firstResponse.content()).hasSize(test.expectedFirstPageSize);
@@ -295,7 +295,7 @@ class TrainSearchServiceTest {
 		);
 
 		assertThatThrownBy(() ->
-			trainSearchApplicationService.searchTrains(request, PageRequest.of(0, 10))
+			trainSearchFacade.searchTrains(request, PageRequest.of(0, 10))
 		)
 			.isInstanceOf(BusinessException.class)
 			.satisfies(ex -> {
