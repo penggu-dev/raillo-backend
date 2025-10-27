@@ -2,6 +2,7 @@ package com.sudo.raillo.train.application.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.*;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -91,22 +92,13 @@ public class TrainSearchFacadeValidationTest {
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
 		LocalDate validDate = LocalDate.now().plusDays(1);
 
-		int currentHour = LocalTime.now().getHour();
-		int pastHour = (currentHour == 0 ? 0 : currentHour - 1);
-		String pastHourString = String.format("%02d", pastHour); // TODO : 시간 수정 필요
-
 		record ValidationScenario(
 			String description,
 			TrainSearchRequest request,
 			Class<? extends Exception> expectedException,
 			TrainErrorCode expectedErrorCode,
 			String expectedMessageContains
-		) {
-			@Override
-			public String toString() {
-				return description;
-			}
-		}
+		) {}
 
 		List<ValidationScenario> scenarios = List.of(
 			new ValidationScenario(
@@ -122,13 +114,6 @@ public class TrainSearchFacadeValidationTest {
 				BusinessException.class,
 				TrainErrorCode.OPERATION_DATE_TOO_FAR,
 				TrainErrorCode.OPERATION_DATE_TOO_FAR.getMessage()
-			),
-			new ValidationScenario(
-				"과거 시각을 출발 시간으로 선택한 경우",
-				new TrainSearchRequest(seoul.getId(), busan.getId(), LocalDate.now(), 1, pastHourString),
-				BusinessException.class,
-				TrainErrorCode.DEPARTURE_TIME_PASSED,
-				TrainErrorCode.DEPARTURE_TIME_PASSED.getMessage()
 			)
 		);
 
@@ -147,6 +132,27 @@ public class TrainSearchFacadeValidationTest {
 				}
 			))
 			.toList();
+	}
+
+	@DisplayName("열차 검색 시 과거 시각을 출발 시간으로 선택하면 DEPARTURE_TIME_PASSED 예외가 발생한다")
+	@Test
+	void shouldThrowExceptionWhenDepartureTimeIsInPast() {
+		// given
+		int currentHour = LocalTime.now().getHour();
+		assumeTrue(currentHour >= 1);
+
+		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
+		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
+
+		TrainSearchRequest request = new TrainSearchRequest(
+			seoul.getId(), busan.getId(), LocalDate.now(), 1,
+			String.format("%02d", currentHour - 1)
+		);
+
+		// when & then
+		assertThatThrownBy(() -> trainSearchFacade.searchTrains(request, PageRequest.of(0, 20)))
+			.isInstanceOf(BusinessException.class)
+			.hasMessageContaining(TrainErrorCode.DEPARTURE_TIME_PASSED.getMessage());
 	}
 
 	@DisplayName("다양한 검색 시나리오에서 검색 결과가 없을 경우 빈 리스트를 반환한다.")
