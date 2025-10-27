@@ -34,7 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @ServiceTest
 @Slf4j
-@DisplayName("다구간 경로에서 예약 겹침(overlap) 로직 검증")
+@DisplayName("다구간 경로에서 예약 겹침 로직 관련 TrainSearchFacade 테스트")
 public class TrainSearchFacadeOverlapReservationTest {
 
 	@Autowired

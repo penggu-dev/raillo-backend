@@ -38,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @ServiceTest
 @Slf4j
+@DisplayName("좌석 상태 관련 TrainSearchFacade 테스트")
 public class TrainSearchFacadeSeatStatusTest {
 
 	@Autowired
