@@ -24,17 +24,17 @@ class CarRecommendationServiceTest {
 	void selectRecommendedCar_SelectsSuitableCar() {
 		// given
 		List<TrainCarInfo> cars = List.of(
-			new TrainCarInfo(1L, "0001", CarType.STANDARD, 50, 20, "2+2"),
-			new TrainCarInfo(2L, "0002", CarType.STANDARD, 50, 30, "2+2"),
-			new TrainCarInfo(3L, "0003", CarType.STANDARD, 50, 25, "2+2")
+			new TrainCarInfo(1L, "0001", CarType.STANDARD, 50, 2, "2+2"),
+			new TrainCarInfo(2L, "0002", CarType.STANDARD, 50, 10, "2+2"),
+			new TrainCarInfo(3L, "0003", CarType.STANDARD, 50, 15, "2+2")
 		);
-		int passengerCount = 25;
+		int passengerCount = 5;
 
 		// when
 		String recommendedCar = service.selectRecommendedCar(cars, passengerCount);
 
 		// then - 중간 객차 선택
-		assertThat(recommendedCar).isEqualTo("0002");
+		assertThat(recommendedCar).isEqualTo("0003");
 		log.info("추천 객차 선정 완료: {} (승객 {}명)", recommendedCar, passengerCount);
 	}
 
