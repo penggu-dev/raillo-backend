@@ -6,9 +6,12 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
+import com.sudo.raillo.global.exception.error.ErrorResponse;
 import com.sudo.raillo.global.success.SuccessResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -22,8 +25,10 @@ public interface TicketControllerDoc {
 	})
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "200", description = "티켓이 성공적으로 조회되었습니다."),
-		@ApiResponse(responseCode = "404", description = "유저를 찾을 수 없습니다."),
-		@ApiResponse(responseCode = "500", description = "티켓 정보를 가져올 수 없습니다.")
+		@ApiResponse(responseCode = "404", description = "유저를 찾을 수 없습니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "500", description = "티켓 정보를 가져올 수 없습니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<List<TicketReadResponse>> getMyTickets(@AuthenticationPrincipal UserDetails userDetails);
+	SuccessResponse<List<TicketReadResponse>> getMyTickets(UserDetails userDetails);
 }
