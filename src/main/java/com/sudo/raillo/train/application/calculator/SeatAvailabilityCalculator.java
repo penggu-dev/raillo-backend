@@ -34,7 +34,7 @@ public class SeatAvailabilityCalculator {
 		Integer standingReservations,
 		int requestedPassengerCount) {
 
-		// 1. 좌석 계산
+		// 1. 좌석 타입별 잔여 좌석 계산
 		SeatCalculationResult seatResult = calculateRemainingSeats(
 			totalSeats, overlappingReservations);
 

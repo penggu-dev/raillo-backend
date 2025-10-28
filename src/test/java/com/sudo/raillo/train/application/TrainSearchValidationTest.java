@@ -19,7 +19,7 @@ import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
-import com.sudo.raillo.train.application.facade.TrainSearchApplicationService;
+import com.sudo.raillo.train.application.facade.TrainSearchFacade;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.exception.TrainErrorCode;
@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TrainSearchValidationTest {
 
 	@Autowired
-	private TrainSearchApplicationService trainSearchApplicationService;
+	private TrainSearchFacade trainSearchFacade;
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -93,7 +93,7 @@ public class TrainSearchValidationTest {
 				scenario.description,
 				() -> {
 					// when & then
-					assertThatThrownBy(() -> trainSearchApplicationService.searchTrains(
+					assertThatThrownBy(() -> trainSearchFacade.searchTrains(
 						scenario.request, PageRequest.of(0, 20)))
 						.isInstanceOf(scenario.expectedException)
 						.hasMessageContaining(scenario.expectedMessageContains);
@@ -150,7 +150,7 @@ public class TrainSearchValidationTest {
 				scenario.description,
 				() -> {
 					// when
-					TrainSearchSlicePageResponse response = trainSearchApplicationService.searchTrains(
+					TrainSearchSlicePageResponse response = trainSearchFacade.searchTrains(
 						scenario.request, PageRequest.of(0, 20));
 
 					// then: 검색 결과 없을 때 빈 리스트 반환

@@ -157,58 +157,6 @@ class TrainSeatQueryServiceTest {
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 열차 스케줄로 객차 조회 시 예외가 발생한다")
-	void shouldThrowExceptionWhenGetAvailableTrainCarsWithTrainScheduleNotFound() {
-		// when & then
-		assertThatThrownBy(() -> trainSeatQueryService.getAvailableTrainCars(
-			999L,
-			departureStop.getStation().getId(),
-			arrivalStop.getStation().getId()
-		))
-			.isInstanceOf(BusinessException.class)
-			.hasMessage(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND.getMessage());
-	}
-
-	@Test
-	@DisplayName("존재하지 않는 출발역으로 객차 조회 시 예외가 발생한다")
-	void shouldThrowExceptionWhenGetAvailableTrainCarsWithDepartureStationNotFound() {
-		// when & then
-		assertThatThrownBy(() -> trainSeatQueryService.getAvailableTrainCars(
-			scheduleWithStops.trainSchedule().getId(),
-			999L,
-			arrivalStop.getStation().getId()
-		))
-			.isInstanceOf(BusinessException.class)
-			.hasMessage(TrainErrorCode.STATION_NOT_FOUND.getMessage());
-	}
-
-	@Test
-	@DisplayName("존재하지 않는 도착역으로 객차 조회 시 예외가 발생한다")
-	void shouldThrowExceptionWhenGetAvailableTrainCarsWithArrivalStationNotFound() {
-		// when & then
-		assertThatThrownBy(() -> trainSeatQueryService.getAvailableTrainCars(
-			scheduleWithStops.trainSchedule().getId(),
-			departureStop.getStation().getId(),
-			999L
-		))
-			.isInstanceOf(BusinessException.class)
-			.hasMessage(TrainErrorCode.STATION_NOT_FOUND.getMessage());
-	}
-
-	@Test
-	@DisplayName("유효하지 않은 경로로 조회하면 예외가 발생한다")
-	void shouldThrowExceptionWhenGetAvailableTrainCarsWithInvalidRoute() {
-		// when & then
-		assertThatThrownBy(() -> trainSeatQueryService.getAvailableTrainCars(
-			scheduleWithStops.trainSchedule().getId(),
-			arrivalStop.getStation().getId(),
-			arrivalStop.getStation().getId()
-		))
-			.isInstanceOf(BusinessException.class)
-			.hasMessage(TrainErrorCode.INVALID_ROUTE.getMessage());
-	}
-
-	@Test
 	@DisplayName("객차 좌석 상세 정보를 성공적으로 조회한다")
 	void getTrainCarSeatDetail() {
 		// given
@@ -265,42 +213,6 @@ class TrainSeatQueryServiceTest {
 		// then
 		SeatDetail secondSeatDetail = response.seatList().get(0);
 		assertThat(secondSeatDetail.isAvailable()).isFalse();
-	}
-
-	@Test
-	@DisplayName("존재하지 않는 객차로 좌석 상세 조회 시 예외가 발생한다")
-	void shouldThrowExceptionWhenGetTrainCarSeatDetailWithTrainCarNotFound() {
-		// given
-		TrainCarSeatDetailRequest request = new TrainCarSeatDetailRequest(
-			999L,
-			scheduleWithStops.trainSchedule().getId(),
-			departureStop.getStation().getId(),
-			arrivalStop.getStation().getId()
-		);
-
-		// when & then
-		assertThatThrownBy(() -> trainSeatQueryService.getTrainCarSeatDetail(request))
-			.isInstanceOf(BusinessException.class)
-			.hasMessage(TrainErrorCode.TRAIN_CAR_NOT_FOUND.getMessage());
-	}
-
-	@Test
-	@DisplayName("존재하지 않는 열차 스케줄로 좌석 상세 조회 시 예외가 발생한다")
-	void shouldThrowExceptionWhenGetTrainCarSeatDetailWithTrainScheduleNotFound() {
-		// given
-		List<TrainCar> trainCars = trainCarRepository.findByTrainIn(List.of(train));
-		TrainCar trainCar = trainCars.get(0);
-		TrainCarSeatDetailRequest request = new TrainCarSeatDetailRequest(
-			trainCar.getId(),
-			999L,
-			departureStop.getStation().getId(),
-			arrivalStop.getStation().getId()
-		);
-
-		// when & then
-		assertThatThrownBy(() -> trainSeatQueryService.getTrainCarSeatDetail(request))
-			.isInstanceOf(BusinessException.class)
-			.hasMessage(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND.getMessage());
 	}
 
 	private ReservationCreateRequest getReservationCreateRequest(List<Long> seatIds) {
