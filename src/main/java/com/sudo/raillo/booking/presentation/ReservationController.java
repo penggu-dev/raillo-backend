@@ -32,7 +32,6 @@ import lombok.RequiredArgsConstructor;
 public class ReservationController implements ReservationControllerDoc {
 
 	private final ReservationFacade reservationFacade;
-	private final ReservationService reservationService;
 	private final ReservationDeletionService reservationDeletionService;
 	private final ReservationQueryService reservationQueryService;
 
