@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
+import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.domain.type.TripType;
@@ -45,7 +46,7 @@ public class ReservationConcurrentConflictTest {
 	private MemberRepository memberRepository;
 
 	@Autowired
-	private ReservationApplicationService reservationApplicationService;
+	private ReservationFacade reservationFacade;
 
 	private TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleWithStops;
 	private String memberNo;
@@ -89,7 +90,7 @@ public class ReservationConcurrentConflictTest {
 		for (int i = 0; i < threadCount; i++) {
 			executorService.submit(() -> {
 				try {
-					reservationApplicationService.createReservation(request, memberNo);
+					reservationFacade.createReservation(request, memberNo);
 					successCount.getAndIncrement();
 				} catch (BusinessException e) {
 					failCount.getAndIncrement();
@@ -132,9 +133,9 @@ public class ReservationConcurrentConflictTest {
 			executorService.submit(() -> {
 				try {
 					if (index % 2 == 0) {
-						reservationApplicationService.createReservation(oneToThreeRequest, memberNo);
+						reservationFacade.createReservation(oneToThreeRequest, memberNo);
 					} else {
-						reservationApplicationService.createReservation(twoToFourRequest, memberNo);
+						reservationFacade.createReservation(twoToFourRequest, memberNo);
 					}
 					successCount.getAndIncrement();
 				} catch (BusinessException e) {

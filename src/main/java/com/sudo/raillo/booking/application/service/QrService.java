@@ -1,4 +1,4 @@
-package com.sudo.raillo.booking.application;
+package com.sudo.raillo.booking.application.service;
 
 import org.springframework.stereotype.Service;
 

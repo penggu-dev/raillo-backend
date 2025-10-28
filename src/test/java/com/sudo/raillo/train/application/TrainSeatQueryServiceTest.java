@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.sudo.raillo.booking.application.ReservationApplicationService;
+import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -52,7 +52,7 @@ class TrainSeatQueryServiceTest {
 	private TrainCarRepository trainCarRepository;
 
 	@Autowired
-	private ReservationApplicationService reservationApplicationService;
+	private ReservationFacade reservationFacade;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -116,7 +116,7 @@ class TrainSeatQueryServiceTest {
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
 		ReservationCreateRequest standardRequest = getReservationCreateRequest(standardSeatIds);
-		reservationApplicationService.createReservation(standardRequest, testMember.getMemberDetail().getMemberNo());
+		reservationFacade.createReservation(standardRequest, testMember.getMemberDetail().getMemberNo());
 
 		// when
 		List<TrainCarInfo> availableTrainCars = trainSeatQueryService.getAvailableTrainCars(
@@ -141,11 +141,11 @@ class TrainSeatQueryServiceTest {
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 2);
 		ReservationCreateRequest standardRequest = getReservationCreateRequest(standardSeatIds);
-		reservationApplicationService.createReservation(standardRequest, testMember.getMemberDetail().getMemberNo());
+		reservationFacade.createReservation(standardRequest, testMember.getMemberDetail().getMemberNo());
 
 		List<Long> firstClassSeatIds = trainTestHelper.getSeatIds(train, CarType.FIRST_CLASS, 2);
 		ReservationCreateRequest firstClassRequest = getReservationCreateRequest(firstClassSeatIds);
-		reservationApplicationService.createReservation(firstClassRequest, testMember.getMemberDetail().getMemberNo());
+		reservationFacade.createReservation(firstClassRequest, testMember.getMemberDetail().getMemberNo());
 
 		// when & then
 		assertThatThrownBy(() -> trainSeatQueryService.getAvailableTrainCars(
@@ -197,7 +197,7 @@ class TrainSeatQueryServiceTest {
 		memberRepository.save(testMember);
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
 		ReservationCreateRequest standardRequest = getReservationCreateRequest(standardSeatIds);
-		reservationApplicationService.createReservation(standardRequest, testMember.getMemberDetail().getMemberNo());
+		reservationFacade.createReservation(standardRequest, testMember.getMemberDetail().getMemberNo());
 		List<TrainCar> trainCars = trainCarRepository.findByTrainIn(List.of(train));
 		TrainCar trainCar = trainCars.get(0);
 		TrainCarSeatDetailRequest request = new TrainCarSeatDetailRequest(

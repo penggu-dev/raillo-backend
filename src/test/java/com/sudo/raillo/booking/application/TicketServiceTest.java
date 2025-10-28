@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
+import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Qr;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.Ticket;

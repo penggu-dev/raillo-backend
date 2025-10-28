@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.sudo.raillo.booking.application.CartReservationService;
+import com.sudo.raillo.booking.application.service.CartReservationService;
 import com.sudo.raillo.booking.application.dto.request.CartReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
 import com.sudo.raillo.booking.success.CartReservationSuccess;
