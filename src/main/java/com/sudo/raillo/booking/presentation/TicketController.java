@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
-import com.sudo.raillo.booking.docs.TicketControllerDocs;
+import com.sudo.raillo.booking.docs.TicketControllerDoc;
 import com.sudo.raillo.booking.success.TicketSuccess;
 import com.sudo.raillo.global.success.SuccessResponse;
 
@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v1/booking/ticket")
 @RequiredArgsConstructor
-public class TicketController implements TicketControllerDocs {
+public class TicketController implements TicketControllerDoc {
 
 	private final TicketService ticketService;
 

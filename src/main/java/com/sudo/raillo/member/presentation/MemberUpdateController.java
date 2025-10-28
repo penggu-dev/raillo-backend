@@ -13,7 +13,7 @@ import com.sudo.raillo.member.application.dto.request.UpdateEmailRequest;
 import com.sudo.raillo.member.application.dto.request.UpdatePasswordRequest;
 import com.sudo.raillo.member.application.dto.request.UpdatePhoneNumberRequest;
 import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
-import com.sudo.raillo.member.docs.MemberUpdateControllerDocs;
+import com.sudo.raillo.member.docs.MemberUpdateControllerDoc;
 import com.sudo.raillo.auth.success.AuthSuccess;
 import com.sudo.raillo.member.success.MemberSuccess;
 
@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-public class MemberUpdateController implements MemberUpdateControllerDocs {
+public class MemberUpdateController implements MemberUpdateControllerDoc {
 
 	private final MemberUpdateService memberUpdateService;
 

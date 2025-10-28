@@ -19,7 +19,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @Tag(name = "Reservations")
-public interface ReservationControllerDocs {
+public interface ReservationControllerDoc {
 
 	@Operation(method = "POST", summary = "예약 생성", description = "정보를 받아 예약을 수행합니다.", security = {
 		@SecurityRequirement(name = "bearerAuth")})

@@ -14,7 +14,7 @@ import com.sudo.raillo.auth.application.dto.response.LoginResponse;
 import com.sudo.raillo.auth.application.dto.response.ReissueTokenResponse;
 import com.sudo.raillo.auth.application.dto.response.SignUpResponse;
 import com.sudo.raillo.auth.application.dto.response.TokenResponse;
-import com.sudo.raillo.auth.docs.AuthControllerDocs;
+import com.sudo.raillo.auth.docs.AuthControllerDoc;
 import com.sudo.raillo.auth.exception.TokenError;
 import com.sudo.raillo.auth.security.jwt.TokenExtractor;
 import com.sudo.raillo.auth.success.AuthSuccess;
@@ -30,7 +30,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
-public class AuthController implements AuthControllerDocs {
+public class AuthController implements AuthControllerDoc {
 
 	private final AuthService authService;
 	private final TokenExtractor tokenExtractor;

@@ -14,7 +14,7 @@ import com.sudo.raillo.member.application.MemberService;
 import com.sudo.raillo.member.application.dto.request.GuestRegisterRequest;
 import com.sudo.raillo.member.application.dto.response.GuestRegisterResponse;
 import com.sudo.raillo.member.application.dto.response.MemberInfoResponse;
-import com.sudo.raillo.member.docs.MemberControllerDocs;
+import com.sudo.raillo.member.docs.MemberControllerDoc;
 import com.sudo.raillo.member.success.MemberSuccess;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,7 +24,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-public class MemberController implements MemberControllerDocs {
+public class MemberController implements MemberControllerDoc {
 
 	private final MemberService memberService;
 	private final TokenExtractor tokenExtractor;

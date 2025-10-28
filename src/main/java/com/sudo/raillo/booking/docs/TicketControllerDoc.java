@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @Tag(name = "Tickets")
-public interface TicketControllerDocs {
+public interface TicketControllerDoc {
 
 	@Operation(method = "GET", summary = "내 티켓 목록 조회", description = "멤버가 소유하고 있는 티켓을 조회합니다.", security = {
 		@SecurityRequirement(name = "bearerAuth")

@@ -17,7 +17,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @Tag(name = "AuthMembers", description = "인증+회원 api - 이메일 인증을 통한 회원 정보 찾기 및 변경")
-public interface MemberFindControllerDocs {
+public interface MemberFindControllerDoc {
 
 	@Operation(method = "POST", summary = "회원번호 찾기 요청", description = "회원번호를 찾기 위한 요청을 받고, 본인인증을 위한 이메일 인증 코드를 전송합니다.")
 	@ApiResponses(value = {
