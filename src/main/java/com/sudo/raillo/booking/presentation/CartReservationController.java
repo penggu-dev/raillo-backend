@@ -13,24 +13,21 @@ import org.springframework.web.bind.annotation.RestController;
 import com.sudo.raillo.booking.application.service.CartReservationService;
 import com.sudo.raillo.booking.application.dto.request.CartReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
+import com.sudo.raillo.booking.docs.CartReservationControllerDoc;
 import com.sudo.raillo.booking.success.CartReservationSuccess;
 import com.sudo.raillo.global.success.SuccessResponse;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/v1/cart/reservations")
 @RequiredArgsConstructor
-@Tag(name = "CartReservations", description = "장바구니에 예약 등록, 조회 API")
-public class CartReservationController {
+public class CartReservationController implements CartReservationControllerDoc {
 
 	private final CartReservationService cartReservationService;
 
 	@PostMapping
-	@Operation(summary = "예약 등록", description = "장바구니에 예약을 등록합니다.")
 	public SuccessResponse<?> createCartReservation(
 		@Valid @RequestBody CartReservationCreateRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
@@ -42,7 +39,6 @@ public class CartReservationController {
 	}
 
 	@GetMapping
-	@Operation(summary = "장바구니 조회", description = "장바구니에 등록된 예약을 조회합니다.")
 	public SuccessResponse<List<ReservationDetail>> getCartReservations(
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
