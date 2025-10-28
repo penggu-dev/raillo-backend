@@ -2,7 +2,6 @@ package com.sudo.raillo.booking.docs;
 
 import java.util.List;
 
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
