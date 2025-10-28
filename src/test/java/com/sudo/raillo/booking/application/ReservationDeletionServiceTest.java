@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
-import com.sudo.raillo.booking.application.service.ReservationDeletionService;
+import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.type.TripType;
@@ -32,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ReservationDeletionServiceTest {
 
 	@Autowired
-	private ReservationDeletionService reservationDeletionService;
+	private ReservationService reservationService;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -72,7 +72,7 @@ public class ReservationDeletionServiceTest {
 		ReservationDeleteRequest request = new ReservationDeleteRequest(entity.getId());
 
 		// when
-		reservationDeletionService.deleteReservation(request.reservationId());
+		reservationService.deleteReservation(request.reservationId());
 
 		// then
 		List<Reservation> result = reservationRepository.findAll();
@@ -101,7 +101,7 @@ public class ReservationDeletionServiceTest {
 		}
 
 		// when
-		reservationDeletionService.expireReservations();
+		reservationService.expireReservations();
 
 		// then
 		List<Reservation> result = reservationRepository.findAll();
