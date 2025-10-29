@@ -1,13 +1,9 @@
 package com.sudo.raillo.booking.application.service;
 
-import org.springframework.stereotype.Service;
-
 import com.sudo.raillo.booking.domain.Qr;
-import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.QrRepository;
-import com.sudo.raillo.global.exception.error.BusinessException;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -20,10 +16,6 @@ public class QrService {
 			.isUsable(false)
 			.scanCount(0)
 			.build();
-		try {
-			return qrRepository.save(qr);
-		} catch (Exception e) {
-			throw new BusinessException(BookingError.QR_CREATE_FAILED);
-		}
+		return qrRepository.save(qr);
 	}
 }
