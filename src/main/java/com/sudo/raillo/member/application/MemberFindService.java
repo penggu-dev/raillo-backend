@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class MemberFindService {
 
 	private final MemberRepository memberRepository;
@@ -32,7 +33,6 @@ public class MemberFindService {
 	/**
 	 * 이메일 인증을 통한 회원 번호 찾기
 	 * */
-	@Transactional(readOnly = true)
 	public SendCodeResponse requestFindMemberNo(FindMemberNoRequest request) {
 
 		Member member = memberRepository.findMemberByNameAndPhoneNumber(request.name(), request.phoneNumber())
@@ -56,7 +56,6 @@ public class MemberFindService {
 	/**
 	 * 이메일 인증을 통한 비밀번호 찾기
 	 * */
-	@Transactional(readOnly = true)
 	public SendCodeResponse requestFindPassword(FindPasswordRequest request) {
 
 		Member member = memberRepository.findByMemberNo(request.memberNo())
@@ -102,5 +101,4 @@ public class MemberFindService {
 		memberRedisRepository.saveMemberNo(email, memberNo); // 레디스에 이메일 검증 후 보낼 회원번호 저장
 		emailAuthService.sendAuthCode(email); // 찾아온 이메일로 인증 코드 전송
 	}
-
 }

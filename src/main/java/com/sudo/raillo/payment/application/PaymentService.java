@@ -1,11 +1,5 @@
 package com.sudo.raillo.payment.application;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Reservation;
@@ -29,13 +23,17 @@ import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.payment.util.PaymentKeyGenerator;
 import com.sudo.raillo.train.infrastructure.SeatReservationRepositoryCustom;
-
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class PaymentService {
 
 	private final ReservationRepository reservationRepository;
@@ -47,13 +45,33 @@ public class PaymentService {
 	private final TicketService ticketService;
 
 	/**
+	 * 결제 내역 조회
+	 * @param memberNo 회원번호
+	 * @return {@code List<PaymentHistoryResponse>}
+	 */
+	@Transactional(readOnly = true)
+	public List<PaymentHistoryResponse> getPaymentHistory(String memberNo) {
+		Member member = memberRepository.findByMemberNo(memberNo)
+			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
+
+		List<PaymentProjection> paymentProjections = paymentRepository.findPaymentHistoryByMemberId(member.getId());
+
+		return paymentProjections.stream()
+			.map(paymentProjection -> new PaymentHistoryResponse(
+				paymentProjection.getPaymentId(), paymentProjection.getPaymentKey(),
+				paymentProjection.getReservationCode(), paymentProjection.getAmount(),
+				paymentProjection.getPaymentMethod(), paymentProjection.getPaymentStatus(),
+				paymentProjection.getPaidAt(), paymentProjection.getCancelledAt(), paymentProjection.getRefundedAt()))
+			.toList();
+	}
+
+	/**
 	 * 결제 처리 (카드)
 	 *
 	 * @param memberNo 회원번호
 	 * @param request {@link PaymentProcessCardRequest} 객체
 	 * @return {@link PaymentProcessResponse} 객체
 	 */
-	@Transactional
 	public PaymentProcessResponse processPaymentViaCard(String memberNo, PaymentProcessCardRequest request) {
 		return processPayment(memberNo, request);
 	}
@@ -65,9 +83,24 @@ public class PaymentService {
 	 * @param request {@link PaymentProcessAccountRequest} 객체
 	 * @return {@link PaymentProcessResponse} 객체
 	 */
-	@Transactional
 	public PaymentProcessResponse processPaymentViaBankAccount(String memberNo, PaymentProcessAccountRequest request) {
 		return processPayment(memberNo, request);
+	}
+
+	public PaymentCancelResponse cancelPayment(String memberNo, String paymentKey) {
+		Payment payment = findPayment(memberNo, paymentKey);
+
+		// 결제 취소 처리
+		payment.cancel("사용자 요청에 의한 취소");
+
+		markReservationAsCancelled(payment.getReservation());
+
+		log.info("결제 취소 완료: paymentKey={}, reservationId={}", paymentKey, payment.getReservation().getId());
+
+		// 즉각 환불 처리 (임시)
+		refundPayment(payment, payment.getReservation());
+
+		return PaymentCancelResponse.from(payment);
 	}
 
 	/**
@@ -171,23 +204,6 @@ public class PaymentService {
 				reservation, seatInfoProjection.getSeat(), seatInfoProjection.getPassengerType()));
 	}
 
-	@Transactional
-	public PaymentCancelResponse cancelPayment(String memberNo, String paymentKey) {
-		Payment payment = findPayment(memberNo, paymentKey);
-
-		// 결제 취소 처리
-		payment.cancel("사용자 요청에 의한 취소");
-
-		markReservationAsCancelled(payment.getReservation());
-
-		log.info("결제 취소 완료: paymentKey={}, reservationId={}", paymentKey, payment.getReservation().getId());
-
-		// 즉각 환불 처리 (임시)
-		refundPayment(payment, payment.getReservation());
-
-		return PaymentCancelResponse.from(payment);
-	}
-
 	private Payment findPayment(String memberNo, String paymentKey) {
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
@@ -228,7 +244,7 @@ public class PaymentService {
 	 * 환불 처리
 	 * @param payment {@link Payment} 객체
 	 */
-	public void refundPayment(Payment payment, Reservation reservation) {
+	private void refundPayment(Payment payment, Reservation reservation) {
 		// 해당 로직은 외부 엔드포인트가 존재하지 않고 추후 엔드포인트가 생긴다고 하더라도
 		// 신뢰할 수 있는 PG사에서 환불 완료된 결제에 대해서만 호출할 예정이기 때문에 검증 과정이 필요 없습니다.
 
@@ -246,26 +262,5 @@ public class PaymentService {
 		reservation.refund();
 
 		log.info("예약 환불 처리: reservationId={}", reservation.getId());
-	}
-
-	/**
-	 * 결제 내역 조회
-	 * @param memberNo 회원번호
-	 * @return {@code List<PaymentHistoryResponse>}
-	 */
-	@Transactional(readOnly = true)
-	public List<PaymentHistoryResponse> getPaymentHistory(String memberNo) {
-		Member member = memberRepository.findByMemberNo(memberNo)
-			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
-
-		List<PaymentProjection> paymentProjections = paymentRepository.findPaymentHistoryByMemberId(member.getId());
-
-		return paymentProjections.stream()
-			.map(paymentProjection -> new PaymentHistoryResponse(
-				paymentProjection.getPaymentId(), paymentProjection.getPaymentKey(),
-				paymentProjection.getReservationCode(), paymentProjection.getAmount(),
-				paymentProjection.getPaymentMethod(), paymentProjection.getPaymentStatus(),
-				paymentProjection.getPaidAt(), paymentProjection.getCancelledAt(), paymentProjection.getRefundedAt()))
-			.toList();
 	}
 }

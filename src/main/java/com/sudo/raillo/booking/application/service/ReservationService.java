@@ -39,6 +39,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class ReservationService {
 
 	private final BookingConfig bookingConfig;
@@ -51,13 +52,11 @@ public class ReservationService {
 	private final ReservationCodeGenerator reservationCodeGenerator;
 	private final ReservationMapper reservationMapper;
 
-
 	/**
 	 * 예약을 생성하는 메서드
 	 * @param request 예약 생성 요청 DTO
 	 * @return 예약 레코드
 	 */
-	@Transactional
 	public Reservation createReservation(ReservationCreateRequest request, String memberNo, BigDecimal totalFare) {
 		TrainSchedule trainSchedule = getTrainSchedule(request);
 		Member member = memberRepository.getMember(memberNo);
@@ -99,7 +98,7 @@ public class ReservationService {
 	 * @param reservationId 예약 ID
 	 * @return 예약
 	 */
-	@Transactional
+	@Transactional(readOnly = true)
 	public ReservationDetail getReservation(String memberNo, Long reservationId) {
 		Member member = memberRepository.getMember(memberNo);
 
@@ -127,7 +126,7 @@ public class ReservationService {
 	 * @param memberNo 회원 번호
 	 * @return 예약 목록
 	 */
-	@Transactional
+	@Transactional(readOnly = true)
 	public List<ReservationDetail> getReservations(String memberNo) {
 		Member member = memberRepository.getMember(memberNo);
 
@@ -158,7 +157,6 @@ public class ReservationService {
 	 * 특정 예약을 삭제하는 메서드 - 단수 예약 ID 사용
 	 * @param reservationId 삭제할 예약의 ID
 	 */
-	@Transactional
 	public void deleteReservation(Long reservationId) {
 		reservationRepository.deleteById(reservationId);
 	}
@@ -167,7 +165,6 @@ public class ReservationService {
 	 * 다수의 예약을 삭제하는 메서드 - 복수 예약 ID 사용
 	 * @param reservationIds 삭제할 예약의 ID를 원소로 하는 리스트
 	 */
-	@Transactional
 	public void deleteReservation(List<Long> reservationIds) {
 		reservationRepository.deleteAllByIdInBatch(reservationIds);
 	}
@@ -175,7 +172,6 @@ public class ReservationService {
 	/**
 	 * 만료된 예약을 일괄삭제하는 메서드
 	 */
-	@Transactional
 	public void expireReservations() {
 		LocalDateTime now = LocalDateTime.now();
 		int pageNumber = 0;
@@ -196,7 +192,6 @@ public class ReservationService {
 		} while (expiredPage.hasNext());
 	}
 
-	@Transactional
 	public void deleteAllByMemberId(Long memberId) {
 		reservationRepository.deleteAllByMemberId(memberId);
 	}
