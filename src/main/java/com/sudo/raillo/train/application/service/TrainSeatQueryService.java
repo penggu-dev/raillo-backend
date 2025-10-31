@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
 import com.sudo.raillo.train.application.dto.projection.SeatProjection;
@@ -12,12 +13,11 @@ import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.response.SeatDetail;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
 import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse;
+import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepositoryCustom;
-import com.sudo.raillo.train.infrastructure.StationRepository;
 import com.sudo.raillo.train.infrastructure.TrainCarQueryRepositoryCustom;
-import com.sudo.raillo.train.infrastructure.TrainCarRepository;
-import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,9 +30,7 @@ public class TrainSeatQueryService {
 
 	private final TrainCarQueryRepositoryCustom trainCarQueryRepositoryCustom;
 	private final SeatRepositoryCustom seatRepositoryCustom;
-	private final TrainScheduleRepository trainScheduleRepository;
-	private final TrainCarRepository trainCarRepository;
-	private final StationRepository stationRepository;
+	private final SeatRepository seatRepository;
 
 	/**
 	 * 열차 객차 목록 조회 (잔여 좌석이 있는 객차만)
@@ -80,6 +78,36 @@ public class TrainSeatQueryService {
 			seatDetails
 		);
 	}
+
+	/**
+	 * 객차 타입 조회
+	 * */
+	public CarType findCarTypeBySeats(List<Long> seatIds) {
+		// 입석 체크
+		if (seatIds.isEmpty()) {
+			return CarType.STANDARD;
+		}
+
+		List<CarType> carTypes = findCarTypesBySeatId(seatIds);
+		return validateAndExtractCarType(carTypes);
+	}
+
+	private List<CarType> findCarTypesBySeatId(List<Long> seatIds) {
+		return seatRepository.findCarTypes(seatIds);
+	}
+
+	private CarType validateAndExtractCarType(List<CarType> carTypes) {
+		if (carTypes.isEmpty()) {
+			throw new BusinessException(BookingError.SEAT_NOT_FOUND); // TrainError
+		}
+
+		if (carTypes.size() != 1) {
+			throw new BusinessException(BookingError.INVALID_CAR_TYPE); // TrainError
+		}
+
+		return carTypes.get(0);
+	}
+
 	// ===== Private Helper Methods =====
 
 	/**

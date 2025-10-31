@@ -18,6 +18,7 @@ import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.domain.type.CarType;
 
 import lombok.RequiredArgsConstructor;
@@ -29,13 +30,14 @@ public class ReservationFacade {
 
 	private final ReservationService reservationService;
 	private final SeatReservationService seatReservationService;
+	private final TrainSeatQueryService trainSeatQueryService;
 	private final TicketService ticketService;
 	private final FareCalculationService fareCalculationService;
 	private final ReservationValidator reservationValidator;
 
 	public ReservationCreateResponse createReservation(ReservationCreateRequest request, String memberNo) {
 		// TODO: 요청 파라미터를 여기서 모두 검증할지, 각 서비스에서 검증할지 결정 필요
-		CarType carType = reservationService.findCarType(request.seatIds());
+		CarType carType = trainSeatQueryService.findCarTypeBySeats(request.seatIds());
 		BigDecimal totalFare = fareCalculationService.calculateFare(
 			request.departureStationId(),
 			request.arrivalStationId(),

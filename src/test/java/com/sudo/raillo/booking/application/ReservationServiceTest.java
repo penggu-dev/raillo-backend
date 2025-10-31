@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
+import com.sudo.raillo.booking.application.facade.ReservationQueryFacade;
 import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
@@ -44,6 +45,9 @@ class ReservationServiceTest {
 
 	@Autowired
 	private ReservationService reservationService;
+
+	@Autowired
+	private ReservationQueryFacade reservationQueryFacade;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -115,7 +119,7 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when
-		ReservationDetail result = reservationService.getReservation(memberNo, entity.getId());
+		ReservationDetail result = reservationQueryFacade.getReservation(memberNo, entity.getId());
 
 		// then
 		assertThat(result.reservationId()).isEqualTo(entity.getId());
@@ -138,7 +142,7 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when & then
-		assertThatThrownBy(() -> reservationService.getReservation(memberNo, 2L))
+		assertThatThrownBy(() -> reservationQueryFacade.getReservation(memberNo, 2L))
 			.isInstanceOf(BusinessException.class);
 
 		reservationRepository.save(reservation);
@@ -165,7 +169,7 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when & then
-		assertThatThrownBy(() -> reservationService.getReservation(memberNo, entity.getId()))
+		assertThatThrownBy(() -> reservationQueryFacade.getReservation(memberNo, entity.getId()))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.RESERVATION_EXPIRED.getMessage());
 	}
@@ -199,7 +203,7 @@ class ReservationServiceTest {
 		Reservation entity2 = reservationRepository.save(reservation2);
 
 		// when
-		List<ReservationDetail> result = reservationService.getReservations(memberNo);
+		List<ReservationDetail> result = reservationQueryFacade.getReservations(memberNo);
 
 		// then
 		assertThat(result.size()).isEqualTo(2);
@@ -262,7 +266,7 @@ class ReservationServiceTest {
 		Reservation entity2 = reservationRepository.save(reservation2);
 
 		// when
-		List<ReservationDetail> result = reservationService.getReservations(memberNo);
+		List<ReservationDetail> result = reservationQueryFacade.getReservations(memberNo);
 
 		// then
 		assertThat(result.size()).isEqualTo(1);

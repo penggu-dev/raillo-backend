@@ -100,4 +100,14 @@ public class MemberService {
 
 		return memberDetail.getEmail();
 	}
+
+	/**
+	 * 회원 번호로 회원을 조회하는 메서드
+	 * @param memberNo 회원 번호
+	 * @return 회원 엔티티
+	 */
+	@Transactional(readOnly = true)
+	public Member getMember(String memberNo) {
+		return memberRepository.getMember(memberNo);
+	}
 }

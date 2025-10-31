@@ -17,6 +17,7 @@ import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
 import com.sudo.raillo.booking.application.facade.ReservationFacade;
+import com.sudo.raillo.booking.application.facade.ReservationQueryFacade;
 import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.docs.ReservationControllerDoc;
 import com.sudo.raillo.booking.success.ReservationSuccess;
@@ -30,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class ReservationController implements ReservationControllerDoc {
 
 	private final ReservationFacade reservationFacade;
+	private final ReservationQueryFacade reservationQueryFacade;
 	private final ReservationService reservationService;
 
 	/***
@@ -68,7 +70,7 @@ public class ReservationController implements ReservationControllerDoc {
 	) {
 		String memberNo = userDetails.getUsername();
 
-		ReservationDetail detail = reservationService.getReservation(memberNo, reservationId);
+		ReservationDetail detail = reservationQueryFacade.getReservation(memberNo, reservationId);
 		return SuccessResponse.of(ReservationSuccess.RESERVATION_DETAIL_SUCCESS, detail);
 	}
 
@@ -81,7 +83,7 @@ public class ReservationController implements ReservationControllerDoc {
 	) {
 		String memberNo = userDetails.getUsername();
 
-		List<ReservationDetail> response = reservationService.getReservations(memberNo);
+		List<ReservationDetail> response = reservationQueryFacade.getReservations(memberNo);
 		return SuccessResponse.of(ReservationSuccess.RESERVATION_LIST_SUCCESS, response);
 	}
 }
