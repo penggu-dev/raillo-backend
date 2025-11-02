@@ -44,10 +44,7 @@ class TrainSearchFacadeTest {
 
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
-
-	@Autowired
-	private TrainCarRepository trainCarRepository;
-
+	
 	@DisplayName("금일로부터 한달간의 운행 스케줄 캘린더를 조회한다.")
 	@Test
 	void getOperationCalendar() {
