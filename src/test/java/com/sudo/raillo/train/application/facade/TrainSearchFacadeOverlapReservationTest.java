@@ -1,4 +1,4 @@
-package com.sudo.raillo.train.application;
+package com.sudo.raillo.train.application.facade;
 
 import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.*;
 import static org.assertj.core.api.Assertions.*;
@@ -25,7 +25,6 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
-import com.sudo.raillo.train.application.facade.TrainSearchFacade;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
@@ -35,8 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 
 @ServiceTest
 @Slf4j
-@DisplayName("다구간 경로에서 예약 겹침(overlap) 로직 검증")
-public class TrainSearchServiceOverlapReservationTest {
+@DisplayName("다구간 경로에서 예약 겹침 로직 관련 TrainSearchFacade 테스트")
+public class TrainSearchFacadeOverlapReservationTest {
 
 	@Autowired
 	private TrainSearchFacade trainSearchFacade;

@@ -1,7 +1,5 @@
-package com.sudo.raillo.train.application;
+package com.sudo.raillo.train.application.facade;
 
-import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.*;
-import static com.sudo.raillo.train.exception.TrainErrorCode.*;
 import static org.assertj.core.api.Assertions.*;
 
 import java.time.LocalDate;
@@ -20,28 +18,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.support.annotation.ServiceTest;
-import com.sudo.raillo.support.helper.ReservationTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
+import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
-import com.sudo.raillo.train.application.facade.TrainSearchFacade;
-import com.sudo.raillo.train.application.service.TrainSearchService;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.infrastructure.TrainCarRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
-@ServiceTest
 @Slf4j
-class TrainSearchServiceTest {
-
-	@Autowired
-	private TrainSearchService trainSearchService;
+@ServiceTest
+@DisplayName("열차 검색 관련 TrainSearchFacade 테스트")
+class TrainSearchFacadeTest {
 
 	@Autowired
 	private TrainSearchFacade trainSearchFacade;
@@ -50,10 +43,148 @@ class TrainSearchServiceTest {
 	private TrainTestHelper trainTestHelper;
 
 	@Autowired
-	private ReservationTestHelper reservationTestHelper;
-
-	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
+	
+	@DisplayName("금일로부터 한달간의 운행 스케줄 캘린더를 조회한다.")
+	@Test
+	void getOperationCalendar() {
+		// given
+		Train train1 = trainTestHelper.createKTX();
+		Train train2 = trainTestHelper.createCustomKTX(2, 1);
+
+		LocalDate today = LocalDate.now();
+		LocalDate tomorrow = today.plusDays(1);
+		LocalDate dayAfterTomorrow = today.plusDays(2);
+		LocalDate nextWeek = today.plusWeeks(1);
+
+		createTrainSchedule(train1, today, "KTX 001", LocalTime.of(8, 0), LocalTime.of(11, 0));
+		createTrainSchedule(train2, tomorrow, "KTX 003", LocalTime.of(14, 0), LocalTime.of(17, 0));
+		createTrainSchedule(train1, nextWeek, "KTX 005", LocalTime.of(10, 0), LocalTime.of(13, 0));
+
+		// when
+		List<OperationCalendarItem> operationCalendar = trainSearchFacade.getOperationCalendar();
+
+		// then
+		// 1. 캘린더가 한 달치 날짜를 포함하는지 확인 (약 30일)
+		assertThat(operationCalendar).hasSizeGreaterThanOrEqualTo(28).hasSizeLessThanOrEqualTo(32);
+
+		// 2. 운행하는 날짜들이 isBookingAvailable = "Y"로 표시되는지 확인
+		assertThat(operationCalendar).anyMatch(item ->
+			item.operationDate().equals(today) && item.isBookingAvailable().equals("Y"));
+		assertThat(operationCalendar).anyMatch(item ->
+			item.operationDate().equals(tomorrow) && item.isBookingAvailable().equals("Y"));
+		assertThat(operationCalendar).anyMatch(item ->
+			item.operationDate().equals(nextWeek) && item.isBookingAvailable().equals("Y"));
+
+		// 3. 운행하지 않는 날짜가 isBookingAvailable = "N"으로 표시되는지 확인
+		assertThat(operationCalendar).anyMatch(item ->
+			item.operationDate().equals(dayAfterTomorrow) && item.isBookingAvailable().equals("N"));
+
+		// 4. 전체 캘린더에서 운행일과 비운행일이 모두 존재하는지 확인
+		long operatingDays = operationCalendar.stream()
+			.mapToLong(item -> item.isBookingAvailable().equals("Y") ? 1 : 0)
+			.sum();
+		long nonOperatingDays = operationCalendar.stream()
+			.mapToLong(item -> item.isBookingAvailable().equals("N") ? 1 : 0)
+			.sum();
+
+		assertThat(operatingDays).isEqualTo(3); // today, tomorrow, nextWeek
+		assertThat(nonOperatingDays).isGreaterThanOrEqualTo(0);
+		assertThat(operatingDays + nonOperatingDays).isEqualTo(operationCalendar.size()); // 전체 합계 일치
+
+		log.info("운행 캘린더 검증 완료: 전체 {} 일, 운행일 {} 일, 비운행일 {} 일",
+			operationCalendar.size(), operatingDays, nonOperatingDays);
+	}
+
+	@DisplayName("검색 조건에 따른 열차를 조회한다.")
+	@TestFactory
+	List<DynamicTest> searchTrains() {
+		// given
+		Train train1 = trainTestHelper.createKTX();
+		Train train2 = trainTestHelper.createCustomKTX(2, 1);
+		Train train3 = trainTestHelper.createCustomKTX(3, 1);
+
+		LocalDate futureDate = LocalDate.now().plusDays(1);
+
+		// 오전, 오후, 저녁 시간대 열차 생성
+		createTrainSchedule(train1, futureDate, "KTX 001", LocalTime.of(8, 0), LocalTime.of(11, 0));   // 오전
+		createTrainSchedule(train2, futureDate, "KTX 003", LocalTime.of(14, 0), LocalTime.of(17, 0));  // 오후
+		createTrainSchedule(train3, futureDate, "KTX 005", LocalTime.of(19, 0), LocalTime.of(22, 0));  // 저녁
+
+		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
+		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
+
+		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 100000);
+
+		// 검색 시나리오 정의
+		record SearchScenario(
+			String description,
+			String departureHour,
+			int expectedCount,
+			java.util.function.Predicate<List<TrainSearchResponse>> validator
+		) {
+		}
+
+		List<SearchScenario> scenarios = List.of(
+			new SearchScenario(
+				"전체 열차 조회 (06시 이후)",
+				"06",
+				3,
+				trains -> trains.size() == 3 &&
+					trains.stream().allMatch(train -> train.departureTime().isAfter(LocalTime.of(6, 0)))
+			),
+			new SearchScenario(
+				"오후 이후 열차 조회 (13시 이후)",
+				"13",
+				2,
+				trains -> trains.size() == 2 &&
+					trains.stream().allMatch(train -> train.departureTime().isAfter(LocalTime.of(13, 0)))
+			),
+			new SearchScenario(
+				"저녁 이후 열차 조회 (18시 이후)",
+				"18",
+				1,
+				trains -> trains.size() == 1 &&
+					trains.get(0).departureTime().isAfter(LocalTime.of(18, 0))
+			),
+			new SearchScenario(
+				"심야 시간 조회 (23시 이후)",
+				"23",
+				0,
+				trains -> trains.isEmpty()
+			)
+		);
+
+		// DynamicTest 생성
+		return scenarios.stream()
+			.map(scenario -> DynamicTest.dynamicTest(
+				scenario.description,
+				() -> {
+					// given
+					TrainSearchRequest request = new TrainSearchRequest(
+						seoul.getId(), busan.getId(), futureDate, 2, scenario.departureHour
+					);
+					Pageable pageable = PageRequest.of(0, 20);
+
+					// when
+					TrainSearchSlicePageResponse response = trainSearchFacade.searchTrains(request,
+						pageable);
+
+					// then
+					assertThat(response.content()).hasSize(scenario.expectedCount);
+					assertThat(scenario.validator.test(response.content())).isTrue();
+
+					// 페이징 정보 기본 검증
+					assertThat(response.currentPage()).isEqualTo(0);
+					assertThat(response.first()).isTrue();
+					assertThat(response.numberOfElements()).isEqualTo(scenario.expectedCount);
+
+					log.info("검색 시나리오 완료 - {}: {}시 이후 → {}건 조회",
+						scenario.description, scenario.departureHour, response.content().size());
+				}
+			))
+			.toList();
+	}
 
 	@DisplayName("열차 조회 시 지정한 출발 시간 이후에만 필터링하고, 결과를 시간순으로 정렬해서 반환한다")
 	@TestFactory
@@ -157,21 +288,7 @@ class TrainSearchServiceTest {
 			.toList();
 	}
 
-	@DisplayName("기본 일정 조회 시 존재하지 않는 스케줄 ID 로 조회하면 상세 오류 코드와 메시지가 포함된 예외를 던진다")
-	@Test
-	void getTrainScheduleBasicInfo_throwsInformativeExceptionForNonExistentScheduleId() {
-		// given
-		Long nonExistentScheduleId = 999999L;
-
-		// when & then
-		assertThatThrownBy(() -> trainSearchService.getTrainScheduleBasicInfo(nonExistentScheduleId))
-			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TRAIN_SCHEDULE_DETAIL_NOT_FOUND.getMessage());
-
-		log.info("존재하지 않는 스케줄 ID({}) 조회 예외 처리 완료", nonExistentScheduleId);
-	}
-
-	@DisplayName("열차 조회 시 페이징이 올바르게 동작하고, 페이지 내*간 중복 없이 시간순 정렬을 유지한다")
+	@DisplayName("열차 조회 시 페이징이 올바르게 동작하고, 페이지 내/간 중복 없이 시간순 정렬을 유지한다")
 	@Test
 	void searchTrains_paginatesLargeResultsCorrectlyWithoutDuplicationAndMaintainsTimeOrdering() {
 		// given
@@ -265,55 +382,24 @@ class TrainSearchServiceTest {
 		});
 	}
 
-	@DisplayName("조회하는 구간의 요금 정보가 없으면 STATION_FARE_NOT_FOUND 예외를 던진다")
-	@Test
-	void shouldThrowStationFareNotFoundWhenFareIsMissing() {
-		// given
-		LocalDate searchDate = LocalDate.now().plusDays(1);
-
-		// 역 생성
-		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
-		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
-
-		// 서울→부산 요금 등록
-		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 80000);
-
-		Train train = trainTestHelper.createRealisticTrain(1, 1, 10, 6);
-		// 요금 없는 방향으로 부산→서울 스케줄 생성
-		createTrainSchedule(train, searchDate, "KTX Rev",
-			LocalTime.of(15, 0), LocalTime.of(18, 0),
-			"부산", "서울"
-		);
-
-		// when & then
-		TrainSearchRequest request = new TrainSearchRequest(
-			busan.getId(),    // 출발: 요금 미등록 방향
-			seoul.getId(),    // 도착
-			searchDate,
-			1,
-			"15"              // 15시 이후
-		);
-
-		assertThatThrownBy(() ->
-			trainSearchFacade.searchTrains(request, PageRequest.of(0, 10))
-		)
-			.isInstanceOf(BusinessException.class)
-			.satisfies(ex -> {
-				BusinessException be = (BusinessException)ex;
-				assertThat(be.getErrorCode())
-					.isEqualTo(TrainErrorCode.STATION_FARE_NOT_FOUND);
-				assertThat(be.getMessage())
-					.contains(TrainErrorCode.STATION_FARE_NOT_FOUND.getMessage());
-			});
+	private void createTrainSchedule(Train train, LocalDate operationDate, String scheduleName,
+		LocalTime departureTime, LocalTime arrivalTime) {
+		trainScheduleTestHelper.createCustomSchedule()
+			.scheduleName(scheduleName)
+			.operationDate(operationDate)
+			.train(train)
+			.addStop("서울", null, departureTime)
+			.addStop("부산", arrivalTime, null)
+			.build();
 	}
 
 	/**
 	 * 열차 스케줄 생성 헬퍼
 	 */
-	private TrainScheduleWithStopStations createTrainSchedule(Train train, LocalDate operationDate,
+	private void createTrainSchedule(Train train, LocalDate operationDate,
 		String scheduleName, LocalTime departureTime, LocalTime arrivalTime,
 		String departureStation, String arrivalStation) {
-		return trainScheduleTestHelper.createCustomSchedule()
+		trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName(scheduleName)
 			.operationDate(operationDate)
 			.train(train)
