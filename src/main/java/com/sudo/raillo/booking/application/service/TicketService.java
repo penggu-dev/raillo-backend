@@ -45,21 +45,13 @@ public class TicketService {
 			.passengerType(passengerType)
 			.ticketStatus(TicketStatus.ISSUED)
 			.build();
-		try {
-			ticketRepository.save(ticket);
-		} catch (Exception e) {
-			throw new BusinessException(BookingError.TICKET_CREATE_FAILED);
-		}
+		ticketRepository.save(ticket);
 	}
 
 	public List<TicketReadResponse> getMyTickets(String username) {
 		Member member = memberRepository.findByMemberNo(username)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
-		try {
-			return ticketRepositoryCustom.findPaidTicketResponsesByMemberId(member.getId());
-		} catch (Exception e) {
-			throw new BusinessException(BookingError.TICKET_LIST_GET_FAILED);
-		}
+		return ticketRepositoryCustom.findPaidTicketResponsesByMemberId(member.getId());
 	}
 
 	@Transactional
