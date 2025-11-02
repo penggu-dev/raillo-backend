@@ -64,7 +64,6 @@ public class AuthService {
 		return new SignUpResponse(memberNo);
 	}
 
-	@Transactional
 	public TokenResponse login(LoginRequest request) {
 
 		UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
@@ -79,7 +78,6 @@ public class AuthService {
 		return tokenResponse;
 	}
 
-	@Transactional
 	public void logout(String accessToken, String memberNo) {
 
 		// Redis 에서 해당 memberNo 로 저장된 RefreshToken 이 있는지 여부 확인 후, 존재할 경우 삭제
@@ -93,7 +91,6 @@ public class AuthService {
 		authRedisRepository.saveLogoutToken(accessToken, logoutToken, expiration);
 	}
 
-	@Transactional
 	public ReissueTokenResponse reissueAccessToken(String refreshToken) {
 
 		String memberNo = tokenExtractor.getMemberNo(refreshToken);
@@ -106,5 +103,4 @@ public class AuthService {
 
 		return tokenGenerator.reissueAccessToken(refreshToken);
 	}
-
 }

@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class MemberService {
 
 	private final MemberRepository memberRepository;
@@ -34,7 +35,6 @@ public class MemberService {
 	/**
 	 * 비회원 등록
 	 * */
-	@Transactional
 	public GuestRegisterResponse guestRegister(GuestRegisterRequest request) {
 
 		// 중복 체크
@@ -58,7 +58,6 @@ public class MemberService {
 	/**
 	 * 회원 삭제
 	 * */
-	@Transactional
 	public void memberDelete(String accessToken, String memberNo) {
 
 		Member currentMember = memberRepository.findByMemberNo(memberNo)
@@ -101,5 +100,4 @@ public class MemberService {
 
 		return memberDetail.getEmail();
 	}
-
 }

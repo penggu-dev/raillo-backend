@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class CartReservationService {
 
 	private final MemberRepository memberRepository;
@@ -37,7 +38,6 @@ public class CartReservationService {
 	/**
 	 * 장바구니에 예약 등록
 	 */
-	@Transactional
 	public void createCartReservation(String memberNo, CartReservationCreateRequest request) {
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));

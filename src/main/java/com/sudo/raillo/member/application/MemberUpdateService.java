@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class MemberUpdateService {
 
 	private final MemberRepository memberRepository;
@@ -59,7 +60,6 @@ public class MemberUpdateService {
 		return emailAuthService.sendAuthCode(newEmail);
 	}
 
-	@Transactional
 	public void verifyUpdateEmail(UpdateEmailRequest request, String memberNo) {
 
 		Member member = memberRepository.findByMemberNo(memberNo)
@@ -82,7 +82,6 @@ public class MemberUpdateService {
 	/**
 	 * 회원 휴대폰 번호 변경
 	 * */
-	@Transactional
 	public void updatePhoneNumber(UpdatePhoneNumberRequest request, String memberNo) {
 
 		Member member = memberRepository.findByMemberNo(memberNo)
@@ -99,13 +98,11 @@ public class MemberUpdateService {
 		}
 
 		member.updatePhoneNumber(request.newPhoneNumber());
-
 	}
 
 	/**
 	 * 회원 비밀번호 변경
 	 * */
-	@Transactional
 	public void updatePassword(UpdatePasswordRequest request, String memberNo) {
 
 		Member member = memberRepository.findByMemberNo(memberNo)
@@ -116,7 +113,5 @@ public class MemberUpdateService {
 		}
 
 		member.updatePassword(passwordEncoder.encode(request.newPassword()));
-
 	}
-
 }

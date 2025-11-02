@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class ReservationFacade {
 
 	private final ReservationService reservationService;
@@ -32,7 +33,6 @@ public class ReservationFacade {
 	private final FareCalculationService fareCalculationService;
 	private final ReservationValidator reservationValidator;
 
-	@Transactional
 	public ReservationCreateResponse createReservation(ReservationCreateRequest request, String memberNo) {
 		// TODO: 요청 파라미터를 여기서 모두 검증할지, 각 서비스에서 검증할지 결정 필요
 		CarType carType = reservationService.findCarType(request.seatIds());
@@ -58,14 +58,12 @@ public class ReservationFacade {
 		return new ReservationCreateResponse(reservation.getId(), seatReservationIds);
 	}
 
-	@Transactional
 	public void cancelReservation(Reservation reservation) {
 		Long reservationId = reservation.getId();
 		seatReservationService.deleteSeatReservationByReservationId(reservationId);
 		ticketService.deleteTicketByReservationId(reservationId);
 	}
 
-	@Transactional
 	public void deleteReservationsByMember(Member member) {
 		reservationService.deleteAllByMemberId(member.getId());
 	}

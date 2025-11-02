@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class SeatReservationService {
 
 	private final SeatReservationRepository seatReservationRepository;
@@ -37,7 +38,6 @@ public class SeatReservationService {
 	 * @param seat Seat Entity
 	 * @return SeatReservation Entity
 	 */
-	@Transactional
 	public SeatReservation reserveNewSeat(Reservation reservation, Seat seat, PassengerType passengerType) {
 		try {
 			Long trainScheduleId = reservation.getTrainSchedule().getId();
@@ -67,7 +67,6 @@ public class SeatReservationService {
 		}
 	}
 
-	@Transactional
 	public List<Long> createSeatReservations(
 		Reservation reservation,
 		List<PassengerSummary> passengers,
@@ -82,14 +81,12 @@ public class SeatReservationService {
 			.toList();
 	}
 
-	@Transactional
 	public void deleteSeatReservation(Long seatReservationId) {
 		SeatReservation seatReservation = seatReservationRepository.findById(seatReservationId)
 			.orElseThrow(() -> new BusinessException(BookingError.SEAT_RESERVATION_NOT_FOUND));
 		seatReservationRepository.delete(seatReservation);
 	}
 
-	@Transactional
 	public void deleteSeatReservationByReservationId(Long reservationId) {
 		seatReservationRepository.deleteAllByReservationId(reservationId);
 	}

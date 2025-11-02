@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class TicketService {
 
 	private final QrService qrService;
@@ -48,20 +49,19 @@ public class TicketService {
 		ticketRepository.save(ticket);
 	}
 
+	@Transactional(readOnly = true)
 	public List<TicketReadResponse> getMyTickets(String username) {
 		Member member = memberRepository.findByMemberNo(username)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 		return ticketRepositoryCustom.findPaidTicketResponsesByMemberId(member.getId());
 	}
 
-	@Transactional
 	public void deleteTicketById(Long ticketId) {
 		Ticket ticket = ticketRepository.findById(ticketId)
 			.orElseThrow(() -> new BusinessException(BookingError.TICKET_NOT_FOUND));
 		ticketRepository.delete(ticket);
 	}
 
-	@Transactional
 	public void deleteTicketByReservationId(Long reservationId) {
 		ticketRepository.deleteAllByReservationId(reservationId);
 	}
