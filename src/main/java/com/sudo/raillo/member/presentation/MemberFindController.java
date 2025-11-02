@@ -14,7 +14,7 @@ import com.sudo.raillo.member.application.MemberFindService;
 import com.sudo.raillo.member.application.dto.request.FindMemberNoRequest;
 import com.sudo.raillo.member.application.dto.request.FindPasswordRequest;
 import com.sudo.raillo.member.application.dto.response.VerifyMemberNoResponse;
-import com.sudo.raillo.member.docs.MemberFindControllerDocs;
+import com.sudo.raillo.member.docs.MemberFindControllerDoc;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
-public class MemberFindController implements MemberFindControllerDocs {
+public class MemberFindController implements MemberFindControllerDoc {
 
 	private final MemberFindService memberFindService;
 

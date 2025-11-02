@@ -13,7 +13,7 @@ import com.sudo.raillo.auth.application.dto.request.SendCodeRequest;
 import com.sudo.raillo.auth.application.dto.request.VerifyCodeRequest;
 import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
 import com.sudo.raillo.auth.application.dto.response.VerifyCodeResponse;
-import com.sudo.raillo.auth.docs.EmailAuthControllerDocs;
+import com.sudo.raillo.auth.docs.EmailAuthControllerDoc;
 import com.sudo.raillo.auth.success.AuthSuccess;
 
 import jakarta.validation.Valid;
@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
-public class EmailAuthController implements EmailAuthControllerDocs {
+public class EmailAuthController implements EmailAuthControllerDoc {
 
 	private final EmailAuthService emailAuthService;
 	private final MemberService memberService;

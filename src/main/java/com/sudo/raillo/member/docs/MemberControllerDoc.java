@@ -16,7 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 
 @Tag(name = "Members", description = "👤 회원 API - 회원 정보 조회, 수정, 탈퇴, 관리 API")
-public interface MemberControllerDocs {
+public interface MemberControllerDoc {
 
 	@Operation(method = "POST", summary = "비회원 등록", description = "비회원 정보를 등록합니다.")
 	@ApiResponses(value = {

@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
-public interface MemberUpdateControllerDocs {
+public interface MemberUpdateControllerDoc {
 
 	@Operation(method = "POST", summary = "이메일 변경 요청", description = "요청으로 변경할 이메일을 받아 db 내 정보로 변경 가능 여부 확인 후 이메일 인증 코드를 보냅니다.",
 		tags = {"AuthMembers"},

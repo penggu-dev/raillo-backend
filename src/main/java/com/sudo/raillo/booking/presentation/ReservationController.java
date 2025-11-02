@@ -13,14 +13,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.booking.application.facade.ReservationFacade;
-import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
 import com.sudo.raillo.booking.application.service.ReservationDeletionService;
 import com.sudo.raillo.booking.application.service.ReservationQueryService;
-import com.sudo.raillo.booking.docs.ReservationControllerDocs;
+import com.sudo.raillo.booking.docs.ReservationControllerDoc;
 import com.sudo.raillo.booking.success.ReservationSuccess;
 import com.sudo.raillo.global.success.SuccessResponse;
 
@@ -29,10 +28,9 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v1/booking/reservation")
 @RequiredArgsConstructor
-public class ReservationController implements ReservationControllerDocs {
+public class ReservationController implements ReservationControllerDoc {
 
 	private final ReservationFacade reservationFacade;
-	private final ReservationService reservationService;
 	private final ReservationDeletionService reservationDeletionService;
 	private final ReservationQueryService reservationQueryService;
 

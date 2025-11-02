@@ -19,7 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Tag(name = "Authentication", description = "🔐 인증 API - 회원 로그인, 회원가입, 토큰 관리 API")
-public interface AuthControllerDocs {
+public interface AuthControllerDoc {
 
 	@Operation(method = "POST", summary = "회원가입", description = "사용자 정보를 받아 회원가입을 수행합니다.")
 	@ApiResponses(value = {

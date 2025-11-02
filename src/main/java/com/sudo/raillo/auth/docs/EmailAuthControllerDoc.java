@@ -16,7 +16,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @Tag(name = "Authentication", description = "🔐 인증 API - 회원 로그인, 회원가입, 토큰 관리 API")
-public interface EmailAuthControllerDocs {
+public interface EmailAuthControllerDoc {
 
 	@Operation(method = "POST", summary = "인증되지 않은 사용자용 이메일 인증코드 전송 요청", description = "회원번호 찾기, 비밀번호 찾기 등 로그인 할 수 없는 상황에서 사용되는 이메일 인증 요청입니다.")
 	@ApiResponses(value = {
