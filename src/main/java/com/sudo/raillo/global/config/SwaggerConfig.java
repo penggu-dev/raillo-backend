@@ -92,6 +92,9 @@ public class SwaggerConfig {
 				.name("Members")
 				.description("👤 회원 API - 회원 정보 조회, 수정, 탈퇴, 관리 API"),
 			new Tag()
+				.name("Trains")
+				.description("🚄 열차 조회 API - 열차 스케줄, 객차, 좌석 정보 조회 API"),
+			new Tag()
 				.name("Tickets")
 				.description("🚝 승차권 API - 승차권 조회, 발권, 취소 API"),
 			new Tag()

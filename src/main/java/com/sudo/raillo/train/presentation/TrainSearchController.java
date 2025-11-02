@@ -21,6 +21,7 @@ import com.sudo.raillo.train.application.dto.response.TrainCarListResponse;
 import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSuccess;
+import com.sudo.raillo.train.docs.TrainSearchControllerDoc;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Tag(name = "열차 조회", description = "열차 스케줄, 객차, 좌석 정보 조회 API")
 @Slf4j
-public class TrainSearchController {
+public class TrainSearchController implements TrainSearchControllerDoc {
 
 	private final TrainSearchService trainSearchService;
 	private final TrainSearchFacade trainSearchFacade;
@@ -43,7 +44,6 @@ public class TrainSearchController {
 	 * 운행 캘린더 조회
 	 */
 	@GetMapping("/calendar")
-	@Operation(summary = "운행 캘린더 조회", description = "금일로부터 한 달간의 운행 캘린더를 조회합니다.")
 	public SuccessResponse<List<OperationCalendarItem>> getOperationCalendar() {
 		log.info("운행 캘린더 조회");
 		List<OperationCalendarItem> calendar = trainSearchFacade.getOperationCalendar();
@@ -56,10 +56,6 @@ public class TrainSearchController {
 	 * 열차 스케줄 검색
 	 */
 	@PostMapping("/search")
-	@Operation(
-		summary = "열차 스케줄 검색",
-		description = "출발역, 도착역, 운행 날짜로 열차 스케줄 검색"
-	)
 	public SuccessResponse<TrainSearchSlicePageResponse> searchTrainSchedules(
 		@Valid @RequestBody TrainSearchRequest request,
 		@PageableDefault(size = 20, sort = "departureTime")
@@ -79,10 +75,6 @@ public class TrainSearchController {
 	 * 열차 객차 목록 조회 (잔여 좌석이 있는 객차만)
 	 */
 	@PostMapping("/cars")
-	@Operation(
-		summary = "열차 객차 목록 조회",
-		description = "선택한 열차의 잔여 좌석이 있는 객차 목록을 조회합니다. 프론트엔드에서 객차 선택용 드롭다운에 사용됩니다."
-	)
 	public SuccessResponse<TrainCarListResponse> getAvailableTrainCars(
 		@Valid @RequestBody TrainCarListRequest request) {
 
@@ -99,10 +91,6 @@ public class TrainSearchController {
 	}
 
 	@PostMapping("/seats")
-	@Operation(
-		summary = "열차 객차 좌석 상세 조회",
-		description = "선택한 객차의 모든 좌석 정보를 상세 조회합니다. 좌석 선택 화면에서 사용합니다."
-	)
 	public SuccessResponse<TrainCarSeatDetailResponse> getTrainCarSeatDetail(
 		@Valid @RequestBody TrainCarSeatDetailRequest request) {
 		log.info("열차 객차 좌석 상세 조회 요청: trainCarId={}, trainScheduleId={}, {}역 -> {}역",
