@@ -8,14 +8,12 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sudo.raillo.booking.application.service.FareCalculationService;
-import com.sudo.raillo.booking.application.service.SeatReservationService;
-import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
-import com.sudo.raillo.booking.application.mapper.SeatPassengerMapper;
-import com.sudo.raillo.booking.application.service.ReservationDeletionService;
+import com.sudo.raillo.booking.application.service.FareCalculationService;
 import com.sudo.raillo.booking.application.service.ReservationService;
+import com.sudo.raillo.booking.application.service.SeatReservationService;
+import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
@@ -31,7 +29,6 @@ public class ReservationFacade {
 	private final ReservationService reservationService;
 	private final SeatReservationService seatReservationService;
 	private final TicketService ticketService;
-	private final ReservationDeletionService reservationDeletionService;
 	private final FareCalculationService fareCalculationService;
 	private final ReservationValidator reservationValidator;
 
@@ -70,6 +67,6 @@ public class ReservationFacade {
 
 	@Transactional
 	public void deleteReservationsByMember(Member member) {
-		reservationDeletionService.deleteAllByMemberId(member.getId());
+		reservationService.deleteAllByMemberId(member.getId());
 	}
 }

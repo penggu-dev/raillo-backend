@@ -12,13 +12,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
-import com.sudo.raillo.booking.application.service.ReservationDeletionService;
-import com.sudo.raillo.booking.application.service.ReservationQueryService;
+import com.sudo.raillo.booking.application.facade.ReservationFacade;
+import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.docs.ReservationControllerDoc;
 import com.sudo.raillo.booking.success.ReservationSuccess;
 import com.sudo.raillo.global.success.SuccessResponse;
@@ -31,8 +30,7 @@ import lombok.RequiredArgsConstructor;
 public class ReservationController implements ReservationControllerDoc {
 
 	private final ReservationFacade reservationFacade;
-	private final ReservationDeletionService reservationDeletionService;
-	private final ReservationQueryService reservationQueryService;
+	private final ReservationService reservationService;
 
 	/***
 	 * 예약을 생성하는 메서드
@@ -56,7 +54,7 @@ public class ReservationController implements ReservationControllerDoc {
 	 */
 	@DeleteMapping
 	public SuccessResponse<?> deleteReservation(@RequestBody ReservationDeleteRequest request) {
-		reservationDeletionService.deleteReservation(request.reservationId());
+		reservationService.deleteReservation(request.reservationId());
 		return SuccessResponse.of(ReservationSuccess.RESERVATION_DELETE_SUCCESS);
 	}
 
@@ -70,7 +68,7 @@ public class ReservationController implements ReservationControllerDoc {
 	) {
 		String memberNo = userDetails.getUsername();
 
-		ReservationDetail detail = reservationQueryService.getReservation(memberNo, reservationId);
+		ReservationDetail detail = reservationService.getReservation(memberNo, reservationId);
 		return SuccessResponse.of(ReservationSuccess.RESERVATION_DETAIL_SUCCESS, detail);
 	}
 
@@ -83,7 +81,7 @@ public class ReservationController implements ReservationControllerDoc {
 	) {
 		String memberNo = userDetails.getUsername();
 
-		List<ReservationDetail> response = reservationQueryService.getReservations(memberNo);
+		List<ReservationDetail> response = reservationService.getReservations(memberNo);
 		return SuccessResponse.of(ReservationSuccess.RESERVATION_LIST_SUCCESS, response);
 	}
 }
