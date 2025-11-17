@@ -22,7 +22,7 @@ import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.payment.util.PaymentKeyGenerator;
-import com.sudo.raillo.train.infrastructure.SeatReservationRepositoryCustom;
+import com.sudo.raillo.train.infrastructure.SeatReservationQueryRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentService {
 
 	private final ReservationRepository reservationRepository;
-	private final SeatReservationRepositoryCustom seatReservationRepositoryCustom;
+	private final SeatReservationQueryRepository seatReservationQueryRepository;
 	private final MemberRepository memberRepository;
 	private final PaymentRepository paymentRepository;
 	private final PaymentKeyGenerator paymentKeyGenerator;
@@ -199,7 +199,7 @@ public class PaymentService {
 	}
 
 	private void generateTicket(Reservation reservation) {
-		seatReservationRepositoryCustom.findSeatInfoByReservationId(reservation.getId())
+		seatReservationQueryRepository.findSeatInfoByReservationId(reservation.getId())
 			.forEach(seatInfoProjection -> ticketService.createTicket(
 				reservation, seatInfoProjection.getSeat(), seatInfoProjection.getPassengerType()));
 	}

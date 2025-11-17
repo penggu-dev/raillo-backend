@@ -24,7 +24,7 @@ import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
-public class SeatReservationRepositoryCustomImpl implements SeatReservationRepositoryCustom {
+public class SeatReservationQueryRepository {
 
 	private final JPAQueryFactory queryFactory;
 
@@ -32,7 +32,6 @@ public class SeatReservationRepositoryCustomImpl implements SeatReservationRepos
 	 * 여러 열차의 특정 구간에서 겹치는 예약 정보를 일괄 조회
 	 * - 요청한 출발역~도착역 구간과 겹치는 예약 찾기
 	 */
-	@Override
 	public Map<Long, List<SeatReservationInfo>> findOverlappingReservationsBatch(List<Long> trainScheduleIds,
 		Long departureStationId, Long arrivalStationId) {
 
@@ -98,7 +97,6 @@ public class SeatReservationRepositoryCustomImpl implements SeatReservationRepos
 	/**
 	 * 여러 열차의 특정 구간에서 겹치는 입석 예약 수를 일괄 조회
 	 */
-	@Override
 	public Map<Long, Integer> countOverlappingStandingReservationsBatch(List<Long> trainScheduleIds,
 		Long departureStationId, Long arrivalStationId) {
 
@@ -148,7 +146,6 @@ public class SeatReservationRepositoryCustomImpl implements SeatReservationRepos
 	/**
 	 * 예약 ID로 해당 예약의 좌석 정보와 승객 타입을 조회 (PaymentService용)
 	 */
-	@Override
 	public List<SeatInfoProjection> findSeatInfoByReservationId(Long reservationId) {
 		return queryFactory
 			.select(new QSeatInfoProjection(

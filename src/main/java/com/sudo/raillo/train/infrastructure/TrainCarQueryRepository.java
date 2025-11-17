@@ -24,14 +24,13 @@ import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
-public class TrainCarQueryRepositoryCustomImpl implements TrainCarQueryRepositoryCustom {
+public class TrainCarQueryRepository {
 
 	private final JPAQueryFactory queryFactory;
 
 	/**
 	 * 열차 객차 목록 조회 (잔여 좌석이 있는 객차만)
 	 */
-	@Override
 	public List<TrainCarInfo> findAvailableTrainCars(Long trainScheduleId, Long departureStationId,
 		Long arrivalStationId) {
 		QTrainSchedule trainSchedule = QTrainSchedule.trainSchedule;

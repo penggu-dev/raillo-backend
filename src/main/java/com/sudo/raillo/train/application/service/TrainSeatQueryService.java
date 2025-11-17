@@ -1,10 +1,5 @@
 package com.sudo.raillo.train.application.service;
 
-import java.util.List;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
 import com.sudo.raillo.train.application.dto.projection.SeatProjection;
@@ -13,14 +8,13 @@ import com.sudo.raillo.train.application.dto.response.SeatDetail;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
 import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse;
 import com.sudo.raillo.train.exception.TrainErrorCode;
-import com.sudo.raillo.train.infrastructure.SeatRepositoryCustom;
-import com.sudo.raillo.train.infrastructure.StationRepository;
-import com.sudo.raillo.train.infrastructure.TrainCarQueryRepositoryCustom;
-import com.sudo.raillo.train.infrastructure.TrainCarRepository;
-import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
-
+import com.sudo.raillo.train.infrastructure.SeatQueryRepository;
+import com.sudo.raillo.train.infrastructure.TrainCarQueryRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -28,11 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional(readOnly = true)
 public class TrainSeatQueryService {
 
-	private final TrainCarQueryRepositoryCustom trainCarQueryRepositoryCustom;
-	private final SeatRepositoryCustom seatRepositoryCustom;
-	private final TrainScheduleRepository trainScheduleRepository;
-	private final TrainCarRepository trainCarRepository;
-	private final StationRepository stationRepository;
+	private final TrainCarQueryRepository trainCarQueryRepository;
+	private final SeatQueryRepository seatQueryRepository;
 
 	/**
 	 * 열차 객차 목록 조회 (잔여 좌석이 있는 객차만)
@@ -40,7 +31,7 @@ public class TrainSeatQueryService {
 	public List<TrainCarInfo> getAvailableTrainCars(Long trainScheduleId, Long departureStationId,
 		Long arrivalStationId) {
 		// 1. 잔여 좌석이 있는 객차 목록 조회
-		List<TrainCarInfo> availableCars = trainCarQueryRepositoryCustom.findAvailableTrainCars(
+		List<TrainCarInfo> availableCars = trainCarQueryRepository.findAvailableTrainCars(
 			trainScheduleId, departureStationId, arrivalStationId);
 
 		if (availableCars.isEmpty()) {
@@ -56,7 +47,7 @@ public class TrainSeatQueryService {
 	 */
 	public TrainCarSeatDetailResponse getTrainCarSeatDetail(TrainCarSeatDetailRequest request) {
 		// 1. 객차 좌석 상세 조회
-		TrainCarSeatInfo carSeatInfo = seatRepositoryCustom.findTrainCarSeatDetail(
+		TrainCarSeatInfo carSeatInfo = seatQueryRepository.findTrainCarSeatDetail(
 			request.trainCarId(),
 			request.trainScheduleId(),
 			request.departureStationId(),

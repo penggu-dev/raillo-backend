@@ -38,7 +38,7 @@ import lombok.RequiredArgsConstructor;
  */
 @Repository
 @RequiredArgsConstructor
-public class TrainScheduleRepositoryCustomImpl implements TrainScheduleRepositoryCustom {
+public class TrainScheduleQueryRepository {
 
 	private final JPAQueryFactory queryFactory;
 
@@ -46,7 +46,6 @@ public class TrainScheduleRepositoryCustomImpl implements TrainScheduleRepositor
 	 * 날짜 범위에서 활성 스케줄이 있는 날짜들 조회 (운행 스케줄 캘린더 조회)
 	 * TODO : 성능 모니터링 필요 : operation_calender 테이블, 배치, 캐시로 성능 개선 예정
 	 */
-	@Override
 	public Set<LocalDate> findDatesWithActiveSchedules(LocalDate startDate, LocalDate endDate) {
 		QTrainSchedule trainSchedule = QTrainSchedule.trainSchedule;
 
@@ -68,7 +67,6 @@ public class TrainScheduleRepositoryCustomImpl implements TrainScheduleRepositor
 	 * 열차 기본 정보 조회
 	 * - 출발역, 도착역을 경유하는 모든 열차 조회
 	 */
-	@Override
 	public Slice<TrainBasicInfo> findTrainBasicInfo(
 		Long departureStationId, Long arrivalStationId, LocalDate operationDate,
 		LocalTime departureTimeFrom, Pageable pageable) {
@@ -151,7 +149,6 @@ public class TrainScheduleRepositoryCustomImpl implements TrainScheduleRepositor
 	/**
 	 * 객차 타입별, 열차 전체 인원 조회
 	 */
-	@Override
 	public TrainSeatInfoBatch findTrainSeatInfoBatch(List<Long> trainScheduleIds) {
 		if (trainScheduleIds.isEmpty()) {
 			return new TrainSeatInfoBatch(Map.of(), Map.of());
