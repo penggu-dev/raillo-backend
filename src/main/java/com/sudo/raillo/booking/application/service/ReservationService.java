@@ -14,6 +14,7 @@ import com.sudo.raillo.booking.infrastructure.ReservationQueryRepository;
 import com.sudo.raillo.booking.infrastructure.ReservationRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
@@ -56,7 +57,8 @@ public class ReservationService {
 	 */
 	public Reservation createReservation(ReservationCreateRequest request, String memberNo, BigDecimal totalFare) {
 		TrainSchedule trainSchedule = getTrainSchedule(request);
-		Member member = memberRepository.getMember(memberNo);
+		Member member = memberRepository.findByMemberNo(memberNo)
+			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 		ScheduleStop departureStop = getStopStation(trainSchedule, request.departureStationId());
 		ScheduleStop arrivalStop = getStopStation(trainSchedule, request.arrivalStationId());
 
@@ -97,7 +99,8 @@ public class ReservationService {
 	 */
 	@Transactional(readOnly = true)
 	public ReservationDetail getReservation(String memberNo, Long reservationId) {
-		Member member = memberRepository.getMember(memberNo);
+		Member member = memberRepository.findByMemberNo(memberNo)
+			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 
 		List<ReservationInfo> reservationInfos = reservationQueryRepository.findReservationDetail(
 			member.getId(), List.of(reservationId));
@@ -125,7 +128,8 @@ public class ReservationService {
 	 */
 	@Transactional(readOnly = true)
 	public List<ReservationDetail> getReservations(String memberNo) {
-		Member member = memberRepository.getMember(memberNo);
+		Member member = memberRepository.findByMemberNo(memberNo)
+			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 
 		// 예약 조회
 		List<ReservationInfo> reservationInfos = reservationQueryRepository.findReservationDetail(member.getId());
