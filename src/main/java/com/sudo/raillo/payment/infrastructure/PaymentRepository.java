@@ -1,16 +1,13 @@
 package com.sudo.raillo.payment.infrastructure;
 
-import java.util.List;
+import com.sudo.raillo.payment.domain.Payment;
+import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import java.util.Optional;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.domain.status.PaymentStatus;
-
 @Repository
-public interface PaymentRepository extends JpaRepository<Payment, Long>, PaymentRepositoryCustom {
+public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
 	/**
 	 * 결제 키로 결제 정보 조회
@@ -18,14 +15,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, Payment
 	Optional<Payment> findByPaymentKey(String paymentKey);
 
 	/**
-	 * 회원의 모든 결제 목록 조회 (최신순)
-	 */
-	List<Payment> findByMemberIdOrderByPaidAtDesc(Long memberId);
-
-	/**
 	 * 예약 ID와 결제 상태로 결제 존재 여부 확인
 	 */
 	boolean existsByReservationIdAndPaymentStatus(Long reservationId, PaymentStatus paymentStatus);
-
-
 }

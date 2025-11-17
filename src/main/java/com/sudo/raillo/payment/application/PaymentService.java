@@ -20,6 +20,7 @@ import com.sudo.raillo.payment.application.dto.response.PaymentProcessResponse;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import com.sudo.raillo.payment.exception.PaymentError;
+import com.sudo.raillo.payment.infrastructure.PaymentQueryRepository;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.payment.util.PaymentKeyGenerator;
 import com.sudo.raillo.train.infrastructure.SeatReservationQueryRepository;
@@ -40,6 +41,7 @@ public class PaymentService {
 	private final SeatReservationQueryRepository seatReservationQueryRepository;
 	private final MemberRepository memberRepository;
 	private final PaymentRepository paymentRepository;
+	private final PaymentQueryRepository paymentQueryRepository;
 	private final PaymentKeyGenerator paymentKeyGenerator;
 	private final ReservationFacade reservationFacade;
 	private final TicketService ticketService;
@@ -54,7 +56,7 @@ public class PaymentService {
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 
-		List<PaymentProjection> paymentProjections = paymentRepository.findPaymentHistoryByMemberId(member.getId());
+		List<PaymentProjection> paymentProjections = paymentQueryRepository.findPaymentHistoryByMemberId(member.getId());
 
 		return paymentProjections.stream()
 			.map(paymentProjection -> new PaymentHistoryResponse(

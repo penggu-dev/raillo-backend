@@ -16,11 +16,10 @@ import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
-public class PaymentRepositoryCustomImpl implements PaymentRepositoryCustom {
+public class PaymentQueryRepository {
 
 	private final JPAQueryFactory queryFactory;
 
-	@Override
 	public List<PaymentProjection> findPaymentHistoryByMemberId(Long memberId) {
 		return queryFactory
 			.select(new QPaymentProjection(
