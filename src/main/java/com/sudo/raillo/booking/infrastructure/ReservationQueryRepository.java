@@ -1,4 +1,4 @@
-package com.sudo.raillo.booking.infrastructure.reservation;
+package com.sudo.raillo.booking.infrastructure;
 
 import static com.sudo.raillo.booking.domain.QReservation.*;
 import static com.sudo.raillo.booking.domain.QSeatReservation.*;
@@ -28,16 +28,14 @@ import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
-public class ReservationRepositoryCustomImpl implements ReservationRepositoryCustom {
+public class ReservationQueryRepository {
 
 	private final JPAQueryFactory queryFactory;
 
-	@Override
 	public List<ReservationInfo> findReservationDetail(Long memberId) {
 		return findReservationDetail(memberId, List.of());
 	}
 
-	@Override
 	public List<ReservationInfo> findReservationDetail(Long memberId, List<Long> reservationIds) {
 		QScheduleStop departureStop = new QScheduleStop("departureStop");
 		QScheduleStop arrivalStop = new QScheduleStop("arrivalStop");

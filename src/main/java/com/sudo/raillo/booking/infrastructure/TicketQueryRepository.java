@@ -1,4 +1,4 @@
-package com.sudo.raillo.booking.infrastructure.ticket;
+package com.sudo.raillo.booking.infrastructure;
 
 import static com.sudo.raillo.booking.domain.QReservation.*;
 import static com.sudo.raillo.booking.domain.QTicket.*;
@@ -23,11 +23,10 @@ import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
-public class TicketRepositoryCustomImpl implements TicketRepositoryCustom {
+public class TicketQueryRepository {
 
 	private final JPAQueryFactory queryFactory;
 
-	@Override
 	public List<TicketReadResponse> findPaidTicketResponsesByMemberId(Long memberId) {
 		QScheduleStop departureStop = new QScheduleStop("departureStop");
 		QScheduleStop arrivalStop = new QScheduleStop("arrivalStop");

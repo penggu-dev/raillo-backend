@@ -1,16 +1,5 @@
 package com.sudo.raillo.booking.application.service;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.sudo.raillo.booking.application.dto.ReservationInfo;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
@@ -21,8 +10,8 @@ import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.booking.infrastructure.reservation.ReservationRepository;
-import com.sudo.raillo.booking.infrastructure.reservation.ReservationRepositoryCustom;
+import com.sudo.raillo.booking.infrastructure.ReservationQueryRepository;
+import com.sudo.raillo.booking.infrastructure.ReservationRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -34,8 +23,16 @@ import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
-
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +45,7 @@ public class ReservationService {
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final ReservationRepository reservationRepository;
 	private final SeatRepository seatRepository;
-	private final ReservationRepositoryCustom reservationRepositoryCustom;
+	private final ReservationQueryRepository reservationQueryRepository;
 	private final ReservationCodeGenerator reservationCodeGenerator;
 	private final ReservationMapper reservationMapper;
 
@@ -102,7 +99,7 @@ public class ReservationService {
 	public ReservationDetail getReservation(String memberNo, Long reservationId) {
 		Member member = memberRepository.getMember(memberNo);
 
-		List<ReservationInfo> reservationInfos = reservationRepositoryCustom.findReservationDetail(
+		List<ReservationInfo> reservationInfos = reservationQueryRepository.findReservationDetail(
 			member.getId(), List.of(reservationId));
 
 		if (reservationInfos.isEmpty()) {
@@ -131,7 +128,7 @@ public class ReservationService {
 		Member member = memberRepository.getMember(memberNo);
 
 		// 예약 조회
-		List<ReservationInfo> reservationInfos = reservationRepositoryCustom.findReservationDetail(member.getId());
+		List<ReservationInfo> reservationInfos = reservationQueryRepository.findReservationDetail(member.getId());
 
 		// 만료된 예약이면 삭제 처리
 		LocalDateTime now = LocalDateTime.now();

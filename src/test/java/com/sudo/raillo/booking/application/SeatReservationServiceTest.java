@@ -17,7 +17,7 @@ import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.booking.infrastructure.SeatReservationRepository;
-import com.sudo.raillo.booking.infrastructure.reservation.ReservationRepository;
+import com.sudo.raillo.booking.infrastructure.ReservationRepository;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
