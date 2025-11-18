@@ -1,17 +1,14 @@
 package com.sudo.raillo.train.application.service;
 
+import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
+import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
-import com.sudo.raillo.train.infrastructure.TrainScheduleRepositoryCustom;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 열차 운행 캘린더 Service
@@ -23,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional(readOnly = true)
 public class TrainCalendarService {
 
-	private final TrainScheduleRepositoryCustom trainScheduleRepositoryCustom;
+	private final TrainScheduleQueryRepository trainScheduleQueryRepository;
 
 	/**
 	 * 운행 캘린더 조회
@@ -34,7 +31,7 @@ public class TrainCalendarService {
 		LocalDate endDate = startDate.plusMonths(1);
 
 		// 운행 날짜 조회 (Set으로 반환)
-		Set<LocalDate> datesWithSchedule = trainScheduleRepositoryCustom.findDatesWithActiveSchedules(startDate,
+		Set<LocalDate> datesWithSchedule = trainScheduleQueryRepository.findDatesWithActiveSchedules(startDate,
 			endDate);
 
 		List<OperationCalendarItem> calendar = startDate.datesUntil(endDate.plusDays(1))

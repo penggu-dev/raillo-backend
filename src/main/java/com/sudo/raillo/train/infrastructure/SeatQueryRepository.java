@@ -21,7 +21,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 @Slf4j
-public class SeatRepositoryCustomImpl implements SeatRepositoryCustom {
+public class SeatQueryRepository {
 
 	private final JPAQueryFactory queryFactory;
 
@@ -31,7 +31,6 @@ public class SeatRepositoryCustomImpl implements SeatRepositoryCustom {
 	 * - stopOrder 기반으로 해당 구간에서의 예약 상태 판단
 	 * - 좌석별 방향성, 특별 메시지 등 부가 정보 포함
 	 */
-	@Override
 	public TrainCarSeatInfo findTrainCarSeatDetail(Long trainCarId, Long trainScheduleId, Long departureStationId,
 												   Long arrivalStationId) {
 

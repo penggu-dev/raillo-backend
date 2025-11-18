@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
-import com.sudo.raillo.booking.infrastructure.reservation.ReservationRepository;
+import com.sudo.raillo.booking.infrastructure.ReservationRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;

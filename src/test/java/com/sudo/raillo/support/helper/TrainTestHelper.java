@@ -3,18 +3,8 @@ package com.sudo.raillo.support.helper;
 import com.sudo.raillo.support.fixture.SeatFixture;
 import com.sudo.raillo.support.fixture.TrainCarFixture;
 import com.sudo.raillo.support.fixture.TrainFixture;
-import com.sudo.raillo.train.infrastructure.TrainRepository;
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.sudo.raillo.support.repository.TestSeatRepository;
+import com.sudo.raillo.support.repository.TrainRepository;
 import com.sudo.raillo.train.config.TrainTemplateProperties.CarSpec;
 import com.sudo.raillo.train.config.TrainTemplateProperties.SeatColumn;
 import com.sudo.raillo.train.config.TrainTemplateProperties.SeatLayout;
@@ -26,9 +16,16 @@ import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.domain.type.SeatType;
 import com.sudo.raillo.train.domain.type.TrainType;
 import com.sudo.raillo.train.infrastructure.TrainCarRepository;
-
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @Slf4j

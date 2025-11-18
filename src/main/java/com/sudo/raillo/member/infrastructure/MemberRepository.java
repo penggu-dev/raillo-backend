@@ -10,10 +10,17 @@ import org.springframework.data.repository.query.Param;
 
 import com.sudo.raillo.member.domain.Member;
 
-public interface MemberRepository extends JpaRepository<Member, Long>, MemberRepositoryCustom {
-	boolean existsByMemberDetailEmail(String email);
+public interface MemberRepository extends JpaRepository<Member, Long> {
+
+	@Query("SELECT m FROM Member m WHERE m.memberDetail.memberNo = :memberNo")
+	Optional<Member> findByMemberNo (String memberNo);
+
+	@Query("SELECT m FROM Member m WHERE m.name = :name AND m.phoneNumber = :phoneNumber AND m.role = 'MEMBER'")
+	Optional<Member> findMemberByNameAndPhoneNumber(String name, String phoneNumber);
 
 	List<Member> findByNameAndPhoneNumber(String name, String phoneNumber);
+
+	boolean existsByMemberDetailEmail(String email);
 
 	boolean existsByPhoneNumber(String phoneNumber);
 

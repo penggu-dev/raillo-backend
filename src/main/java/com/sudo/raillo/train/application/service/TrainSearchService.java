@@ -1,14 +1,5 @@
 package com.sudo.raillo.train.application.service;
 
-import java.time.LocalTime;
-import java.util.List;
-import java.util.Map;
-
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.SeatReservationInfo;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
@@ -18,13 +9,19 @@ import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.exception.TrainErrorCode;
-import com.sudo.raillo.train.infrastructure.SeatReservationRepositoryCustom;
+import com.sudo.raillo.train.infrastructure.SeatReservationQueryRepository;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
+import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
-import com.sudo.raillo.train.infrastructure.TrainScheduleRepositoryCustom;
-
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 열차 검색 Service
@@ -39,9 +36,9 @@ public class TrainSearchService {
 	private static final int SEAT_BUFFER_THRESHOLD = 20; // 여유석 판단 기준
 
 	private final TrainScheduleRepository trainScheduleRepository;
-	private final TrainScheduleRepositoryCustom trainScheduleRepositoryCustom;
+	private final TrainScheduleQueryRepository trainScheduleQueryRepository;
 	private final StationFareRepository stationFareRepository;
-	private final SeatReservationRepositoryCustom seatReservationRepositoryCustom;
+	private final SeatReservationQueryRepository seatReservationQueryRepository;
 
 	/**
 	 * 기본 열차 정보 조회
@@ -49,7 +46,7 @@ public class TrainSearchService {
 	public Slice<TrainBasicInfo> findTrainBasicInfo(TrainSearchRequest request, Pageable pageable) {
 		LocalTime departureTimeFrom = request.getDepartureTimeFilter();
 
-		Slice<TrainBasicInfo> trainPage = trainScheduleRepositoryCustom.findTrainBasicInfo(
+		Slice<TrainBasicInfo> trainPage = trainScheduleQueryRepository.findTrainBasicInfo(
 			request.departureStationId(),
 			request.arrivalStationId(),
 			request.operationDate(),
@@ -90,7 +87,7 @@ public class TrainSearchService {
 	 * 열차 좌석 정보 배치 조회
 	 */
 	public TrainSeatInfoBatch findTrainSeatInfoBatch(List<Long> trainScheduleIds) {
-		return trainScheduleRepositoryCustom.findTrainSeatInfoBatch(trainScheduleIds);
+		return trainScheduleQueryRepository.findTrainSeatInfoBatch(trainScheduleIds);
 	}
 
 	/**
@@ -98,7 +95,7 @@ public class TrainSearchService {
 	 */
 	public Map<Long, List<SeatReservationInfo>> findOverlappingReservationsBatch(
 		List<Long> trainScheduleIds, Long departureStationId, Long arrivalStationId) {
-		return seatReservationRepositoryCustom.findOverlappingReservationsBatch(
+		return seatReservationQueryRepository.findOverlappingReservationsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId);
 	}
 
@@ -107,7 +104,7 @@ public class TrainSearchService {
 	 */
 	public Map<Long, Integer> countOverlappingStandingReservationsBatch(
 		List<Long> trainScheduleIds, Long departureStationId, Long arrivalStationId) {
-		return seatReservationRepositoryCustom.countOverlappingStandingReservationsBatch(
+		return seatReservationQueryRepository.countOverlappingStandingReservationsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId);
 	}
 

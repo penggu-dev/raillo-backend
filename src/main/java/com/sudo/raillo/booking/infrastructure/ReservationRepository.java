@@ -1,4 +1,4 @@
-package com.sudo.raillo.booking.infrastructure.reservation;
+package com.sudo.raillo.booking.infrastructure;
 
 import java.time.LocalDateTime;
 

@@ -1,27 +1,9 @@
 package com.sudo.raillo.train.application.service;
 
-import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.*;
-import static com.sudo.raillo.train.exception.TrainErrorCode.*;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.BDDMockito.*;
-
-import java.lang.reflect.Field;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.SliceImpl;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.verify;
 
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.support.fixture.StationFareFixture;
@@ -41,12 +23,27 @@ import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.domain.type.TrainType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
-import com.sudo.raillo.train.infrastructure.SeatReservationRepositoryCustom;
+import com.sudo.raillo.train.infrastructure.SeatReservationQueryRepository;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
+import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
-import com.sudo.raillo.train.infrastructure.TrainScheduleRepositoryCustom;
-
+import java.lang.reflect.Field;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
 
 @Slf4j
 @ExtendWith(MockitoExtension.class)
@@ -59,13 +56,13 @@ class TrainSearchServiceTest {
 	private TrainScheduleRepository trainScheduleRepository;
 
 	@Mock
-	private TrainScheduleRepositoryCustom trainScheduleRepositoryCustom;
+	private TrainScheduleQueryRepository trainScheduleQueryRepository;
 
 	@Mock
 	private StationFareRepository stationFareRepository;
 
 	@Mock
-	private SeatReservationRepositoryCustom seatReservationRepositoryCustom;
+	private SeatReservationQueryRepository seatReservationQueryRepository;
 
 	@DisplayName("출발역, 도착역, 운행일, 출발시간으로 열차 기본 정보를 조회한다")
 	@Test
@@ -94,7 +91,7 @@ class TrainSearchServiceTest {
 		);
 		Slice<TrainBasicInfo> trainSlice = new SliceImpl<>(trainInfoList, pageable, false);
 
-		given(trainScheduleRepositoryCustom.findTrainBasicInfo(
+		given(trainScheduleQueryRepository.findTrainBasicInfo(
 			departureStationId, arrivalStationId, operationDate, LocalTime.of(10, 0), pageable
 		)).willReturn(trainSlice);
 
@@ -106,7 +103,7 @@ class TrainSearchServiceTest {
 		assertThat(result.getContent().get(0).trainScheduleId()).isEqualTo(1L);
 		assertThat(result.getContent().get(0).trainName()).isEqualTo("KTX");
 
-		verify(trainScheduleRepositoryCustom).findTrainBasicInfo(
+		verify(trainScheduleQueryRepository).findTrainBasicInfo(
 			departureStationId, arrivalStationId, operationDate, LocalTime.of(10, 0), pageable
 		);
 	}
@@ -245,7 +242,7 @@ class TrainSearchServiceTest {
 			mockTotalSeatsCount
 		);
 
-		given(trainScheduleRepositoryCustom.findTrainSeatInfoBatch(trainScheduleIds))
+		given(trainScheduleQueryRepository.findTrainSeatInfoBatch(trainScheduleIds))
 			.willReturn(batchInfo);
 
 		// when
@@ -257,7 +254,7 @@ class TrainSearchServiceTest {
 			.containsEntry(CarType.STANDARD, 120)
 			.containsEntry(CarType.FIRST_CLASS, 36);
 
-		verify(trainScheduleRepositoryCustom).findTrainSeatInfoBatch(trainScheduleIds);
+		verify(trainScheduleQueryRepository).findTrainSeatInfoBatch(trainScheduleIds);
 	}
 
 	@DisplayName("여러 열차의 겹치는 예약 정보를 한 번에 조회한다")
@@ -273,7 +270,7 @@ class TrainSearchServiceTest {
 			2L, List.of(new SeatReservationInfo(2L, CarType.FIRST_CLASS, 1L, 2L))
 		);
 
-		given(seatReservationRepositoryCustom.findOverlappingReservationsBatch(
+		given(seatReservationQueryRepository.findOverlappingReservationsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId
 		)).willReturn(mockReservations);
 
@@ -286,7 +283,7 @@ class TrainSearchServiceTest {
 		assertThat(result).hasSize(2);
 		assertThat(result.get(1L)).hasSize(1);
 
-		verify(seatReservationRepositoryCustom).findOverlappingReservationsBatch(
+		verify(seatReservationQueryRepository).findOverlappingReservationsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId
 		);
 		log.info("겹치는 예약 배치 조회 테스트 완료");
@@ -305,7 +302,7 @@ class TrainSearchServiceTest {
 			2L, 3
 		);
 
-		given(seatReservationRepositoryCustom.countOverlappingStandingReservationsBatch(
+		given(seatReservationQueryRepository.countOverlappingStandingReservationsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId
 		)).willReturn(mockStandingCounts);
 
@@ -319,7 +316,7 @@ class TrainSearchServiceTest {
 		assertThat(result.get(1L)).isEqualTo(5);
 		assertThat(result.get(2L)).isEqualTo(3);
 
-		verify(seatReservationRepositoryCustom).countOverlappingStandingReservationsBatch(
+		verify(seatReservationQueryRepository).countOverlappingStandingReservationsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId
 		);
 	}

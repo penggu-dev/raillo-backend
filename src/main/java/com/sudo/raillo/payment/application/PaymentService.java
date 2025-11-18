@@ -4,7 +4,7 @@ import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.booking.infrastructure.reservation.ReservationRepository;
+import com.sudo.raillo.booking.infrastructure.ReservationRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
@@ -20,9 +20,10 @@ import com.sudo.raillo.payment.application.dto.response.PaymentProcessResponse;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import com.sudo.raillo.payment.exception.PaymentError;
+import com.sudo.raillo.payment.infrastructure.PaymentQueryRepository;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.payment.util.PaymentKeyGenerator;
-import com.sudo.raillo.train.infrastructure.SeatReservationRepositoryCustom;
+import com.sudo.raillo.train.infrastructure.SeatReservationQueryRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -37,9 +38,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentService {
 
 	private final ReservationRepository reservationRepository;
-	private final SeatReservationRepositoryCustom seatReservationRepositoryCustom;
+	private final SeatReservationQueryRepository seatReservationQueryRepository;
 	private final MemberRepository memberRepository;
 	private final PaymentRepository paymentRepository;
+	private final PaymentQueryRepository paymentQueryRepository;
 	private final PaymentKeyGenerator paymentKeyGenerator;
 	private final ReservationFacade reservationFacade;
 	private final TicketService ticketService;
@@ -54,7 +56,7 @@ public class PaymentService {
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 
-		List<PaymentProjection> paymentProjections = paymentRepository.findPaymentHistoryByMemberId(member.getId());
+		List<PaymentProjection> paymentProjections = paymentQueryRepository.findPaymentHistoryByMemberId(member.getId());
 
 		return paymentProjections.stream()
 			.map(paymentProjection -> new PaymentHistoryResponse(
@@ -199,7 +201,7 @@ public class PaymentService {
 	}
 
 	private void generateTicket(Reservation reservation) {
-		seatReservationRepositoryCustom.findSeatInfoByReservationId(reservation.getId())
+		seatReservationQueryRepository.findSeatInfoByReservationId(reservation.getId())
 			.forEach(seatInfoProjection -> ticketService.createTicket(
 				reservation, seatInfoProjection.getSeat(), seatInfoProjection.getPassengerType()));
 	}
