@@ -1,5 +1,6 @@
 package com.sudo.raillo.booking.presentation;
 
+import com.sudo.raillo.booking.application.service.ReservationQueryService;
 import java.util.List;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,32 +32,7 @@ public class ReservationController implements ReservationControllerDoc {
 
 	private final ReservationFacade reservationFacade;
 	private final ReservationService reservationService;
-
-	/***
-	 * 예약을 생성하는 메서드
-	 * @param request 예약 생성 요청 DTO
-	 * @return 예약 생성 성공 응답
-	 */
-	@PostMapping
-	public SuccessResponse<ReservationCreateResponse> createReservation(
-		@RequestBody ReservationCreateRequest request,
-		@AuthenticationPrincipal UserDetails userDetails
-	) {
-		ReservationCreateResponse response = reservationFacade
-			.createReservation(request, userDetails.getUsername());
-		return SuccessResponse.of(ReservationSuccess.RESERVATION_CREATE_SUCCESS, response);
-	}
-
-	/***
-	 * 예약을 삭제하는 메서드
-	 * @param request 예약 삭제 요청 DTO
-	 * @return 예약 삭제 성공 응답
-	 */
-	@DeleteMapping
-	public SuccessResponse<?> deleteReservation(@RequestBody ReservationDeleteRequest request) {
-		reservationService.deleteReservation(request.reservationId());
-		return SuccessResponse.of(ReservationSuccess.RESERVATION_DELETE_SUCCESS);
-	}
+	private final ReservationQueryService reservationQueryService;
 
 	/**
 	 * 예약을 조회하는 메서드
@@ -68,7 +44,7 @@ public class ReservationController implements ReservationControllerDoc {
 	) {
 		String memberNo = userDetails.getUsername();
 
-		ReservationDetail detail = reservationService.getReservation(memberNo, reservationId);
+		ReservationDetail detail = reservationQueryService.getReservation(memberNo, reservationId);
 		return SuccessResponse.of(ReservationSuccess.RESERVATION_DETAIL_SUCCESS, detail);
 	}
 
@@ -81,7 +57,32 @@ public class ReservationController implements ReservationControllerDoc {
 	) {
 		String memberNo = userDetails.getUsername();
 
-		List<ReservationDetail> response = reservationService.getReservations(memberNo);
+		List<ReservationDetail> response = reservationQueryService.getReservations(memberNo);
 		return SuccessResponse.of(ReservationSuccess.RESERVATION_LIST_SUCCESS, response);
+	}
+
+	/***
+	 * 예약을 생성하는 메서드
+	 * @param request 예약 생성 요청 DTO
+	 * @return 예약 생성 성공 응답
+	 */
+	@PostMapping
+	public SuccessResponse<ReservationCreateResponse> createReservation(
+		@RequestBody ReservationCreateRequest request,
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
+		ReservationCreateResponse response = reservationFacade.createReservation(request, userDetails.getUsername());
+		return SuccessResponse.of(ReservationSuccess.RESERVATION_CREATE_SUCCESS, response);
+	}
+
+	/***
+	 * 예약을 삭제하는 메서드
+	 * @param request 예약 삭제 요청 DTO
+	 * @return 예약 삭제 성공 응답
+	 */
+	@DeleteMapping
+	public SuccessResponse<?> deleteReservation(@RequestBody ReservationDeleteRequest request) {
+		reservationService.deleteReservation(request.reservationId());
+		return SuccessResponse.of(ReservationSuccess.RESERVATION_DELETE_SUCCESS);
 	}
 }
