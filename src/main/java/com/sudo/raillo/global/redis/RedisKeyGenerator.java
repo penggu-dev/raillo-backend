@@ -13,6 +13,7 @@ public class RedisKeyGenerator {
 	private static final String EMAIL_AUTH_CODE_KEY_PREFIX = "auth:email:{email}";
 	private static final String REFRESH_TOKEN_KEY_PREFIX = "auth:no:{memberNo}:refreshToken";
 	private static final String LOGOUT_KEY_PREFIX = "auth:accessToken:{token}:logout";
+	private static final String PENDING_RESERVATION_KEY_PREFIX = "booking:pendingReservation:{pendingId}";
 
 	public String generateMemberNoKey(String email) {
 		return MEMBER_NO_KEY_PREFIX.replace("{email}", email);
@@ -32,6 +33,10 @@ public class RedisKeyGenerator {
 
 	public String generateLogoutTokenKey(String accessToken) {
 		return LOGOUT_KEY_PREFIX.replace("{token}", accessToken);
+	}
+
+	public String generatePendingReservationKey(String pendingId) {
+		return PENDING_RESERVATION_KEY_PREFIX.replace("{pendingId}", pendingId);
 	}
 
 }
