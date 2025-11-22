@@ -15,7 +15,7 @@ import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.GreenMailUtil;
 import com.icegreen.greenmail.util.ServerSetup;
 import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
-import com.sudo.raillo.global.redis.AuthRedisRepository;
+import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 
 @ServiceTest

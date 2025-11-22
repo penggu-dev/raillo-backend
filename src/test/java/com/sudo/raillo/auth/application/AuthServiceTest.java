@@ -11,7 +11,7 @@ import com.sudo.raillo.auth.application.dto.response.TokenResponse;
 import com.sudo.raillo.auth.exception.TokenError;
 import com.sudo.raillo.auth.security.jwt.TokenGenerator;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.global.redis.AuthRedisRepository;
+import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 import com.sudo.raillo.global.redis.RedisKeyGenerator;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.domain.MemberDetail;

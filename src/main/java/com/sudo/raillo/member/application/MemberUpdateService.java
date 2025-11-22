@@ -6,7 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.auth.application.EmailAuthService;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.global.redis.MemberRedisRepository;
+import com.sudo.raillo.member.infrastructure.MemberRedisRepository;
 import com.sudo.raillo.auth.application.dto.request.SendCodeRequest;
 import com.sudo.raillo.member.application.dto.request.UpdateEmailRequest;
 import com.sudo.raillo.member.application.dto.request.UpdatePasswordRequest;

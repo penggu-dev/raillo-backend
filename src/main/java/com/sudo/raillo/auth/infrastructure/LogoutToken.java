@@ -1,4 +1,4 @@
-package com.sudo.raillo.global.redis;
+package com.sudo.raillo.auth.infrastructure;
 
 import java.time.Duration;
 

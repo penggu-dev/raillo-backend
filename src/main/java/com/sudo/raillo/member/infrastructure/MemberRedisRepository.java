@@ -1,5 +1,6 @@
-package com.sudo.raillo.global.redis;
+package com.sudo.raillo.member.infrastructure;
 
+import com.sudo.raillo.global.redis.RedisKeyGenerator;
 import java.time.Duration;
 
 import org.springframework.data.redis.core.RedisTemplate;
