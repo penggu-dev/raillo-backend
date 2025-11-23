@@ -265,4 +265,11 @@ public class PaymentService {
 
 		log.info("예약 환불 처리: reservationId={}", reservation.getId());
 	}
+
+	/**
+	 * 임시 코드
+	 */
+	public Payment processPayment() {
+		return Payment.create(null, null, null, null);
+	}
 }

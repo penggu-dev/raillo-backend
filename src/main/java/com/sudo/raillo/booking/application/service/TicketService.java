@@ -62,4 +62,14 @@ public class TicketService {
 	public void deleteTicketByReservationId(Long reservationId) {
 		ticketRepository.deleteAllByReservationId(reservationId);
 	}
+
+	/**
+	 * 임시코드
+	 */
+	public void createTicket(Reservation reservation) {
+		Ticket ticket = Ticket.builder()
+			.reservation(reservation)
+			.build();
+		ticketRepository.save(ticket);
+	}
 }

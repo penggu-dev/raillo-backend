@@ -13,6 +13,7 @@ import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
+import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
@@ -166,5 +167,13 @@ public class ReservationService {
 			.departureStop(departureStop)
 			.arrivalStop(arrivalStop)
 			.build();
+	}
+
+	/**
+	 * 임시코드
+	 */
+	public Reservation createReservation(Payment payment) {
+		Reservation reservation = Reservation.builder().build();
+		return reservationRepository.save(reservation);
 	}
 }
