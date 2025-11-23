@@ -52,12 +52,4 @@ public class PendingReservationRedisRepository {
 		String key = redisKeyGenerator.generatePendingReservationKey(pendingId);
 		return objectRedisTemplate.hasKey(key);
 	}
-
-	/**
-	 * 임시 예약의 남은 TTL 조회 (초 단위)
-	 */
-	public Long getTimeToLive(String pendingId) {
-		String key = redisKeyGenerator.generatePendingReservationKey(pendingId);
-		return objectRedisTemplate.getExpire(key);
-	}
 }
