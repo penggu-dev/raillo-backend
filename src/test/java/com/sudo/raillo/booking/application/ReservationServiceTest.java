@@ -1,21 +1,12 @@
 package com.sudo.raillo.booking.application;
 
-import static org.assertj.core.api.Assertions.*;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
+import com.sudo.raillo.booking.application.service.ReservationQueryService;
 import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
@@ -35,8 +26,16 @@ import com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithS
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 @Slf4j
@@ -59,6 +58,9 @@ class ReservationServiceTest {
 
 	@Autowired
 	private ReservationRepository reservationRepository;
+
+	@Autowired
+	private ReservationQueryService ReservationQueryService;
 
 	private Member member;
 	private Train train;
@@ -115,7 +117,7 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when
-		ReservationDetail result = reservationService.getReservation(memberNo, entity.getId());
+		ReservationDetail result = ReservationQueryService.getReservation(memberNo, entity.getId());
 
 		// then
 		assertThat(result.reservationId()).isEqualTo(entity.getId());
@@ -138,7 +140,7 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when & then
-		assertThatThrownBy(() -> reservationService.getReservation(memberNo, 2L))
+		assertThatThrownBy(() -> ReservationQueryService.getReservation(memberNo, 2L))
 			.isInstanceOf(BusinessException.class);
 
 		reservationRepository.save(reservation);
@@ -165,7 +167,7 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when & then
-		assertThatThrownBy(() -> reservationService.getReservation(memberNo, entity.getId()))
+		assertThatThrownBy(() -> ReservationQueryService.getReservation(memberNo, entity.getId()))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.RESERVATION_EXPIRED.getMessage());
 	}
@@ -199,7 +201,7 @@ class ReservationServiceTest {
 		Reservation entity2 = reservationRepository.save(reservation2);
 
 		// when
-		List<ReservationDetail> result = reservationService.getReservations(memberNo);
+		List<ReservationDetail> result = ReservationQueryService.getReservations(memberNo);
 
 		// then
 		assertThat(result.size()).isEqualTo(2);
@@ -262,7 +264,7 @@ class ReservationServiceTest {
 		Reservation entity2 = reservationRepository.save(reservation2);
 
 		// when
-		List<ReservationDetail> result = reservationService.getReservations(memberNo);
+		List<ReservationDetail> result = ReservationQueryService.getReservations(memberNo);
 
 		// then
 		assertThat(result.size()).isEqualTo(1);
