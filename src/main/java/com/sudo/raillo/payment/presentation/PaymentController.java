@@ -2,6 +2,7 @@ package com.sudo.raillo.payment.presentation;
 
 import java.util.List;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.payment.application.PaymentFacade;
 import com.sudo.raillo.payment.application.PaymentService;
+import com.sudo.raillo.payment.application.dto.request.PaymentCallbackRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentProcessAccountRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentProcessCardRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentCancelResponse;
@@ -31,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/v1/payments")
 public class PaymentController {
 
+	private final PaymentFacade paymentFacade;
 	private final PaymentService paymentService;
 
 	@Operation(summary = "결제 처리 (카드)", description = "예약에 대한 결제를 카드를 이용해 처리합니다.")
@@ -77,5 +81,18 @@ public class PaymentController {
 		List<PaymentHistoryResponse> response = paymentService.getPaymentHistory(memberNo);
 
 		return SuccessResponse.of(PaymentSuccess.PAYMENT_HISTORY_SUCCESS, response);
+	}
+
+	@PostMapping("/callback")
+	@Operation(
+		summary = "결제 완료 콜백",
+		description = "외부 결제 시스템(토스페이먼츠)에서 호출하는 콜백 엔드포인트"
+	)
+	public ResponseEntity<Void> handlePaymentCallback(
+		@RequestBody @Valid PaymentCallbackRequest request,
+			@AuthenticationPrincipal String memberNo
+	) {
+		paymentFacade.processPaymentCallback(request, memberNo);
+		return ResponseEntity.ok().build();
 	}
 }
