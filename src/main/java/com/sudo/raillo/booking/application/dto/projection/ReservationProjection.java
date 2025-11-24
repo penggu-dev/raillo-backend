@@ -20,7 +20,6 @@ public class ReservationProjection {
 	private final LocalTime departureTime;
 	private final LocalTime arrivalTime;
 	private final LocalDate operationDate;
-	private final LocalDateTime expiresAt;
 	private final int fare;
 
 	@QueryProjection
@@ -34,7 +33,6 @@ public class ReservationProjection {
 		LocalTime departureTime,
 		LocalTime arrivalTime,
 		LocalDate operationDate,
-		LocalDateTime expiresAt,
 		int fare
 	) {
 		this.reservationId = reservationId;
@@ -46,7 +44,6 @@ public class ReservationProjection {
 		this.departureTime = departureTime;
 		this.arrivalTime = arrivalTime;
 		this.operationDate = operationDate;
-		this.expiresAt = expiresAt;
 		this.fare = fare;
 	}
 }

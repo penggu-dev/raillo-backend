@@ -41,7 +41,6 @@ public class ReservationMapper {
 			reservationInfo.departureTime(),
 			reservationInfo.arrivalTime(),
 			reservationInfo.operationDate(),
-			reservationInfo.expiresAt(),
 			reservationInfo.fare(),
 			convertToSeatReservationDetail(reservationInfo.seats())
 		);

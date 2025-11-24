@@ -132,7 +132,6 @@ public class PaymentService {
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 
-		validateReservation(member, reservation);
 		validatePaymentProcessRequest(request, reservation);
 
 		String paymentKey = paymentKeyGenerator.generatePaymentKey(memberNo);
@@ -140,18 +139,6 @@ public class PaymentService {
 		Payment payment = Payment.create(member, reservation, paymentKey, paymentInfo);
 
 		return paymentRepository.save(payment);
-	}
-
-	private void validateReservation(Member member, Reservation reservation) {
-		// 예약 소유자 검증
-		if (!reservation.getMember().getId().equals(member.getId())) {
-			throw new BusinessException(PaymentError.RESERVATION_ACCESS_DENIED);
-		}
-
-		// 예약 상태 검증 (결제 가능한 상태인지)
-		if (!reservation.canBePaid()) {
-			throw new BusinessException(PaymentError.RESERVATION_NOT_PAYABLE);
-		}
 	}
 
 	private void validatePaymentProcessRequest(PaymentProcessRequest request, Reservation reservation) {
@@ -171,25 +158,11 @@ public class PaymentService {
 		if (!payment.canBePaid()) {
 			throw new BusinessException(PaymentError.PAYMENT_NOT_APPROVABLE);
 		}
-
-		// 예약 상태 재검증 (동시성 문제 방지)
-		if (!reservation.canBePaid()) {
-			throw new BusinessException(PaymentError.RESERVATION_NOT_PAYABLE);
-		}
 	}
 
 	private void executePaymentApproval(Payment payment, Reservation reservation) {
 		// 결제 승인 처리
 		payment.approve();
-
-		// 예약 상태 변경
-		markReservationAsPaid(reservation);
-	}
-
-	private void markReservationAsPaid(Reservation reservation) {
-		reservation.approve();
-
-		log.info("예약 결제 완료 처리: reservationId={}", reservation.getId());
 	}
 
 	private void completePaymentProcess(PaymentProcessRequest request, Payment payment, Reservation reservation) {

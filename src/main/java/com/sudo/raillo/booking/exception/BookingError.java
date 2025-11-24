@@ -18,7 +18,6 @@ public enum BookingError implements ErrorCode {
 	SEAT_ALREADY_CANCELLED("이미 취소된 좌석입니다.", HttpStatus.CONFLICT, "B_005"),
 	SEAT_NOT_AVAILABLE("사용가능한 좌석이 아닙니다.", HttpStatus.BAD_REQUEST, "B_006"),
 	SEAT_NOT_RESERVED("예약된 좌석이 아닙니다.", HttpStatus.BAD_REQUEST, "B_007"),
-	EXPIRED_SEAT_CANCELLATION_FAILED("만료된 좌석 취소에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_008"),
 	RESERVATION_CREATE_FAILED("예약에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_009"),
 	RESERVATION_DELETE_FAILED("예약 취소에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_010"),
 	TRAIN_NOT_OPERATIONAL("운행중인 스케줄이 아닙니다.", HttpStatus.BAD_REQUEST, "B_011"),
@@ -26,7 +25,6 @@ public enum BookingError implements ErrorCode {
 	QR_CREATE_FAILED("QR 생성에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_013"),
 	TICKET_CREATE_FAILED("티켓 생성에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_014"),
 	TICKET_LIST_GET_FAILED("티켓을 가져올 수 없습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_015"),
-	RESERVATION_EXPIRED("예약이 만료되었습니다.", HttpStatus.GONE, "B_017"),
 	SEAT_RESERVATION_NOT_FOUND("좌석 예약 상태를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_018"),
 	TICKET_NOT_FOUND("티켓을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_019"),
 

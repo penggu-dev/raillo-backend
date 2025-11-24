@@ -37,9 +37,6 @@ public record ReservationDetail(
 	@Schema(description = "운행일", example = "2025-07-01")
 	LocalDate operationDate,
 
-	@Schema(description = "만료시간", example = "2025-07-01 17:38:59.984686")
-	LocalDateTime expiresAt,
-
 	@Schema(description = "운임 (원)", example = "29000")
 	int fare,
 
@@ -57,7 +54,6 @@ public record ReservationDetail(
 		LocalTime departureTime,
 		LocalTime arrivalTime,
 		LocalDate operationDate,
-		LocalDateTime expiresAt,
 		int fare,
 		List<SeatReservationDetail> seats
 	) {
@@ -71,7 +67,6 @@ public record ReservationDetail(
 			departureTime,
 			arrivalTime,
 			operationDate,
-			expiresAt,
 			fare,
 			seats
 		);
