@@ -11,6 +11,7 @@ import com.sudo.raillo.booking.application.dto.projection.SeatReservationProject
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
 import com.sudo.raillo.booking.application.dto.response.SeatReservationDetail;
+import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 
@@ -46,11 +47,11 @@ public class ReservationMapper {
 		);
 	}
 
-	public String convertPassengersToJson(ReservationCreateRequest request) {
+	public String convertPassengersToJson(List<PassengerSummary> passengerSummaries) {
 		try {
-			return objectMapper.writeValueAsString(request.passengers());
+			return objectMapper.writeValueAsString(passengerSummaries);
 		} catch (JsonProcessingException e) {
-			log.error("승객 정보 JSON 변환 실패: {}", request.passengers(), e);
+			log.error("승객 정보 JSON 변환 실패: {}", passengerSummaries, e);
 			throw new BusinessException(BookingError.RESERVATION_CREATE_FAILED);
 		}
 	}

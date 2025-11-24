@@ -90,7 +90,7 @@ class ReservationServiceTest {
 		BigDecimal totalFare = BigDecimal.valueOf(80000);
 
 		// when
-		Reservation reservation = reservationService.createReservation(request, member.getMemberDetail().getMemberNo(), totalFare);
+		Reservation reservation = reservationService.createConfirmedReservation(request, member.getMemberDetail().getMemberNo(), totalFare);
 
 		// then
 		Reservation savedReservation = reservationRepository.findById(reservation.getId())

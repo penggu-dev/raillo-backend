@@ -7,6 +7,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
+import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.domain.BaseEntity;
@@ -94,6 +95,36 @@ public class Reservation extends BaseEntity {
 	@Column
 	@Comment("결제 ID")
 	private Long paymentId;
+
+	/**
+	 * 결제 완료 후 확정 예약 생성 (ProvisionalBooking → Reservation)
+	 */
+	public static Reservation fromProvisionalBooking(
+		ProvisionalBooking provisional,
+		TrainSchedule trainSchedule,
+		Member member,
+		ScheduleStop departureStop,
+		ScheduleStop arrivalStop,
+		String reservationCode,
+		String passengerSummaryJson,
+		Long paymentId
+	) {
+		return Reservation.builder()
+			.trainSchedule(trainSchedule)
+			.member(member)
+			.reservationCode(reservationCode)
+			.tripType(provisional.getTripType())
+			.totalPassengers(provisional.getPassengers().stream()
+				.mapToInt(PassengerSummary::getCount)
+				.sum())
+			.passengerSummary(passengerSummaryJson)
+			.reservationStatus(ReservationStatus.PAID)
+			.fare(provisional.getTotalFare())
+			.departureStop(departureStop)
+			.arrivalStop(arrivalStop)
+			.paymentId(paymentId)
+			.build();
+	}
 
 	public void cancel() {
 		if (!reservationStatus.isCancellable()) {

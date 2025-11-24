@@ -10,9 +10,16 @@ import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Component
+@RequiredArgsConstructor
 public class ReservationValidator {
+
+	private final ScheduleStopRepository scheduleStopRepository;
 
 	/**
 	 * 출발지, 도착지 순서 검증
@@ -21,10 +28,37 @@ public class ReservationValidator {
 	public void validateStopSequence(Reservation reservation) {
 		ScheduleStop departureStop = reservation.getDepartureStop();
 		ScheduleStop arrivalStop = reservation.getArrivalStop();
-		if (departureStop.getStopOrder() > arrivalStop.getStopOrder()) {
-			throw new BusinessException(BookingError.TRAIN_NOT_OPERATIONAL);
+		validateStopOrder(departureStop.getStopOrder(), arrivalStop.getStopOrder());
+	}
+
+	/**
+	 * 출발지, 도착지 순서 검증 (ID 기반 - 임시 예약용)
+	 */
+	public void validateStopSequence(
+		Long trainScheduleId,
+		Long departureStationId,
+		Long arrivalStationId
+	) {
+		ScheduleStop departureStop = scheduleStopRepository
+			.findByTrainScheduleIdAndStationId(trainScheduleId, departureStationId)
+			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
+
+		ScheduleStop arrivalStop = scheduleStopRepository
+			.findByTrainScheduleIdAndStationId(trainScheduleId, arrivalStationId)
+			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
+
+		validateStopOrder(departureStop.getStopOrder(), arrivalStop.getStopOrder());
+	}
+
+	/**
+	 * stopOrder 검증 공통 로직
+	 */
+	private void validateStopOrder(int departureOrder, int arrivalOrder) {
+		if (departureOrder >= arrivalOrder) {
+			throw new BusinessException(BookingError.INVALID_STOP_SEQUENCE);
 		}
 	}
+
 
 	/**
 	 * 기존 예약들과 충돌 검증 (락이 걸린 상태에서 수행)

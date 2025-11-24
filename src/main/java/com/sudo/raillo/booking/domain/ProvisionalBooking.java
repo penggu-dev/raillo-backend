@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 public class ProvisionalBooking {
 
 	private String bookingId;
-	private Long memberId;
+	private String memberNo;
 
 	private Long trainScheduleId;
 	private Long departureStationId;
@@ -38,13 +38,13 @@ public class ProvisionalBooking {
 
 	public static ProvisionalBooking from(
 		String bookingId,
-		Long memberId,
+		String memberId,
 		ReservationCreateRequest request,
 		Integer totalFare
 	) {
 		return ProvisionalBooking.builder()
 			.bookingId(bookingId)
-			.memberId(memberId)
+			.memberNo(memberId)
 			.trainScheduleId(request.trainScheduleId())
 			.departureStationId(request.departureStationId())
 			.arrivalStationId(request.arrivalStationId())

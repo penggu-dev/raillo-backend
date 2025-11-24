@@ -6,6 +6,7 @@ import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
 import com.sudo.raillo.booking.application.generator.ReservationCodeGenerator;
 import com.sudo.raillo.booking.application.mapper.ReservationMapper;
 import com.sudo.raillo.booking.config.BookingConfig;
+import com.sudo.raillo.booking.domain.ProvisionalBooking;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
@@ -25,13 +26,9 @@ import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,21 +49,31 @@ public class ReservationService {
 
 	/**
 	 * 예약을 생성하는 메서드
-	 * @param request 예약 생성 요청 DTO
 	 * @return 예약 레코드
 	 */
-	public Reservation createReservation(ReservationCreateRequest request, String memberNo, BigDecimal totalFare) {
-		TrainSchedule trainSchedule = getTrainSchedule(request);
+	public Reservation createConfirmedReservation(ProvisionalBooking provisional, String memberNo, Long paymentId) {
+		TrainSchedule trainSchedule = getTrainSchedule(provisional.getTrainScheduleId());
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
-		ScheduleStop departureStop = getStopStation(trainSchedule, request.departureStationId());
-		ScheduleStop arrivalStop = getStopStation(trainSchedule, request.arrivalStationId());
+		ScheduleStop departureStop = getStopStation(trainSchedule, provisional.getDepartureStationId());
+		ScheduleStop arrivalStop = getStopStation(trainSchedule, provisional.getArrivalStationId());
 
 		validateTrainOperating(trainSchedule);
 
-		Reservation reservation = generateReservation(
-			request, trainSchedule, member, departureStop, arrivalStop, totalFare
+		String reservationCode = reservationCodeGenerator.generateReservationCode();
+		String passengerSummaryJson = reservationMapper.convertPassengersToJson(provisional.getPassengers());
+
+		Reservation reservation = Reservation.fromProvisionalBooking(
+			provisional,
+			trainSchedule,
+			member,
+			departureStop,
+			arrivalStop,
+			reservationCode,
+			passengerSummaryJson,
+			paymentId
 		);
+
 		return reservationRepository.save(reservation);
 	}
 
@@ -89,6 +96,23 @@ public class ReservationService {
 			throw new BusinessException(BookingError.INVALID_CAR_TYPE);
 		}
 		return carTypes.get(0);
+	}
+
+	/**
+	 * 예약 ID와 memberNo로 예약 조회
+	 */
+	public Reservation findReservation(Long reservationId, String memberNo) {
+		Member member = memberRepository.findByMemberNo(memberNo)
+			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
+
+		Reservation reservation = reservationRepository.findById(reservationId)
+			.orElseThrow(() -> new BusinessException(BookingError.RESERVATION_NOT_FOUND));
+
+		if (!reservation.getMember().getId().equals(member.getId())) {
+			throw new BusinessException(BookingError.RESERVATION_NOT_FOUND);
+		}
+
+		return reservation;
 	}
 
 	/**
@@ -145,7 +169,6 @@ public class ReservationService {
 		reservationRepository.deleteAllByIdInBatch(reservationIds);
 	}
 
-
 	public void deleteAllByMemberId(Long memberId) {
 		reservationRepository.deleteAllByMemberId(memberId);
 	}
@@ -155,8 +178,8 @@ public class ReservationService {
 			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
 	}
 
-	private TrainSchedule getTrainSchedule(ReservationCreateRequest request) {
-		return trainScheduleRepository.findById(request.trainScheduleId())
+	private TrainSchedule getTrainSchedule(Long trainScheduleId) {
+		return trainScheduleRepository.findById(trainScheduleId)
 			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
 	}
 
@@ -164,27 +187,5 @@ public class ReservationService {
 		if (trainSchedule.getOperationStatus() == OperationStatus.CANCELLED) {
 			throw new BusinessException(TrainErrorCode.TRAIN_OPERATION_CANCELLED);
 		}
-	}
-
-	private Reservation generateReservation(
-		ReservationCreateRequest request,
-		TrainSchedule trainSchedule,
-		Member member,
-		ScheduleStop departureStop,
-		ScheduleStop arrivalStop,
-		BigDecimal totalFare
-	) {
-		return Reservation.builder()
-			.trainSchedule(trainSchedule)
-			.member(member)
-			.reservationCode(reservationCodeGenerator.generateReservationCode())
-			.tripType(request.tripType())
-			.totalPassengers(request.passengers().stream().mapToInt(PassengerSummary::getCount).sum())
-			.passengerSummary(reservationMapper.convertPassengersToJson(request))
-			.reservationStatus(ReservationStatus.PAID)
-			.fare(totalFare.intValue())
-			.departureStop(departureStop)
-			.arrivalStop(arrivalStop)
-			.build();
 	}
 }
