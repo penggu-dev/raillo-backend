@@ -3,6 +3,7 @@ package com.sudo.raillo.booking.redis;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
+import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.RedisKeyExpiredEvent;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,7 @@ public class RedisCleanupListener {
 
 	private final RedisTemplate<String, Object> objectRedisTemplate;
 
+	@EventListener
 	public void handleRedisKeyExpiredEvent(RedisKeyExpiredEvent<Object> event) {
 		// 1. 만료된 키 가져오기
 		String expiredKey = new String(event.getSource(), StandardCharsets.UTF_8);
