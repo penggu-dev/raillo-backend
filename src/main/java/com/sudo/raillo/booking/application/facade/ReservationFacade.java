@@ -52,7 +52,7 @@ public class ReservationFacade {
 		List<Long> seatIds = new ArrayList<>(request.seatIds());
 		seatIds.sort(Comparator.naturalOrder());
 
-		reservationValidator.validatePassengerSeatCount(passengers, seatIds);
+		reservationValidator.validatePassengerSeatCount(passengers, seatIds); // TODO : 초반에 검증해야 할듯
 		List<Long> seatReservationIds = seatReservationService.createSeatReservations(reservation, passengers, seatIds);
 
 		return new ReservationCreateResponse(reservation.getId(), seatReservationIds);

@@ -8,7 +8,9 @@ import org.hibernate.annotations.OnDeleteAction;
 
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.type.TripType;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.domain.BaseEntity;
+import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
@@ -86,45 +88,29 @@ public class Reservation extends BaseEntity {
 	private ReservationStatus reservationStatus;
 
 	@Column(nullable = false)
-	@Comment("만료 시간")
-	private LocalDateTime expiresAt;
-
-	@Comment("결제 완료 시간")
-	private LocalDateTime purchaseAt;
-
-	@Comment("반환(취소) 시간")
-	private LocalDateTime cancelledAt;
-
-	@Column(nullable = false)
 	@Comment("운임")
 	private int fare;
 
-	public void approve() {
-		this.reservationStatus = ReservationStatus.PAID;
-		this.purchaseAt = LocalDateTime.now();
-	}
+	@Column
+	@Comment("결제 ID")
+	private Long paymentId;
 
 	public void cancel() {
+		if (!reservationStatus.isCancellable()) {
+			throw new BusinessException(BookingError.RESERVATION_NOT_CANCELLABLE);
+		}
 		this.reservationStatus = ReservationStatus.CANCELLED;
-		this.cancelledAt = LocalDateTime.now();
 	}
 
 	public void refund() {
+		if (!reservationStatus.isRefundable()) {
+			throw new BusinessException(BookingError.RESERVATION_NOT_REFUNDABLE);
+		}
 		this.reservationStatus = ReservationStatus.REFUNDED;
-	}
-
-	// 결제 가능 여부 확인
-	public boolean canBePaid() {
-		return this.reservationStatus.isPayable();
 	}
 
 	// 취소 가능 여부 확인
 	public boolean canBeCancelled() {
 		return this.reservationStatus.isCancellable();
-	}
-
-	// 환불 가능 여부 확인
-	public boolean canBeRefunded() {
-		return this.purchaseAt != null && this.reservationStatus.isRefundable();
 	}
 }

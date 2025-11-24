@@ -44,7 +44,7 @@ public class SeatReservationService {
 			Long seatId = seat.getId();
 
 			// 1. 먼저 좌석 자체에 비관적 락을 걸어 동시 접근 차단 (최우선 락)
-			Seat lockedSeat = seatRepository.findByIdWithLock(seatId)
+			Seat lockedSeat = seatRepository.findByIdWithLock(seatId) // TODO : Lock을 Seat에 걸면 해당 seat의 다른 trainScheduleId는 예약이 막혀버림
 				.orElseThrow(() -> new BusinessException(BookingError.SEAT_NOT_FOUND));
 
 			// 2. 락이 걸린 상태에서 해당 좌석의 기존 예약들을 비관적 락으로 조회

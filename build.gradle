@@ -35,6 +35,7 @@ dependencies {
     // Database
     runtimeOnly 'com.mysql:mysql-connector-j'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.redisson:redisson-spring-boot-starter:3.52.0'
 
     // Development Tools
     developmentOnly 'org.springframework.boot:spring-boot-docker-compose'

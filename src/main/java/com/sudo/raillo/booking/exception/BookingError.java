@@ -36,6 +36,10 @@ public enum BookingError implements ErrorCode {
 	// 예약 조회 관련
 	RESERVATION_NOT_FOUND("예약 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_101"),
 
+	// 예약 상태 관련
+	RESERVATION_NOT_CANCELLABLE("취소가 불가능한 예약 상태입니다.", HttpStatus.BAD_REQUEST, "B_301"),
+	RESERVATION_NOT_REFUNDABLE("환불이 불가능한 예약 상태입니다.", HttpStatus.BAD_REQUEST, "B_302"),
+
 	// 장바구니 관련
 	RESERVATION_ACCESS_DENIED("본인의 예약만 장바구니에 등록할 수 있습니다.", HttpStatus.FORBIDDEN, "B_201"),
 	RESERVATION_ALREADY_RESERVED("이미 등록된 예약입니다.", HttpStatus.CONFLICT, "B_202");
