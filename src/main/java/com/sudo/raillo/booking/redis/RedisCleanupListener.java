@@ -31,8 +31,8 @@ public class RedisCleanupListener {
 		// 3. 패턴에 해당하는 모든 관련 키를 Redis에서 조회
 		Set<String> keysToDelete = objectRedisTemplate.keys(collectionKeyPattern);
 
+		// 4. 찾은 컬렉션 키들을 모두 삭제
 		if (!keysToDelete.isEmpty()) {
-			// 4. 찾은 컬렉션 키들을 모두 삭제
 			Long deletedCount = objectRedisTemplate.delete(keysToDelete);
 			log.info("TTL 만료. 주 키: [{}]. 관련 컬렉션 키 {}개 삭제 완료.", expiredKey, deletedCount);
 		}
