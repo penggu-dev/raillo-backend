@@ -93,7 +93,7 @@ public class PaymentFacade {
 	 */
 	private String buildTossPaymentUrl(Long paymentId, String bookingId, Integer amount) {
 		return String.format(
-			"https://payment.toss.im/payment?clientKey=%s&orderId=%s&amount=%d&successUrl=%s&failUrl=%s",
+			"https://payment.toss.im/payment?clientKey=%s&bookingId=%s&amount=%d&successUrl=%s&failUrl=%s",
 			// clientKey는 application.yml에서 주입
 			bookingId,
 			amount,
