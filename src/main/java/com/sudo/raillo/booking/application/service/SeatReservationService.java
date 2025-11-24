@@ -15,6 +15,9 @@ import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.SeatReservationRepository;
+import com.sudo.raillo.booking.redis.HoldingSeatReservation;
+import com.sudo.raillo.booking.redis.RedisIdGenerator;
+import com.sudo.raillo.booking.redis.SeatReservationRedisRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
@@ -28,9 +31,11 @@ import lombok.RequiredArgsConstructor;
 public class SeatReservationService {
 
 	private final SeatReservationRepository seatReservationRepository;
+	private final SeatReservationRedisRepository seatReservationRedisRepository;
 	private final SeatRepository seatRepository;
 	private final ReservationValidator reservationValidator;
 	private final SeatPassengerMapper seatPassengerMapper;
+	private final RedisIdGenerator redisIdGenerator;
 
 	/***
 	 * 새로운 좌석 예약 현황을 생성하고 예약하는 메서드
@@ -53,6 +58,16 @@ public class SeatReservationService {
 
 			// 3. 락이 걸린 상태에서 충돌 검증 (원자성 보장)
 			reservationValidator.validateConflictWithExistingReservations(reservation, existingReservations);
+
+			HoldingSeatReservation holdingSeatReservation = HoldingSeatReservation.builder()
+				.id(redisIdGenerator.generateSeatReservationId())
+				.trainScheduleId(trainScheduleId)
+				.seatId(seatId)
+				.reservationId(reservation.getId())
+				.passengerType(passengerType)
+				.build();
+
+			seatReservationRedisRepository.save(holdingSeatReservation); // TODO: 일단 레디스 상에 데이터 잘 저장되는지 확인 후 연관된 코드 모두 변경
 
 			SeatReservation seatReservation = SeatReservation.builder()
 				.trainSchedule(reservation.getTrainSchedule())

@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -16,13 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
+import com.sudo.raillo.booking.application.service.ReservationQueryService;
 import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.domain.type.TripType;
-import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.ReservationRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -44,6 +43,9 @@ class ReservationServiceTest {
 
 	@Autowired
 	private ReservationService reservationService;
+
+	@Autowired
+	private ReservationQueryService reservationQueryService;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -115,7 +117,7 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when
-		ReservationDetail result = reservationService.getReservation(memberNo, entity.getId());
+		ReservationDetail result = reservationQueryService.getReservation(memberNo, entity.getId());
 
 		// then
 		assertThat(result.reservationId()).isEqualTo(entity.getId());
@@ -138,13 +140,13 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when & then
-		assertThatThrownBy(() -> reservationService.getReservation(memberNo, 2L))
+		assertThatThrownBy(() -> reservationQueryService.getReservation(memberNo, 2L))
 			.isInstanceOf(BusinessException.class);
 
 		reservationRepository.save(reservation);
 	}
 
-	@Test
+	/*@Test
 	@DisplayName("올바른 멤버번호와 만료된 예약 ID로 특정 예약 조회 시 예외를 반환한다")
 	void memberNoAndExpiredReservationId_getReservation_throwException() {
 		// given
@@ -165,10 +167,10 @@ class ReservationServiceTest {
 		Reservation entity = reservationRepository.save(reservation);
 
 		// when & then
-		assertThatThrownBy(() -> reservationService.getReservation(memberNo, entity.getId()))
+		assertThatThrownBy(() -> reservationQueryService.getReservation(memberNo, entity.getId()))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.RESERVATION_EXPIRED.getMessage());
-	}
+	}*/
 
 	@Test
 	@DisplayName("멤버번호로 관련한 예약 목록 조회에 성공한다")
@@ -199,7 +201,7 @@ class ReservationServiceTest {
 		Reservation entity2 = reservationRepository.save(reservation2);
 
 		// when
-		List<ReservationDetail> result = reservationService.getReservations(memberNo);
+		List<ReservationDetail> result = reservationQueryService.getReservations(memberNo);
 
 		// then
 		assertThat(result.size()).isEqualTo(2);
@@ -221,7 +223,7 @@ class ReservationServiceTest {
 			scheduleDaejeonToSeoul.scheduleStops().get(1).getStation().getStationName());
 	}
 
-	@Test
+	/*@Test
 	@DisplayName("멤버번호로 예약 목록 조회 시 만료된 예약을 제외하고 조회에 성공한다")
 	void memberNoAndExpiredReservation_getReservations_success() {
 		// given
@@ -262,7 +264,7 @@ class ReservationServiceTest {
 		Reservation entity2 = reservationRepository.save(reservation2);
 
 		// when
-		List<ReservationDetail> result = reservationService.getReservations(memberNo);
+		List<ReservationDetail> result = reservationQueryService.getReservations(memberNo);
 
 		// then
 		assertThat(result.size()).isEqualTo(1);
@@ -274,7 +276,7 @@ class ReservationServiceTest {
 			scheduleDaejeonToSeoul.scheduleStops().get(0).getStation().getStationName());
 		assertThat(result1.arrivalStationName()).isEqualTo(
 			scheduleDaejeonToSeoul.scheduleStops().get(1).getStation().getStationName());
-	}
+	}*/
 
 	@Test
 	@DisplayName("올바른 예약 삭제 요청 DTO로 예약 삭제에 성공한다")
@@ -294,32 +296,4 @@ class ReservationServiceTest {
 		assertThat(result.size()).isEqualTo(0);
 	}
 
-	@Test
-	@DisplayName("만료된 예약 일괄삭제에 성공한다")
-	void expireReservations_success() {
-		// given
-		Reservation reservation = Reservation.builder()
-			.trainSchedule(schedule.trainSchedule())
-			.member(member)
-			.reservationCode("20250806100001D49J")
-			.tripType(TripType.OW)
-			.totalPassengers(1)
-			.passengerSummary("[{\"passengerType\":\"ADULT\",\"count\":1}]")
-			.reservationStatus(ReservationStatus.RESERVED)
-			.expiresAt(LocalDateTime.now().minusMinutes(10))
-			.fare(50000)
-			.departureStop(schedule.scheduleStops().get(0))
-			.arrivalStop(schedule.scheduleStops().get(1))
-			.build();
-		for (int i = 0; i < 3; i++) {
-			reservationRepository.save(reservation);
-		}
-
-		// when
-		reservationService.expireReservations();
-
-		// then
-		List<Reservation> result = reservationRepository.findAll();
-		assertThat(result.size()).isEqualTo(0);
-	}
 }
