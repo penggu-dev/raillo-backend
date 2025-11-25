@@ -158,13 +158,11 @@ class SeatAvailabilityCalculatorTest {
 			CarType.FIRST_CLASS, 24
 		);
 		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 5);
-		int totalSeatCount = 104;
-		int standingReservations = 0;
 		int requestedPassengerCount = 4;
 
 		// when
 		SectionSeatStatus result = calculator.calculateSectionSeatStatus(
-			reservations, totalSeats, totalSeatCount, standingReservations, requestedPassengerCount
+			reservations, totalSeats, requestedPassengerCount
 		);
 
 		// then
@@ -183,13 +181,11 @@ class SeatAvailabilityCalculatorTest {
 			CarType.FIRST_CLASS, 24
 		);
 		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 78);
-		int totalSeatCount = 104;
-		int standingReservations = 0;
 		int requestedPassengerCount = 5;
 
 		// when
 		SectionSeatStatus result = calculator.calculateSectionSeatStatus(
-			reservations, totalSeats, totalSeatCount, standingReservations, requestedPassengerCount
+			reservations, totalSeats, requestedPassengerCount
 		);
 
 		// then
@@ -200,8 +196,8 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("일반실과 특실이 모두 매진되고 입석이 충분한 경우 입석만 예약 가능으로 판단한다")
-	void standingOnlyAvailable() {
+	@DisplayName("좌석이 모두 부족한 경우 전체 매진으로 판단한다")
+	void fullySoldOut() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
 			CarType.STANDARD, 80,
@@ -214,48 +210,11 @@ class SeatAvailabilityCalculatorTest {
 		allReservations.addAll(standardReservations);
 		allReservations.addAll(firstClassReservations);
 
-		int totalSeatCount = 104;
-		int standingReservations = 0;
-		int requestedPassengerCount = 3;
-
-		// when
-		SectionSeatStatus result = calculator.calculateSectionSeatStatus(
-			allReservations, totalSeats, totalSeatCount, standingReservations, requestedPassengerCount
-		);
-
-		// then
-		assertThat(result.standardRemaining()).isEqualTo(0);
-		assertThat(result.firstClassRemaining()).isEqualTo(0);
-		assertThat(result.canReserveStandard()).isFalse();
-		assertThat(result.canReserveFirstClass()).isFalse();
-
-		double standingRatio = calculator.getStandingRatio();
-		int maxStanding = (int)(totalSeatCount * standingRatio);
-		assertThat(maxStanding - standingReservations).isGreaterThanOrEqualTo(requestedPassengerCount);
-	}
-
-	@Test
-	@DisplayName("좌석과 입석이 모두 부족한 경우 전체 매진으로 판단한다")
-	void fullySoldOut() {
-		// given
-		Map<CarType, Integer> totalSeats = Map.of(
-			CarType.STANDARD, 80,
-			CarType.FIRST_CLASS, 24
-		);
-		List<SeatReservationInfo> standardReservations = createReservations(CarType.STANDARD, 80);
-		List<SeatReservationInfo> firstClassReservations = createReservations(CarType.FIRST_CLASS, 24);
-
-		List<SeatReservationInfo> allReservations = new java.util.ArrayList<>();
-		allReservations.addAll(standardReservations);
-		allReservations.addAll(firstClassReservations);
-
-		int totalSeatCount = 104;
-		int standingReservations = 15;
 		int requestedPassengerCount = 6;
 
 		// when
 		SectionSeatStatus result = calculator.calculateSectionSeatStatus(
-			allReservations, totalSeats, totalSeatCount, standingReservations, requestedPassengerCount
+			allReservations, totalSeats, requestedPassengerCount
 		);
 
 		// then
@@ -263,36 +222,6 @@ class SeatAvailabilityCalculatorTest {
 		assertThat(result.firstClassRemaining()).isEqualTo(0);
 		assertThat(result.canReserveStandard()).isFalse();
 		assertThat(result.canReserveFirstClass()).isFalse();
-
-		double standingRatio = calculator.getStandingRatio();
-		assertThat(result.getStandingRemaining(standingRatio)).isEqualTo(0);
-	}
-
-	@Test
-	@DisplayName("입석 잔여석은 총 좌석의 15%에서 예약된 입석을 뺀 값으로 계산한다")
-	void calculateStandingRemaining() {
-		// given
-		Map<CarType, Integer> totalSeats = Map.of(
-			CarType.STANDARD, 80,
-			CarType.FIRST_CLASS, 24
-		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 80);
-		int totalSeatCount = 104;
-		int standingReservations = 5;
-		int requestedPassengerCount = 3;
-
-		// when
-		SectionSeatStatus result = calculator.calculateSectionSeatStatus(
-			reservations, totalSeats, totalSeatCount, standingReservations, requestedPassengerCount
-		);
-
-		// then
-		double standingRatio = calculator.getStandingRatio();
-		int expectedMaxStanding = (int)(totalSeatCount * standingRatio);
-		int expectedRemaining = expectedMaxStanding - standingReservations;
-
-		assertThat(result.getMaxStandingCapacity(standingRatio)).isEqualTo(expectedMaxStanding);
-		assertThat(result.getStandingRemaining(standingRatio)).isEqualTo(expectedRemaining);
 	}
 
 	private List<SeatReservationInfo> createReservations(CarType carType, int count) {

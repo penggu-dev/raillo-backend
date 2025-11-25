@@ -1,9 +1,25 @@
 package com.sudo.raillo.train.application.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.verify;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.BDDMockito.*;
+
+import java.lang.reflect.Field;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
 
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.support.fixture.StationFareFixture;
@@ -27,23 +43,8 @@ import com.sudo.raillo.train.infrastructure.SeatReservationQueryRepository;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
-import java.lang.reflect.Field;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+
 import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.SliceImpl;
 
 @Slf4j
 @ExtendWith(MockitoExtension.class)
@@ -287,37 +288,5 @@ class TrainSearchServiceTest {
 			trainScheduleIds, departureStationId, arrivalStationId
 		);
 		log.info("겹치는 예약 배치 조회 테스트 완료");
-	}
-
-	@DisplayName("여러 열차의 입석 예약 수를 한 번에 조회한다")
-	@Test
-	void countsStandingReservationsInBatch() {
-		// given
-		List<Long> trainScheduleIds = List.of(1L, 2L);
-		Long departureStationId = 1L;
-		Long arrivalStationId = 2L;
-
-		Map<Long, Integer> mockStandingCounts = Map.of(
-			1L, 5,
-			2L, 3
-		);
-
-		given(seatReservationQueryRepository.countOverlappingStandingReservationsBatch(
-			trainScheduleIds, departureStationId, arrivalStationId
-		)).willReturn(mockStandingCounts);
-
-		// when
-		Map<Long, Integer> result = trainSearchService.countOverlappingStandingReservationsBatch(
-			trainScheduleIds, departureStationId, arrivalStationId
-		);
-
-		// then
-		assertThat(result).hasSize(2);
-		assertThat(result.get(1L)).isEqualTo(5);
-		assertThat(result.get(2L)).isEqualTo(3);
-
-		verify(seatReservationQueryRepository).countOverlappingStandingReservationsBatch(
-			trainScheduleIds, departureStationId, arrivalStationId
-		);
 	}
 }
