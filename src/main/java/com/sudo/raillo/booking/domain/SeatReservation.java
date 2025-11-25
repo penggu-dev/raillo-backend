@@ -67,7 +67,4 @@ public class SeatReservation extends BaseEntity {
 	@Comment("승객 유형")
 	private PassengerType passengerType;
 
-	public boolean isStanding() {
-		return seat == null;
-	}
 }
