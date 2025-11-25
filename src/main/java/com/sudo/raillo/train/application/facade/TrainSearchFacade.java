@@ -169,17 +169,12 @@ public class TrainSearchFacade {
 			trainSearchService.findOverlappingReservationsBatch(
 				trainScheduleIds, request.departureStationId(), request.arrivalStationId());
 
-		Map<Long, Integer> standingReservationsMap =
-			trainSearchService.countOverlappingStandingReservationsBatch(
-				trainScheduleIds, request.departureStationId(), request.arrivalStationId());
-
 		// 3. 각 열차별로 배치 조회된 데이터를 사용해 응답 생성
 		List<TrainSearchResponse> results = trainInfoSlice.stream()
 			.map(trainInfo -> {
 				try {
 					return processTrainSearchResult(
-						trainInfo, seatInfoBatch, overlappingReservationsMap,
-						standingReservationsMap, fare, request.passengerCount());
+						trainInfo, seatInfoBatch, overlappingReservationsMap, fare, request.passengerCount());
 				} catch (Exception e) {
 					log.warn("열차 {} 처리 실패: {}", trainInfo.trainNumber(), e.getMessage());
 					return null;
@@ -204,7 +199,6 @@ public class TrainSearchFacade {
 		TrainBasicInfo trainInfo,
 		TrainSeatInfoBatch seatInfoBatch,
 		Map<Long, List<SeatReservationInfo>> overlappingReservationsMap,
-		Map<Long, Integer> standingReservationsMap,
 		StationFare fare,
 		int passengerCount) {
 
@@ -215,19 +209,13 @@ public class TrainSearchFacade {
 			overlappingReservationsMap.getOrDefault(trainScheduleId, List.of());
 		Map<CarType, Integer> totalSeatsByCarType =
 			seatInfoBatch.getSeatsCountByCarType(trainScheduleId);
-		Integer totalSeatCount =
-			seatInfoBatch.getTotalSeatsCount(trainScheduleId);
-		Integer standingReservations =
-			standingReservationsMap.getOrDefault(trainScheduleId, 0);
 
 		// 좌석 상태 계산
 		SectionSeatStatus sectionStatus = seatAvailabilityCalculator.calculateSectionSeatStatus(
-			overlappingReservations, totalSeatsByCarType, totalSeatCount,
-			standingReservations, passengerCount);
+			overlappingReservations, totalSeatsByCarType, passengerCount);
 
 		// 응답 생성
 		return responseMapper.toResponse(
-			trainInfo, sectionStatus, fare, passengerCount,
-			seatAvailabilityCalculator.getStandingRatio());
+			trainInfo, sectionStatus, fare, passengerCount);
 	}
 }

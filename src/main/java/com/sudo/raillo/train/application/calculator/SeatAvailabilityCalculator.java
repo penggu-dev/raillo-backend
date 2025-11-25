@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.train.application.dto.SeatReservationInfo;
@@ -21,28 +20,19 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class SeatAvailabilityCalculator {
 
-	@Value("${train.standing.ratio:0.15}") // 입석 좌석 비율 (default: 15)
-	private double standingRatio;
-
 	/**
 	 * 배치로 조회된 데이터를 사용해 구간별 좌석 상태 계산
 	 */
 	public SectionSeatStatus calculateSectionSeatStatus(
 		List<SeatReservationInfo> overlappingReservations,
 		Map<CarType, Integer> totalSeats,
-		Integer totalSeatCount,
-		Integer standingReservations,
 		int requestedPassengerCount) {
 
 		// 1. 좌석 타입별 잔여 좌석 계산
 		SeatCalculationResult seatResult = calculateRemainingSeats(
 			totalSeats, overlappingReservations);
 
-		// 2. 입석 계산
-		int maxAllowedStandingCount = (int)(totalSeatCount * standingRatio);
-		int remainingStanding = Math.max(0, maxAllowedStandingCount - standingReservations);
-
-		// 3. 예약 가능 여부 판단
+		// 2. 예약 가능 여부 판단
 		boolean canReserveStandard = seatResult.standardRemaining() >= requestedPassengerCount;
 		boolean canReserveFirstClass = seatResult.firstClassRemaining() >= requestedPassengerCount;
 
@@ -52,9 +42,7 @@ public class SeatAvailabilityCalculator {
 			seatResult.firstClassRemaining(),
 			totalSeats.getOrDefault(CarType.FIRST_CLASS, 0),
 			canReserveStandard,
-			canReserveFirstClass,
-			standingReservations,
-			totalSeatCount
+			canReserveFirstClass
 		);
 	}
 
@@ -76,10 +64,6 @@ public class SeatAvailabilityCalculator {
 			Math.max(0, standardTotal - standardReserved), standardTotal,
 			Math.max(0, firstClassTotal - firstClassReserved), firstClassTotal
 		);
-	}
-
-	public double getStandingRatio() {
-		return standingRatio;
 	}
 
 	public record SeatCalculationResult(

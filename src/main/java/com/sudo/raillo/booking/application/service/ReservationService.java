@@ -1,5 +1,16 @@
 package com.sudo.raillo.booking.application.service;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.sudo.raillo.booking.application.dto.ReservationInfo;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationDetail;
@@ -24,16 +35,8 @@ import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -74,12 +77,11 @@ public class ReservationService {
 	 * 객차 타입 조회
 	 */
 	public CarType findCarType(List<Long> seatIds) {
-		List<CarType> carTypes = seatRepository.findCarTypes(seatIds);
-
-		// 입석 체크
 		if (seatIds.isEmpty()) {
-			return CarType.STANDARD;
+			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
 		}
+
+		List<CarType> carTypes = seatRepository.findCarTypes(seatIds);
 
 		if (carTypes.isEmpty()) {
 			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
