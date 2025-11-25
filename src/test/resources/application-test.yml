@@ -44,16 +44,6 @@ logging:
     org.springframework.jdbc.core: INFO
     io.lettuce.core: WARN
 
-train:
-  schedule:
-    excel:
-      filename: "train_schedule.xlsx"
-  station-fare:
-    excel:
-      filename: "station_fare.xls"
-  standing:
-    ratio: 0.15
-
 jwt:
   secret: "crailotestjwtsecretkey2025fordevelopmentandtestingonlylonglonglonglonglonglonglonglonglong"
 
