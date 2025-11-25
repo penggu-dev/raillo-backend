@@ -75,7 +75,7 @@ public class SeatReservationQueryRepository {
 			)
 			.where(
 				seatReservation.trainSchedule.id.in(trainScheduleIds),             // 해당 trainScheduleId 모두 조회
-				seatReservation.seat.isNotNull(),                                     // 실제 좌석 예약(입석 X)
+				seatReservation.seat.isNotNull(),                                     // 실제 좌석 예약
 				reservedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)         // 구간 겹침 조건
 					.and(reservedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
 			)
@@ -91,55 +91,6 @@ public class SeatReservationQueryRepository {
 					tuple.get(reservedDepartureStation.id),
 					tuple.get(reservedArrivalStation.id)
 				), Collectors.toList())
-			));
-	}
-
-	/**
-	 * 여러 열차의 특정 구간에서 겹치는 입석 예약 수를 일괄 조회
-	 */
-	public Map<Long, Integer> countOverlappingStandingReservationsBatch(List<Long> trainScheduleIds,
-		Long departureStationId, Long arrivalStationId) {
-
-		if (trainScheduleIds.isEmpty()) {
-			return Map.of();
-		}
-
-		QSeatReservation seatReservation = QSeatReservation.seatReservation;
-		QScheduleStop reservedDepartureStop = new QScheduleStop("reservedDepartureStop");
-		QScheduleStop reservedArrivalStop = new QScheduleStop("reservedArrivalStop");
-		QScheduleStop searchDepartureStop = new QScheduleStop("searchDepartureStop");
-		QScheduleStop searchArrivalStop = new QScheduleStop("searchArrivalStop");
-
-		List<Tuple> results = queryFactory
-			.select(
-				seatReservation.trainSchedule.id,
-				seatReservation.count()
-			)
-			.from(seatReservation)
-			.join(seatReservation.reservation, reservation)
-			.join(reservation.departureStop, reservedDepartureStop)
-			.join(reservation.arrivalStop, reservedArrivalStop)
-			.join(searchDepartureStop).on(
-				searchDepartureStop.trainSchedule.id.in(trainScheduleIds)
-					.and(searchDepartureStop.station.id.eq(departureStationId))
-			)
-			.join(searchArrivalStop).on(
-				searchArrivalStop.trainSchedule.id.eq(seatReservation.trainSchedule.id)
-					.and(searchArrivalStop.station.id.eq(arrivalStationId))
-			)
-			.where(
-				seatReservation.trainSchedule.id.in(trainScheduleIds),
-				seatReservation.seat.isNull(),                                // 입석만
-				reservedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)
-					.and(reservedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
-			)
-			.groupBy(seatReservation.trainSchedule.id)
-			.fetch();
-
-		return results.stream()
-			.collect(Collectors.toMap(
-				tuple -> tuple.get(seatReservation.trainSchedule.id),
-				tuple -> tuple.get(seatReservation.count()).intValue()
 			));
 	}
 

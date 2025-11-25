@@ -78,7 +78,7 @@ public class SeatQueryRepository {
 			.leftJoin(seatReservation).on(
 				seatReservation.seat.id.eq(seat.id)
 					.and(seatReservation.trainSchedule.id.eq(trainScheduleId))
-					.and(seatReservation.seat.isNotNull())  // 실제 좌석 예약 (입석 X)
+					.and(seatReservation.seat.isNotNull())  // 실제 좌석 예약
 			)
 			.leftJoin(seatReservation.reservation, reservation)
 			// 기존 예약 정보 left join
