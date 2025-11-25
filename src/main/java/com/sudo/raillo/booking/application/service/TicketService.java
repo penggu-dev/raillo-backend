@@ -1,7 +1,9 @@
 package com.sudo.raillo.booking.application.service;
 
+import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
-import com.sudo.raillo.booking.domain.Qr;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
@@ -14,17 +16,13 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.train.domain.Seat;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class TicketService {
 
-	private final QrService qrService;
 	private final MemberRepository memberRepository;
 	private final TicketRepository ticketRepository;
 	private final TicketQueryRepository ticketQueryRepository;
@@ -35,11 +33,9 @@ public class TicketService {
 	 * @param passengerType 승객 유형
 	 */
 	public void createTicket(Reservation reservation, Seat seat, PassengerType passengerType) {
-		Qr qr = qrService.createQr();
 		Ticket ticket = Ticket.builder()
 			.reservation(reservation)
 			.seat(seat)
-			.qr(qr)
 			.passengerType(passengerType)
 			.ticketStatus(TicketStatus.ISSUED)
 			.build();

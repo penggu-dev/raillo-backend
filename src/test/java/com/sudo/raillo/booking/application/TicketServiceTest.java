@@ -4,22 +4,18 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
 import com.sudo.raillo.booking.application.service.TicketService;
-import com.sudo.raillo.booking.domain.Qr;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.domain.type.TripType;
-import com.sudo.raillo.booking.infrastructure.QrRepository;
 import com.sudo.raillo.booking.infrastructure.ReservationRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.member.domain.Member;
@@ -31,7 +27,6 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-
 import lombok.extern.slf4j.Slf4j;
 
 @ServiceTest
@@ -46,9 +41,6 @@ class TicketServiceTest {
 
 	@Autowired
 	private TicketRepository ticketRepository;
-
-	@Autowired
-	private QrRepository qrRepository;
 
 	@Autowired
 	private TicketService ticketService;
@@ -108,13 +100,9 @@ class TicketServiceTest {
 	@DisplayName("멤버번호로 가지고 있는 티켓 조회에 성공한다")
 	void memberNo_getMyTickets_success() {
 		// given
-		Qr qr1 = qrRepository.save(Qr.builder().isUsable(true).scanCount(0).build());
-		Qr qr2 = qrRepository.save(Qr.builder().isUsable(true).scanCount(0).build());
-
 		Ticket ticket1 = Ticket.builder()
 			.seat(seat1)
 			.reservation(reservation)
-			.qr(qr1)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType1)
 			.build();
@@ -123,7 +111,6 @@ class TicketServiceTest {
 		Ticket ticket2 = Ticket.builder()
 			.seat(seat2)
 			.reservation(reservation)
-			.qr(qr2)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType2)
 			.build();
@@ -141,13 +128,9 @@ class TicketServiceTest {
 	@DisplayName("티켓 ID로 티켓 삭제에 성공한다")
 	void ticketId_deleteTicket_success() {
 		// given
-		Qr qr1 = qrRepository.save(Qr.builder().isUsable(true).scanCount(0).build());
-		Qr qr2 = qrRepository.save(Qr.builder().isUsable(true).scanCount(0).build());
-
 		Ticket ticket1 = Ticket.builder()
 			.seat(seat1)
 			.reservation(reservation)
-			.qr(qr1)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType1)
 			.build();
@@ -156,7 +139,6 @@ class TicketServiceTest {
 		Ticket ticket2 = Ticket.builder()
 			.seat(seat2)
 			.reservation(reservation)
-			.qr(qr2)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType2)
 			.build();
@@ -176,13 +158,9 @@ class TicketServiceTest {
 	@DisplayName("예약 ID로 티켓 삭제에 성공한다")
 	void reservationId_deleteTicket_success() {
 		// given
-		Qr qr1 = qrRepository.save(Qr.builder().isUsable(true).scanCount(0).build());
-		Qr qr2 = qrRepository.save(Qr.builder().isUsable(true).scanCount(0).build());
-
 		Ticket ticket1 = Ticket.builder()
 			.seat(seat1)
 			.reservation(reservation)
-			.qr(qr1)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType1)
 			.build();
@@ -191,7 +169,6 @@ class TicketServiceTest {
 		Ticket ticket2 = Ticket.builder()
 			.seat(seat2)
 			.reservation(reservation)
-			.qr(qr2)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType2)
 			.build();
