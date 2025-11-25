@@ -8,8 +8,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
  *
  * - 일반실/특실별 잔여 좌석 수
  * - 요청한 승객 수로 예약 가능 여부
- * - 입석 가능 여부 및 수량
- * - 구간 내 최대 탑승 인원 (입석 판단용)
  */
 @Schema(description = "구간별 좌석 상태 종합 정보")
 public record SectionSeatStatus(
@@ -32,14 +30,7 @@ public record SectionSeatStatus(
 	boolean canReserveStandard,
 
 	@Schema(description = "승객수 고려한 특실 예약 가능 여부", example = "true")
-	boolean canReserveFirstClass,
-
-	// 입석 정보
-	@Schema(description = "현재 예약된 입석 인원", example = "15")
-	int currentStandingReservations,
-
-	@Schema(description = "전체 좌석 수 (입석 계산용)", example = "363")
-	int totalSeats
+	boolean canReserveFirstClass
 
 ) {
 	/**
@@ -48,42 +39,13 @@ public record SectionSeatStatus(
 	public static SectionSeatStatus of(
 		int standardRemaining, int standardTotal,
 		int firstClassRemaining, int firstClassTotal,
-		boolean canReserveStandard, boolean canReserveFirstClass,
-		int currentStandingReservations, int totalSeats) {
+		boolean canReserveStandard, boolean canReserveFirstClass) {
 
 		return new SectionSeatStatus(
 			standardRemaining, standardTotal,
 			firstClassRemaining, firstClassTotal,
-			canReserveStandard, canReserveFirstClass,
-			currentStandingReservations, totalSeats
+			canReserveStandard, canReserveFirstClass
 		);
 	}
 
-	/**
-	 * 열차의 최대 입석 수용 인원
-	 * @param standingRatio
-	 * @return
-	 */
-	public int getMaxStandingCapacity(double standingRatio) {
-		return (int)(totalSeats * standingRatio);
-	}
-
-	/**
-	 * 잔여 입석 개수
-	 * @param standingRatio
-	 * @return
-	 */
-	public int getStandingRemaining(double standingRatio) {
-		return Math.max(0, getMaxStandingCapacity(standingRatio) - currentStandingReservations);
-	}
-
-	/**
-	 *  승객수로 입석 예약 가능 여부 판단
-	 * @param passengerCount
-	 * @param standingRatio
-	 * @return
-	 */
-	public boolean canReserveStanding(int passengerCount, double standingRatio) {
-		return getStandingRemaining(standingRatio) >= passengerCount;
-	}
 }
