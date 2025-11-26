@@ -165,8 +165,8 @@ public class TrainSearchFacade {
 		// 2. 배치 쿼리로 모든 데이터 한번에 조회
 		TrainSeatInfoBatch seatInfoBatch = trainSearchService.findTrainSeatInfoBatch(trainScheduleIds);
 
-		Map<Long, List<SeatBookingInfo>> overlappingReservationsMap =
-			trainSearchService.findOverlappingReservationsBatch(
+		Map<Long, List<SeatBookingInfo>> overlappingBookingsMap =
+			trainSearchService.findOverlappingBookingsBatch(
 				trainScheduleIds, request.departureStationId(), request.arrivalStationId());
 
 		// 3. 각 열차별로 배치 조회된 데이터를 사용해 응답 생성
@@ -174,7 +174,7 @@ public class TrainSearchFacade {
 			.map(trainInfo -> {
 				try {
 					return processTrainSearchResult(
-						trainInfo, seatInfoBatch, overlappingReservationsMap, fare, request.passengerCount());
+						trainInfo, seatInfoBatch, overlappingBookingsMap, fare, request.passengerCount());
 				} catch (Exception e) {
 					log.warn("열차 {} 처리 실패: {}", trainInfo.trainNumber(), e.getMessage());
 					return null;
@@ -198,21 +198,21 @@ public class TrainSearchFacade {
 	private TrainSearchResponse processTrainSearchResult(
 		TrainBasicInfo trainInfo,
 		TrainSeatInfoBatch seatInfoBatch,
-		Map<Long, List<SeatBookingInfo>> overlappingReservationsMap,
+		Map<Long, List<SeatBookingInfo>> overlappingBookingsMap,
 		StationFare fare,
 		int passengerCount) {
 
 		Long trainScheduleId = trainInfo.trainScheduleId();
 
 		// 배치 데이터 추출
-		List<SeatBookingInfo> overlappingReservations =
-			overlappingReservationsMap.getOrDefault(trainScheduleId, List.of());
+		List<SeatBookingInfo> overlappingBookings =
+			overlappingBookingsMap.getOrDefault(trainScheduleId, List.of());
 		Map<CarType, Integer> totalSeatsByCarType =
 			seatInfoBatch.getSeatsCountByCarType(trainScheduleId);
 
 		// 좌석 상태 계산
 		SectionSeatStatus sectionStatus = seatAvailabilityCalculator.calculateSectionSeatStatus(
-			overlappingReservations, totalSeatsByCarType, passengerCount);
+			overlappingBookings, totalSeatsByCarType, passengerCount);
 
 		// 응답 생성
 		return responseMapper.toResponse(

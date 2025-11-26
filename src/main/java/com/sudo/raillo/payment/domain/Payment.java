@@ -45,7 +45,7 @@ public class Payment {
 	private Member member;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "reservation_id", nullable = false)
+	@JoinColumn(name = "booking_id", nullable = false)
 	@Comment("예약 ID")
 	private Booking booking;
 

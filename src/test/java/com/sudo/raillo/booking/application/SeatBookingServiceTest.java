@@ -66,7 +66,7 @@ class SeatBookingServiceTest {
 		Booking booking = Booking.builder()
 			.trainSchedule(schedule.trainSchedule())
 			.member(member)
-			.reservationCode("20250806100001D49J")
+			.bookingCode("20250806100001D49J")
 			.tripType(TripType.OW)
 			.totalPassengers(1)
 			.passengerSummary("[{\"passengerType\":\"CHILD\",\"count\":1},{\"passengerType\":\"VETERAN\",\"count\":1}]")
@@ -86,18 +86,18 @@ class SeatBookingServiceTest {
 
 	@Test
 	@DisplayName("예약, 좌석, 승객 유형으로 좌석 예약 생성에 성공한다")
-	void reservationAndSeatAndPassengerType_reserveNewSeat_success() {
+	void bookingAndSeatAndPassengerType_reserveNewSeat_success() {
 		// when
 		SeatBooking entity = seatBookingService.reserveNewSeat(booking, seat1, passengerType1);
 
 		// then
-		assertThat(entity.getBooking().getReservationCode()).isEqualTo(booking.getReservationCode());
+		assertThat(entity.getBooking().getBookingCode()).isEqualTo(booking.getBookingCode());
 		assertThat(entity.getPassengerType()).isEqualTo(passengerType1);
 	}
 
 	@Test
 	@DisplayName("좌석 예약 ID로 좌석 예약 삭제에 성공한다")
-	void seatReservationId_deleteSeatReservation_success() {
+	void seatBookingId_deleteSeatBooking_success() {
 		// given
 		Train train = trainTestHelper.createKTX();
 		TrainSchedule trainSchedule = trainScheduleTestHelper.createSchedule(train).trainSchedule();
@@ -119,7 +119,7 @@ class SeatBookingServiceTest {
 		SeatBooking entity2 = seatBookingRepository.save(seatBooking2);
 
 		// when
-		seatBookingService.deleteSeatReservation(entity1.getId());
+		seatBookingService.deleteSeatBooking(entity1.getId());
 
 		// then
 		List<SeatBooking> result = seatBookingRepository.findAll();
@@ -129,7 +129,7 @@ class SeatBookingServiceTest {
 
 	@Test
 	@DisplayName("예약 ID로 좌석 예약 삭제에 성공한다")
-	void reservationId_deleteSeatReservation_success() {
+	void bookingId_deleteSeatBooking_success() {
 		// given
 		Train train = trainTestHelper.createKTX();
 		TrainSchedule trainSchedule = trainScheduleTestHelper.createSchedule(train).trainSchedule();
@@ -151,7 +151,7 @@ class SeatBookingServiceTest {
 		SeatBooking entity2 = seatBookingRepository.save(seatBooking2);
 
 		// when
-		seatBookingService.deleteSeatReservationByReservationId(booking.getId());
+		seatBookingService.deleteSeatBookingByBookingId(booking.getId());
 
 		// then
 		List<SeatBooking> result = seatBookingRepository.findAll();

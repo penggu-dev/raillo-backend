@@ -65,7 +65,7 @@ public class MemberService {
 
 		try {
 			memberRepository.delete(currentMember);
-			bookingFacade.deleteReservationsByMember(currentMember);
+			bookingFacade.deleteBookingsByMember(currentMember);
 		} catch (Exception e) {
 			log.error("회원 삭제 실패 : {}", e.getMessage());
 			throw new BusinessException(MemberError.MEMBER_DELETE_FAIL);

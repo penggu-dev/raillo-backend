@@ -35,12 +35,12 @@ public class BookingTestHelper {
 	/**
 	 * 기본 예약 생성 메서드
 	 */
-	public Booking createReservation(Member member,
+	public Booking createBooking(Member member,
 										 TrainScheduleWithStopStations scheduleWithStops) {
 		Booking booking = Booking.builder()
 			.trainSchedule(scheduleWithStops.trainSchedule())
 			.member(member)
-			.reservationCode("20250806100001D49J")
+			.bookingCode("20250806100001D49J")
 			.tripType(TripType.OW)
 			.totalPassengers(1)
 			.passengerSummary("[{\"passengerType\":\"ADULT\",\"count\":1}]")
@@ -52,7 +52,7 @@ public class BookingTestHelper {
 			.build();
 
 		bookingRepository.save(booking);
-		createSeatReservation(booking);
+		createSeatBooking(booking);
 		return booking;
 	}
 
@@ -65,9 +65,9 @@ public class BookingTestHelper {
 	 * @param arrivalStop 도착 정차역
 	 * @param seatIds 예약할 좌석 ID 목록
 	 * @param passengerType 승객 유형 (성인, 어린이 등)
-	 * @return 생성된 Reservation 객체
+	 * @return 생성된 Booking 객체
 	 */
-	public Booking createReservationWithSeatIds(Member member,
+	public Booking createBookingWithSeatIds(Member member,
 													TrainScheduleWithStopStations scheduleWithStops,
 													ScheduleStop departureStop,
 													ScheduleStop arrivalStop,
@@ -77,7 +77,7 @@ public class BookingTestHelper {
 		Booking booking = Booking.builder()
 			.trainSchedule(scheduleWithStops.trainSchedule())
 			.member(member)
-			.reservationCode("SEAT-" + System.currentTimeMillis())
+			.bookingCode("SEAT-" + System.currentTimeMillis())
 			.tripType(TripType.OW)
 			.totalPassengers(seatIds.size())
 			.passengerSummary("[{\"passengerType\":\"" + passengerType.name() + "\",\"count\":" + seatIds.size() + "}]")
@@ -89,14 +89,14 @@ public class BookingTestHelper {
 			.build();
 
 		bookingRepository.save(booking);
-		createSeatReservations(booking, seatIds, passengerType);
+		createSeatBookings(booking, seatIds, passengerType);
 		return booking;
 	}
 
 	/**
 	 * 좌석 예약 생성 메서드
 	 */
-	private void createSeatReservation(Booking booking) {
+	private void createSeatBooking(Booking booking) {
 		Train train = booking.getTrainSchedule().getTrain();
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
 
@@ -113,9 +113,9 @@ public class BookingTestHelper {
 	}
 
 	/**
-	 * 주어진 좌석 ID들로 SeatReservation 생성
+	 * 주어진 좌석 ID들로 SeatBooking 생성
 	 */
-	private void createSeatReservations(Booking booking, List<Long> seatIds, PassengerType passengerType) {
+	private void createSeatBookings(Booking booking, List<Long> seatIds, PassengerType passengerType) {
 		List<Seat> seats = trainTestHelper.getSeatsByIds(seatIds);
 
 		List<SeatBooking> seatBookings = seats.stream()

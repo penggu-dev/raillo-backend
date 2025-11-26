@@ -54,7 +54,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 
 	record OverlapScenario(
 		String description,
-		String existingReservationRoute,              // ex. "서울-대전"
+		String existingBookingRoute,              // ex. "서울-대전"
 		String searchRoute,                          // ex. "대전-부산"
 		List<Integer> reservedSeatsPerSegment,        // ex. 15
 		int expectedRemainingSeats                  // ex. 120
@@ -93,7 +93,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 	@DisplayName("열차 조회 시 다구간 경로에서 기존의 ‘겹침 구간’ 예약만 잔여 좌석에서 차감된다.")
 	@ParameterizedTest(name = "[{index}] {0}")
 	@MethodSource("overlapScenarios")
-	void shouldCountOnlyOverlappingReservations(OverlapScenario s) {
+	void shouldCountOnlyOverlappingBookings(OverlapScenario s) {
 		// given
 		Train train = trainTestHelper.createRealisticTrain(3, 2, 10, 6); // 일반실 : 120석, 특실 : 36석
 		LocalDate searchDate = LocalDate.now().plusDays(1);
@@ -129,7 +129,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 		Member member = memberRepository.save(MemberFixture.createStandardMember());
 
 		// 예약 생성
-		String[] segments = s.existingReservationRoute().split("\\+");
+		String[] segments = s.existingBookingRoute().split("\\+");
 		for (int i = 0; i < segments.length; i++) {
 			String segment = segments[i];
 			String[] stops = segment.split("-");
@@ -139,7 +139,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 			int seatsToReserve = s.reservedSeatsPerSegment().get(i);
 			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, seatsToReserve);
 
-			bookingTestHelper.createReservationWithSeatIds(
+			bookingTestHelper.createBookingWithSeatIds(
 				member, schedule, departureStop, arrivalStop, seatIds, PassengerType.ADULT
 			);
 		}

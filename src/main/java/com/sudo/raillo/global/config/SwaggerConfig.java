@@ -98,10 +98,10 @@ public class SwaggerConfig {
 				.name("Tickets")
 				.description("🚝 승차권 API - 승차권 조회, 발권, 취소 API"),
 			new Tag()
-				.name("Reservations")
+				.name("Bookings")
 				.description("🎫 예매 API - 예매 생성, 조회, 취소, 결제 API"),
 			new Tag()
-				.name("CartReservations")
+				.name("CartBookings")
 				.description("🛒 장바구니 API - 예약 등록, 조회 API"),
 			new Tag()
 				.name("Payments")

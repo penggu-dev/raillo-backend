@@ -75,7 +75,7 @@ public class BookingConcurrentConflictTest {
 
 	@Test
 	@DisplayName("동시에 같은 좌석에 여러 예약이 발생하면 1개의 예약만 성공한다.")
-	void allowsOnlyOneReservationForConcurrentRequests() throws InterruptedException {
+	void allowsOnlyOneBookingForConcurrentRequests() throws InterruptedException {
 		// given
 		ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
 		CountDownLatch latch = new CountDownLatch(threadCount);
@@ -90,7 +90,7 @@ public class BookingConcurrentConflictTest {
 		for (int i = 0; i < threadCount; i++) {
 			executorService.submit(() -> {
 				try {
-					bookingFacade.createReservation(request, memberNo);
+					bookingFacade.createBooking(request, memberNo);
 					successCount.getAndIncrement();
 				} catch (BusinessException e) {
 					failCount.getAndIncrement();
@@ -109,7 +109,7 @@ public class BookingConcurrentConflictTest {
 
 	@Test
 	@DisplayName("같은 좌석에 대해 겹치는 구간의 예약이 동시에 발생하면 1개의 예약만 성공한다.")
-	void allowsOnlyOneReservationForOverlappingRoutesWithConcurrentRequests() throws InterruptedException {
+	void allowsOnlyOneBookingForOverlappingRoutesWithConcurrentRequests() throws InterruptedException {
 		// given
 		ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
 		CountDownLatch latch = new CountDownLatch(threadCount);
@@ -133,9 +133,9 @@ public class BookingConcurrentConflictTest {
 			executorService.submit(() -> {
 				try {
 					if (index % 2 == 0) {
-						bookingFacade.createReservation(oneToThreeRequest, memberNo);
+						bookingFacade.createBooking(oneToThreeRequest, memberNo);
 					} else {
-						bookingFacade.createReservation(twoToFourRequest, memberNo);
+						bookingFacade.createBooking(twoToFourRequest, memberNo);
 					}
 					successCount.getAndIncrement();
 				} catch (BusinessException e) {

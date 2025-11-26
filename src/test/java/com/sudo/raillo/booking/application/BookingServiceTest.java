@@ -74,7 +74,7 @@ class BookingServiceTest {
 
 	@Test
 	@DisplayName("유효한 요청으로 예약이 성공한다")
-	void validRequest_createReservation_success() {
+	void validRequest_createBooking_success() {
 		// given
 		BookingCreateRequest request = new BookingCreateRequest(
 			schedule.trainSchedule().getId(),
@@ -88,7 +88,7 @@ class BookingServiceTest {
 		BigDecimal totalFare = BigDecimal.valueOf(80000);
 
 		// when
-		Booking booking = bookingService.createReservation(request, member.getMemberDetail().getMemberNo(), totalFare);
+		Booking booking = bookingService.createBooking(request, member.getMemberDetail().getMemberNo(), totalFare);
 
 		// then
 		Booking savedBooking = bookingRepository.findById(booking.getId())
@@ -98,26 +98,26 @@ class BookingServiceTest {
 		assertThat(savedBooking.getBookingStatus()).isEqualTo(BookingStatus.BOOKED);
 		assertThat(savedBooking.getTotalPassengers()).isEqualTo(2);
 		assertThat(savedBooking.getFare()).isEqualTo(80000);
-		assertThat(savedBooking.getReservationCode()).isNotNull();
+		assertThat(savedBooking.getBookingCode()).isNotNull();
 	}
 
 	@Test
 	@DisplayName("멤버번호와 예약 ID로 특정 예약 조회에 성공한다")
-	void memberNoAndReservationId_getReservation_success() {
+	void memberNoAndBookingId_getBooking_success() {
 		// given
 		String memberNo = member.getMemberDetail().getMemberNo();
 
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createReservation(member, schedule);
+		Booking booking = bookingTestHelper.createBooking(member, schedule);
 		Booking entity = bookingRepository.save(booking);
 
 		// when
-		BookingDetail result = bookingService.getReservation(memberNo, entity.getId());
+		BookingDetail result = bookingService.getBooking(memberNo, entity.getId());
 
 		// then
-		assertThat(result.reservationId()).isEqualTo(entity.getId());
-		assertThat(result.reservationCode()).isEqualTo(booking.getReservationCode());
+		assertThat(result.bookingId()).isEqualTo(entity.getId());
+		assertThat(result.bookingCode()).isEqualTo(booking.getBookingCode());
 		assertThat(result.departureStationName()).isEqualTo(
 			schedule.scheduleStops().get(0).getStation().getStationName());
 		assertThat(result.arrivalStationName()).isEqualTo(
@@ -126,17 +126,17 @@ class BookingServiceTest {
 
 	@Test
 	@DisplayName("올바른 멤버번호와 잘못된 예약 ID로 특정 예약 조회 시 예외를 반환한다")
-	void memberNoAndInvalidReservationId_getReservation_throwException() {
+	void memberNoAndInvalidBookingId_getBooking_throwException() {
 		// given
 		String memberNo = member.getMemberDetail().getMemberNo();
 
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createReservation(member, schedule);
+		Booking booking = bookingTestHelper.createBooking(member, schedule);
 		Booking entity = bookingRepository.save(booking);
 
 		// when & then
-		assertThatThrownBy(() -> bookingService.getReservation(memberNo, 2L))
+		assertThatThrownBy(() -> bookingService.getBooking(memberNo, 2L))
 			.isInstanceOf(BusinessException.class);
 
 		bookingRepository.save(booking);
@@ -144,33 +144,33 @@ class BookingServiceTest {
 
 	@Test
 	@DisplayName("올바른 멤버번호와 만료된 예약 ID로 특정 예약 조회 시 예외를 반환한다")
-	void memberNoAndExpiredReservationId_getReservation_throwException() {
+	void memberNoAndExpiredBookingId_getBooking_throwException() {
 		/*// given
 		String memberNo = member.getMemberDetail().getMemberNo();
-		Reservation reservation = Reservation.builder()
+		Booking booking = Booking.builder()
 			.trainSchedule(schedule.trainSchedule())
 			.member(member)
-			.reservationCode("20250806100001D49J")
+			.bookingCode("20250806100001D49J")
 			.tripType(TripType.OW)
 			.totalPassengers(1)
 			.passengerSummary("[{\"passengerType\":\"ADULT\",\"count\":1}]")
-			.reservationStatus(ReservationStatus.BOOKED)
+			.bookingStatus(BookingStatus.BOOKED)
 			.expiresAt(LocalDateTime.now().minusMinutes(10))
 			.fare(50000)
 			.departureStop(schedule.scheduleStops().get(0))
 			.arrivalStop(schedule.scheduleStops().get(1))
 			.build();
-		Reservation entity = reservationRepository.save(reservation);
+		Booking entity = bookingRepository.save(booking);
 
 		// when & then
-		assertThatThrownBy(() -> reservationService.getReservation(memberNo, entity.getId()))
+		assertThatThrownBy(() -> bookingService.getBooking(memberNo, entity.getId()))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.BOOKING_EXPIRED.getMessage());*/
 	}
 
 	@Test
 	@DisplayName("멤버번호로 관련한 예약 목록 조회에 성공한다")
-	void memberNo_getReservations_success() {
+	void memberNo_getBookings_success() {
 		// given
 		String memberNo = member.getMemberDetail().getMemberNo();
 
@@ -191,28 +191,28 @@ class BookingServiceTest {
 			.addStop("서울", LocalTime.of(12, 0), null)
 			.build();
 
-		Booking booking1 = bookingTestHelper.createReservation(member, scheduleBusanToDongDaegu);
-		Booking booking2 = bookingTestHelper.createReservation(member, scheduleDaejeonToSeoul);
+		Booking booking1 = bookingTestHelper.createBooking(member, scheduleBusanToDongDaegu);
+		Booking booking2 = bookingTestHelper.createBooking(member, scheduleDaejeonToSeoul);
 		Booking entity1 = bookingRepository.save(booking1);
 		Booking entity2 = bookingRepository.save(booking2);
 
 		// when
-		List<BookingDetail> result = bookingService.getReservations(memberNo);
+		List<BookingDetail> result = bookingService.getBookings(memberNo);
 
 		// then
 		assertThat(result.size()).isEqualTo(2);
 		BookingDetail result1 = result.get(0);
 		BookingDetail result2 = result.get(1);
 
-		assertThat(result1.reservationId()).isEqualTo(entity1.getId());
-		assertThat(result1.reservationCode()).isEqualTo(booking1.getReservationCode());
+		assertThat(result1.bookingId()).isEqualTo(entity1.getId());
+		assertThat(result1.bookingCode()).isEqualTo(booking1.getBookingCode());
 		assertThat(result1.departureStationName()).isEqualTo(
 			scheduleBusanToDongDaegu.scheduleStops().get(0).getStation().getStationName());
 		assertThat(result1.arrivalStationName()).isEqualTo(
 			scheduleBusanToDongDaegu.scheduleStops().get(1).getStation().getStationName());
 
-		assertThat(result2.reservationId()).isEqualTo(entity2.getId());
-		assertThat(result2.reservationCode()).isEqualTo(booking2.getReservationCode());
+		assertThat(result2.bookingId()).isEqualTo(entity2.getId());
+		assertThat(result2.bookingCode()).isEqualTo(booking2.getBookingCode());
 		assertThat(result2.departureStationName()).isEqualTo(
 			scheduleDaejeonToSeoul.scheduleStops().get(0).getStation().getStationName());
 		assertThat(result2.arrivalStationName()).isEqualTo(
@@ -221,7 +221,7 @@ class BookingServiceTest {
 
 	@Test
 	@DisplayName("멤버번호로 예약 목록 조회 시 만료된 예약을 제외하고 조회에 성공한다")
-	void memberNoAndExpiredReservation_getReservations_success() {
+	void memberNoAndExpiredBooking_getBookings_success() {
 		/*// given
 		String memberNo = member.getMemberDetail().getMemberNo();
 
@@ -242,32 +242,32 @@ class BookingServiceTest {
 			.addStop("서울", LocalTime.of(12, 0), null)
 			.build();
 
-		Reservation reservation1 = Reservation.builder()
+		Booking booking1 = Booking.builder()
 			.trainSchedule(scheduleBusanToDongDaegu.trainSchedule())
 			.member(member)
-			.reservationCode("20250806100001D49J")
+			.bookingCode("20250806100001D49J")
 			.tripType(TripType.OW)
 			.totalPassengers(1)
 			.passengerSummary("[{\"passengerType\":\"ADULT\",\"count\":1}]")
-			.reservationStatus(ReservationStatus.BOOKED)
+			.bookingStatus(BookingStatus.BOOKED)
 			.expiresAt(LocalDateTime.now().minusMinutes(10))
 			.fare(50000)
 			.departureStop(scheduleBusanToDongDaegu.scheduleStops().get(0))
 			.arrivalStop(scheduleBusanToDongDaegu.scheduleStops().get(1))
 			.build();
-		Reservation reservation2 = reservationTestHelper.createReservation(member, scheduleDaejeonToSeoul);
-		Reservation entity1 = reservationRepository.save(reservation1);
-		Reservation entity2 = reservationRepository.save(reservation2);
+		Booking booking2 = bookingTestHelper.createBooking(member, scheduleDaejeonToSeoul);
+		Booking entity1 = bookingRepository.save(booking1);
+		Booking entity2 = bookingRepository.save(booking2);
 
 		// when
-		List<ReservationDetail> result = reservationService.getReservations(memberNo);
+		List<BookingDetail> result = bookingService.getBookings(memberNo);
 
 		// then
 		assertThat(result.size()).isEqualTo(1);
-		ReservationDetail result1 = result.get(0);
+		BookingDetail result1 = result.get(0);
 
-		assertThat(result1.reservationId()).isEqualTo(entity2.getId());
-		assertThat(result1.reservationCode()).isEqualTo(reservation2.getReservationCode());
+		assertThat(result1.bookingId()).isEqualTo(entity2.getId());
+		assertThat(result1.bookingCode()).isEqualTo(booking2.getBookingCode());
 		assertThat(result1.departureStationName()).isEqualTo(
 			scheduleDaejeonToSeoul.scheduleStops().get(0).getStation().getStationName());
 		assertThat(result1.arrivalStationName()).isEqualTo(
@@ -276,16 +276,16 @@ class BookingServiceTest {
 
 	@Test
 	@DisplayName("올바른 예약 삭제 요청 DTO로 예약 삭제에 성공한다")
-	void validRequestDto_deleteReservation_success() {
+	void validRequestDto_deleteBooking_success() {
 		// given
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createReservation(member, schedule);
+		Booking booking = bookingTestHelper.createBooking(member, schedule);
 		Booking entity = bookingRepository.save(booking);
 		BookingDeleteRequest request = new BookingDeleteRequest(entity.getId());
 
 		// when
-		bookingService.deleteReservation(request.reservationId());
+		bookingService.deleteBooking(request.bookingId());
 
 		// then
 		List<Booking> result = bookingRepository.findAll();

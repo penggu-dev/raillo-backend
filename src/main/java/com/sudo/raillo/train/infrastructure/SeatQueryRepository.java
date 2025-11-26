@@ -1,7 +1,7 @@
 package com.sudo.raillo.train.infrastructure;
 
-import static com.sudo.raillo.booking.domain.QBooking.reservation;
-import static com.sudo.raillo.booking.domain.QSeatReservation.seatReservation;
+import static com.sudo.raillo.booking.domain.QBooking.booking;
+import static com.sudo.raillo.booking.domain.QSeatBooking.seatBooking;
 import static com.sudo.raillo.train.domain.QSeat.seat;
 import static com.sudo.raillo.train.domain.QTrainCar.trainCar;
 
@@ -65,7 +65,7 @@ public class SeatQueryRepository {
 						.then("009")  // 순방향
 						.otherwise("010"), // 역방향
 					// isReserved
-					new CaseBuilder().when(seatReservation.id.isNotNull()).then(true).otherwise(false),
+					new CaseBuilder().when(seatBooking.id.isNotNull()).then(true).otherwise(false),
 					// specialMessage
 					new CaseBuilder().when(seat.seatRow.between(middleRow, middleRow + 1))
 						.then(new CaseBuilder().when(seat.seatRow.eq(middleRow))
@@ -75,15 +75,15 @@ public class SeatQueryRepository {
 							.otherwise(""))
 						.otherwise("")))
 			.from(seat)
-			.leftJoin(seatReservation).on(
-				seatReservation.seat.id.eq(seat.id)
-					.and(seatReservation.trainSchedule.id.eq(trainScheduleId))
-					.and(seatReservation.seat.isNotNull())  // 실제 좌석 예약
+			.leftJoin(seatBooking).on(
+				seatBooking.seat.id.eq(seat.id)
+					.and(seatBooking.trainSchedule.id.eq(trainScheduleId))
+					.and(seatBooking.seat.isNotNull())  // 실제 좌석 예약
 			)
-			.leftJoin(seatReservation.reservation, reservation)
+			.leftJoin(seatBooking.booking, booking)
 			// 기존 예약 정보 left join
-			.leftJoin(reservation.departureStop, reservedDepartureStop)
-			.leftJoin(reservation.arrivalStop, reservedArrivalStop)
+			.leftJoin(booking.departureStop, reservedDepartureStop)
+			.leftJoin(booking.arrivalStop, reservedArrivalStop)
 			// 검색 구간 정보 left join
 			.leftJoin(searchDepartureStop).on(
 				searchDepartureStop.trainSchedule.id.eq(trainScheduleId)
@@ -98,7 +98,7 @@ public class SeatQueryRepository {
 				// stopOrder 기반 구간 겹침 조건
 				// 구간 겹침: NOT(예약종료 <= 검색시작 OR 예약시작 >= 검색종료)
 				// = 예약종료 > 검색시작 AND 예약시작 < 검색종료
-				reservation.id.isNull().or(
+				booking.id.isNull().or(
 					reservedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)
 						.and(reservedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
 				)

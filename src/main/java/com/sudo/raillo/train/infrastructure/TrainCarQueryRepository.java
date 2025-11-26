@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.sudo.raillo.booking.domain.QSeatReservation;
+import com.sudo.raillo.booking.domain.QSeatBooking;
 import com.sudo.raillo.train.application.dto.projection.QTrainCarProjection;
 import com.sudo.raillo.train.application.dto.projection.TrainCarProjection;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
@@ -37,7 +37,7 @@ public class TrainCarQueryRepository {
 		QTrain train = QTrain.train;
 		QTrainCar trainCar = QTrainCar.trainCar;
 		QSeat seat = QSeat.seat;
-		QSeatReservation seatReservation = QSeatReservation.seatReservation;
+		QSeatBooking seatBooking = QSeatBooking.seatBooking;
 
 		// stopOrder 기반 구간 겹침을 위한 ScheduleStop 조인
 		QScheduleStop reservedDepartureStop = new QScheduleStop("reservedDepartureStop");
@@ -64,14 +64,14 @@ public class TrainCarQueryRepository {
 
 		// 2. 각 객차별 예약된 좌석 수 계산
 		Map<Long, Long> occupiedSeatsPerCar = queryFactory
-			.select(trainCar.id, seatReservation.count())
-			.from(seatReservation)
-			.join(seatReservation.seat, seat)
+			.select(trainCar.id, seatBooking.count())
+			.from(seatBooking)
+			.join(seatBooking.seat, seat)
 			.join(seat.trainCar, trainCar)
-			.join(seatReservation.reservation, reservation)
+			.join(seatBooking.booking, booking)
 			// stopOrder 기반 구간 겹침 조건
-			.join(reservation.departureStop, reservedDepartureStop)
-			.join(reservation.arrivalStop, reservedArrivalStop)
+			.join(booking.departureStop, reservedDepartureStop)
+			.join(booking.arrivalStop, reservedArrivalStop)
 			.join(searchDepartureStop).on(
 				searchDepartureStop.trainSchedule.id.eq(trainScheduleId)
 					.and(searchDepartureStop.station.id.eq(departureStationId))
@@ -81,8 +81,8 @@ public class TrainCarQueryRepository {
 					.and(searchArrivalStop.station.id.eq(arrivalStationId))
 			)
 			.where(
-				seatReservation.trainSchedule.id.eq(trainScheduleId),
-				seatReservation.seat.isNotNull(),
+				seatBooking.trainSchedule.id.eq(trainScheduleId),
+				seatBooking.seat.isNotNull(),
 				// stopOrder 기반 구간 겹침 조건
 				// 구간 겹침: NOT(예약종료 <= 검색시작 OR 예약시작 >= 검색종료)
 				// = 예약종료 > 검색시작 AND 예약시작 < 검색종료
@@ -94,7 +94,7 @@ public class TrainCarQueryRepository {
 			.stream()
 			.collect(Collectors.toMap(
 				tuple -> tuple.get(trainCar.id),
-				tuple -> tuple.get(seatReservation.count())
+				tuple -> tuple.get(seatBooking.count())
 			));
 
 		// 3. remainingSeats 계산하여 업데이트하고 응답용 record로 변환

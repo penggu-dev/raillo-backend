@@ -132,13 +132,13 @@ public class TrainSearchFacadeSeatStatusTest {
 
 		if (scenario.reservedStandardSeats > 0) {
 			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, scenario.reservedStandardSeats);
-			bookingTestHelper.createReservationWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
+			bookingTestHelper.createBookingWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
 				PassengerType.ADULT);
 		}
 		if (scenario.reservedFirstClassSeats > 0) {
 			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.FIRST_CLASS,
 				scenario.reservedFirstClassSeats);
-			bookingTestHelper.createReservationWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
+			bookingTestHelper.createBookingWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
 				PassengerType.ADULT);
 		}
 

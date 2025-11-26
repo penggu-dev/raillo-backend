@@ -96,9 +96,9 @@ public class TrainSearchService {
 	/**
 	 * 겹치는 예약 배치 조회
 	 */
-	public Map<Long, List<SeatBookingInfo>> findOverlappingReservationsBatch(
+	public Map<Long, List<SeatBookingInfo>> findOverlappingBookingsBatch(
 		List<Long> trainScheduleIds, Long departureStationId, Long arrivalStationId) {
-		return seatBookingQueryRepository.findOverlappingReservationsBatch(
+		return seatBookingQueryRepository.findOverlappingBookingsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId);
 	}
 

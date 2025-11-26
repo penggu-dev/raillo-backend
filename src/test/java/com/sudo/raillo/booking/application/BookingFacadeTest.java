@@ -78,52 +78,52 @@ class BookingFacadeTest {
 
 	@Test
 	@DisplayName("예약 관련 정보를 받아 예약을 생성한다.")
-	void createReservation() {
+	void createBooking() {
 		// given
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when
-		var response = bookingFacade.createReservation(request, memberNo);
+		var response = bookingFacade.createBooking(request, memberNo);
 
 		// then
-		Booking savedBooking = bookingRepository.findById(response.reservationId()).orElseThrow();
+		Booking savedBooking = bookingRepository.findById(response.bookingId()).orElseThrow();
 		Member member = memberRepository.findById(savedBooking.getMember().getId()).orElseThrow();
 		assertThat(member.getMemberDetail().getMemberNo()).isEqualTo(memberNo);
 		assertThat(savedBooking.getBookingStatus()).isEqualTo(BookingStatus.BOOKED);
-		assertThat(savedBooking.getReservationCode()).isNotNull();
+		assertThat(savedBooking.getBookingCode()).isNotNull();
 	}
 
 	@Test
-	@DisplayName("예약이 성공하면 SeatReservation이 생성된다.")
-	void createSeatReservation() {
+	@DisplayName("예약이 성공하면 SeatBooking이 생성된다.")
+	void createSeatBooking() {
 		// given
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when
-		var response = bookingFacade.createReservation(request, memberNo);
+		var response = bookingFacade.createBooking(request, memberNo);
 
 		// then
-		List<SeatBooking> savedSeatBookings = seatBookingRepository.findByReservationId(response.reservationId());
+		List<SeatBooking> savedSeatBookings = seatBookingRepository.findByBookingId(response.bookingId());
 		assertThat(savedSeatBookings).hasSize(2);
-		savedSeatBookings.forEach(seatReservation -> {
-			assertThat(seatReservation.getBooking().getId()).isEqualTo(response.reservationId());
-			assertThat(seatReservation.getSeat().getId()).isIn(standardSeatIds);
+		savedSeatBookings.forEach(seatBooking -> {
+			assertThat(seatBooking.getBooking().getId()).isEqualTo(response.bookingId());
+			assertThat(seatBooking.getSeat().getId()).isIn(standardSeatIds);
 		});
 	}
 
 	@Test
 	@DisplayName("예약이 생성될 때 좌석 정보는 오름차순으로 정렬된다.")
-	void createReservationWithSortedSeats() {
+	void createBookingWithSortedSeats() {
 		// given
 		passengers = List.of(new PassengerSummary(PassengerType.ADULT, 4));
 		standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 4);
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when
-		var response = bookingFacade.createReservation(request, memberNo);
+		var response = bookingFacade.createBooking(request, memberNo);
 
 		// then
-		assertThat(response.seatReservationIds()).containsExactlyElementsOf(standardSeatIds);
+		assertThat(response.seatBookingIds()).containsExactlyElementsOf(standardSeatIds);
 	}
 
 	@ParameterizedTest
@@ -135,7 +135,7 @@ class BookingFacadeTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when & then
-		assertThatThrownBy(() -> bookingFacade.createReservation(request, memberNo))
+		assertThatThrownBy(() -> bookingFacade.createBooking(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.BOOKING_CREATE_SEATS_INVALID.getMessage());
 	}
@@ -148,7 +148,7 @@ class BookingFacadeTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when & then
-		assertThatThrownBy(() -> bookingFacade.createReservation(request, memberNo))
+		assertThatThrownBy(() -> bookingFacade.createBooking(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.SEAT_NOT_FOUND.getMessage());
 	}
@@ -158,10 +158,10 @@ class BookingFacadeTest {
 	void shouldThrowsExceptionWhenSeatAlreadyReserved() {
 		// given
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
-		bookingFacade.createReservation(request, memberNo);
+		bookingFacade.createBooking(request, memberNo);
 
 		// when & then
-		assertThatThrownBy(() -> bookingFacade.createReservation(request, memberNo))
+		assertThatThrownBy(() -> bookingFacade.createBooking(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
 	}
@@ -174,7 +174,7 @@ class BookingFacadeTest {
 		trainScheduleTestHelper.createOrUpdateStationFare("부산", "서울", 50000, 10000);
 
 		// when & then
-		assertThatThrownBy(() -> bookingFacade.createReservation(request, memberNo))
+		assertThatThrownBy(() -> bookingFacade.createBooking(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.TRAIN_NOT_OPERATIONAL.getMessage());
 	}

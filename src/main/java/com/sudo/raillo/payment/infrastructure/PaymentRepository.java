@@ -17,5 +17,5 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 	/**
 	 * 예약 ID와 결제 상태로 결제 존재 여부 확인
 	 */
-	boolean existsByReservationIdAndPaymentStatus(Long reservationId, PaymentStatus paymentStatus);
+	boolean existsByBookingIdAndPaymentStatus(Long bookingId, PaymentStatus paymentStatus);
 }

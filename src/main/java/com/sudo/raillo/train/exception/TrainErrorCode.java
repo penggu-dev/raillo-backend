@@ -21,7 +21,7 @@ public enum TrainErrorCode implements ErrorCode {
 
 	// 좌석 예약 관련
 	SEAT_NOT_AVAILABLE("선택한 좌석을 예약할 수 없습니다.", HttpStatus.BAD_REQUEST, "T4101"),
-	SEAT_ALREADY_RESERVED("이미 예약된 좌석입니다.", HttpStatus.CONFLICT, "T4102"),
+	SEAT_ALREADY_EXISTED("이미 예약된 좌석입니다.", HttpStatus.CONFLICT, "T4102"),
 	INSUFFICIENT_SEATS("요청한 승객 수만큼 좌석이 부족합니다.", HttpStatus.BAD_REQUEST, "T4103"),
 	TRAIN_SOLD_OUT("해당 열차는 완전 매진되었습니다.", HttpStatus.BAD_REQUEST, "T4105"),
 
@@ -45,9 +45,9 @@ public enum TrainErrorCode implements ErrorCode {
 	INVALID_SEARCH_CONDITION("잘못된 검색 조건입니다.", HttpStatus.BAD_REQUEST, "T4502"),
 
 	// 예약 관련
-	RESERVATION_NOT_FOUND("예약 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "T4601"),
-	RESERVATION_ALREADY_CANCELLED("이미 취소된 예약입니다.", HttpStatus.BAD_REQUEST, "T4602"),
-	RESERVATION_CANNOT_BE_CANCELLED("취소할 수 없는 예약입니다.", HttpStatus.BAD_REQUEST, "T4603"),
+	BOOKING_NOT_FOUND("예약 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "T4601"),
+	BOOKING_ALREADY_CANCELLED("이미 취소된 예약입니다.", HttpStatus.BAD_REQUEST, "T4602"),
+	BOOKING_CANNOT_BE_CANCELLED("취소할 수 없는 예약입니다.", HttpStatus.BAD_REQUEST, "T4603"),
 
 	// 시스템 관련
 	TRAIN_SYSTEM_ERROR("열차 시스템 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "T5001"),

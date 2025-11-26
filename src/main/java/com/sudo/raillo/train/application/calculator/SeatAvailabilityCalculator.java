@@ -24,13 +24,13 @@ public class SeatAvailabilityCalculator {
 	 * 배치로 조회된 데이터를 사용해 구간별 좌석 상태 계산
 	 */
 	public SectionSeatStatus calculateSectionSeatStatus(
-		List<SeatBookingInfo> overlappingReservations,
+		List<SeatBookingInfo> overlappingBookings,
 		Map<CarType, Integer> totalSeats,
 		int requestedPassengerCount) {
 
 		// 1. 좌석 타입별 잔여 좌석 계산
 		SeatCalculationResult seatResult = calculateRemainingSeats(
-			totalSeats, overlappingReservations);
+			totalSeats, overlappingBookings);
 
 		// 2. 예약 가능 여부 판단
 		boolean canReserveStandard = seatResult.standardRemaining() >= requestedPassengerCount;
@@ -50,9 +50,9 @@ public class SeatAvailabilityCalculator {
 	 * 좌석 타입별 잔여 좌석 계산
 	 */
 	public SeatCalculationResult calculateRemainingSeats(Map<CarType, Integer> totalSeats,
-		List<SeatBookingInfo> overlappingReservations) {
+		List<SeatBookingInfo> overlappingBookings) {
 		// 예약된 좌석 수 계산
-		Map<CarType, Long> reservedSeats = overlappingReservations.stream()
+		Map<CarType, Long> reservedSeats = overlappingBookings.stream()
 			.collect(Collectors.groupingBy(SeatBookingInfo::carType, Collectors.counting()));
 
 		int standardTotal = totalSeats.getOrDefault(CarType.STANDARD, 0);

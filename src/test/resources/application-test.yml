@@ -54,7 +54,7 @@ cors:
 
 booking:
   expiration:
-    reservation: 1
+    booking: 1
 
 cookie:
   domain: .test

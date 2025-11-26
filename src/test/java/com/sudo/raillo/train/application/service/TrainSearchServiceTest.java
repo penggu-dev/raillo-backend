@@ -260,23 +260,23 @@ class TrainSearchServiceTest {
 
 	@DisplayName("여러 열차의 겹치는 예약 정보를 한 번에 조회한다")
 	@Test
-	void findsOverlappingReservationsInBatch() {
+	void findsOverlappingBookingsInBatch() {
 		// given
 		List<Long> trainScheduleIds = List.of(1L, 2L);
 		Long departureStationId = 1L;
 		Long arrivalStationId = 2L;
 
-		Map<Long, List<SeatBookingInfo>> mockReservations = Map.of(
+		Map<Long, List<SeatBookingInfo>> mockBookings = Map.of(
 			1L, List.of(new SeatBookingInfo(1L, CarType.STANDARD, 1L, 2L)),
 			2L, List.of(new SeatBookingInfo(2L, CarType.FIRST_CLASS, 1L, 2L))
 		);
 
-		given(seatBookingQueryRepository.findOverlappingReservationsBatch(
+		given(seatBookingQueryRepository.findOverlappingBookingsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId
-		)).willReturn(mockReservations);
+		)).willReturn(mockBookings);
 
 		// when
-		Map<Long, List<SeatBookingInfo>> result = trainSearchService.findOverlappingReservationsBatch(
+		Map<Long, List<SeatBookingInfo>> result = trainSearchService.findOverlappingBookingsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId
 		);
 
@@ -284,7 +284,7 @@ class TrainSearchServiceTest {
 		assertThat(result).hasSize(2);
 		assertThat(result.get(1L)).hasSize(1);
 
-		verify(seatBookingQueryRepository).findOverlappingReservationsBatch(
+		verify(seatBookingQueryRepository).findOverlappingBookingsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId
 		);
 		log.info("겹치는 예약 배치 조회 테스트 완료");

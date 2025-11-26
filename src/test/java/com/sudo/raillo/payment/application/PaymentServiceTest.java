@@ -73,7 +73,7 @@ class PaymentServiceTest {
 
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleWithStopStations scheduleWithStops = trainScheduleTestHelper.createSchedule(train);
-		booking = bookingTestHelper.createReservation(member, scheduleWithStops);
+		booking = bookingTestHelper.createBooking(member, scheduleWithStops);
 	}
 
 	@Test
@@ -258,7 +258,7 @@ class PaymentServiceTest {
 		assertThat(cardPayment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
 		assertThat(cardPayment.amount()).isEqualByComparingTo(BigDecimal.valueOf(booking.getFare()));
 		assertThat(cardPayment.paymentKey()).isNotNull();
-		assertThat(cardPayment.reservationCode()).isNotNull();
+		assertThat(cardPayment.bookingCode()).isNotNull();
 	}
 
 	@Test

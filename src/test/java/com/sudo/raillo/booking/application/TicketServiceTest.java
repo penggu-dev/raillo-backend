@@ -64,7 +64,7 @@ class TicketServiceTest {
 		Booking booking = Booking.builder()
 			.trainSchedule(schedule.trainSchedule())
 			.member(member)
-			.reservationCode("20250806100001D49J")
+			.bookingCode("20250806100001D49J")
 			.tripType(TripType.OW)
 			.totalPassengers(1)
 			.passengerSummary("[{\"passengerType\":\"CHILD\",\"count\":1},{\"passengerType\":\"VETERAN\",\"count\":1}]")
@@ -85,7 +85,7 @@ class TicketServiceTest {
 
 	@Test
 	@DisplayName("예약, 좌석, 승객 유형으로 티켓 생성에 성공한다")
-	void reservationAndSeatAndPassengerType_createTicket_success() {
+	void bookingAndSeatAndPassengerType_createTicket_success() {
 		// when
 		ticketService.createTicket(booking, seat1, passengerType1);
 
@@ -156,7 +156,7 @@ class TicketServiceTest {
 
 	@Test
 	@DisplayName("예약 ID로 티켓 삭제에 성공한다")
-	void reservationId_deleteTicket_success() {
+	void bookingId_deleteTicket_success() {
 		// given
 		Ticket ticket1 = Ticket.builder()
 			.seat(seat1)
@@ -175,7 +175,7 @@ class TicketServiceTest {
 		ticketRepository.save(ticket2);
 
 		// when
-		ticketService.deleteTicketByReservationId(booking.getId());
+		ticketService.deleteTicketByBookingId(booking.getId());
 
 		// then
 		List<Ticket> result = ticketRepository.findAll();
