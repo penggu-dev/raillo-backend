@@ -52,17 +52,17 @@ public class SeatAvailabilityCalculator {
 	public SeatCalculationResult calculateRemainingSeats(Map<CarType, Integer> totalSeats,
 		List<SeatBookingInfo> overlappingBookings) {
 		// 예약된 좌석 수 계산
-		Map<CarType, Long> reservedSeats = overlappingBookings.stream()
+		Map<CarType, Long> bookedSeats = overlappingBookings.stream()
 			.collect(Collectors.groupingBy(SeatBookingInfo::carType, Collectors.counting()));
 
 		int standardTotal = totalSeats.getOrDefault(CarType.STANDARD, 0);
 		int firstClassTotal = totalSeats.getOrDefault(CarType.FIRST_CLASS, 0);
-		int standardReserved = reservedSeats.getOrDefault(CarType.STANDARD, 0L).intValue();
-		int firstClassReserved = reservedSeats.getOrDefault(CarType.FIRST_CLASS, 0L).intValue();
+		int standardBooked = bookedSeats.getOrDefault(CarType.STANDARD, 0L).intValue();
+		int firstClassBooked = bookedSeats.getOrDefault(CarType.FIRST_CLASS, 0L).intValue();
 
 		return new SeatCalculationResult(
-			Math.max(0, standardTotal - standardReserved), standardTotal,
-			Math.max(0, firstClassTotal - firstClassReserved), firstClassTotal
+			Math.max(0, standardTotal - standardBooked), standardTotal,
+			Math.max(0, firstClassTotal - firstClassBooked), firstClassTotal
 		);
 	}
 

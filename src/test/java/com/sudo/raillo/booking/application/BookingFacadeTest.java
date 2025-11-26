@@ -155,7 +155,7 @@ class BookingFacadeTest {
 
 	@Test
 	@DisplayName("이미 선점한 좌석을 예약하는 경우 예외가 발생한다.")
-	void shouldThrowsExceptionWhenSeatAlreadyReserved() {
+	void shouldThrowsExceptionWhenSeatAlreadyBooked() {
 		// given
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 		bookingFacade.createBooking(request, memberNo);

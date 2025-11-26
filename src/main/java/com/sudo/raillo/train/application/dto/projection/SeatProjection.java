@@ -16,7 +16,7 @@ public class SeatProjection {
 	private final String seatNumber;
 	private final SeatType seatType;
 	private final String directionCode;
-	private final boolean isReserved;
+	private final boolean isBooked;
 	private final String specialMessage;
 
 	@QueryProjection
@@ -25,14 +25,14 @@ public class SeatProjection {
 		String seatNumber,
 		SeatType seatType,
 		String directionCode,
-		boolean isReserved,
+		boolean isBooked,
 		String specialMessage
 	) {
 		this.seatId = seatId;
 		this.seatNumber = seatNumber;
 		this.seatType = seatType;
 		this.directionCode = directionCode;
-		this.isReserved = isReserved;
+		this.isBooked = isBooked;
 		this.specialMessage = specialMessage;
 	}
 
@@ -40,7 +40,7 @@ public class SeatProjection {
 	 * 예약 가능 여부 반환
 	 */
 	public boolean isAvailable() {
-		return !isReserved;
+		return !isBooked;
 	}
 
 	/**

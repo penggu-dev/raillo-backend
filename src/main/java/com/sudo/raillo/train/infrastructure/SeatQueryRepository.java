@@ -51,8 +51,8 @@ public class SeatQueryRepository {
 
 		// 2. 객차 내 모든 좌석 상세 정보 조회 (예약 상태 포함)
 		// stopOrder 기반 구간 겹침을 위한 ScheduleStop 조인
-		QScheduleStop reservedDepartureStop = new QScheduleStop("reservedDepartureStop");
-		QScheduleStop reservedArrivalStop = new QScheduleStop("reservedArrivalStop");
+		QScheduleStop bookedDepartureStop = new QScheduleStop("bookedDepartureStop");
+		QScheduleStop bookedArrivalStop = new QScheduleStop("bookedArrivalStop");
 		QScheduleStop searchDepartureStop = new QScheduleStop("searchDepartureStop");
 		QScheduleStop searchArrivalStop = new QScheduleStop("searchArrivalStop");
 
@@ -64,7 +64,7 @@ public class SeatQueryRepository {
 					new CaseBuilder().when(seat.seatRow.loe(middleRow)) // 중간 이하 : 순방향
 						.then("009")  // 순방향
 						.otherwise("010"), // 역방향
-					// isReserved
+					// isBooked
 					new CaseBuilder().when(seatBooking.id.isNotNull()).then(true).otherwise(false),
 					// specialMessage
 					new CaseBuilder().when(seat.seatRow.between(middleRow, middleRow + 1))
@@ -82,8 +82,8 @@ public class SeatQueryRepository {
 			)
 			.leftJoin(seatBooking.booking, booking)
 			// 기존 예약 정보 left join
-			.leftJoin(booking.departureStop, reservedDepartureStop)
-			.leftJoin(booking.arrivalStop, reservedArrivalStop)
+			.leftJoin(booking.departureStop, bookedDepartureStop)
+			.leftJoin(booking.arrivalStop, bookedArrivalStop)
 			// 검색 구간 정보 left join
 			.leftJoin(searchDepartureStop).on(
 				searchDepartureStop.trainSchedule.id.eq(trainScheduleId)
@@ -99,8 +99,8 @@ public class SeatQueryRepository {
 				// 구간 겹침: NOT(예약종료 <= 검색시작 OR 예약시작 >= 검색종료)
 				// = 예약종료 > 검색시작 AND 예약시작 < 검색종료
 				booking.id.isNull().or(
-					reservedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)
-						.and(reservedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
+					bookedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)
+						.and(bookedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
 				)
 			)
 			.orderBy(seat.seatRow.asc(), seat.seatColumn.asc())

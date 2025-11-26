@@ -108,7 +108,7 @@ class TrainSeatQueryServiceTest {
 
 	@Test
 	@DisplayName("예약된 좌석이 있으면 해당 좌석은 조회 되지 않는다")
-	void shouldExcludeReservedSeatsFromAvailableCount() {
+	void shouldExcludeBookedSeatsFromAvailableCount() {
 		// given
 		Member testMember = MemberFixture.createStandardMember();
 		memberRepository.save(testMember);
@@ -190,7 +190,7 @@ class TrainSeatQueryServiceTest {
 
 	@Test
 	@DisplayName("예약된 좌석은 조회시 사용 불가능한 상태로 조회된다.")
-	void shouldReservedSeatsAsUnavailable() {
+	void shouldBookedSeatsAsUnavailable() {
 		// given
 		Member testMember = MemberFixture.createStandardMember();
 		memberRepository.save(testMember);

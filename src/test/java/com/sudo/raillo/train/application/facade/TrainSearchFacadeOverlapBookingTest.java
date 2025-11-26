@@ -56,7 +56,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 		String description,
 		String existingBookingRoute,              // ex. "서울-대전"
 		String searchRoute,                          // ex. "대전-부산"
-		List<Integer> reservedSeatsPerSegment,        // ex. 15
+		List<Integer> bookedSeatsPerSegment,        // ex. 15
 		int expectedRemainingSeats                  // ex. 120
 	) {
 		@Override
@@ -136,7 +136,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 			ScheduleStop departureStop = trainScheduleTestHelper.getScheduleStopByStationName(schedule, stops[0]);
 			ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(schedule, stops[1]);
 
-			int seatsToReserve = s.reservedSeatsPerSegment().get(i);
+			int seatsToReserve = s.bookedSeatsPerSegment().get(i);
 			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, seatsToReserve);
 
 			bookingTestHelper.createBookingWithSeatIds(

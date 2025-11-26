@@ -40,8 +40,8 @@ public class TrainCarQueryRepository {
 		QSeatBooking seatBooking = QSeatBooking.seatBooking;
 
 		// stopOrder 기반 구간 겹침을 위한 ScheduleStop 조인
-		QScheduleStop reservedDepartureStop = new QScheduleStop("reservedDepartureStop");
-		QScheduleStop reservedArrivalStop = new QScheduleStop("reservedArrivalStop");
+		QScheduleStop bookedDepartureStop = new QScheduleStop("bookedDepartureStop");
+		QScheduleStop bookedArrivalStop = new QScheduleStop("bookedArrivalStop");
 		QScheduleStop searchDepartureStop = new QScheduleStop("searchDepartureStop");
 		QScheduleStop searchArrivalStop = new QScheduleStop("searchArrivalStop");
 
@@ -70,8 +70,8 @@ public class TrainCarQueryRepository {
 			.join(seat.trainCar, trainCar)
 			.join(seatBooking.booking, booking)
 			// stopOrder 기반 구간 겹침 조건
-			.join(booking.departureStop, reservedDepartureStop)
-			.join(booking.arrivalStop, reservedArrivalStop)
+			.join(booking.departureStop, bookedDepartureStop)
+			.join(booking.arrivalStop, bookedArrivalStop)
 			.join(searchDepartureStop).on(
 				searchDepartureStop.trainSchedule.id.eq(trainScheduleId)
 					.and(searchDepartureStop.station.id.eq(departureStationId))
@@ -86,8 +86,8 @@ public class TrainCarQueryRepository {
 				// stopOrder 기반 구간 겹침 조건
 				// 구간 겹침: NOT(예약종료 <= 검색시작 OR 예약시작 >= 검색종료)
 				// = 예약종료 > 검색시작 AND 예약시작 < 검색종료
-				reservedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)
-					.and(reservedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
+				bookedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)
+					.and(bookedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
 			)
 			.groupBy(trainCar.id)
 			.fetch()

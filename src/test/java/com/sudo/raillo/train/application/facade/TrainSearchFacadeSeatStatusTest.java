@@ -56,7 +56,7 @@ public class TrainSearchFacadeSeatStatusTest {
 	record SeatStatusScenario(
 		String description,
 		int standardCars, int firstClassCars, int standardRows, int firstClassRows,
-		int reservedStandardSeats, int reservedFirstClassSeats,
+		int bookedStandardSeats, int bookedFirstClassSeats,
 		int passengerCount,
 		SeatAvailabilityStatus expectedStandardStatus,
 		SeatAvailabilityStatus expectedFirstClassStatus,
@@ -130,14 +130,14 @@ public class TrainSearchFacadeSeatStatusTest {
 		ScheduleStop departureStop = trainScheduleTestHelper.getScheduleStopByStationName(schedule, "서울");
 		ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(schedule, "부산");
 
-		if (scenario.reservedStandardSeats > 0) {
-			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, scenario.reservedStandardSeats);
+		if (scenario.bookedStandardSeats > 0) {
+			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, scenario.bookedStandardSeats);
 			bookingTestHelper.createBookingWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
 				PassengerType.ADULT);
 		}
-		if (scenario.reservedFirstClassSeats > 0) {
+		if (scenario.bookedFirstClassSeats > 0) {
 			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.FIRST_CLASS,
-				scenario.reservedFirstClassSeats);
+				scenario.bookedFirstClassSeats);
 			bookingTestHelper.createBookingWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
 				PassengerType.ADULT);
 		}
@@ -158,8 +158,8 @@ public class TrainSearchFacadeSeatStatusTest {
 
 		int expectedStandardTotal = scenario.standardCars * scenario.standardRows * 4;
 		int expectedFirstClassTotal = scenario.firstClassCars * scenario.firstClassRows * 3;
-		int expectedStandardRemaining = expectedStandardTotal - scenario.reservedStandardSeats;
-		int expectedFirstClassRemaining = expectedFirstClassTotal - scenario.reservedFirstClassSeats;
+		int expectedStandardRemaining = expectedStandardTotal - scenario.bookedStandardSeats;
+		int expectedFirstClassRemaining = expectedFirstClassTotal - scenario.bookedFirstClassSeats;
 
 		assertThat(trainResult.standardSeat().totalSeats()).isEqualTo(expectedStandardTotal);
 		assertThat(trainResult.standardSeat().remainingSeats()).isEqualTo(expectedStandardRemaining);

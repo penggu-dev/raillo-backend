@@ -42,10 +42,10 @@ public class SeatBookingQueryRepository {
 		QSeatBooking seatBooking = QSeatBooking.seatBooking;
 		QSeat seat = QSeat.seat;
 		QTrainCar trainCar = QTrainCar.trainCar;
-		QScheduleStop reservedDepartureStop = new QScheduleStop("reservedDepartureStop");
-		QScheduleStop reservedArrivalStop = new QScheduleStop("reservedArrivalStop");
-		QStation reservedDepartureStation = new QStation("reservedDepartureStation");
-		QStation reservedArrivalStation = new QStation("reservedArrivalStation");
+		QScheduleStop bookedDepartureStop = new QScheduleStop("bookedDepartureStop");
+		QScheduleStop bookedArrivalStop = new QScheduleStop("bookedArrivalStop");
+		QStation bookedDepartureStation = new QStation("bookedDepartureStation");
+		QStation bookedArrivalStation = new QStation("bookedArrivalStation");
 		QScheduleStop searchDepartureStop = new QScheduleStop("searchDepartureStop");
 		QScheduleStop searchArrivalStop = new QScheduleStop("searchArrivalStop");
 
@@ -54,17 +54,17 @@ public class SeatBookingQueryRepository {
 				seatBooking.trainSchedule.id,
 				seatBooking.seat.id,
 				trainCar.carType,
-				reservedDepartureStation.id,
-				reservedArrivalStation.id
+				bookedDepartureStation.id,
+				bookedArrivalStation.id
 			)
 			.from(seatBooking)
 			.join(seat).on(seat.id.eq(seatBooking.seat.id))            // 좌석 정보
 			.join(trainCar).on(trainCar.id.eq(seat.trainCar.id))           // 객차 정보 (객차 타입 판별 : 일반실/특실)
 			.join(seatBooking.booking, booking)                // 예약 정보 (seatBooking 에만 좌석 정보 존재)
-			.join(booking.departureStop, reservedDepartureStop)           // 출발역
-			.join(booking.arrivalStop, reservedArrivalStop)               // 도착역
-			.join(reservedDepartureStop.station, reservedDepartureStation)
-			.join(reservedArrivalStop.station, reservedArrivalStation)
+			.join(booking.departureStop, bookedDepartureStop)           // 출발역
+			.join(booking.arrivalStop, bookedArrivalStop)               // 도착역
+			.join(bookedDepartureStop.station, bookedDepartureStation)
+			.join(bookedArrivalStop.station, bookedArrivalStation)
 			.join(searchDepartureStop).on(
 				searchDepartureStop.trainSchedule.id.in(trainScheduleIds)
 					.and(searchDepartureStop.station.id.eq(departureStationId))
@@ -76,8 +76,8 @@ public class SeatBookingQueryRepository {
 			.where(
 				seatBooking.trainSchedule.id.in(trainScheduleIds),             // 해당 trainScheduleId 모두 조회
 				seatBooking.seat.isNotNull(),                                     // 실제 좌석 예약
-				reservedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)         // 구간 겹침 조건
-					.and(reservedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
+				bookedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)         // 구간 겹침 조건
+					.and(bookedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
 			)
 			.fetch();
 
@@ -88,8 +88,8 @@ public class SeatBookingQueryRepository {
 				Collectors.mapping(tuple -> new SeatBookingInfo(
 					tuple.get(seatBooking.seat.id),
 					tuple.get(trainCar.carType),
-					tuple.get(reservedDepartureStation.id),
-					tuple.get(reservedArrivalStation.id)
+					tuple.get(bookedDepartureStation.id),
+					tuple.get(bookedArrivalStation.id)
 				), Collectors.toList())
 			));
 	}
