@@ -9,7 +9,6 @@ import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.domain.BaseEntity;
 import com.sudo.raillo.train.domain.Seat;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,7 +19,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -51,11 +49,6 @@ public class Ticket extends BaseEntity {
 	@OnDelete(action = OnDeleteAction.CASCADE)
 	@Comment("예약 ID")
 	private Reservation reservation;
-
-	@OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
-	@JoinColumn(name = "qr_id", nullable = false)
-	@Comment("QR ID")
-	private Qr qr;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
