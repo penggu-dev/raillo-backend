@@ -1,24 +1,27 @@
 package com.sudo.raillo.support.helper;
 
-import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithStopStations;
+import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.*;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.SeatReservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.domain.type.TripType;
-import com.sudo.raillo.booking.infrastructure.SeatReservationRepository;
 import com.sudo.raillo.booking.infrastructure.ReservationRepository;
+import com.sudo.raillo.booking.infrastructure.SeatReservationRepository;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-import java.time.LocalDateTime;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
@@ -91,41 +94,6 @@ public class ReservationTestHelper {
 	}
 
 	/**
-	 * 지정한 인원 수만큼 입석 예약 생성 (출발, 도착 정차역 직접 지정, seat 없이)
-	 *
-	 * @param member 예약할 회원
-	 * @param scheduleWithStops 열차 스케줄 및 정차역 정보
-	 * @param departureStop 출발 정차역
-	 * @param arrivalStop 도착 정차역
-	 * @param standingCount 입석 인원 수
-	 * @return 생성된 Reservation 객체
-	 */
-	public Reservation createStandingReservation(Member member,
-												 TrainScheduleWithStopStations scheduleWithStops,
-												 ScheduleStop departureStop,
-												 ScheduleStop arrivalStop,
-												 int standingCount) {
-
-		Reservation reservation = Reservation.builder()
-			.trainSchedule(scheduleWithStops.trainSchedule())
-			.member(member)
-			.reservationCode("STANDING-" + System.currentTimeMillis())
-			.tripType(TripType.OW)
-			.totalPassengers(standingCount)
-			.passengerSummary("[{\"passengerType\":\"ADULT\",\"count\":" + standingCount + "}]")
-			.reservationStatus(ReservationStatus.RESERVED)
-			.expiresAt(LocalDateTime.now().plusMinutes(10))
-			.fare((int)(50000 * 0.85) * standingCount)
-			.departureStop(departureStop)
-			.arrivalStop(arrivalStop)
-			.build();
-
-		reservationRepository.save(reservation);
-		createStandingSeatReservations(reservation, standingCount);
-		return reservation;
-	}
-
-	/**
 	 * 좌석 예약 생성 메서드
 	 */
 	private void createSeatReservation(Reservation reservation) {
@@ -158,23 +126,6 @@ public class ReservationTestHelper {
 				.passengerType(passengerType)
 				.build())
 			.toList();
-
-		seatReservationRepository.saveAll(seatReservations);
-	}
-
-	/**
-	 * Seat=null로 승객수만큼 입석 SeatReservations 생성
-	 */
-	private void createStandingSeatReservations(Reservation reservation, int count) {
-		List<SeatReservation> seatReservations =
-			java.util.stream.IntStream.range(0, count)
-				.mapToObj(i -> SeatReservation.builder()
-					.trainSchedule(reservation.getTrainSchedule())
-					.seat(null) // 입석 처리
-					.reservation(reservation)
-					.passengerType(PassengerType.ADULT)
-					.build())
-				.toList();
 
 		seatReservationRepository.saveAll(seatReservations);
 	}

@@ -28,17 +28,15 @@ public record SeatTypeInfo(
 	@Schema(description = "상세 설명", example = "잔여 45석")
 	String description
 ) {
-	// 입석 정보 포함
+
 	public static SeatTypeInfo create(int availableSeats,
 		int totalSeats,
 		int fare,
 		int passengerCount,
 		String seatTypeName,
-		boolean hasStandingOption,
 		boolean canReserve) {
 
-		SeatAvailabilityStatus status = determineSeatStatus(availableSeats, passengerCount, hasStandingOption,
-			totalSeats);
+		SeatAvailabilityStatus status = determineSeatStatus(availableSeats, passengerCount, totalSeats);
 
 		String displayText = createDisplayText(status, seatTypeName);
 		String description = createDescription(status, availableSeats, passengerCount);
@@ -49,17 +47,16 @@ public record SeatTypeInfo(
 	/**
 	 * 좌석 수와 승객 수로 예약 가능한 좌석 상태 결정
 	 */
-	private static SeatAvailabilityStatus determineSeatStatus(int availableSeats, int passengerCount,
-		boolean hasStandingOption, int totalSeats) {
+	private static SeatAvailabilityStatus determineSeatStatus(int availableSeats, int passengerCount, int totalSeats) {
+		// 좌석 매진
 		if (availableSeats == 0) {
-			// 좌석은 매진이지만 입석이 가능한 경우
-			return hasStandingOption ? SeatAvailabilityStatus.STANDING_ONLY : SeatAvailabilityStatus.SOLD_OUT;
+			return SeatAvailabilityStatus.SOLD_OUT;
 		}
 
 		// 좌석 부족
 		if (availableSeats < passengerCount) {
-			// 입석이 가능하다면 STANDING_ONLY, 불가능하다면 INSUFFICIENT
-			return hasStandingOption ? SeatAvailabilityStatus.STANDING_ONLY : SeatAvailabilityStatus.INSUFFICIENT;
+			// 인원수 보다 예약 가능한 좌석이 적어 불가능하다면 INSUFFICIENT
+			return SeatAvailabilityStatus.INSUFFICIENT;
 		}
 
 		double availabilityRatio = (double)availableSeats / totalSeats;
@@ -78,7 +75,6 @@ public record SeatTypeInfo(
 		return switch (status) {
 			case SOLD_OUT -> status.getText();           // "매진"
 			case INSUFFICIENT -> status.getText();       // "좌석부족"
-			case STANDING_ONLY -> seatTypeName + "(" + status.getText() + ")";  // "일반실(입석)"
 			case LIMITED -> seatTypeName + "(" + status.getText() + ")";  // "일반실(매진임박)"
 			case AVAILABLE -> seatTypeName;              // "일반실" / "특실"
 		};
@@ -90,7 +86,7 @@ public record SeatTypeInfo(
 	private static String createDescription(SeatAvailabilityStatus status, int availableSeats,
 		int passengerCount) {
 		return switch (status) {
-			case SOLD_OUT, STANDING_ONLY -> status.getDescription();
+			case SOLD_OUT -> status.getDescription();
 			case INSUFFICIENT -> String.format("%s (%d명 예약 시 %d석 부족)",
 				status.getDescription(), passengerCount, passengerCount - availableSeats);
 			case LIMITED -> String.format("%s (잔여 %d석)", status.getDescription(), availableSeats);

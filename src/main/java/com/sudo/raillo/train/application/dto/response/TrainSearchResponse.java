@@ -36,10 +36,8 @@ public record TrainSearchResponse(
 	SeatTypeInfo standardSeat,
 
 	@Schema(description = "특실 정보")
-	SeatTypeInfo firstClassSeat,
+	SeatTypeInfo firstClassSeat
 
-	@Schema(description = "입석 정보 (있는 경우)")
-	StandingTypeInfo standing
 ) {
 	public TrainSearchResponse {
 		if (travelTime == null) {
@@ -60,8 +58,7 @@ public record TrainSearchResponse(
 	public static TrainSearchResponse of(Long trainScheduleId, String trainNumber, String trainName,
 		String departureStationName, String arrivalStationName,
 		LocalTime departureTime, LocalTime arrivalTime,
-		SeatTypeInfo standardSeat, SeatTypeInfo firstClassSeat,
-		StandingTypeInfo standing) {
+		SeatTypeInfo standardSeat, SeatTypeInfo firstClassSeat) {
 
 		validateTrainSearchData(trainScheduleId, trainNumber, trainName, departureTime, arrivalTime, standardSeat,
 			firstClassSeat);
@@ -72,7 +69,7 @@ public record TrainSearchResponse(
 			departureStationName, arrivalStationName,
 			departureTime, arrivalTime,
 			null, // travelTime은 자동 계산
-			standardSeat, firstClassSeat, standing
+			standardSeat, firstClassSeat
 		);
 	}
 
@@ -94,13 +91,6 @@ public record TrainSearchResponse(
 	}
 
 	/* 편의 메서드 */
-
-	/**
-	 * 입석 정보 존재 여부
-	 */
-	public boolean hasStandingInfo() {
-		return standing != null;
-	}
 
 	/**
 	 * 고속 열차(KTX/SRT) 여부
