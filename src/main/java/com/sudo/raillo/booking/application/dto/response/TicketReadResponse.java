@@ -8,7 +8,7 @@ import com.sudo.raillo.train.domain.type.SeatType;
 
 public record TicketReadResponse(
 	Long ticketId,
-	Long reservationId,
+	Long bookingId,
 	LocalDate operationDate,
 	Long departureStationId,
 	String departureStationName,

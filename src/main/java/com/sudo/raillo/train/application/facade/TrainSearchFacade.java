@@ -13,7 +13,7 @@ import com.sudo.raillo.train.application.service.CarRecommendationService;
 import com.sudo.raillo.train.application.service.TrainSearchService;
 import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.application.calculator.SeatAvailabilityCalculator;
-import com.sudo.raillo.train.application.dto.SeatReservationInfo;
+import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.SectionSeatStatus;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;
@@ -165,7 +165,7 @@ public class TrainSearchFacade {
 		// 2. 배치 쿼리로 모든 데이터 한번에 조회
 		TrainSeatInfoBatch seatInfoBatch = trainSearchService.findTrainSeatInfoBatch(trainScheduleIds);
 
-		Map<Long, List<SeatReservationInfo>> overlappingReservationsMap =
+		Map<Long, List<SeatBookingInfo>> overlappingReservationsMap =
 			trainSearchService.findOverlappingReservationsBatch(
 				trainScheduleIds, request.departureStationId(), request.arrivalStationId());
 
@@ -198,14 +198,14 @@ public class TrainSearchFacade {
 	private TrainSearchResponse processTrainSearchResult(
 		TrainBasicInfo trainInfo,
 		TrainSeatInfoBatch seatInfoBatch,
-		Map<Long, List<SeatReservationInfo>> overlappingReservationsMap,
+		Map<Long, List<SeatBookingInfo>> overlappingReservationsMap,
 		StationFare fare,
 		int passengerCount) {
 
 		Long trainScheduleId = trainInfo.trainScheduleId();
 
 		// 배치 데이터 추출
-		List<SeatReservationInfo> overlappingReservations =
+		List<SeatBookingInfo> overlappingReservations =
 			overlappingReservationsMap.getOrDefault(trainScheduleId, List.of());
 		Map<CarType, Integer> totalSeatsByCarType =
 			seatInfoBatch.getSeatsCountByCarType(trainScheduleId);

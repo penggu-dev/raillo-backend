@@ -1,6 +1,6 @@
 package com.sudo.raillo.train.infrastructure;
 
-import static com.sudo.raillo.booking.domain.QReservation.reservation;
+import static com.sudo.raillo.booking.domain.QBooking.reservation;
 import static com.sudo.raillo.booking.domain.QSeatReservation.seatReservation;
 import static com.sudo.raillo.train.domain.QSeat.seat;
 import static com.sudo.raillo.train.domain.QTrainCar.trainCar;

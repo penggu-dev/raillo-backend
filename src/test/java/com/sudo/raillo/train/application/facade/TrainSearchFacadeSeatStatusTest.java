@@ -19,7 +19,7 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import com.sudo.raillo.support.helper.ReservationTestHelper;
+import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
@@ -42,7 +42,7 @@ public class TrainSearchFacadeSeatStatusTest {
 	private TrainSearchFacade trainSearchFacade;
 
 	@Autowired
-	private ReservationTestHelper reservationTestHelper;
+	private BookingTestHelper bookingTestHelper;
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -132,13 +132,13 @@ public class TrainSearchFacadeSeatStatusTest {
 
 		if (scenario.reservedStandardSeats > 0) {
 			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, scenario.reservedStandardSeats);
-			reservationTestHelper.createReservationWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
+			bookingTestHelper.createReservationWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
 				PassengerType.ADULT);
 		}
 		if (scenario.reservedFirstClassSeats > 0) {
 			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.FIRST_CLASS,
 				scenario.reservedFirstClassSeats);
-			reservationTestHelper.createReservationWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
+			bookingTestHelper.createReservationWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
 				PassengerType.ADULT);
 		}
 

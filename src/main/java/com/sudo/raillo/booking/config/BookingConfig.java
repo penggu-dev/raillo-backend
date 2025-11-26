@@ -15,6 +15,6 @@ public class BookingConfig {
 	@Getter
 	@AllArgsConstructor
 	public static class Expiration {
-		private final int reservation;
+		private final int booking;
 	}
 }

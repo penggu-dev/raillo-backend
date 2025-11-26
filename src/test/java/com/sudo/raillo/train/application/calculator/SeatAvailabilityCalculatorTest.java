@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.train.application.calculator.SeatAvailabilityCalculator.SeatCalculationResult;
-import com.sudo.raillo.train.application.dto.SeatReservationInfo;
+import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.SectionSeatStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 
@@ -31,7 +31,7 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 50,
 			CarType.FIRST_CLASS, 20
 		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 10);
+		List<SeatBookingInfo> reservations = createReservations(CarType.STANDARD, 10);
 
 		// when
 		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, reservations);
@@ -51,7 +51,7 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 80,
 			CarType.FIRST_CLASS, 30
 		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.FIRST_CLASS, 15);
+		List<SeatBookingInfo> reservations = createReservations(CarType.FIRST_CLASS, 15);
 
 		// when
 		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, reservations);
@@ -71,7 +71,7 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 100,
 			CarType.FIRST_CLASS, 40
 		);
-		List<SeatReservationInfo> reservations = List.of();
+		List<SeatBookingInfo> reservations = List.of();
 
 		// when
 		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, reservations);
@@ -92,10 +92,10 @@ class SeatAvailabilityCalculatorTest {
 			CarType.FIRST_CLASS, 20
 		);
 
-		List<SeatReservationInfo> standardReservations = createReservations(CarType.STANDARD, 50);
-		List<SeatReservationInfo> firstClassReservations = createReservations(CarType.FIRST_CLASS, 20);
+		List<SeatBookingInfo> standardReservations = createReservations(CarType.STANDARD, 50);
+		List<SeatBookingInfo> firstClassReservations = createReservations(CarType.FIRST_CLASS, 20);
 
-		List<SeatReservationInfo> allReservations = new ArrayList<>();
+		List<SeatBookingInfo> allReservations = new ArrayList<>();
 		allReservations.addAll(standardReservations);
 		allReservations.addAll(firstClassReservations);
 
@@ -115,7 +115,7 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 10,
 			CarType.FIRST_CLASS, 5
 		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 15);
+		List<SeatBookingInfo> reservations = createReservations(CarType.STANDARD, 15);
 
 		// when
 		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, reservations);
@@ -134,10 +134,10 @@ class SeatAvailabilityCalculatorTest {
 			CarType.FIRST_CLASS, 30
 		);
 
-		List<SeatReservationInfo> standardReservations = createReservations(CarType.STANDARD, 20);
-		List<SeatReservationInfo> firstClassReservations = createReservations(CarType.FIRST_CLASS, 10);
+		List<SeatBookingInfo> standardReservations = createReservations(CarType.STANDARD, 20);
+		List<SeatBookingInfo> firstClassReservations = createReservations(CarType.FIRST_CLASS, 10);
 
-		List<SeatReservationInfo> allReservations = new java.util.ArrayList<>();
+		List<SeatBookingInfo> allReservations = new java.util.ArrayList<>();
 		allReservations.addAll(standardReservations);
 		allReservations.addAll(firstClassReservations);
 
@@ -157,7 +157,7 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 80,
 			CarType.FIRST_CLASS, 24
 		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 5);
+		List<SeatBookingInfo> reservations = createReservations(CarType.STANDARD, 5);
 		int requestedPassengerCount = 4;
 
 		// when
@@ -180,7 +180,7 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 80,
 			CarType.FIRST_CLASS, 24
 		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 78);
+		List<SeatBookingInfo> reservations = createReservations(CarType.STANDARD, 78);
 		int requestedPassengerCount = 5;
 
 		// when
@@ -203,10 +203,10 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 80,
 			CarType.FIRST_CLASS, 24
 		);
-		List<SeatReservationInfo> standardReservations = createReservations(CarType.STANDARD, 80);
-		List<SeatReservationInfo> firstClassReservations = createReservations(CarType.FIRST_CLASS, 24);
+		List<SeatBookingInfo> standardReservations = createReservations(CarType.STANDARD, 80);
+		List<SeatBookingInfo> firstClassReservations = createReservations(CarType.FIRST_CLASS, 24);
 
-		List<SeatReservationInfo> allReservations = new ArrayList<>();
+		List<SeatBookingInfo> allReservations = new ArrayList<>();
 		allReservations.addAll(standardReservations);
 		allReservations.addAll(firstClassReservations);
 
@@ -224,9 +224,9 @@ class SeatAvailabilityCalculatorTest {
 		assertThat(result.canReserveFirstClass()).isFalse();
 	}
 
-	private List<SeatReservationInfo> createReservations(CarType carType, int count) {
+	private List<SeatBookingInfo> createReservations(CarType carType, int count) {
 		return IntStream.range(0, count)
-			.mapToObj(i -> new SeatReservationInfo(
+			.mapToObj(i -> new SeatBookingInfo(
 				(long) i + 1,        // seatId
 				carType,             // carType
 				1L,                  // departureStationId (더미)

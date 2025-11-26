@@ -4,10 +4,10 @@ import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
-import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.domain.BaseEntity;
 import com.sudo.raillo.train.domain.Seat;
+import com.sudo.raillo.train.domain.TrainSchedule;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,8 +17,11 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,17 +33,26 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Ticket extends BaseEntity {
+@Table(
+	name = "seat_booking",
+	indexes = {@Index(name = "idx_seat_booking_seat", columnList = "train_schedule_id, seat_id")},
+	uniqueConstraints = {@UniqueConstraint(columnNames = {"train_schedule_id", "seat_id", "booking_id"})}
+)
+public class SeatBooking extends BaseEntity {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name = "ticket_id")
-	@Comment("승차권 ID")
+	@Column(name = "seat_booking_id")
+	@Comment("예약 상태 ID")
 	private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "train_schedule_id", nullable = false)
+	@Comment("운행 일정 ID")
+	private TrainSchedule trainSchedule;
+
+	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "seat_id")
-	@OnDelete(action = OnDeleteAction.SET_NULL)
 	@Comment("좌석 ID")
 	private Seat seat;
 
@@ -51,25 +63,8 @@ public class Ticket extends BaseEntity {
 	private Booking booking;
 
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	@Comment("승차권 상태")
-	private TicketStatus ticketStatus;
-
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
+	@Column(name = "passenger_type", nullable = false)
 	@Comment("승객 유형")
 	private PassengerType passengerType;
-
-	@Comment("결제 위치 번호 (예: 온라인 (01), ~~역(02...))")
-	private String vendorCode;
-
-	@Comment("결제 날짜 (MMdd)")
-	private String purchaseDate;
-
-	@Comment("승차권 결제 순번 (10000~)")
-	private String purchaseSeq;
-
-	@Comment("결제 고유번호 (숫자 2자리)")
-	private String purchaseUid;
 
 }

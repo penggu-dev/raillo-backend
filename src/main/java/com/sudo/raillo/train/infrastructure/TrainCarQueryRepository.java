@@ -1,6 +1,6 @@
 package com.sudo.raillo.train.infrastructure;
 
-import static com.sudo.raillo.booking.domain.QReservation.*;
+import static com.sudo.raillo.booking.domain.QBooking.*;
 
 import java.util.List;
 import java.util.Map;

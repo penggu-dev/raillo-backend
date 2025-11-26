@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.auth.application.AuthService;
-import com.sudo.raillo.booking.application.facade.ReservationFacade;
+import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.dto.request.GuestRegisterRequest;
 import com.sudo.raillo.member.application.dto.response.GuestRegisterResponse;
@@ -30,7 +30,7 @@ public class MemberService {
 	private final MemberRepository memberRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final AuthService authService;
-	private final ReservationFacade reservationFacade;
+	private final BookingFacade bookingFacade;
 
 	/**
 	 * 비회원 등록
@@ -65,7 +65,7 @@ public class MemberService {
 
 		try {
 			memberRepository.delete(currentMember);
-			reservationFacade.deleteReservationsByMember(currentMember);
+			bookingFacade.deleteReservationsByMember(currentMember);
 		} catch (Exception e) {
 			log.error("회원 삭제 실패 : {}", e.getMessage());
 			throw new BusinessException(MemberError.MEMBER_DELETE_FAIL);
