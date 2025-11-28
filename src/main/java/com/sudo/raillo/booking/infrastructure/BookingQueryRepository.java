@@ -54,8 +54,7 @@ public class BookingQueryRepository {
 				departureStop.departureTime,
 				arrivalStop.arrivalTime,
 				trainSchedule.operationDate,
-				booking.expiresAt,
-				booking.fare
+				booking.totalFare
 			))
 			.from(booking)
 			.join(booking.trainSchedule, trainSchedule)
@@ -70,9 +69,7 @@ public class BookingQueryRepository {
 				arrivalStop.station.id.eq(arrivalStation.id),
 				departureStop.station.id.eq(departureStation.id),
 				departureStop.stopOrder.lt(arrivalStop.stopOrder)
-			)
-			.orderBy(booking.expiresAt.asc());
-
+			);
 		if (bookingIds != null && !bookingIds.isEmpty()) {
 			query.where(booking.id.in(bookingIds));
 		}

@@ -1,11 +1,10 @@
 package com.sudo.raillo.booking.application.dto.response;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-
-import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "예약 정보")
 public record BookingDetail(
@@ -37,11 +36,8 @@ public record BookingDetail(
 	@Schema(description = "운행일", example = "2025-07-01")
 	LocalDate operationDate,
 
-	@Schema(description = "만료시간", example = "2025-07-01 17:38:59.984686")
-	LocalDateTime expiresAt,
-
 	@Schema(description = "운임 (원)", example = "29000")
-	int fare,
+	BigDecimal totalFare,
 
 	@Schema(description = "예약 좌석 정보")
 	List<SeatBookingDetail> seats
@@ -57,8 +53,7 @@ public record BookingDetail(
 		LocalTime departureTime,
 		LocalTime arrivalTime,
 		LocalDate operationDate,
-		LocalDateTime expiresAt,
-		int fare,
+		BigDecimal totalFare,
 		List<SeatBookingDetail> seats
 	) {
 		return new BookingDetail(
@@ -71,8 +66,7 @@ public record BookingDetail(
 			departureTime,
 			arrivalTime,
 			operationDate,
-			expiresAt,
-			fare,
+			totalFare,
 			seats
 		);
 	}
