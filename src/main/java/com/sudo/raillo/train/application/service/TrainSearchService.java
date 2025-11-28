@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.train.application.dto.SeatReservationInfo;
+import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
@@ -18,7 +18,7 @@ import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.exception.TrainErrorCode;
-import com.sudo.raillo.train.infrastructure.SeatReservationQueryRepository;
+import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
@@ -41,7 +41,7 @@ public class TrainSearchService {
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final TrainScheduleQueryRepository trainScheduleQueryRepository;
 	private final StationFareRepository stationFareRepository;
-	private final SeatReservationQueryRepository seatReservationQueryRepository;
+	private final SeatBookingQueryRepository seatBookingQueryRepository;
 
 	/**
 	 * 기본 열차 정보 조회
@@ -96,9 +96,9 @@ public class TrainSearchService {
 	/**
 	 * 겹치는 예약 배치 조회
 	 */
-	public Map<Long, List<SeatReservationInfo>> findOverlappingReservationsBatch(
+	public Map<Long, List<SeatBookingInfo>> findOverlappingBookingsBatch(
 		List<Long> trainScheduleIds, Long departureStationId, Long arrivalStationId) {
-		return seatReservationQueryRepository.findOverlappingReservationsBatch(
+		return seatBookingQueryRepository.findOverlappingBookingsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId);
 	}
 

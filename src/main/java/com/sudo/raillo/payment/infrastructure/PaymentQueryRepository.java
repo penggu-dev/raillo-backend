@@ -1,6 +1,6 @@
 package com.sudo.raillo.payment.infrastructure;
 
-import static com.sudo.raillo.booking.domain.QReservation.*;
+import static com.sudo.raillo.booking.domain.QBooking.*;
 import static com.sudo.raillo.member.domain.QMember.*;
 import static com.sudo.raillo.payment.domain.QPayment.*;
 
@@ -25,7 +25,7 @@ public class PaymentQueryRepository {
 			.select(new QPaymentProjection(
 				payment.id,
 				payment.paymentKey,
-				reservation.reservationCode,
+				booking.bookingCode,
 				payment.amount,
 				payment.paymentMethod,
 				payment.paymentStatus,
@@ -34,7 +34,7 @@ public class PaymentQueryRepository {
 				payment.refundedAt))
 			.from(payment)
 			.join(payment.member, member)
-			.join(payment.reservation, reservation)
+			.join(payment.booking, booking)
 			.where(payment.member.id.eq(memberId))
 			.orderBy(payment.paidAt.desc()).fetch();
 	}

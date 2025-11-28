@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.train.application.calculator.SeatAvailabilityCalculator.SeatCalculationResult;
-import com.sudo.raillo.train.application.dto.SeatReservationInfo;
+import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.SectionSeatStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 
@@ -31,10 +31,10 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 50,
 			CarType.FIRST_CLASS, 20
 		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 10);
+		List<SeatBookingInfo> bookings = createBookings(CarType.STANDARD, 10);
 
 		// when
-		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, reservations);
+		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, bookings);
 
 		// then
 		assertThat(result.standardRemaining()).isEqualTo(40);
@@ -51,10 +51,10 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 80,
 			CarType.FIRST_CLASS, 30
 		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.FIRST_CLASS, 15);
+		List<SeatBookingInfo> bookings = createBookings(CarType.FIRST_CLASS, 15);
 
 		// when
-		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, reservations);
+		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, bookings);
 
 		// then
 		assertThat(result.standardRemaining()).isEqualTo(80);
@@ -65,16 +65,16 @@ class SeatAvailabilityCalculatorTest {
 
 	@Test
 	@DisplayName("예약이 없는 경우 전체 좌석 수와 잔여석이 동일하다")
-	void calculateWithNoReservations() {
+	void calculateWithNoBookings() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
 			CarType.STANDARD, 100,
 			CarType.FIRST_CLASS, 40
 		);
-		List<SeatReservationInfo> reservations = List.of();
+		List<SeatBookingInfo> bookings = List.of();
 
 		// when
-		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, reservations);
+		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, bookings);
 
 		// then
 		assertThat(result.standardRemaining()).isEqualTo(100);
@@ -85,22 +85,22 @@ class SeatAvailabilityCalculatorTest {
 
 	@Test
 	@DisplayName("모든 좌석이 예약된 경우 잔여석이 0이 된다")
-	void calculateWithFullReservations() {
+	void calculateWithFullBookings() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
 			CarType.STANDARD, 50,
 			CarType.FIRST_CLASS, 20
 		);
 
-		List<SeatReservationInfo> standardReservations = createReservations(CarType.STANDARD, 50);
-		List<SeatReservationInfo> firstClassReservations = createReservations(CarType.FIRST_CLASS, 20);
+		List<SeatBookingInfo> standardBookings = createBookings(CarType.STANDARD, 50);
+		List<SeatBookingInfo> firstClassBookings = createBookings(CarType.FIRST_CLASS, 20);
 
-		List<SeatReservationInfo> allReservations = new ArrayList<>();
-		allReservations.addAll(standardReservations);
-		allReservations.addAll(firstClassReservations);
+		List<SeatBookingInfo> allBookings = new ArrayList<>();
+		allBookings.addAll(standardBookings);
+		allBookings.addAll(firstClassBookings);
 
 		// when
-		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, allReservations);
+		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, allBookings);
 
 		// then
 		assertThat(result.standardRemaining()).isEqualTo(0);
@@ -115,10 +115,10 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 10,
 			CarType.FIRST_CLASS, 5
 		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 15);
+		List<SeatBookingInfo> bookings = createBookings(CarType.STANDARD, 15);
 
 		// when
-		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, reservations);
+		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, bookings);
 
 		// then
 		assertThat(result.standardRemaining()).isGreaterThanOrEqualTo(0);
@@ -127,22 +127,22 @@ class SeatAvailabilityCalculatorTest {
 
 	@Test
 	@DisplayName("일반실과 특실 예약이 혼합된 경우 각 좌석 타입별로 정확하게 계산한다")
-	void calculateWithMixedReservations() {
+	void calculateWithMixedBookings() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
 			CarType.STANDARD, 80,
 			CarType.FIRST_CLASS, 30
 		);
 
-		List<SeatReservationInfo> standardReservations = createReservations(CarType.STANDARD, 20);
-		List<SeatReservationInfo> firstClassReservations = createReservations(CarType.FIRST_CLASS, 10);
+		List<SeatBookingInfo> standardBookings = createBookings(CarType.STANDARD, 20);
+		List<SeatBookingInfo> firstClassBookings = createBookings(CarType.FIRST_CLASS, 10);
 
-		List<SeatReservationInfo> allReservations = new java.util.ArrayList<>();
-		allReservations.addAll(standardReservations);
-		allReservations.addAll(firstClassReservations);
+		List<SeatBookingInfo> allBookings = new java.util.ArrayList<>();
+		allBookings.addAll(standardBookings);
+		allBookings.addAll(firstClassBookings);
 
 		// when
-		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, allReservations);
+		SeatCalculationResult result = calculator.calculateRemainingSeats(totalSeats, allBookings);
 
 		// then
 		assertThat(result.standardRemaining()).isEqualTo(60);
@@ -157,12 +157,12 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 80,
 			CarType.FIRST_CLASS, 24
 		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 5);
+		List<SeatBookingInfo> bookings = createBookings(CarType.STANDARD, 5);
 		int requestedPassengerCount = 4;
 
 		// when
 		SectionSeatStatus result = calculator.calculateSectionSeatStatus(
-			reservations, totalSeats, requestedPassengerCount
+			bookings, totalSeats, requestedPassengerCount
 		);
 
 		// then
@@ -180,12 +180,12 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 80,
 			CarType.FIRST_CLASS, 24
 		);
-		List<SeatReservationInfo> reservations = createReservations(CarType.STANDARD, 78);
+		List<SeatBookingInfo> bookings = createBookings(CarType.STANDARD, 78);
 		int requestedPassengerCount = 5;
 
 		// when
 		SectionSeatStatus result = calculator.calculateSectionSeatStatus(
-			reservations, totalSeats, requestedPassengerCount
+			bookings, totalSeats, requestedPassengerCount
 		);
 
 		// then
@@ -203,18 +203,18 @@ class SeatAvailabilityCalculatorTest {
 			CarType.STANDARD, 80,
 			CarType.FIRST_CLASS, 24
 		);
-		List<SeatReservationInfo> standardReservations = createReservations(CarType.STANDARD, 80);
-		List<SeatReservationInfo> firstClassReservations = createReservations(CarType.FIRST_CLASS, 24);
+		List<SeatBookingInfo> standardBookings = createBookings(CarType.STANDARD, 80);
+		List<SeatBookingInfo> firstClassBookings = createBookings(CarType.FIRST_CLASS, 24);
 
-		List<SeatReservationInfo> allReservations = new ArrayList<>();
-		allReservations.addAll(standardReservations);
-		allReservations.addAll(firstClassReservations);
+		List<SeatBookingInfo> allBookings = new ArrayList<>();
+		allBookings.addAll(standardBookings);
+		allBookings.addAll(firstClassBookings);
 
 		int requestedPassengerCount = 6;
 
 		// when
 		SectionSeatStatus result = calculator.calculateSectionSeatStatus(
-			allReservations, totalSeats, requestedPassengerCount
+			allBookings, totalSeats, requestedPassengerCount
 		);
 
 		// then
@@ -224,9 +224,9 @@ class SeatAvailabilityCalculatorTest {
 		assertThat(result.canReserveFirstClass()).isFalse();
 	}
 
-	private List<SeatReservationInfo> createReservations(CarType carType, int count) {
+	private List<SeatBookingInfo> createBookings(CarType carType, int count) {
 		return IntStream.range(0, count)
-			.mapToObj(i -> new SeatReservationInfo(
+			.mapToObj(i -> new SeatBookingInfo(
 				(long) i + 1,        // seatId
 				carType,             // carType
 				1L,                  // departureStationId (더미)

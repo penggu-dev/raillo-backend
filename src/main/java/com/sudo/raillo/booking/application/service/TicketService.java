@@ -4,7 +4,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
-import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -29,12 +29,12 @@ public class TicketService {
 
 	/***
 	 * 티켓을 생성하는 메서드
-	 * @param reservation 예약 정보
+	 * @param booking 예약 정보
 	 * @param passengerType 승객 유형
 	 */
-	public void createTicket(Reservation reservation, Seat seat, PassengerType passengerType) {
+	public void createTicket(Booking booking, Seat seat, PassengerType passengerType) {
 		Ticket ticket = Ticket.builder()
-			.reservation(reservation)
+			.booking(booking)
 			.seat(seat)
 			.passengerType(passengerType)
 			.ticketStatus(TicketStatus.ISSUED)
@@ -55,7 +55,7 @@ public class TicketService {
 		ticketRepository.delete(ticket);
 	}
 
-	public void deleteTicketByReservationId(Long reservationId) {
-		ticketRepository.deleteAllByReservationId(reservationId);
+	public void deleteTicketByBookingId(Long bookingId) {
+		ticketRepository.deleteAllByBookingId(bookingId);
 	}
 }

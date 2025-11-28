@@ -14,7 +14,7 @@ public class PaymentProjection {
 
 	private final Long paymentId;
 	private final String paymentKey;
-	private final String reservationCode;
+	private final String bookingCode;
 	private final BigDecimal amount;
 	private final PaymentMethod paymentMethod;
 	private final PaymentStatus paymentStatus;
@@ -23,12 +23,12 @@ public class PaymentProjection {
 	private final LocalDateTime refundedAt;
 
 	@QueryProjection
-	public PaymentProjection(Long paymentId, String paymentKey, String reservationCode,
+	public PaymentProjection(Long paymentId, String paymentKey, String bookingCode,
 		BigDecimal amount, PaymentMethod paymentMethod, PaymentStatus paymentStatus,
 		LocalDateTime paidAt, LocalDateTime cancelledAt, LocalDateTime refundedAt) {
 		this.paymentId = paymentId;
 		this.paymentKey = paymentKey;
-		this.reservationCode = reservationCode;
+		this.bookingCode = bookingCode;
 		this.amount = amount;
 		this.paymentMethod = paymentMethod;
 		this.paymentStatus = paymentStatus;

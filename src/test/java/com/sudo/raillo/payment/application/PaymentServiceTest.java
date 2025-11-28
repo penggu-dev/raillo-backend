@@ -10,9 +10,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.sudo.raillo.booking.domain.Reservation;
-import com.sudo.raillo.booking.domain.status.ReservationStatus;
-import com.sudo.raillo.booking.infrastructure.ReservationRepository;
+import com.sudo.raillo.booking.domain.Booking;
+import com.sudo.raillo.booking.domain.status.BookingStatus;
+import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -29,7 +29,7 @@ import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.PaymentFixture;
-import com.sudo.raillo.support.helper.ReservationTestHelper;
+import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithStopStations;
 import com.sudo.raillo.support.helper.TrainTestHelper;
@@ -48,7 +48,7 @@ class PaymentServiceTest {
 	private MemberRepository memberRepository;
 
 	@Autowired
-	private ReservationRepository reservationRepository;
+	private BookingRepository bookingRepository;
 
 	@Autowired
 	private PaymentRepository paymentRepository;
@@ -60,11 +60,11 @@ class PaymentServiceTest {
 	private TrainScheduleTestHelper trainScheduleTestHelper;
 
 	@Autowired
-	private ReservationTestHelper reservationTestHelper;
+	private BookingTestHelper bookingTestHelper;
 
 	private Member member;
 
-	private Reservation reservation;
+	private Booking booking;
 
 	@BeforeEach
 	void beforeEach() {
@@ -73,7 +73,7 @@ class PaymentServiceTest {
 
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleWithStopStations scheduleWithStops = trainScheduleTestHelper.createSchedule(train);
-		reservation = reservationTestHelper.createReservation(member, scheduleWithStops);
+		booking = bookingTestHelper.createBooking(member, scheduleWithStops);
 	}
 
 	@Test
@@ -81,7 +81,7 @@ class PaymentServiceTest {
 	void processPaymentViaCard_success() {
 		// given
 		PaymentProcessCardRequest request = PaymentFixture.createCardPaymentRequest(
-			reservation.getId(), BigDecimal.valueOf(reservation.getFare()));
+			booking.getId(), BigDecimal.valueOf(booking.getFare()));
 
 		// when
 		PaymentProcessResponse response = paymentService
@@ -90,7 +90,7 @@ class PaymentServiceTest {
 		// then
 		assertThat(response).isNotNull();
 		assertThat(response.paymentKey()).isNotNull();
-		assertThat(response.amount()).isEqualTo(BigDecimal.valueOf(reservation.getFare()));
+		assertThat(response.amount()).isEqualTo(BigDecimal.valueOf(booking.getFare()));
 		assertThat(response.paymentMethod()).isEqualTo(PaymentMethod.CARD);
 		assertThat(response.paymentStatus()).isEqualTo(PaymentStatus.PAID);
 
@@ -101,9 +101,9 @@ class PaymentServiceTest {
 		assertThat(savedPayment.getPaidAt()).isNotNull();
 
 		// 예약 상태 확인
-		Reservation updatedReservation = reservationRepository.findById(reservation.getId())
+		Booking updatedBooking = bookingRepository.findById(booking.getId())
 			.orElseThrow(() -> new AssertionError("예약을 찾을 수 없습니다"));
-		assertThat(updatedReservation.getReservationStatus()).isEqualTo(ReservationStatus.PAID);
+		assertThat(updatedBooking.getBookingStatus()).isEqualTo(BookingStatus.PAID);
 	}
 
 	@Test
@@ -111,7 +111,7 @@ class PaymentServiceTest {
 	void processPaymentViaBankAccount_success() {
 		// given
 		PaymentProcessAccountRequest request = PaymentFixture.createAccountPaymentRequest(
-			reservation.getId(), BigDecimal.valueOf(reservation.getFare()));
+			booking.getId(), BigDecimal.valueOf(booking.getFare()));
 
 		// when
 		PaymentProcessResponse response = paymentService
@@ -120,7 +120,7 @@ class PaymentServiceTest {
 		// then
 		assertThat(response).isNotNull();
 		assertThat(response.paymentKey()).isNotNull();
-		assertThat(response.amount()).isEqualTo(BigDecimal.valueOf(reservation.getFare()));
+		assertThat(response.amount()).isEqualTo(BigDecimal.valueOf(booking.getFare()));
 		assertThat(response.paymentMethod()).isEqualTo(PaymentMethod.TRANSFER);
 		assertThat(response.paymentStatus()).isEqualTo(PaymentStatus.PAID);
 
@@ -131,9 +131,9 @@ class PaymentServiceTest {
 		assertThat(savedPayment.getPaidAt()).isNotNull();
 
 		// 예약 상태 확인
-		Reservation updatedReservation = reservationRepository.findById(reservation.getId())
+		Booking updatedBooking = bookingRepository.findById(booking.getId())
 			.orElseThrow(() -> new AssertionError("예약을 찾을 수 없습니다"));
-		assertThat(updatedReservation.getReservationStatus()).isEqualTo(ReservationStatus.PAID);
+		assertThat(updatedBooking.getBookingStatus()).isEqualTo(BookingStatus.PAID);
 	}
 
 	@Test
@@ -141,7 +141,7 @@ class PaymentServiceTest {
 	void processPayment_fail_whenAmountMismatch() {
 		// given
 		PaymentProcessCardRequest request = PaymentFixture
-			.createCardPaymentRequest(reservation.getId(), BigDecimal.valueOf(999999));
+			.createCardPaymentRequest(booking.getId(), BigDecimal.valueOf(999999));
 
 		// when & then
 		assertThatThrownBy(() -> paymentService
@@ -158,13 +158,13 @@ class PaymentServiceTest {
 		memberRepository.save(other);
 
 		PaymentProcessCardRequest request = PaymentFixture.createCardPaymentRequest(
-			reservation.getId(), BigDecimal.valueOf(reservation.getFare()));
+			booking.getId(), BigDecimal.valueOf(booking.getFare()));
 
 		// when & then
 		assertThatThrownBy(() -> paymentService
 			.processPaymentViaCard(other.getMemberDetail().getMemberNo(), request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(PaymentError.RESERVATION_ACCESS_DENIED.getMessage());
+			.hasMessage(PaymentError.BOOKING_ACCESS_DENIED.getMessage());
 	}
 
 	@Test
@@ -173,19 +173,19 @@ class PaymentServiceTest {
 		// given
 		// 첫 번째 결제
 		PaymentProcessCardRequest firstRequest = PaymentFixture.createCardPaymentRequest(
-			reservation.getId(), BigDecimal.valueOf(reservation.getFare()));
+			booking.getId(), BigDecimal.valueOf(booking.getFare()));
 		paymentService.processPaymentViaCard(member.getMemberDetail().getMemberNo(), firstRequest);
 
 		// 두 번째 결제 시도
 		PaymentProcessCardRequest secondRequest = PaymentFixture.createCardPaymentRequest(
-			reservation.getId(), BigDecimal.valueOf(reservation.getFare()));
+			booking.getId(), BigDecimal.valueOf(booking.getFare()));
 
 		// when & then
 		// 첫 번째 결제 후 예약 상태가 PAID로 변경되어 결제할 수 없는 상태가 됨
 		assertThatThrownBy(() -> paymentService
 			.processPaymentViaCard(member.getMemberDetail().getMemberNo(), secondRequest))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(PaymentError.RESERVATION_NOT_PAYABLE.getMessage());
+			.hasMessage(PaymentError.BOOKING_NOT_PAYABLE.getMessage());
 	}
 
 	@Test
@@ -193,7 +193,7 @@ class PaymentServiceTest {
 	void cancelPayment_success() {
 		// given
 		PaymentProcessCardRequest request = PaymentFixture.createCardPaymentRequest(
-			reservation.getId(), BigDecimal.valueOf(reservation.getFare()));
+			booking.getId(), BigDecimal.valueOf(booking.getFare()));
 		PaymentProcessResponse paymentResponse = paymentService
 			.processPaymentViaCard(member.getMemberDetail().getMemberNo(), request);
 
@@ -213,9 +213,9 @@ class PaymentServiceTest {
 		assertThat(cancelledPayment.getPaymentStatus()).isEqualTo(PaymentStatus.REFUNDED);
 
 		// 예약 상태 확인
-		Reservation cancelledReservation = reservationRepository.findById(reservation.getId())
+		Booking cancelledBooking = bookingRepository.findById(booking.getId())
 			.orElseThrow(() -> new AssertionError("예약을 찾을 수 없습니다"));
-		assertThat(cancelledReservation.getReservationStatus()).isEqualTo(ReservationStatus.REFUNDED);
+		assertThat(cancelledBooking.getBookingStatus()).isEqualTo(BookingStatus.REFUNDED);
 	}
 
 	@Test
@@ -226,7 +226,7 @@ class PaymentServiceTest {
 		memberRepository.save(other);
 
 		PaymentProcessCardRequest request = PaymentFixture.createCardPaymentRequest(
-			reservation.getId(), BigDecimal.valueOf(reservation.getFare()));
+			booking.getId(), BigDecimal.valueOf(booking.getFare()));
 		PaymentProcessResponse paymentResponse = paymentService
 			.processPaymentViaCard(member.getMemberDetail().getMemberNo(), request);
 
@@ -243,7 +243,7 @@ class PaymentServiceTest {
 		// given
 		// 카드 결제만 진행 (StationFare 중복 생성 문제 회피)
 		PaymentProcessCardRequest cardRequest = PaymentFixture.createCardPaymentRequest(
-			reservation.getId(), BigDecimal.valueOf(reservation.getFare()));
+			booking.getId(), BigDecimal.valueOf(booking.getFare()));
 		paymentService.processPaymentViaCard(member.getMemberDetail().getMemberNo(), cardRequest);
 
 		// when
@@ -256,9 +256,9 @@ class PaymentServiceTest {
 		PaymentHistoryResponse cardPayment = paymentHistory.get(0);
 		assertThat(cardPayment.paymentMethod()).isEqualTo(PaymentMethod.CARD);
 		assertThat(cardPayment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
-		assertThat(cardPayment.amount()).isEqualByComparingTo(BigDecimal.valueOf(reservation.getFare()));
+		assertThat(cardPayment.amount()).isEqualByComparingTo(BigDecimal.valueOf(booking.getFare()));
 		assertThat(cardPayment.paymentKey()).isNotNull();
-		assertThat(cardPayment.reservationCode()).isNotNull();
+		assertThat(cardPayment.bookingCode()).isNotNull();
 	}
 
 	@Test

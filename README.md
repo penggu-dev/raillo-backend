@@ -147,10 +147,10 @@ POST /auth/emails/verify
 POST /auth/reissue
 
 # Booking
-GET /api/v1/booking/reservation
-GET /api/v1/booking/reservation/{reservationId}
-POST /api/v1/booking/reservation
-DELETE /api/v1/booking/reservation
+GET /api/v1/booking
+GET /api/v1/booking/{bookingId}
+POST /api/v1/booking
+DELETE /api/v1/booking
 GET /api/v1/booking/ticket
 
 # Member

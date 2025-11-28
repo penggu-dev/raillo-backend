@@ -18,7 +18,7 @@ public record PaymentHistoryResponse(
 	String paymentKey,
 
 	@Schema(description = "예약 코드", example = "202312251230A1B2")
-	String reservationCode,
+	String bookingCode,
 
 	@Schema(description = "결제 금액", example = "50000")
 	BigDecimal amount,

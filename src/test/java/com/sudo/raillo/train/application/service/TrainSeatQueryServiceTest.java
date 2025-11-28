@@ -11,8 +11,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.sudo.raillo.booking.application.facade.ReservationFacade;
-import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
+import com.sudo.raillo.booking.application.facade.BookingFacade;
+import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.domain.type.TripType;
@@ -51,7 +51,7 @@ class TrainSeatQueryServiceTest {
 	private TrainCarRepository trainCarRepository;
 
 	@Autowired
-	private ReservationFacade reservationFacade;
+	private BookingFacade bookingFacade;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -108,14 +108,14 @@ class TrainSeatQueryServiceTest {
 
 	@Test
 	@DisplayName("예약된 좌석이 있으면 해당 좌석은 조회 되지 않는다")
-	void shouldExcludeReservedSeatsFromAvailableCount() {
+	void shouldExcludeBookedSeatsFromAvailableCount() {
 		// given
 		Member testMember = MemberFixture.createStandardMember();
 		memberRepository.save(testMember);
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
-		ReservationCreateRequest standardRequest = getReservationCreateRequest(standardSeatIds);
-		reservationFacade.createReservation(standardRequest, testMember.getMemberDetail().getMemberNo());
+		BookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
+		bookingFacade.createBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
 
 		// when
 		List<TrainCarInfo> availableTrainCars = trainSeatQueryService.getAvailableTrainCars(
@@ -139,12 +139,12 @@ class TrainSeatQueryServiceTest {
 		memberRepository.save(testMember);
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 2);
-		ReservationCreateRequest standardRequest = getReservationCreateRequest(standardSeatIds);
-		reservationFacade.createReservation(standardRequest, testMember.getMemberDetail().getMemberNo());
+		BookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
+		bookingFacade.createBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
 
 		List<Long> firstClassSeatIds = trainTestHelper.getSeatIds(train, CarType.FIRST_CLASS, 2);
-		ReservationCreateRequest firstClassRequest = getReservationCreateRequest(firstClassSeatIds);
-		reservationFacade.createReservation(firstClassRequest, testMember.getMemberDetail().getMemberNo());
+		BookingCreateRequest firstClassRequest = getBookingCreateRequest(firstClassSeatIds);
+		bookingFacade.createBooking(firstClassRequest, testMember.getMemberDetail().getMemberNo());
 
 		// when & then
 		assertThatThrownBy(() -> trainSeatQueryService.getAvailableTrainCars(
@@ -190,13 +190,13 @@ class TrainSeatQueryServiceTest {
 
 	@Test
 	@DisplayName("예약된 좌석은 조회시 사용 불가능한 상태로 조회된다.")
-	void shouldReservedSeatsAsUnavailable() {
+	void shouldBookedSeatsAsUnavailable() {
 		// given
 		Member testMember = MemberFixture.createStandardMember();
 		memberRepository.save(testMember);
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
-		ReservationCreateRequest standardRequest = getReservationCreateRequest(standardSeatIds);
-		reservationFacade.createReservation(standardRequest, testMember.getMemberDetail().getMemberNo());
+		BookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
+		bookingFacade.createBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
 		List<TrainCar> trainCars = trainCarRepository.findByTrainIn(List.of(train));
 		TrainCar trainCar = trainCars.get(0);
 		TrainCarSeatDetailRequest request = new TrainCarSeatDetailRequest(
@@ -214,10 +214,10 @@ class TrainSeatQueryServiceTest {
 		assertThat(secondSeatDetail.isAvailable()).isFalse();
 	}
 
-	private ReservationCreateRequest getReservationCreateRequest(List<Long> seatIds) {
+	private BookingCreateRequest getBookingCreateRequest(List<Long> seatIds) {
 		List<PassengerSummary> passengers = List.of(new PassengerSummary(PassengerType.ADULT, seatIds.size()));
 
-		return new ReservationCreateRequest(
+		return new BookingCreateRequest(
 			scheduleWithStops.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),

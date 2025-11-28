@@ -1,10 +1,10 @@
 package com.sudo.raillo.payment.application;
 
-import com.sudo.raillo.booking.application.facade.ReservationFacade;
+import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.application.service.TicketService;
-import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.booking.infrastructure.ReservationRepository;
+import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
@@ -23,7 +23,7 @@ import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.infrastructure.PaymentQueryRepository;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.payment.util.PaymentKeyGenerator;
-import com.sudo.raillo.train.infrastructure.SeatReservationQueryRepository;
+import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -37,13 +37,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class PaymentService {
 
-	private final ReservationRepository reservationRepository;
-	private final SeatReservationQueryRepository seatReservationQueryRepository;
+	private final BookingRepository bookingRepository;
+	private final SeatBookingQueryRepository seatBookingQueryRepository;
 	private final MemberRepository memberRepository;
 	private final PaymentRepository paymentRepository;
 	private final PaymentQueryRepository paymentQueryRepository;
 	private final PaymentKeyGenerator paymentKeyGenerator;
-	private final ReservationFacade reservationFacade;
+	private final BookingFacade bookingFacade;
 	private final TicketService ticketService;
 
 	/**
@@ -61,7 +61,7 @@ public class PaymentService {
 		return paymentProjections.stream()
 			.map(paymentProjection -> new PaymentHistoryResponse(
 				paymentProjection.getPaymentId(), paymentProjection.getPaymentKey(),
-				paymentProjection.getReservationCode(), paymentProjection.getAmount(),
+				paymentProjection.getBookingCode(), paymentProjection.getAmount(),
 				paymentProjection.getPaymentMethod(), paymentProjection.getPaymentStatus(),
 				paymentProjection.getPaidAt(), paymentProjection.getCancelledAt(), paymentProjection.getRefundedAt()))
 			.toList();
@@ -95,12 +95,12 @@ public class PaymentService {
 		// 결제 취소 처리
 		payment.cancel("사용자 요청에 의한 취소");
 
-		markReservationAsCancelled(payment.getReservation());
+		markBookingAsCancelled(payment.getBooking());
 
-		log.info("결제 취소 완료: paymentKey={}, reservationId={}", paymentKey, payment.getReservation().getId());
+		log.info("결제 취소 완료: paymentKey={}, bookingId={}", paymentKey, payment.getBooking().getId());
 
 		// 즉각 환불 처리 (임시)
-		refundPayment(payment, payment.getReservation());
+		refundPayment(payment, payment.getBooking());
 
 		return PaymentCancelResponse.from(payment);
 	}
@@ -113,97 +113,97 @@ public class PaymentService {
 	 * @return {@link PaymentProcessResponse} 객체
 	 */
 	private PaymentProcessResponse processPayment(String memberNo, PaymentProcessRequest request) {
-		Reservation reservation = getReservation(request.getReservationId());
-		Payment payment = createAndSavePayment(request, memberNo, reservation);
+		Booking booking = getBooking(request.getBookingId());
+		Payment payment = createAndSavePayment(request, memberNo, booking);
 
-		validatePaymentApprovalConditions(payment, reservation);
-		executePaymentApproval(payment, reservation);
-		completePaymentProcess(request, payment, reservation);
+		validatePaymentApprovalConditions(payment, booking);
+		executePaymentApproval(payment, booking);
+		completePaymentProcess(request, payment, booking);
 
 		return PaymentProcessResponse.from(payment);
 	}
 
-	private Reservation getReservation(Long reservationId) {
-		return reservationRepository.findById(reservationId)
-			.orElseThrow(() -> new BusinessException(PaymentError.RESERVATION_NOT_FOUND));
+	private Booking getBooking(Long bookingId) {
+		return bookingRepository.findById(bookingId)
+			.orElseThrow(() -> new BusinessException(PaymentError.BOOKING_NOT_FOUND));
 	}
 
-	private Payment createAndSavePayment(PaymentProcessRequest request, String memberNo, Reservation reservation) {
+	private Payment createAndSavePayment(PaymentProcessRequest request, String memberNo, Booking booking) {
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 
-		validateReservation(member, reservation);
-		validatePaymentProcessRequest(request, reservation);
+		validateBooking(member, booking);
+		validatePaymentProcessRequest(request, booking);
 
 		String paymentKey = paymentKeyGenerator.generatePaymentKey(memberNo);
 		PaymentInfo paymentInfo = new PaymentInfo(request.getAmount(), request.getPaymentMethod(), PaymentStatus.PENDING);
-		Payment payment = Payment.create(member, reservation, paymentKey, paymentInfo);
+		Payment payment = Payment.create(member, booking, paymentKey, paymentInfo);
 
 		return paymentRepository.save(payment);
 	}
 
-	private void validateReservation(Member member, Reservation reservation) {
+	private void validateBooking(Member member, Booking booking) {
 		// 예약 소유자 검증
-		if (!reservation.getMember().getId().equals(member.getId())) {
-			throw new BusinessException(PaymentError.RESERVATION_ACCESS_DENIED);
+		if (!booking.getMember().getId().equals(member.getId())) {
+			throw new BusinessException(PaymentError.BOOKING_ACCESS_DENIED);
 		}
 
 		// 예약 상태 검증 (결제 가능한 상태인지)
-		if (!reservation.canBePaid()) {
-			throw new BusinessException(PaymentError.RESERVATION_NOT_PAYABLE);
+		if (!booking.canBePaid()) {
+			throw new BusinessException(PaymentError.BOOKING_NOT_PAYABLE);
 		}
 	}
 
-	private void validatePaymentProcessRequest(PaymentProcessRequest request, Reservation reservation) {
+	private void validatePaymentProcessRequest(PaymentProcessRequest request, Booking booking) {
 		// 금액 위변조 검증
-		if (!request.getAmount().equals(BigDecimal.valueOf(reservation.getFare()))) {
+		if (!request.getAmount().equals(BigDecimal.valueOf(booking.getFare()))) {
 			throw new BusinessException(PaymentError.PAYMENT_AMOUNT_MISMATCH);
 		}
 
 		// 중복 결제 검증
-		if (paymentRepository.existsByReservationIdAndPaymentStatus(request.getReservationId(), PaymentStatus.PAID)) {
+		if (paymentRepository.existsByBookingIdAndPaymentStatus(request.getBookingId(), PaymentStatus.PAID)) {
 			throw new BusinessException(PaymentError.PAYMENT_ALREADY_COMPLETED);
 		}
 	}
 
-	private void validatePaymentApprovalConditions(Payment payment, Reservation reservation) {
+	private void validatePaymentApprovalConditions(Payment payment, Booking booking) {
 		// 결제 상태 검증
 		if (!payment.canBePaid()) {
 			throw new BusinessException(PaymentError.PAYMENT_NOT_APPROVABLE);
 		}
 
 		// 예약 상태 재검증 (동시성 문제 방지)
-		if (!reservation.canBePaid()) {
-			throw new BusinessException(PaymentError.RESERVATION_NOT_PAYABLE);
+		if (!booking.canBePaid()) {
+			throw new BusinessException(PaymentError.BOOKING_NOT_PAYABLE);
 		}
 	}
 
-	private void executePaymentApproval(Payment payment, Reservation reservation) {
+	private void executePaymentApproval(Payment payment, Booking booking) {
 		// 결제 승인 처리
 		payment.approve();
 
 		// 예약 상태 변경
-		markReservationAsPaid(reservation);
+		markBookingAsPaid(booking);
 	}
 
-	private void markReservationAsPaid(Reservation reservation) {
-		reservation.approve();
+	private void markBookingAsPaid(Booking booking) {
+		booking.approve();
 
-		log.info("예약 결제 완료 처리: reservationId={}", reservation.getId());
+		log.info("예약 결제 완료 처리: bookingId={}", booking.getId());
 	}
 
-	private void completePaymentProcess(PaymentProcessRequest request, Payment payment, Reservation reservation) {
+	private void completePaymentProcess(PaymentProcessRequest request, Payment payment, Booking booking) {
 		// 티켓 발급
-		generateTicket(reservation);
+		generateTicket(booking);
 
-		log.info("결제 완료: paymentKey={}, reservationId={}, amount={}",
-			payment.getPaymentKey(), request.getReservationId(), request.getAmount());
+		log.info("결제 완료: paymentKey={}, bookingId={}, amount={}",
+			payment.getPaymentKey(), request.getBookingId(), request.getAmount());
 	}
 
-	private void generateTicket(Reservation reservation) {
-		seatReservationQueryRepository.findSeatInfoByReservationId(reservation.getId())
+	private void generateTicket(Booking booking) {
+		seatBookingQueryRepository.findSeatInfoByBookingId(booking.getId())
 			.forEach(seatInfoProjection -> ticketService.createTicket(
-				reservation, seatInfoProjection.getSeat(), seatInfoProjection.getPassengerType()));
+				booking, seatInfoProjection.getSeat(), seatInfoProjection.getPassengerType()));
 	}
 
 	private Payment findPayment(String memberNo, String paymentKey) {
@@ -230,23 +230,23 @@ public class PaymentService {
 		}
 
 		// 예약 취소 가능 여부 확인
-		if (!payment.getReservation().canBeCancelled()) {
-			throw new BusinessException(BookingError.RESERVATION_DELETE_FAILED);
+		if (!payment.getBooking().canBeCancelled()) {
+			throw new BusinessException(BookingError.BOOKING_DELETE_FAILED);
 		}
 	}
 
-	private void markReservationAsCancelled(Reservation reservation) {
-		reservation.cancel();
-		reservationFacade.cancelReservation(reservation);
+	private void markBookingAsCancelled(Booking booking) {
+		booking.cancel();
+		bookingFacade.cancelBooking(booking);
 
-		log.info("예약 취소 처리: reservationId={}", reservation.getId());
+		log.info("예약 취소 처리: bookingId={}", booking.getId());
 	}
 
 	/**
 	 * 환불 처리
 	 * @param payment {@link Payment} 객체
 	 */
-	private void refundPayment(Payment payment, Reservation reservation) {
+	private void refundPayment(Payment payment, Booking booking) {
 		// 해당 로직은 외부 엔드포인트가 존재하지 않고 추후 엔드포인트가 생긴다고 하더라도
 		// 신뢰할 수 있는 PG사에서 환불 완료된 결제에 대해서만 호출할 예정이기 때문에 검증 과정이 필요 없습니다.
 
@@ -255,14 +255,14 @@ public class PaymentService {
 			payment.refund();
 		}
 
-		markReservationAsRefunded(reservation);
+		markBookingAsRefunded(booking);
 
 		log.info("환불 처리 완료: paymentKey={}", payment.getPaymentKey());
 	}
 
-	private void markReservationAsRefunded(Reservation reservation) {
-		reservation.refund();
+	private void markBookingAsRefunded(Booking booking) {
+		booking.refund();
 
-		log.info("예약 환불 처리: reservationId={}", reservation.getId());
+		log.info("예약 환불 처리: bookingId={}", booking.getId());
 	}
 }

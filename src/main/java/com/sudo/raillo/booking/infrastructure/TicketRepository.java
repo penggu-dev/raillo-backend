@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
-	void deleteAllByReservationId(Long reservationId);
+	void deleteAllByBookingId(Long bookingId);
 }

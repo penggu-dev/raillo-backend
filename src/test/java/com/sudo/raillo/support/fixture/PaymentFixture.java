@@ -58,10 +58,10 @@ public enum PaymentFixture {
 		this.cardPassword = null;
 	}
 
-	public static PaymentProcessCardRequest createCardPaymentRequest(Long reservationId,
+	public static PaymentProcessCardRequest createCardPaymentRequest(Long bookingId,
 		BigDecimal amount) {
 		PaymentProcessCardRequest request = new PaymentProcessCardRequest();
-		request.setReservationId(reservationId);
+		request.setBookingId(bookingId);
 		request.setAmount(amount);
 		request.setCardNumber(CARD_PAYMENT.cardNumber);
 		request.setValidThru(CARD_PAYMENT.validThru);
@@ -71,10 +71,10 @@ public enum PaymentFixture {
 		return request;
 	}
 
-	public static PaymentProcessAccountRequest createAccountPaymentRequest(Long reservationId,
+	public static PaymentProcessAccountRequest createAccountPaymentRequest(Long bookingId,
 		BigDecimal amount) {
 		PaymentProcessAccountRequest request = new PaymentProcessAccountRequest();
-		request.setReservationId(reservationId);
+		request.setBookingId(bookingId);
 		request.setAmount(amount);
 		request.setBankCode(ACCOUNT_PAYMENT.bankCode);
 		request.setAccountNumber(ACCOUNT_PAYMENT.accountNumber);

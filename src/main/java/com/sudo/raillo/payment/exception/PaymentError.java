@@ -12,9 +12,9 @@ import lombok.RequiredArgsConstructor;
 public enum PaymentError implements ErrorCode {
 
 	// 예약 관련 에러
-	RESERVATION_NOT_FOUND("예약을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "P_001"),
-	RESERVATION_ACCESS_DENIED("예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "P_002"),
-	RESERVATION_NOT_PAYABLE("결제할 수 없는 예약 상태입니다.", HttpStatus.BAD_REQUEST, "P_003"),
+	BOOKING_NOT_FOUND("예약을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "P_001"),
+	BOOKING_ACCESS_DENIED("예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "P_002"),
+	BOOKING_NOT_PAYABLE("결제할 수 없는 예약 상태입니다.", HttpStatus.BAD_REQUEST, "P_003"),
 
 	// 결제 관련 에러
 	PAYMENT_NOT_FOUND("결제 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "P_004"),

@@ -18,7 +18,7 @@ public abstract class PaymentProcessRequest {
 
     @Schema(description = "예약 ID", example = "1")
     @NotNull(message = "예약 ID는 필수입니다")
-    private Long reservationId;
+    private Long bookingId;
 
     @Schema(description = "결제 금액", example = "50000")
     @NotNull(message = "결제 금액은 필수입니다")

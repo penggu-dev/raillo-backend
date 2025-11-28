@@ -45,10 +45,10 @@ public class Ticket extends BaseEntity {
 	private Seat seat;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "reservation_id", nullable = false)
+	@JoinColumn(name = "booking_id", nullable = false)
 	@OnDelete(action = OnDeleteAction.CASCADE)
 	@Comment("예약 ID")
-	private Reservation reservation;
+	private Booking booking;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)

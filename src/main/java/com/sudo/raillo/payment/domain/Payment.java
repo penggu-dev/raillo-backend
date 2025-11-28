@@ -7,7 +7,7 @@ import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
-import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.payment.application.dto.PaymentInfo;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
@@ -45,9 +45,9 @@ public class Payment {
 	private Member member;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "reservation_id", nullable = false)
+	@JoinColumn(name = "booking_id", nullable = false)
 	@Comment("예약 ID")
-	private Reservation reservation;
+	private Booking booking;
 
 	@Column(name = "payment_key", nullable = false, unique = true)
 	@Comment("결제 고유번호")
@@ -82,19 +82,19 @@ public class Payment {
 	@Comment("결제 실패 사유")
 	private String failureReason;
 
-	private Payment(Member member, Reservation reservation, String paymentKey, BigDecimal amount,
+	private Payment(Member member, Booking booking, String paymentKey, BigDecimal amount,
 		PaymentMethod paymentMethod, PaymentStatus paymentStatus) {
 		this.member = member;
-		this.reservation = reservation;
+		this.booking = booking;
 		this.paymentKey = paymentKey;
 		this.amount = amount;
 		this.paymentMethod = paymentMethod;
 		this.paymentStatus = paymentStatus;
 	}
 
-	public static Payment create(Member member, Reservation reservation, String paymentKey,
+	public static Payment create(Member member, Booking booking, String paymentKey,
 		PaymentInfo paymentInfo) {
-		return new Payment(member, reservation, paymentKey, paymentInfo.amount(),
+		return new Payment(member, booking, paymentKey, paymentInfo.amount(),
 			paymentInfo.paymentMethod(), paymentInfo.paymentStatus());
 	}
 

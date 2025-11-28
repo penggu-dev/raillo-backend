@@ -1,6 +1,6 @@
 package com.sudo.raillo.booking.infrastructure;
 
-import static com.sudo.raillo.booking.domain.QReservation.*;
+import static com.sudo.raillo.booking.domain.QBooking.*;
 import static com.sudo.raillo.booking.domain.QTicket.*;
 import static com.sudo.raillo.train.domain.QSeat.*;
 import static com.sudo.raillo.train.domain.QTrain.*;
@@ -37,7 +37,7 @@ public class TicketQueryRepository {
 			.select(Projections.constructor(
 				TicketReadResponse.class,
 				ticket.id,
-				reservation.id,
+				booking.id,
 				trainSchedule.operationDate,
 				departureStation.id,
 				departureStation.stationName,
@@ -55,16 +55,16 @@ public class TicketQueryRepository {
 			))
 			.from(ticket)
 			.join(ticket.seat, seat)
-			.join(ticket.reservation, reservation)
-			.join(reservation.trainSchedule, trainSchedule)
+			.join(ticket.booking, booking)
+			.join(booking.trainSchedule, trainSchedule)
 			.join(trainSchedule.train, train)
-			.join(reservation.departureStop, departureStop)
-			.join(reservation.arrivalStop, arrivalStop)
+			.join(booking.departureStop, departureStop)
+			.join(booking.arrivalStop, arrivalStop)
 			.join(seat.trainCar, trainCar)
 			.join(departureStop.station, departureStation)
 			.join(arrivalStop.station, arrivalStation)
 			.where(
-				reservation.member.id.eq(memberId)
+				booking.member.id.eq(memberId)
 					.and(ticket.ticketStatus.eq(TicketStatus.ISSUED))
 					.and(arrivalStop.station.id.eq(arrivalStation.id))
 					.and(departureStop.station.id.eq(departureStation.id))

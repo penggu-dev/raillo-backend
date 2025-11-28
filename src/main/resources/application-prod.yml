@@ -64,7 +64,7 @@ cookie:
 
 booking:
   expiration:
-    reservation: 10
+    booking: 10
 
 # Prometheus
 management:

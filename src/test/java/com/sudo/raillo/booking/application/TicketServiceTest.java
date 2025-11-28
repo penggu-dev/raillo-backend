@@ -10,13 +10,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
 import com.sudo.raillo.booking.application.service.TicketService;
-import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
-import com.sudo.raillo.booking.domain.status.ReservationStatus;
+import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.domain.type.TripType;
-import com.sudo.raillo.booking.infrastructure.ReservationRepository;
+import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -37,7 +37,7 @@ class TicketServiceTest {
 	private MemberRepository memberRepository;
 
 	@Autowired
-	private ReservationRepository reservationRepository;
+	private BookingRepository bookingRepository;
 
 	@Autowired
 	private TicketRepository ticketRepository;
@@ -51,7 +51,7 @@ class TicketServiceTest {
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
 
-	private Reservation reservation;
+	private Booking booking;
 	private Seat seat1, seat2;
 	private PassengerType passengerType1, passengerType2;
 
@@ -61,20 +61,20 @@ class TicketServiceTest {
 		memberRepository.save(member);
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
-		Reservation reservation = Reservation.builder()
+		Booking booking = Booking.builder()
 			.trainSchedule(schedule.trainSchedule())
 			.member(member)
-			.reservationCode("20250806100001D49J")
+			.bookingCode("20250806100001D49J")
 			.tripType(TripType.OW)
 			.totalPassengers(1)
 			.passengerSummary("[{\"passengerType\":\"CHILD\",\"count\":1},{\"passengerType\":\"VETERAN\",\"count\":1}]")
-			.reservationStatus(ReservationStatus.RESERVED)
+			.bookingStatus(BookingStatus.BOOKED)
 			.expiresAt(LocalDateTime.now().plusMinutes(10))
 			.fare(50000)
 			.departureStop(schedule.scheduleStops().get(0))
 			.arrivalStop(schedule.scheduleStops().get(1))
 			.build();
-		this.reservation = reservationRepository.save(reservation);
+		this.booking = bookingRepository.save(booking);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 		seat1 = seats.get(0);
 		seat2 = seats.get(1);
@@ -85,9 +85,9 @@ class TicketServiceTest {
 
 	@Test
 	@DisplayName("예약, 좌석, 승객 유형으로 티켓 생성에 성공한다")
-	void reservationAndSeatAndPassengerType_createTicket_success() {
+	void bookingAndSeatAndPassengerType_createTicket_success() {
 		// when
-		ticketService.createTicket(reservation, seat1, passengerType1);
+		ticketService.createTicket(booking, seat1, passengerType1);
 
 		// then
 		List<Ticket> result = ticketRepository.findAll();
@@ -102,7 +102,7 @@ class TicketServiceTest {
 		// given
 		Ticket ticket1 = Ticket.builder()
 			.seat(seat1)
-			.reservation(reservation)
+			.booking(booking)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType1)
 			.build();
@@ -110,12 +110,12 @@ class TicketServiceTest {
 
 		Ticket ticket2 = Ticket.builder()
 			.seat(seat2)
-			.reservation(reservation)
+			.booking(booking)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType2)
 			.build();
 		ticketRepository.save(ticket2);
-		String memberNo = reservation.getMember().getMemberDetail().getMemberNo();
+		String memberNo = booking.getMember().getMemberDetail().getMemberNo();
 
 		// when
 		List<TicketReadResponse> result = ticketService.getMyTickets(memberNo);
@@ -130,7 +130,7 @@ class TicketServiceTest {
 		// given
 		Ticket ticket1 = Ticket.builder()
 			.seat(seat1)
-			.reservation(reservation)
+			.booking(booking)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType1)
 			.build();
@@ -138,7 +138,7 @@ class TicketServiceTest {
 
 		Ticket ticket2 = Ticket.builder()
 			.seat(seat2)
-			.reservation(reservation)
+			.booking(booking)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType2)
 			.build();
@@ -156,11 +156,11 @@ class TicketServiceTest {
 
 	@Test
 	@DisplayName("예약 ID로 티켓 삭제에 성공한다")
-	void reservationId_deleteTicket_success() {
+	void bookingId_deleteTicket_success() {
 		// given
 		Ticket ticket1 = Ticket.builder()
 			.seat(seat1)
-			.reservation(reservation)
+			.booking(booking)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType1)
 			.build();
@@ -168,14 +168,14 @@ class TicketServiceTest {
 
 		Ticket ticket2 = Ticket.builder()
 			.seat(seat2)
-			.reservation(reservation)
+			.booking(booking)
 			.ticketStatus(TicketStatus.ISSUED)
 			.passengerType(passengerType2)
 			.build();
 		ticketRepository.save(ticket2);
 
 		// when
-		ticketService.deleteTicketByReservationId(reservation.getId());
+		ticketService.deleteTicketByBookingId(booking.getId());
 
 		// then
 		List<Ticket> result = ticketRepository.findAll();
