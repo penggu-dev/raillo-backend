@@ -85,8 +85,8 @@ public class Booking extends BaseEntity {
 	private List<PassengerSummary> passengerSummary;
 
 	@Column(nullable = false)
-	@Comment("만료 시간")
-	private LocalDateTime expiresAt;
+	@Comment("운임")
+	private BigDecimal totalFare;
 
 	@Comment("결제 완료 시간")
 	private LocalDateTime purchaseAt;
@@ -94,9 +94,27 @@ public class Booking extends BaseEntity {
 	@Comment("반환(취소) 시간")
 	private LocalDateTime cancelledAt;
 
-	@Column(nullable = false)
-	@Comment("운임")
-	private int fare;
+	public static Booking createBooking(
+		Member member,
+		TrainSchedule trainSchedule,
+		ScheduleStop departureStop,
+		ScheduleStop arrivalStop,
+		TripType tripType,
+		List<PassengerSummary> passengerSummary,
+		BigDecimal totalFare
+	) {
+		Booking booking = new Booking();
+		booking.member = member;
+		booking.trainSchedule = trainSchedule;
+		booking.arrivalStop = arrivalStop;
+		booking.departureStop = departureStop;
+		booking.bookingStatus = BookingStatus.BOOKED;
+		booking.bookingCode = BookingCodeGenerator.generateBookingCode();
+		booking.tripType = tripType;
+		booking.passengerSummary = passengerSummary;
+		booking.totalFare = totalFare;
+		return booking;
+	}
 
 	public void approve() {
 		this.bookingStatus = BookingStatus.PAID;
