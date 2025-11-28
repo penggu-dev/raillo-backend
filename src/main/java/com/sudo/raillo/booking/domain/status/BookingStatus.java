@@ -12,8 +12,7 @@ public enum BookingStatus {
 	BOOKED("예약완료", "예약이 완료된 상태"),
 	PAID("결제완료", "결제가 완료된 상태"),
 	CANCELLED("취소", "예약이 취소된 상태"),
-	REFUNDED("환불완료", "환불이 완료된 상태"),
-	EXPIRED("만료", "예약이 만료된 상태");
+	REFUNDED("환불완료", "환불이 완료된 상태");
 
 	private final String displayName;
 	private final String description;
