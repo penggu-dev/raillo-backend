@@ -1,35 +1,28 @@
 package com.sudo.raillo.booking.application;
 
-import static org.assertj.core.api.Assertions.*;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.booking.application.service.SeatBookingService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
-import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
-import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
-
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 @Slf4j
@@ -37,9 +30,6 @@ class SeatBookingServiceTest {
 
 	@Autowired
 	private MemberRepository memberRepository;
-
-	@Autowired
-	private BookingRepository bookingRepository;
 
 	@Autowired
 	private SeatBookingService seatBookingService;
@@ -53,46 +43,26 @@ class SeatBookingServiceTest {
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
 
-	private Booking booking;
-	private Seat seat1, seat2;
-	private PassengerType passengerType1, passengerType2;
-
-	@BeforeEach
-	void setup() {
-		Member member = MemberFixture.createStandardMember();
-		memberRepository.save(member);
-		Train train = trainTestHelper.createKTX();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = Booking.builder()
-			.trainSchedule(schedule.trainSchedule())
-			.member(member)
-			.bookingCode("20250806100001D49J")
-			.tripType(TripType.OW)
-			.totalPassengers(1)
-			.passengerSummary("[{\"passengerType\":\"CHILD\",\"count\":1},{\"passengerType\":\"VETERAN\",\"count\":1}]")
-			.bookingStatus(BookingStatus.BOOKED)
-			.expiresAt(LocalDateTime.now().plusMinutes(10))
-			.fare(50000)
-			.departureStop(schedule.scheduleStops().get(0))
-			.arrivalStop(schedule.scheduleStops().get(1))
-			.build();
-		this.booking = bookingRepository.save(booking);
-		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
-		seat1 = seats.get(0);
-		seat2 = seats.get(1);
-		passengerType1 = PassengerType.CHILD;
-		passengerType2 = PassengerType.VETERAN;
-	}
+	@Autowired
+	private BookingTestHelper bookingTestHelper;
 
 	@Test
 	@DisplayName("예약, 좌석, 승객 유형으로 좌석 예약 생성에 성공한다")
 	void bookingAndSeatAndPassengerType_reserveNewSeat_success() {
+		// given
+		Member member = MemberFixture.createStandardMember();
+		memberRepository.save(member);
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
+		Seat seat = trainTestHelper.getSeats(train, CarType.STANDARD, 1).get(0);
+
 		// when
-		SeatBooking entity = seatBookingService.reserveNewSeat(booking, seat1, passengerType1);
+		SeatBooking entity = seatBookingService.reserveNewSeat(booking, seat, PassengerType.CHILD);
 
 		// then
 		assertThat(entity.getBooking().getBookingCode()).isEqualTo(booking.getBookingCode());
-		assertThat(entity.getPassengerType()).isEqualTo(passengerType1);
+		assertThat(entity.getPassengerType()).isEqualTo(PassengerType.CHILD);
 	}
 
 	@Test
@@ -101,30 +71,35 @@ class SeatBookingServiceTest {
 		// given
 		Train train = trainTestHelper.createKTX();
 		TrainSchedule trainSchedule = trainScheduleTestHelper.createSchedule(train).trainSchedule();
+		Member member = MemberFixture.createStandardMember();
+		memberRepository.save(member);
+		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
 		SeatBooking seatBooking1 = SeatBooking.builder()
 			.trainSchedule(trainSchedule)
-			.seat(seat1)
+			.seat(seats.get(0))
 			.booking(booking)
-			.passengerType(passengerType1)
+			.passengerType(PassengerType.CHILD)
 			.build();
-		SeatBooking entity1 = seatBookingRepository.save(seatBooking1);
+		SeatBooking savedSeatBooking = seatBookingRepository.save(seatBooking1);
 
 		SeatBooking seatBooking2 = SeatBooking.builder()
 			.trainSchedule(trainSchedule)
-			.seat(seat2)
+			.seat(seats.get(1))
 			.booking(booking)
-			.passengerType(passengerType2)
+			.passengerType(PassengerType.VETERAN)
 			.build();
-		SeatBooking entity2 = seatBookingRepository.save(seatBooking2);
+		seatBookingRepository.save(seatBooking2);
 
 		// when
-		seatBookingService.deleteSeatBooking(entity1.getId());
+		seatBookingService.deleteSeatBooking(savedSeatBooking.getId());
 
 		// then
 		List<SeatBooking> result = seatBookingRepository.findAll();
 		assertThat(result.size()).isEqualTo(1);
-		assertThat(result.get(0).getPassengerType()).isEqualTo(passengerType2);
+		assertThat(result.get(0).getPassengerType()).isEqualTo(PassengerType.VETERAN);
 	}
 
 	@Test
@@ -133,22 +108,27 @@ class SeatBookingServiceTest {
 		// given
 		Train train = trainTestHelper.createKTX();
 		TrainSchedule trainSchedule = trainScheduleTestHelper.createSchedule(train).trainSchedule();
+		Member member = MemberFixture.createStandardMember();
+		memberRepository.save(member);
+		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
 		SeatBooking seatBooking1 = SeatBooking.builder()
 			.trainSchedule(trainSchedule)
-			.seat(seat1)
+			.seat(seats.get(0))
 			.booking(booking)
-			.passengerType(passengerType1)
+			.passengerType(PassengerType.CHILD)
 			.build();
-		SeatBooking entity1 = seatBookingRepository.save(seatBooking1);
+		seatBookingRepository.save(seatBooking1);
 
 		SeatBooking seatBooking2 = SeatBooking.builder()
 			.trainSchedule(trainSchedule)
-			.seat(seat2)
+			.seat(seats.get(1))
 			.booking(booking)
-			.passengerType(passengerType2)
+			.passengerType(PassengerType.VETERAN)
 			.build();
-		SeatBooking entity2 = seatBookingRepository.save(seatBooking2);
+		seatBookingRepository.save(seatBooking2);
 
 		// when
 		seatBookingService.deleteSeatBookingByBookingId(booking.getId());

@@ -97,7 +97,7 @@ class BookingServiceTest {
 		assertThat(savedBooking.getMember().getId()).isEqualTo(member.getId());
 		assertThat(savedBooking.getBookingStatus()).isEqualTo(BookingStatus.BOOKED);
 		assertThat(savedBooking.getTotalPassengers()).isEqualTo(2);
-		assertThat(savedBooking.getFare()).isEqualTo(80000);
+		assertThat(savedBooking.getTotalFare()).isEqualByComparingTo(totalFare);
 		assertThat(savedBooking.getBookingCode()).isNotNull();
 	}
 

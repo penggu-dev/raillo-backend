@@ -1,16 +1,10 @@
 package com.sudo.raillo.support.helper;
 
-import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.*;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithStopStations;
 
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
-import com.sudo.raillo.booking.domain.status.BookingStatus;
+import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
@@ -20,8 +14,11 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
@@ -33,23 +30,36 @@ public class BookingTestHelper {
 	private final SeatBookingRepository seatBookingRepository;
 
 	/**
+	 * 예약 생성 메서드 (좌석 생성 X)
+	 */
+	public Booking createOnlyBooking(Member member, TrainScheduleWithStopStations scheduleWithStops) {
+		Booking booking = Booking.createBooking(
+			member,
+			scheduleWithStops.trainSchedule(),
+			getDepartureStop(scheduleWithStops.scheduleStops()),
+			getArrivalStop(scheduleWithStops.scheduleStops()),
+			TripType.OW,
+			List.of(new PassengerSummary(PassengerType.ADULT, 1)),
+			BigDecimal.valueOf(50000)
+		);
+
+		bookingRepository.save(booking);
+		return booking;
+	}
+
+	/**
 	 * 기본 예약 생성 메서드
 	 */
-	public Booking createBooking(Member member,
-										 TrainScheduleWithStopStations scheduleWithStops) {
-		Booking booking = Booking.builder()
-			.trainSchedule(scheduleWithStops.trainSchedule())
-			.member(member)
-			.bookingCode("20250806100001D49J")
-			.tripType(TripType.OW)
-			.totalPassengers(1)
-			.passengerSummary("[{\"passengerType\":\"ADULT\",\"count\":1}]")
-			.bookingStatus(BookingStatus.BOOKED)
-			.expiresAt(LocalDateTime.now().plusMinutes(10))
-			.fare(50000)
-			.departureStop(getDepartureStop(scheduleWithStops.scheduleStops()))
-			.arrivalStop(getArrivalStop(scheduleWithStops.scheduleStops()))
-			.build();
+	public Booking createBooking(Member member, TrainScheduleWithStopStations scheduleWithStops) {
+		Booking booking = Booking.createBooking(
+			member,
+			scheduleWithStops.trainSchedule(),
+			getDepartureStop(scheduleWithStops.scheduleStops()),
+			getArrivalStop(scheduleWithStops.scheduleStops()),
+			TripType.OW,
+			List.of(new PassengerSummary(PassengerType.ADULT, 1)),
+			BigDecimal.valueOf(50000)
+		);
 
 		bookingRepository.save(booking);
 		createSeatBooking(booking);
@@ -59,34 +69,31 @@ public class BookingTestHelper {
 	/**
 	 * 특정 좌석 ID들에 대한 좌석 예약 생성 (출발, 도착 정차역 직접 지정)
 	 *
-	 * @param member 예약할 회원
+	 * @param member            예약할 회원
 	 * @param scheduleWithStops 열차 스케줄 및 정차역 정보
-	 * @param departureStop 출발 정차역
-	 * @param arrivalStop 도착 정차역
-	 * @param seatIds 예약할 좌석 ID 목록
-	 * @param passengerType 승객 유형 (성인, 어린이 등)
+	 * @param departureStop     출발 정차역
+	 * @param arrivalStop       도착 정차역
+	 * @param seatIds           예약할 좌석 ID 목록
+	 * @param passengerType     승객 유형 (성인, 어린이 등)
 	 * @return 생성된 Booking 객체
 	 */
-	public Booking createBookingWithSeatIds(Member member,
-													TrainScheduleWithStopStations scheduleWithStops,
-													ScheduleStop departureStop,
-													ScheduleStop arrivalStop,
-													List<Long> seatIds,
-													PassengerType passengerType) {
-
-		Booking booking = Booking.builder()
-			.trainSchedule(scheduleWithStops.trainSchedule())
-			.member(member)
-			.bookingCode("SEAT-" + System.currentTimeMillis())
-			.tripType(TripType.OW)
-			.totalPassengers(seatIds.size())
-			.passengerSummary("[{\"passengerType\":\"" + passengerType.name() + "\",\"count\":" + seatIds.size() + "}]")
-			.bookingStatus(BookingStatus.BOOKED)
-			.expiresAt(LocalDateTime.now().plusMinutes(10))
-			.fare(50000 * seatIds.size())
-			.departureStop(departureStop)
-			.arrivalStop(arrivalStop)
-			.build();
+	public Booking createBookingWithSeatIds(
+		Member member,
+		TrainScheduleWithStopStations scheduleWithStops,
+		ScheduleStop departureStop,
+		ScheduleStop arrivalStop,
+		List<Long> seatIds,
+		PassengerType passengerType
+	) {
+		Booking booking = Booking.createBooking(
+			member,
+			scheduleWithStops.trainSchedule(),
+			departureStop,
+			arrivalStop,
+			TripType.OW,
+			List.of(new PassengerSummary(passengerType, seatIds.size())),
+			BigDecimal.valueOf(50000)
+		);
 
 		bookingRepository.save(booking);
 		createSeatBookings(booking, seatIds, passengerType);

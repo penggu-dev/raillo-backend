@@ -81,7 +81,7 @@ class PaymentServiceTest {
 	void processPaymentViaCard_success() {
 		// given
 		PaymentProcessCardRequest request = PaymentFixture.createCardPaymentRequest(
-			booking.getId(), BigDecimal.valueOf(booking.getFare()));
+			booking.getId(), booking.getTotalFare());
 
 		// when
 		PaymentProcessResponse response = paymentService
@@ -90,7 +90,7 @@ class PaymentServiceTest {
 		// then
 		assertThat(response).isNotNull();
 		assertThat(response.paymentKey()).isNotNull();
-		assertThat(response.amount()).isEqualTo(BigDecimal.valueOf(booking.getFare()));
+		assertThat(response.amount()).isEqualTo(booking.getTotalFare());
 		assertThat(response.paymentMethod()).isEqualTo(PaymentMethod.CARD);
 		assertThat(response.paymentStatus()).isEqualTo(PaymentStatus.PAID);
 
@@ -111,7 +111,7 @@ class PaymentServiceTest {
 	void processPaymentViaBankAccount_success() {
 		// given
 		PaymentProcessAccountRequest request = PaymentFixture.createAccountPaymentRequest(
-			booking.getId(), BigDecimal.valueOf(booking.getFare()));
+			booking.getId(), booking.getTotalFare());
 
 		// when
 		PaymentProcessResponse response = paymentService
@@ -120,7 +120,7 @@ class PaymentServiceTest {
 		// then
 		assertThat(response).isNotNull();
 		assertThat(response.paymentKey()).isNotNull();
-		assertThat(response.amount()).isEqualTo(BigDecimal.valueOf(booking.getFare()));
+		assertThat(response.amount()).isEqualTo(booking.getTotalFare());
 		assertThat(response.paymentMethod()).isEqualTo(PaymentMethod.TRANSFER);
 		assertThat(response.paymentStatus()).isEqualTo(PaymentStatus.PAID);
 
@@ -158,7 +158,7 @@ class PaymentServiceTest {
 		memberRepository.save(other);
 
 		PaymentProcessCardRequest request = PaymentFixture.createCardPaymentRequest(
-			booking.getId(), BigDecimal.valueOf(booking.getFare()));
+			booking.getId(), booking.getTotalFare());
 
 		// when & then
 		assertThatThrownBy(() -> paymentService
@@ -173,12 +173,12 @@ class PaymentServiceTest {
 		// given
 		// 첫 번째 결제
 		PaymentProcessCardRequest firstRequest = PaymentFixture.createCardPaymentRequest(
-			booking.getId(), BigDecimal.valueOf(booking.getFare()));
+			booking.getId(), booking.getTotalFare());
 		paymentService.processPaymentViaCard(member.getMemberDetail().getMemberNo(), firstRequest);
 
 		// 두 번째 결제 시도
 		PaymentProcessCardRequest secondRequest = PaymentFixture.createCardPaymentRequest(
-			booking.getId(), BigDecimal.valueOf(booking.getFare()));
+			booking.getId(), booking.getTotalFare());
 
 		// when & then
 		// 첫 번째 결제 후 예약 상태가 PAID로 변경되어 결제할 수 없는 상태가 됨
@@ -193,7 +193,7 @@ class PaymentServiceTest {
 	void cancelPayment_success() {
 		// given
 		PaymentProcessCardRequest request = PaymentFixture.createCardPaymentRequest(
-			booking.getId(), BigDecimal.valueOf(booking.getFare()));
+			booking.getId(), booking.getTotalFare());
 		PaymentProcessResponse paymentResponse = paymentService
 			.processPaymentViaCard(member.getMemberDetail().getMemberNo(), request);
 
@@ -226,7 +226,7 @@ class PaymentServiceTest {
 		memberRepository.save(other);
 
 		PaymentProcessCardRequest request = PaymentFixture.createCardPaymentRequest(
-			booking.getId(), BigDecimal.valueOf(booking.getFare()));
+			booking.getId(), booking.getTotalFare());
 		PaymentProcessResponse paymentResponse = paymentService
 			.processPaymentViaCard(member.getMemberDetail().getMemberNo(), request);
 
@@ -243,7 +243,7 @@ class PaymentServiceTest {
 		// given
 		// 카드 결제만 진행 (StationFare 중복 생성 문제 회피)
 		PaymentProcessCardRequest cardRequest = PaymentFixture.createCardPaymentRequest(
-			booking.getId(), BigDecimal.valueOf(booking.getFare()));
+			booking.getId(), booking.getTotalFare());
 		paymentService.processPaymentViaCard(member.getMemberDetail().getMemberNo(), cardRequest);
 
 		// when
@@ -256,7 +256,7 @@ class PaymentServiceTest {
 		PaymentHistoryResponse cardPayment = paymentHistory.get(0);
 		assertThat(cardPayment.paymentMethod()).isEqualTo(PaymentMethod.CARD);
 		assertThat(cardPayment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
-		assertThat(cardPayment.amount()).isEqualByComparingTo(BigDecimal.valueOf(booking.getFare()));
+		assertThat(cardPayment.amount()).isEqualByComparingTo(booking.getTotalFare());
 		assertThat(cardPayment.paymentKey()).isNotNull();
 		assertThat(cardPayment.bookingCode()).isNotNull();
 	}
