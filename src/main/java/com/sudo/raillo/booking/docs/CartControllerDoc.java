@@ -18,7 +18,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-@Tag(name = "CartBookings")
+@Tag(name = "Carts")
 public interface CartControllerDoc {
 
 	@Operation(method = "POST", summary = "장바구니 예약 등록", description = "장바구니에 예약을 등록합니다.", security = {
