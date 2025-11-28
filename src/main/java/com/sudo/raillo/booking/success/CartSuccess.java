@@ -9,10 +9,10 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum CartBookingSuccess implements SuccessCode {
+public enum CartSuccess implements SuccessCode {
 
-	CART_BOOKING_CREATE_SUCCESS(HttpStatus.CREATED, "장바구니에 예약이 등록되었습니다."),
-	CART_BOOKING_LIST_SUCCESS(HttpStatus.OK, "장바구니를 성공적으로 조회했습니다.");
+	CART_CREATE_SUCCESS(HttpStatus.CREATED, "장바구니에 예약이 등록되었습니다."),
+	CART_LIST_SUCCESS(HttpStatus.OK, "장바구니를 성공적으로 조회했습니다.");
 
 	private final HttpStatus status;
 	private final String message;

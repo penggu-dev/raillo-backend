@@ -38,7 +38,7 @@ public class CartService {
 	/**
 	 * 장바구니에 예약 등록
 	 */
-	public void createCartBooking(String memberNo, CartCreateRequest request) {
+	public void createCart(String memberNo, CartCreateRequest request) {
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 
@@ -61,7 +61,7 @@ public class CartService {
 	 * 장바구니에 등록한 예약 조회
 	 */
 	@Transactional(readOnly = true)
-	public List<BookingDetail> getCartBookings(String memberNo) {
+	public List<BookingDetail> getCarts(String memberNo) {
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 

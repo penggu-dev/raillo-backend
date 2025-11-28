@@ -63,12 +63,12 @@ class CartServiceTest {
 
 	@Test
 	@DisplayName("장바구니에 예약을 등록하는데 성공한다")
-	void createCartBooking_success() {
+	void createCart_success() {
 		// given
 		CartCreateRequest request = new CartCreateRequest(booking.getId());
 
 		// when
-		cartService.createCartBooking(memberNo, request);
+		cartService.createCart(memberNo, request);
 
 		// then
 		boolean exists = cartRepository.existsByBooking(booking);
@@ -77,7 +77,7 @@ class CartServiceTest {
 
 	@Test
 	@DisplayName("자신의 예약이 아니라면 예외가 발생한다")
-	void createCartBooking_accessDenied_throwsException() {
+	void createCart_accessDenied_throwsException() {
 		// given
 		Member otherMember = MemberFixture.createOtherMember();
 		String otherMemberNo = otherMember.getMemberDetail().getMemberNo();
@@ -86,21 +86,21 @@ class CartServiceTest {
 		CartCreateRequest request = new CartCreateRequest(booking.getId());
 
 		// when & then
-		assertThatThrownBy(() -> cartService.createCartBooking(otherMemberNo, request))
+		assertThatThrownBy(() -> cartService.createCart(otherMemberNo, request))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.BOOKING_ACCESS_DENIED.getMessage());
 	}
 
 	@Test
 	@DisplayName("장바구니에 이미 등록된 예약이라면 예외가 발생한다")
-	void createCartBooking_duplicate_throwsException() {
+	void createCart_duplicate_throwsException() {
 		// given
 		CartCreateRequest request = new CartCreateRequest(booking.getId());
 
 		// when & then
 		assertThatThrownBy(() -> {
-			cartService.createCartBooking(memberNo, request);
-			cartService.createCartBooking(memberNo, request);
+			cartService.createCart(memberNo, request);
+			cartService.createCart(memberNo, request);
 		})
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.BOOKING_ALREADY_EXISTED.getMessage());
@@ -108,13 +108,13 @@ class CartServiceTest {
 
 	@Test
 	@DisplayName("장바구니 조회에 성공한다")
-	void getCartBookings_success() {
+	void getCarts_success() {
 		// given
 		CartCreateRequest request = new CartCreateRequest(booking.getId());
-		cartService.createCartBooking(memberNo, request);
+		cartService.createCart(memberNo, request);
 
 		// when
-		List<BookingDetail> cart = cartService.getCartBookings(memberNo);
+		List<BookingDetail> cart = cartService.getCarts(memberNo);
 
 		// then
 		assertThat(cart).hasSize(1);
@@ -126,9 +126,9 @@ class CartServiceTest {
 
 	@Test
 	@DisplayName("장바구니가 비어있다면 빈 응답을 반환한다")
-	void getCartBookings_empty_success() {
+	void getCarts_empty_success() {
 		// when
-		List<BookingDetail> cart = cartService.getCartBookings(memberNo);
+		List<BookingDetail> cart = cartService.getCarts(memberNo);
 
 		// then
 		assertThat(cart).isEmpty();

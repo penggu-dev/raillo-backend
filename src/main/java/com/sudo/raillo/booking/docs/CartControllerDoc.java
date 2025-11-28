@@ -35,7 +35,7 @@ public interface CartControllerDoc {
 		@ApiResponse(responseCode = "409", description = "이미 등록된 예약입니다.",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 	})
-	SuccessResponse<?> createCartBooking(CartCreateRequest request, UserDetails userDetails);
+	SuccessResponse<?> createCart(CartCreateRequest request, UserDetails userDetails);
 
 	@Operation(method = "GET", summary = "장바구니 예약 목록 조회", description = "장바구니에 담긴 예약 목록을 조회합니다.", security = {
 		@SecurityRequirement(name = "bearerAuth")})
@@ -44,5 +44,5 @@ public interface CartControllerDoc {
 		@ApiResponse(responseCode = "404", description = "사용자 정보를 찾을 수 없습니다.",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<List<BookingDetail>> getCartBookings(@AuthenticationPrincipal UserDetails userDetails);
+	SuccessResponse<List<BookingDetail>> getCarts(@AuthenticationPrincipal UserDetails userDetails);
 }

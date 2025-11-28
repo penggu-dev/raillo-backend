@@ -14,7 +14,7 @@ import com.sudo.raillo.booking.application.service.CartService;
 import com.sudo.raillo.booking.application.dto.request.CartCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.docs.CartControllerDoc;
-import com.sudo.raillo.booking.success.CartBookingSuccess;
+import com.sudo.raillo.booking.success.CartSuccess;
 import com.sudo.raillo.global.success.SuccessResponse;
 
 import jakarta.validation.Valid;
@@ -28,23 +28,23 @@ public class CartController implements CartControllerDoc {
 	private final CartService cartService;
 
 	@PostMapping
-	public SuccessResponse<?> createCartBooking(
+	public SuccessResponse<?> createCart(
 		@Valid @RequestBody CartCreateRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
 		String memberNo = userDetails.getUsername();
 
-		cartService.createCartBooking(memberNo, request);
-		return SuccessResponse.of(CartBookingSuccess.CART_BOOKING_CREATE_SUCCESS);
+		cartService.createCart(memberNo, request);
+		return SuccessResponse.of(CartSuccess.CART_CREATE_SUCCESS);
 	}
 
 	@GetMapping
-	public SuccessResponse<List<BookingDetail>> getCartBookings(
+	public SuccessResponse<List<BookingDetail>> getCarts(
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
 		String memberNo = userDetails.getUsername();
 
-		List<BookingDetail> response = cartService.getCartBookings(memberNo);
-		return SuccessResponse.of(CartBookingSuccess.CART_BOOKING_LIST_SUCCESS, response);
+		List<BookingDetail> response = cartService.getCarts(memberNo);
+		return SuccessResponse.of(CartSuccess.CART_LIST_SUCCESS, response);
 	}
 }
