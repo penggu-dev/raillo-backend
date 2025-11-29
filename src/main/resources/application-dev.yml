@@ -66,6 +66,18 @@ jwt:
 cookie:
   domain: localhost
 
+booking:
+  expiration:
+    booking: 10
+
+payment:
+  toss:
+    api:
+      base-url: https://api.tosspayments.com
+      client-key: ${TOSS_CLIENT_KEY}
+      secret-key: ${TOSS_SECRET_KEY}
+      version: v1
+
 # Prometheus
 management:
   endpoints:
