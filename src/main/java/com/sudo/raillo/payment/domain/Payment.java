@@ -49,8 +49,12 @@ public class Payment {
 	@Comment("예약 ID")
 	private Booking booking;
 
+	@Column(name = "order_id", nullable = false, updatable = false)
+	@Comment("주문번호 (토스 결제 요청 시 사용, TempBooking의 bookingCode)")
+	private String orderId;
+
 	@Column(name = "payment_key", nullable = false, unique = true)
-	@Comment("결제 고유번호")
+	@Comment("토스페이먼츠 결제 고유 키 (결제 승인 후 발급)")
 	private String paymentKey;
 
 	@Column(name = "amount", nullable = false)
@@ -86,6 +90,7 @@ public class Payment {
 		PaymentMethod paymentMethod, PaymentStatus paymentStatus) {
 		this.member = member;
 		this.booking = booking;
+		this.orderId = booking.getBookingCode();
 		this.paymentKey = paymentKey;
 		this.amount = amount;
 		this.paymentMethod = paymentMethod;
