@@ -21,6 +21,7 @@ import org.springframework.web.context.request.WebRequest;
 import com.sudo.raillo.auth.exception.TokenError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
+import com.sudo.raillo.global.exception.error.ExternalApiException;
 import com.sudo.raillo.global.exception.error.GlobalError;
 import com.sudo.raillo.global.redis.RedisError;
 
@@ -120,6 +121,22 @@ public class GlobalExceptionHandler {
 	}
 
 	/**
+	 * 외부 API  예외 처리
+	 */
+	@ExceptionHandler(ExternalApiException.class)
+	public ResponseEntity<ErrorResponse> handleBusinessException(ExternalApiException ex) {
+		Map<String, Object> details = Map.of(
+			"provider", ex.getProvider(),
+			"type", ex.getErrorType()
+		);
+
+		ErrorResponse response = ErrorResponse.of(ex.getErrorCode(), ex.getMessage(), details);
+
+		logExternalApiException(ex);
+		return ResponseEntity.status(ex.getHttpStatus()).body(response);
+	}
+
+	/**
 	 * 예상하지 못한 모든 예외 처리 : Exception
 	 */
 	@ExceptionHandler(Exception.class)
@@ -142,6 +159,19 @@ public class GlobalExceptionHandler {
 		} else {
 			log.warn("Business exception occurred: {}", ex.getMessage());
 		}
+	}
+
+	/**
+	 * 외부 API 예외 로깅
+	 */
+	private void logExternalApiException(ExternalApiException ex) {
+		log.warn("External API Error | Provider={} | ErrorType={} | HTTP={} | Code={} | Message={}",
+			ex.getProvider(),
+			ex.getErrorType(),
+			ex.getHttpStatus(),
+			ex.getErrorCode(),
+			ex.getMessage()
+		);
 	}
 
 	/**
