@@ -74,6 +74,10 @@ public class Payment {
 	@Comment("결제 일자")
 	private LocalDateTime paidAt;
 
+	@Column(name = "failed_at")
+	@Comment("결제 실패 일시")
+	private LocalDateTime failedAt;
+
 	@Column(name = "cancelled_at")
 	@Comment("결제 취소 일자")
 	private LocalDateTime cancelledAt;
@@ -103,8 +107,11 @@ public class Payment {
 			paymentInfo.paymentMethod(), paymentInfo.paymentStatus());
 	}
 
-	// 결제 승인
-	public void approve() {
+	// 결제 승인 성공
+	public void approve(String paymentKey, PaymentMethod paymentMethod, Booking booking) {
+		this.paymentKey = paymentKey;
+		this.paymentMethod = paymentMethod;
+		this.booking = booking;
 		this.paymentStatus = PaymentStatus.PAID;
 		this.paidAt = LocalDateTime.now();
 	}
@@ -126,6 +133,7 @@ public class Payment {
 	public void fail(String reason) {
 		this.paymentStatus = PaymentStatus.FAILED;
 		this.failureReason = reason;
+		this.failedAt = LocalDateTime.now();
 	}
 
 	// 결제 가능 여부 확인
