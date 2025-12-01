@@ -41,8 +41,7 @@ public class BookingMapper {
 			bookingInfo.departureTime(),
 			bookingInfo.arrivalTime(),
 			bookingInfo.operationDate(),
-			bookingInfo.expiresAt(),
-			bookingInfo.fare(),
+			bookingInfo.totalFare(),
 			convertToSeatBookingDetail(bookingInfo.seats())
 		);
 	}

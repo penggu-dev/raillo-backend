@@ -1,33 +1,31 @@
 package com.sudo.raillo.booking.application;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
-import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 @Slf4j
@@ -51,6 +49,9 @@ class TicketServiceTest {
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
 
+	@Autowired
+	private BookingTestHelper bookingTestHelper;
+
 	private Booking booking;
 	private Seat seat1, seat2;
 	private PassengerType passengerType1, passengerType2;
@@ -61,19 +62,7 @@ class TicketServiceTest {
 		memberRepository.save(member);
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = Booking.builder()
-			.trainSchedule(schedule.trainSchedule())
-			.member(member)
-			.bookingCode("20250806100001D49J")
-			.tripType(TripType.OW)
-			.totalPassengers(1)
-			.passengerSummary("[{\"passengerType\":\"CHILD\",\"count\":1},{\"passengerType\":\"VETERAN\",\"count\":1}]")
-			.bookingStatus(BookingStatus.BOOKED)
-			.expiresAt(LocalDateTime.now().plusMinutes(10))
-			.fare(50000)
-			.departureStop(schedule.scheduleStops().get(0))
-			.arrivalStop(schedule.scheduleStops().get(1))
-			.build();
+		Booking booking = bookingTestHelper.createBooking(member, schedule);
 		this.booking = bookingRepository.save(booking);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 		seat1 = seats.get(0);
@@ -115,10 +104,10 @@ class TicketServiceTest {
 			.passengerType(passengerType2)
 			.build();
 		ticketRepository.save(ticket2);
-		String memberNo = booking.getMember().getMemberDetail().getMemberNo();
+		Member member = MemberFixture.createStandardMember();
 
 		// when
-		List<TicketReadResponse> result = ticketService.getMyTickets(memberNo);
+		List<TicketReadResponse> result = ticketService.getMyTickets(member.getMemberDetail().getMemberNo());
 
 		// then
 		assertThat(result.size()).isEqualTo(2);

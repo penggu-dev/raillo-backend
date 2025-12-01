@@ -11,13 +11,13 @@ public class BookingCodeGenerator {
 
 	private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	private static final int RANDOM_LENGTH = 4;
-	private final SecureRandom secureRandom = new SecureRandom();
+	private static final SecureRandom secureRandom = new SecureRandom();
 
 	/***
 	 * 고객용 예매번호를 생성하는 메서드
 	 * @return 고객용 예매번호
 	 */
-	public String generateBookingCode() {
+	public static String generateBookingCode() {
 		// yyyyMMddHHmmss<랜덤4자리> 형식
 		LocalDateTime now = LocalDateTime.now();
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");

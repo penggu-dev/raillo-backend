@@ -24,7 +24,6 @@ import com.sudo.raillo.payment.infrastructure.PaymentQueryRepository;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.payment.util.PaymentKeyGenerator;
 import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
-import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -156,7 +155,7 @@ public class PaymentService {
 
 	private void validatePaymentProcessRequest(PaymentProcessRequest request, Booking booking) {
 		// 금액 위변조 검증
-		if (!request.getAmount().equals(BigDecimal.valueOf(booking.getFare()))) {
+		if (request.getAmount().compareTo(booking.getTotalFare()) != 0) {
 			throw new BusinessException(PaymentError.PAYMENT_AMOUNT_MISMATCH);
 		}
 
