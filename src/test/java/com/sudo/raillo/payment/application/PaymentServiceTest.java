@@ -258,7 +258,7 @@ class PaymentServiceTest {
 		PaymentHistoryResponse cardPayment = paymentHistory.get(0);
 		assertThat(cardPayment.paymentMethod()).isEqualTo(PaymentMethod.CARD);
 		// assertThat(cardPayment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
-		assertThat(cardPayment.amount()).isEqualByComparingTo(BigDecimal.valueOf(booking.getFare()));
+		assertThat(cardPayment.amount()).isEqualByComparingTo(booking.getTotalFare());
 		assertThat(cardPayment.paymentKey()).isNotNull();
 		assertThat(cardPayment.bookingCode()).isNotNull();
 	}
