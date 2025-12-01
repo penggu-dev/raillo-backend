@@ -78,6 +78,7 @@ public class Payment {
 	@Comment("결제 실패 일시")
 	private LocalDateTime failedAt;
 
+
 	@Column(name = "cancelled_at")
 	@Comment("결제 취소 일자")
 	private LocalDateTime cancelledAt;
@@ -86,9 +87,13 @@ public class Payment {
 	@Comment("환불 처리 일자")
 	private LocalDateTime refundedAt;
 
+	@Column(name = "failure_code")
+	@Comment("PG 실패 코드, ex) REJECT_CARD_PAYMENT")
+	private String failureCode;
+
 	@Column(name = "failure_reason")
 	@Comment("결제 실패 사유")
-	private String failureReason;
+	private String failureMessage;
 
 	private Payment(Member member, Booking booking, String paymentKey, BigDecimal amount,
 		PaymentMethod paymentMethod, PaymentStatus paymentStatus) {
@@ -120,7 +125,6 @@ public class Payment {
 	public void cancel(String reason) {
 		this.paymentStatus = PaymentStatus.CANCELLED;
 		this.cancelledAt = LocalDateTime.now();
-		this.failureReason = reason;
 	}
 
 	// 환불 처리
@@ -130,9 +134,10 @@ public class Payment {
 	}
 
 	// 결제 실패
-	public void fail(String reason) {
+	public void fail(String failureCode, String failureMessage, String traceId) {
 		this.paymentStatus = PaymentStatus.FAILED;
-		this.failureReason = reason;
+		this.failureCode = failureCode;
+		this.failureMessage = failureMessage;
 		this.failedAt = LocalDateTime.now();
 	}
 
