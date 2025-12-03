@@ -1,16 +1,7 @@
 package com.sudo.raillo.booking.application;
 
-import static org.assertj.core.api.Assertions.*;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
@@ -20,7 +11,6 @@ import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -33,8 +23,15 @@ import com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithS
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 @Slf4j
@@ -81,8 +78,7 @@ class BookingServiceTest {
 			schedule.scheduleStops().get(0).getId(),
 			schedule.scheduleStops().get(1).getId(),
 			List.of(new PassengerSummary(PassengerType.ADULT, 1), new PassengerSummary(PassengerType.CHILD, 1)),
-			standardSeatIds,
-			TripType.OW
+			standardSeatIds
 		);
 
 		BigDecimal totalFare = BigDecimal.valueOf(80000);

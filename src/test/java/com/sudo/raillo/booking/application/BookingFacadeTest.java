@@ -18,7 +18,6 @@ import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
@@ -191,8 +190,7 @@ class BookingFacadeTest {
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),
 			passengers,
-			standardSeatIds,
-			TripType.OW
+			standardSeatIds
 		);
 	}
 }

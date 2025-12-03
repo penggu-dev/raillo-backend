@@ -1,12 +1,9 @@
 package com.sudo.raillo.booking.application.dto.request;
 
-import java.util.List;
-
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
-import com.sudo.raillo.booking.domain.type.TripType;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
 @Schema(description = "예약 생성 요청 DTO")
 public record BookingCreateRequest(
@@ -28,10 +25,6 @@ public record BookingCreateRequest(
 
 	@Schema(description = "좌석 ID를 요소로 하는 리스트", example = "[ 46456, 46457 ]")
 	@NotNull(message = "좌석 정보는 필수입니다")
-	List<Long> seatIds,
-
-	@Schema(description = "여행 타입 (OW - 편도, RT - 왕복)", example = "OW")
-	@NotNull(message = "여행 타입은 필수입니다")
-	TripType tripType
+	List<Long> seatIds
 ) {
 }

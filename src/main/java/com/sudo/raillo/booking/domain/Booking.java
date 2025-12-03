@@ -2,7 +2,6 @@ package com.sudo.raillo.booking.domain;
 
 import com.sudo.raillo.booking.application.generator.BookingCodeGenerator;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
-import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.global.domain.BaseEntity;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.train.domain.ScheduleStop;
@@ -67,11 +66,6 @@ public class Booking extends BaseEntity {
 	@Comment("고객용 예매 코드")
 	private String bookingCode;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	@Comment("여행 타입")
-	private TripType tripType;
-
 	@Column(nullable = false)
 	@Comment("운임")
 	private BigDecimal totalFare;
@@ -84,7 +78,6 @@ public class Booking extends BaseEntity {
 		TrainSchedule trainSchedule,
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop,
-		TripType tripType,
 		BigDecimal totalFare
 	) {
 		Booking booking = new Booking();
@@ -94,7 +87,6 @@ public class Booking extends BaseEntity {
 		booking.departureStop = departureStop;
 		booking.bookingStatus = BookingStatus.BOOKED;
 		booking.bookingCode = BookingCodeGenerator.generateBookingCode();
-		booking.tripType = tripType;
 		booking.totalFare = totalFare;
 		return booking;
 	}

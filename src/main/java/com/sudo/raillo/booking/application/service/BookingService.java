@@ -57,7 +57,6 @@ public class BookingService {
 			trainSchedule,
 			departureStop,
 			arrivalStop,
-			request.tripType(),
 			totalFare
 		);
 		return bookingRepository.save(booking);
