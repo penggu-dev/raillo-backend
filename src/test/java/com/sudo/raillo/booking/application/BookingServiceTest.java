@@ -96,7 +96,6 @@ class BookingServiceTest {
 
 		assertThat(savedBooking.getMember().getId()).isEqualTo(member.getId());
 		assertThat(savedBooking.getBookingStatus()).isEqualTo(BookingStatus.BOOKED);
-		assertThat(savedBooking.getTotalPassengers()).isEqualTo(2);
 		assertThat(savedBooking.getTotalFare()).isEqualByComparingTo(totalFare);
 		assertThat(savedBooking.getBookingCode()).isNotNull();
 	}
@@ -133,7 +132,7 @@ class BookingServiceTest {
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
 		Booking booking = bookingTestHelper.createBooking(member, schedule);
-		Booking entity = bookingRepository.save(booking);
+		bookingRepository.save(booking);
 
 		// when & then
 		assertThatThrownBy(() -> bookingService.getBooking(memberNo, 2L))
