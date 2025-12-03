@@ -76,9 +76,6 @@ public class Booking extends BaseEntity {
 	@Comment("운임")
 	private BigDecimal totalFare;
 
-	@Comment("결제 완료 시간")
-	private LocalDateTime purchaseAt;
-
 	@Comment("반환(취소) 시간")
 	private LocalDateTime cancelledAt;
 
@@ -104,7 +101,6 @@ public class Booking extends BaseEntity {
 
 	public void approve() {
 		this.bookingStatus = BookingStatus.PAID;
-		this.purchaseAt = LocalDateTime.now();
 	}
 
 	public void cancel() {
@@ -124,10 +120,5 @@ public class Booking extends BaseEntity {
 	// 취소 가능 여부 확인
 	public boolean canBeCancelled() {
 		return this.bookingStatus.isCancellable();
-	}
-
-	// 환불 가능 여부 확인
-	public boolean canBeRefunded() {
-		return this.purchaseAt != null && this.bookingStatus.isRefundable();
 	}
 }
