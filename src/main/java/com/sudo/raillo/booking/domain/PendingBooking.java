@@ -5,22 +5,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.redis.core.RedisHash;
-
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@RedisHash(value = "booking:pendingBooking", timeToLive = 600) // 10분
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PendingBooking {
 
-	@Id
 	private String id;
 
-	private Long memberId;
+	private String memberNo;
 
 	private Long trainScheduleId;
 
@@ -35,7 +30,7 @@ public class PendingBooking {
 	private LocalDateTime createdAt;
 
 	public static PendingBooking create(
-		Long memberId,
+		String memberNo,
 		Long trainScheduleId,
 		Long departureStationId,
 		Long arrivalStationId,
@@ -44,7 +39,7 @@ public class PendingBooking {
 	) {
 		PendingBooking pendingBooking = new PendingBooking();
 		pendingBooking.id = String.valueOf(UUID.randomUUID());
-		pendingBooking.memberId = memberId;
+		pendingBooking.memberNo = memberNo;
 		pendingBooking.trainScheduleId = trainScheduleId;
 		pendingBooking.departureStationId = departureStationId;
 		pendingBooking.arrivalStationId = arrivalStationId;
