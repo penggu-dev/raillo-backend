@@ -15,7 +15,6 @@ import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -222,8 +221,7 @@ class TrainSeatQueryServiceTest {
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),
 			passengers,
-			seatIds,
-			TripType.OW
+			seatIds
 		);
 	}
 }

@@ -2,15 +2,11 @@ package com.sudo.raillo.booking.domain;
 
 import com.sudo.raillo.booking.application.generator.BookingCodeGenerator;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
-import com.sudo.raillo.booking.domain.type.PassengerSummary;
-import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.global.domain.BaseEntity;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
-import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -22,7 +18,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -71,25 +66,9 @@ public class Booking extends BaseEntity {
 	@Comment("고객용 예매 코드")
 	private String bookingCode;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	@Comment("여행 타입")
-	private TripType tripType;
-
-	@ElementCollection(fetch = FetchType.EAGER)
-	@CollectionTable(
-		name = "booking_passenger_summary",
-		joinColumns = @JoinColumn(name = "booking_id")
-	)
-	@Comment("유형 별 승객 수")
-	private List<PassengerSummary> passengerSummary;
-
 	@Column(nullable = false)
 	@Comment("운임")
 	private BigDecimal totalFare;
-
-	@Comment("결제 완료 시간")
-	private LocalDateTime purchaseAt;
 
 	@Comment("반환(취소) 시간")
 	private LocalDateTime cancelledAt;
@@ -99,8 +78,6 @@ public class Booking extends BaseEntity {
 		TrainSchedule trainSchedule,
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop,
-		TripType tripType,
-		List<PassengerSummary> passengerSummary,
 		BigDecimal totalFare
 	) {
 		Booking booking = new Booking();
@@ -110,15 +87,12 @@ public class Booking extends BaseEntity {
 		booking.departureStop = departureStop;
 		booking.bookingStatus = BookingStatus.BOOKED;
 		booking.bookingCode = BookingCodeGenerator.generateBookingCode();
-		booking.tripType = tripType;
-		booking.passengerSummary = passengerSummary;
 		booking.totalFare = totalFare;
 		return booking;
 	}
 
 	public void approve() {
 		this.bookingStatus = BookingStatus.PAID;
-		this.purchaseAt = LocalDateTime.now();
 	}
 
 	public void cancel() {
@@ -138,17 +112,5 @@ public class Booking extends BaseEntity {
 	// 취소 가능 여부 확인
 	public boolean canBeCancelled() {
 		return this.bookingStatus.isCancellable();
-	}
-
-	// 환불 가능 여부 확인
-	public boolean canBeRefunded() {
-		return this.purchaseAt != null && this.bookingStatus.isRefundable();
-	}
-
-	// 총 승객수 조회
-	public int getTotalPassengers() {
-		return passengerSummary.stream()
-			.mapToInt(PassengerSummary::getCount)
-			.sum();
 	}
 }

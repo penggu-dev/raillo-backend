@@ -4,9 +4,7 @@ import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainSchedu
 
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
-import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.domain.type.TripType;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.member.domain.Member;
@@ -38,8 +36,6 @@ public class BookingTestHelper {
 			scheduleWithStops.trainSchedule(),
 			getDepartureStop(scheduleWithStops.scheduleStops()),
 			getArrivalStop(scheduleWithStops.scheduleStops()),
-			TripType.OW,
-			List.of(new PassengerSummary(PassengerType.ADULT, 1)),
 			BigDecimal.valueOf(50000)
 		);
 
@@ -56,8 +52,6 @@ public class BookingTestHelper {
 			scheduleWithStops.trainSchedule(),
 			getDepartureStop(scheduleWithStops.scheduleStops()),
 			getArrivalStop(scheduleWithStops.scheduleStops()),
-			TripType.OW,
-			List.of(new PassengerSummary(PassengerType.ADULT, 1)),
 			BigDecimal.valueOf(50000)
 		);
 
@@ -90,8 +84,6 @@ public class BookingTestHelper {
 			scheduleWithStops.trainSchedule(),
 			departureStop,
 			arrivalStop,
-			TripType.OW,
-			List.of(new PassengerSummary(passengerType, seatIds.size())),
 			BigDecimal.valueOf(50000)
 		);
 
