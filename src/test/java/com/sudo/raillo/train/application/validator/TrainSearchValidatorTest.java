@@ -51,9 +51,7 @@ class TrainSearchValidatorTest {
 	Collection<DynamicTest> shouldThrowExceptionForInvalidScheduleSearchRequest() {
 		given(stationRepository.existsById(anyLong())).willReturn(true);
 
-		int currentHour = LocalTime.now().getHour();
-		int pastHour = (currentHour == 0 ? 0 : currentHour - 1);
-		String pastHourString = String.format("%02d", pastHour);
+		String pastHourString = "01";
 
 		record ValidationScenario(
 			String description,
