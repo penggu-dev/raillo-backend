@@ -49,8 +49,12 @@ public class Payment {
 	@Comment("예약 ID")
 	private Booking booking;
 
+	@Column(name = "order_id", nullable = false, updatable = false)
+	@Comment("주문번호 (토스 결제 요청 시 사용, TempBooking의 bookingCode)")
+	private String orderId;
+
 	@Column(name = "payment_key", nullable = false, unique = true)
-	@Comment("결제 고유번호")
+	@Comment("토스페이먼츠 결제 고유 키 (결제 승인 후 발급)")
 	private String paymentKey;
 
 	@Column(name = "amount", nullable = false)
@@ -70,6 +74,10 @@ public class Payment {
 	@Comment("결제 일자")
 	private LocalDateTime paidAt;
 
+	@Column(name = "failed_at")
+	@Comment("결제 실패 일시")
+	private LocalDateTime failedAt;
+
 	@Column(name = "cancelled_at")
 	@Comment("결제 취소 일자")
 	private LocalDateTime cancelledAt;
@@ -86,6 +94,7 @@ public class Payment {
 		PaymentMethod paymentMethod, PaymentStatus paymentStatus) {
 		this.member = member;
 		this.booking = booking;
+		this.orderId = booking.getBookingCode();
 		this.paymentKey = paymentKey;
 		this.amount = amount;
 		this.paymentMethod = paymentMethod;
@@ -98,8 +107,11 @@ public class Payment {
 			paymentInfo.paymentMethod(), paymentInfo.paymentStatus());
 	}
 
-	// 결제 승인
-	public void approve() {
+	// 결제 승인 성공
+	public void approve(String paymentKey, PaymentMethod paymentMethod, Booking booking) {
+		this.paymentKey = paymentKey;
+		this.paymentMethod = paymentMethod;
+		this.booking = booking;
 		this.paymentStatus = PaymentStatus.PAID;
 		this.paidAt = LocalDateTime.now();
 	}
@@ -121,6 +133,7 @@ public class Payment {
 	public void fail(String reason) {
 		this.paymentStatus = PaymentStatus.FAILED;
 		this.failureReason = reason;
+		this.failedAt = LocalDateTime.now();
 	}
 
 	// 결제 가능 여부 확인

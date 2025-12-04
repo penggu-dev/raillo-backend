@@ -179,7 +179,7 @@ public class PaymentService {
 
 	private void executePaymentApproval(Payment payment, Booking booking) {
 		// 결제 승인 처리
-		payment.approve();
+		// payment.approve();
 
 		// 예약 상태 변경
 		markBookingAsPaid(booking);
