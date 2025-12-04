@@ -151,30 +151,6 @@ public class GlobalExceptionHandler {
 	}
 
 	/**
-	 * 비즈니스 예외 로깅
-	 */
-	private void logBusinessException(BusinessException ex) {
-		if (ex.getErrorCode().getStatus().is5xxServerError()) {
-			log.error("Business exception occurred", ex);
-		} else {
-			log.warn("Business exception occurred: {}", ex.getMessage());
-		}
-	}
-
-	/**
-	 * 외부 API 예외 로깅
-	 */
-	private void logExternalApiException(ExternalApiException ex) {
-		log.warn("External API Error | Provider={} | ErrorType={} | HTTP={} | Code={} | Message={}",
-			ex.getProvider(),
-			ex.getErrorType(),
-			ex.getHttpStatus(),
-			ex.getErrorCode(),
-			ex.getMessage()
-		);
-	}
-
-	/**
 	 * 비밀번호 불일치 예외 처리
 	 */
 	@ExceptionHandler(BadCredentialsException.class)
@@ -224,4 +200,27 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
 	}
 
+	/**
+	 * 비즈니스 예외 로깅
+	 */
+	private void logBusinessException(BusinessException ex) {
+		if (ex.getErrorCode().getStatus().is5xxServerError()) {
+			log.error("Business exception occurred", ex);
+		} else {
+			log.warn("Business exception occurred: {}", ex.getMessage());
+		}
+	}
+
+	/**
+	 * 외부 API 예외 로깅
+	 */
+	private void logExternalApiException(ExternalApiException ex) {
+		log.warn("External API Error | Provider={} | ErrorType={} | HTTP={} | Code={} | Message={}",
+			ex.getProvider(),
+			ex.getErrorType(),
+			ex.getHttpStatus(),
+			ex.getErrorCode(),
+			ex.getMessage()
+		);
+	}
 }
