@@ -28,6 +28,8 @@ public enum BookingError implements ErrorCode {
 	BOOKING_EXPIRED("예약이 만료되었습니다.", HttpStatus.GONE, "B_017"),
 	SEAT_BOOKING_NOT_FOUND("좌석 예약 상태를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_018"),
 	TICKET_NOT_FOUND("티켓을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_019"),
+	INVALID_TOTAL_FAIR("예약 총 금액은 0보다 크거나 같아야 합니다", HttpStatus.BAD_REQUEST, "B_020"),
+	BOOKING_ALREADY_CANCELLED("이미 취소된 좌석입니다", HttpStatus.BAD_REQUEST, "B_021"),
 
 	// 예약 요청 Request 관련
 	INVALID_CAR_TYPE("좌석의 객차 타입은 동일해야 합니다.", HttpStatus.BAD_REQUEST, "B_016"),

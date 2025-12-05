@@ -2,7 +2,9 @@ package com.sudo.raillo.booking.domain;
 
 import com.sudo.raillo.booking.application.generator.BookingCodeGenerator;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.domain.BaseEntity;
+import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
@@ -83,34 +85,30 @@ public class Booking extends BaseEntity {
 		Booking booking = new Booking();
 		booking.member = member;
 		booking.trainSchedule = trainSchedule;
-		booking.arrivalStop = arrivalStop;
 		booking.departureStop = departureStop;
+		booking.arrivalStop = arrivalStop;
 		booking.bookingStatus = BookingStatus.BOOKED;
 		booking.bookingCode = BookingCodeGenerator.generateBookingCode();
+		validateTotalFare(totalFare);
 		booking.totalFare = totalFare;
 		return booking;
 	}
 
-	public void approve() {
-		this.bookingStatus = BookingStatus.PAID;
-	}
-
 	public void cancel() {
+		validateIsNotCancelled();
 		this.bookingStatus = BookingStatus.CANCELLED;
 		this.cancelledAt = LocalDateTime.now();
 	}
 
-	public void refund() {
-		this.bookingStatus = BookingStatus.REFUNDED;
+	private static void validateTotalFare(BigDecimal totalAmount) {
+		if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
+			throw new DomainException(BookingError.INVALID_TOTAL_FAIR);
+		}
 	}
 
-	// 결제 가능 여부 확인
-	public boolean canBePaid() {
-		return this.bookingStatus.isPayable();
-	}
-
-	// 취소 가능 여부 확인
-	public boolean canBeCancelled() {
-		return this.bookingStatus.isCancellable();
+	private void validateIsNotCancelled() {
+		if (this.bookingStatus == BookingStatus.CANCELLED) {
+			throw new DomainException(BookingError.BOOKING_ALREADY_CANCELLED);
+		}
 	}
 }
