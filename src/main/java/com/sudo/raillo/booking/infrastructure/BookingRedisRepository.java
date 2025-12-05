@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
@@ -23,26 +24,28 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class BookingRedisRepository {
 
-	private final RedisTemplate<String, Object> objectRedisTemplate;
+	private final RedisTemplate<String, Object> customObjectRedisTemplate;
 	private final RedisKeyGenerator redisKeyGenerator;
 
-	private static final Duration PENDING_BOOKING_EXPIRE_TIME = Duration.ofMinutes(10); // TODO: 설정 파일로 분리
-	private static final Duration PENDING_BOOKING_MEMBER_EXPIRE_TIME = Duration.ofSeconds(580);
+	@Value( "${redis.ttl.pending-booking}")
+	private Duration pendingBookingExpireTime;
+	@Value( "${redis.ttl.pending-booking-member-key}")
+	private Duration pendingBookingMemberKeyExpireTime;
 
 	public void savePendingBooking(PendingBooking pendingBooking) {
 		String key = redisKeyGenerator.generatePendingBookingKey(pendingBooking.getId());
-		objectRedisTemplate.opsForValue()
-			.set(key, pendingBooking, PENDING_BOOKING_EXPIRE_TIME);
+		customObjectRedisTemplate.opsForValue()
+			.set(key, pendingBooking, pendingBookingExpireTime);
 	}
 
 	public void deletePendingBooking(String pendingBookingId) {
 		String key = redisKeyGenerator.generatePendingBookingKey(pendingBookingId);
-		objectRedisTemplate.delete(key);
+		customObjectRedisTemplate.delete(key);
 	}
 
 	public PendingBooking getPendingBooking(String pendingBookingId) {
 		String key = redisKeyGenerator.generatePendingBookingKey(pendingBookingId);
-		Object value = objectRedisTemplate.opsForValue().get(key);
+		Object value = customObjectRedisTemplate.opsForValue().get(key);
 
 		if(value == null) {
 			return null;
@@ -53,13 +56,13 @@ public class BookingRedisRepository {
 
 	public void savePendingBookingMemberKey(String pendingBookingId, String memberNo) {
 		String key = redisKeyGenerator.generatePendingBookingMemberKey(memberNo, pendingBookingId);
-		objectRedisTemplate.opsForValue()
-			.set(key, "1", PENDING_BOOKING_MEMBER_EXPIRE_TIME); // 임시 더미값 저장
+		customObjectRedisTemplate.opsForValue()
+			.set(key, "1", pendingBookingMemberKeyExpireTime); // 임시 더미값 저장
 	}
 
 	public void deletePendingBookingMemberKey(String memberNo, String pendingBookingId) {
 		String key = redisKeyGenerator.generatePendingBookingMemberKey(memberNo, pendingBookingId);
-		objectRedisTemplate.delete(key);
+		customObjectRedisTemplate.delete(key);
 	}
 
 	public List<PendingBooking> getPendingBookings(String memberNo) {
@@ -83,7 +86,7 @@ public class BookingRedisRepository {
 			.count(10) // 10개씩 조회
 			.build();
 
-		try (Cursor<String> cursor = objectRedisTemplate.scan(options)) {
+		try (Cursor<String> cursor = customObjectRedisTemplate.scan(options)) {
 			while (cursor.hasNext()) {
 				memberKeys.add(cursor.next());
 			}
