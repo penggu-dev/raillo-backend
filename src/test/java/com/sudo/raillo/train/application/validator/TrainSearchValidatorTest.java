@@ -8,6 +8,7 @@ import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -52,8 +53,12 @@ class TrainSearchValidatorTest {
 		given(stationRepository.existsById(anyLong())).willReturn(true);
 
 		int currentHour = LocalTime.now().getHour();
-		int pastHour = (currentHour == 0 ? 0 : currentHour - 1);
+
+		// 0시대에는 [오늘 날짜 + 과거 시간] 테스트가 불가능하므로 조건 체크
+		boolean canTestPastTime = currentHour > 0;
+		int pastHour = canTestPastTime ? currentHour - 1 : 0;
 		String pastHourString = String.format("%02d", pastHour);
+
 
 		record ValidationScenario(
 			String description,
@@ -88,6 +93,11 @@ class TrainSearchValidatorTest {
 			.map(scenario -> DynamicTest.dynamicTest(
 				scenario.description,
 				() -> {
+					if (scenario.expectedErrorCode == TrainErrorCode.DEPARTURE_TIME_PASSED) {
+						Assumptions.assumeTrue(canTestPastTime,
+							"현재 시각이 자정(00시)이므로 과거 시간 테스트를 건너뛴다.");
+					}
+
 					// when & then
 					assertThatThrownBy(() -> trainSearchValidator.validateScheduleSearchRequest(scenario.request))
 						.isInstanceOf(BusinessException.class)
