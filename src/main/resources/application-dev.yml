@@ -89,3 +89,9 @@ management:
   endpoint:
     prometheus:
       access: unrestricted
+
+# redis TTL
+redis:
+  ttl:
+    pending-booking: 10m
+    pending-booking-member-key: 580s

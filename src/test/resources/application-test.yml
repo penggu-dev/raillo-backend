@@ -54,3 +54,9 @@ cors:
 
 cookie:
   domain: .test
+
+# redis TTL
+redis:
+  ttl:
+    pending-booking: 10m
+    pending-booking-member-key: 580s
