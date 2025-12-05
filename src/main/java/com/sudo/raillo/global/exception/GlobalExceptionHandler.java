@@ -23,8 +23,8 @@ import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
 import com.sudo.raillo.global.exception.error.ExternalApiException;
 import com.sudo.raillo.global.exception.error.GlobalError;
-import com.sudo.raillo.global.redis.RedisError;
-import com.sudo.raillo.global.redis.RedisException;
+import com.sudo.raillo.global.redis.exception.RedisError;
+import com.sudo.raillo.global.redis.exception.RedisException;
 
 import io.jsonwebtoken.io.SerializationException;
 import jakarta.servlet.http.HttpServletRequest;

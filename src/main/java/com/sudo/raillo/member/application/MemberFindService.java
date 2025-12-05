@@ -10,7 +10,7 @@ import com.sudo.raillo.auth.application.dto.response.TemporaryTokenResponse;
 import com.sudo.raillo.auth.exception.AuthError;
 import com.sudo.raillo.auth.security.jwt.TokenGenerator;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.global.redis.MemberRedisRepository;
+import com.sudo.raillo.member.infrastructure.MemberRedisRepository;
 import com.sudo.raillo.member.application.dto.request.FindMemberNoRequest;
 import com.sudo.raillo.member.application.dto.request.FindPasswordRequest;
 import com.sudo.raillo.member.application.dto.response.VerifyMemberNoResponse;

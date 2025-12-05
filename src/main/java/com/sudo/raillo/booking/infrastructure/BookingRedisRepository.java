@@ -1,7 +1,6 @@
 package com.sudo.raillo.booking.infrastructure;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -14,9 +13,9 @@ import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Repository;
 
 import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.global.redis.RedisError;
-import com.sudo.raillo.global.redis.RedisException;
-import com.sudo.raillo.global.redis.RedisKeyGenerator;
+import com.sudo.raillo.global.redis.exception.RedisError;
+import com.sudo.raillo.global.redis.exception.RedisException;
+import com.sudo.raillo.global.redis.util.RedisKeyGenerator;
 
 import lombok.RequiredArgsConstructor;
 

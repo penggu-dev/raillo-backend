@@ -1,4 +1,4 @@
-package com.sudo.raillo.global.redis;
+package com.sudo.raillo.global.redis.exception;
 
 import com.sudo.raillo.global.exception.error.ErrorCode;
 

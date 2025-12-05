@@ -1,9 +1,11 @@
-package com.sudo.raillo.global.redis;
+package com.sudo.raillo.member.infrastructure;
 
 import java.time.Duration;
 
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
+
+import com.sudo.raillo.global.redis.util.RedisKeyGenerator;
 
 import lombok.RequiredArgsConstructor;
 

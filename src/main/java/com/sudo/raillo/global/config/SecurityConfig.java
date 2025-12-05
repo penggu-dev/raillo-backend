@@ -21,7 +21,7 @@ import com.sudo.raillo.auth.security.jwt.JwtAuthenticationEntryPoint;
 import com.sudo.raillo.auth.security.jwt.JwtFilter;
 import com.sudo.raillo.auth.security.jwt.TokenExtractor;
 import com.sudo.raillo.auth.security.jwt.TokenValidator;
-import com.sudo.raillo.global.redis.AuthRedisRepository;
+import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 
 import lombok.RequiredArgsConstructor;
 

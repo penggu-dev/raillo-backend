@@ -1,4 +1,4 @@
-package com.sudo.raillo.global.redis;
+package com.sudo.raillo.global.redis.util;
 
 import org.springframework.stereotype.Component;
 

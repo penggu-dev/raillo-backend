@@ -4,7 +4,7 @@ import java.security.SecureRandom;
 
 import org.springframework.stereotype.Service;
 
-import com.sudo.raillo.global.redis.AuthRedisRepository;
+import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
 
 import lombok.RequiredArgsConstructor;
