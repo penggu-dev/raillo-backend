@@ -75,7 +75,7 @@ public class Booking extends BaseEntity {
 	@Comment("반환(취소) 시간")
 	private LocalDateTime cancelledAt;
 
-	public static Booking createBooking(
+	public static Booking create(
 		Member member,
 		TrainSchedule trainSchedule,
 		ScheduleStop departureStop,

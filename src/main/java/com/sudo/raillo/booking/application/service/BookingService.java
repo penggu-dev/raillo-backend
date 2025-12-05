@@ -52,7 +52,7 @@ public class BookingService {
 
 		validateTrainOperating(trainSchedule);
 
-		Booking booking = Booking.createBooking(
+		Booking booking = Booking.create(
 			member,
 			trainSchedule,
 			departureStop,

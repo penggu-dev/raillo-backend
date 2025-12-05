@@ -31,7 +31,7 @@ public class BookingTestHelper {
 	 * 예약 생성 메서드 (좌석 생성 X)
 	 */
 	public Booking createOnlyBooking(Member member, TrainScheduleWithStopStations scheduleWithStops) {
-		Booking booking = Booking.createBooking(
+		Booking booking = Booking.create(
 			member,
 			scheduleWithStops.trainSchedule(),
 			getDepartureStop(scheduleWithStops.scheduleStops()),
@@ -47,7 +47,7 @@ public class BookingTestHelper {
 	 * 기본 예약 생성 메서드
 	 */
 	public Booking createBooking(Member member, TrainScheduleWithStopStations scheduleWithStops) {
-		Booking booking = Booking.createBooking(
+		Booking booking = Booking.create(
 			member,
 			scheduleWithStops.trainSchedule(),
 			getDepartureStop(scheduleWithStops.scheduleStops()),
@@ -79,7 +79,7 @@ public class BookingTestHelper {
 		List<Long> seatIds,
 		PassengerType passengerType
 	) {
-		Booking booking = Booking.createBooking(
+		Booking booking = Booking.create(
 			member,
 			scheduleWithStops.trainSchedule(),
 			departureStop,
