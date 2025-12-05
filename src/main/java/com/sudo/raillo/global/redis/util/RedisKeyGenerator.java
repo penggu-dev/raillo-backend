@@ -49,6 +49,7 @@ public class RedisKeyGenerator {
 	}
 
 	public String generatePendingBookingMemberKeyPattern(String memberNo) {
-		return PENDING_BOOKING_MEMBER_KEY_PREFIX.replace("{memberNo}", memberNo);
+		return PENDING_BOOKING_MEMBER_KEY_PREFIX.replace("{memberNo}", memberNo)
+			.replace("%s", "*");
 	}
 }
