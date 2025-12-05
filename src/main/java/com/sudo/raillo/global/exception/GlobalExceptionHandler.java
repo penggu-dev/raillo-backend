@@ -24,6 +24,7 @@ import com.sudo.raillo.global.exception.error.ErrorResponse;
 import com.sudo.raillo.global.exception.error.ExternalApiException;
 import com.sudo.raillo.global.exception.error.GlobalError;
 import com.sudo.raillo.global.redis.RedisError;
+import com.sudo.raillo.global.redis.RedisException;
 
 import io.jsonwebtoken.io.SerializationException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -188,6 +189,16 @@ public class GlobalExceptionHandler {
 		ErrorResponse errorResponse = ErrorResponse.of(RedisError.INVALID_DATA_ACCESS);
 		log.warn("Redis API usage failure: {}", ex.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+	}
+
+	/**
+	 * 예상하지 못한 Redis의 예외 처리
+	 * */
+	@ExceptionHandler(RedisException.class)
+	public ResponseEntity<ErrorResponse> handleRedisException(RedisException ex) {
+		ErrorResponse errorResponse = ErrorResponse.of(ex.getErrorCode());
+		log.warn("Redis exception occurred: {}", ex.getMessage());
+		return ResponseEntity.status(ex.getErrorCode().getStatus()).body(errorResponse);
 	}
 
 	/**
