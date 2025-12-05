@@ -66,10 +66,6 @@ jwt:
 cookie:
   domain: localhost
 
-booking:
-  expiration:
-    booking: 10
-
 payment:
   toss:
     api:
