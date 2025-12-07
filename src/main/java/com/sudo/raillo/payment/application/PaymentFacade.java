@@ -40,13 +40,13 @@ public class PaymentFacade {
 	/**
 	 * 결제 승인 처리
 	 *
-	 * 1. 클라이언트 요청 검증 (orderId, paymentKey, amount)
-	 * 2. Order 조회 및 금액 검증
-	 * 3. Payment 조회 및 상태 검증
-	 * 4. 토스페이먼츠 결제 승인 API 호출
-	 * 5. 토스 응답 금액 재검증
-	 * 6. Booking 생성 (BOOKED)
-	 * 7. SeatBooking 생성
+	 * 1. Member, Order, Payment 조회
+	 * 2. 소유자 검증 (Order, Payment 모두 동일 Member 소유)
+	 * 3. 금액 검증 (Client Request, Order, Payment 모두 일치)
+	 * 4. 상태 검증 (Payment 승인 가능, 중복 결제 방지)
+	 * 5. 토스페이먼츠 결제 승인 API 호출
+	 * 6. 토스 응답 금액 재검증
+	 * 7. Booking & SeatBooking 생성 (BOOKED)
 	 * 8. Payment 승인 처리 (PENDING → PAID)
 	 * 9. Order 상태 변경 (PENDING → ORDERED)
 	 */
@@ -54,94 +54,99 @@ public class PaymentFacade {
 		log.info("결제 승인 시작: orderId={}, paymentKey={}, amount={}",
 			request.orderId(), request.paymentKey(), request.amount());
 
-		// 1. Member 조회
+		// 1. Member, Order, Payment 조회
 		Member member = memberService.getMemberByMemberNo(memberNo);
-
-		// 2. Order 조회
 		Order order = orderService.getOrderByOrderCode(request.orderId());
-
-		// 3. Order  검증
-		// orderService.validateOrderOwner(order, member);
-		// orderService.validateOrderPayable(order);
-		validateOrderAmount(order, request.amount());
-
-		// 4. Payment 조회
 		Payment payment = paymentService.getPaymentByOrder(order);
 
-		// 5. Payment 검증
+		// 4. 요청 전 검증
+		validateOwnership(order, payment, member);
+		validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
 		paymentService.validatePaymentApprovable(payment);
-		validatePaymentAmount(payment, order.getTotalAmount());
 		paymentService.validateDuplicatePayment(order);
 
-		// 10. 토스페이먼츠 결제 승인 API 호출
-		TossPaymentConfirmResponse tossResponse;
+		// 5. 토스페이먼츠 결제 승인 API 호출
+		TossPaymentConfirmResponse result;
 		try {
-			tossResponse = tossPaymentClient.confirmPayment(request);
+			result = tossPaymentClient.confirmPayment(request);
 		} catch (TossPaymentException e) {
-			log.error("[결제 실패] orderId={}, tossCode={}, tossMessage={}", request.orderId(), e.getErrorCode(), e.getMessage());
 			paymentService.failPayment(payment, e.getErrorCode(), e.getMessage());
+
+			log.info("[토스 결제 승인 실패] orderCode={}, httpStatus={}, tossCode={}, tossMessage={}",
+				request.orderId(), e.getHttpStatus(), e.getErrorCode(), e.getMessage());
+
 			throw e;
 		}
+		TossPaymentConfirmResponse tossResponse = result;
 
-		// 11. 토스 응답 금액 재검증
+		// 6. 토스 응답 금액 재검증
 		validateTossResponseAmount(tossResponse, request.amount());
 
-		// 12. PaymentMethod 매핑
+		// 7. PaymentMethod 매핑
 		PaymentMethod paymentMethod = mapToPaymentMethod(tossResponse.method());
 
-		// 13. OrderBooking -> Booking 생성 (각 OrderBooking마다 BOOKED 상태로 생성)
-/*		List<OrderBooking> orderBookings = order.getOrderBookings();
-
+		// 8. OrderBooking -> Booking & SeatBooking 생성
+		// TODO: Booking 관련 로직 구현 필요
+		/*
+		List<OrderBooking> orderBookings = order.getOrderBookings();
 		for (OrderBooking orderBooking : orderBookings) {
-			// 13-1. Booking 생성 (BOOKED 상태로 바로 생성)
 			Booking booking = bookingService.createBookingFromOrder(orderBooking);
-
-			// 13-2. OrderSeatBooking -> SeatBooking 생성
 			List<OrderSeatBooking> orderSeatBookings = orderBooking.getOrderSeatBookings();
 			for (OrderSeatBooking orderSeatBooking : orderSeatBookings) {
 				seatBookingService.createSeatBookingFromOrder(booking, orderSeatBooking);
 			}
-		}*/
+		}
+		*/
 
-		// 14. Payment 승인 처리 (PENDING -> PAID)
+		// 9. Payment 승인 처리 (PENDING -> PAID)
 		paymentService.approvePayment(payment, request.paymentKey(), paymentMethod);
 
-		log.info("결제 승인 완료: paymentId={}, orderId={}", payment.getId(), request.orderId());
-
-		// 15. Order 상태 변경 (PENDING -> ORDERED)
+		// 10. Order 상태 변경 (PENDING -> ORDERED)
 		// orderService.completeOrder(order);
+
+		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
 
 		return PaymentConfirmResponse.from(payment);
 	}
 
 	/**
-	 * Order 금액 검증
-	 * 클라이언트에서 전달한 금액과 실제 Order 금액이 일치하는지 확인
-	 * (클라이언트 조작 방지)
+	 * 소유자 검증
+	 * Order와 Payment 모두 요청한 Member의 소유인지 확인
 	 */
-	private void validateOrderAmount(Order order, BigDecimal requestAmount) {
-		if (order.getTotalAmount().compareTo(requestAmount) != 0) {
-			log.error("주문 금액 불일치: orderId={}, orderAmount={}, requestAmount={}",
-				order.getOrderCode(), order.getTotalAmount(), requestAmount);
-			throw new BusinessException(
-				PaymentError.PAYMENT_AMOUNT_MISMATCH,
-				String.format("결제 금액이 일치하지 않습니다. (주문금액: %s, 요청금액: %s)", order.getTotalAmount(), requestAmount)
-			);
+	private void validateOwnership(Order order, Payment payment, Member member) {
+		if (!order.getMember().getId().equals(member.getId())) {
+			log.error("[소유자 불일치] Order의 소유자가 아님: orderCode={}, requestMemberId={}, orderMemberId={}",
+				order.getOrderCode(), member.getId(), order.getMember().getId());
+			throw new BusinessException(PaymentError.ORDER_ACCESS_DENIED);
+		}
+
+		if (!payment.getMember().getId().equals(member.getId())) {
+			log.error("[소유자 불일치] Payment의 소유자가 아님: paymentId={}, requestMemberId={}, paymentMemberId={}",
+				payment.getId(), member.getId(), payment.getMember().getId());
+			throw new BusinessException(PaymentError.PAYMENT_ACCESS_DENIED);
 		}
 	}
 
 	/**
-	 * Payment-Order 금액 일치 검증
+	 * 금액 3중 검증
+	 * 1. 클라이언트 요청 금액 vs Order 금액
+	 * 2. Order 금액 vs Payment 금액
+	 * 3. 모두 일치해야 진행
 	 */
-	private void validatePaymentAmount(Payment payment, BigDecimal orderAmount) {
-		if (payment.getAmount().compareTo(orderAmount) != 0) {
-			log.error("Payment-Order 금액 불일치: paymentId={}, paymentAmount={}, orderAmount={}",
-				payment.getId(), payment.getAmount(), orderAmount);
-			throw new BusinessException(
-				PaymentError.PAYMENT_AMOUNT_MISMATCH,
-				String.format("결제 정보 금액이 주문 금액과 일치하지 않습니다. (결제: %s, 주문: %s)", payment.getAmount(), orderAmount)
-			);
+	private void validateAmounts(BigDecimal requestAmount, BigDecimal orderAmount, BigDecimal paymentAmount) {
+		// 1. 요청 금액 vs Order 금액
+		if (requestAmount.compareTo(orderAmount) != 0) {
+			log.error("[금액 불일치] 요청 금액 != Order 금액: requestAmount={}, orderAmount={}", requestAmount, orderAmount);
+			throw new BusinessException(PaymentError.PAYMENT_AMOUNT_MISMATCH);
 		}
+
+		// 2. Order 금액 vs Payment 금액
+		if (orderAmount.compareTo(paymentAmount) != 0) {
+			log.error("[금액 불일치] Order 금액 != Payment 금액: orderAmount={}, paymentAmount={}", orderAmount, paymentAmount);
+			throw new BusinessException(PaymentError.PAYMENT_AMOUNT_MISMATCH);
+		}
+
+		log.debug("[금액 검증 통과] requestAmount={}, orderAmount={}, paymentAmount={}", requestAmount, orderAmount, paymentAmount);
 	}
 
 	/**
@@ -151,8 +156,8 @@ public class PaymentFacade {
 	private void validateTossResponseAmount(TossPaymentConfirmResponse tossResponse, BigDecimal requestAmount) {
 		BigDecimal tossAmount = BigDecimal.valueOf(tossResponse.totalAmount());
 		if (tossAmount.compareTo(requestAmount) != 0) {
-			log.error("토스 응답 금액 불일치: tossAmount={}, requestAmount={}",
-				tossAmount, requestAmount);
+			log.warn("토스 응답 금액 불일치: tossAmount={}, requestAmount={}", tossAmount, requestAmount);
+
 			throw new BusinessException(
 				PaymentError.PAYMENT_AMOUNT_MISMATCH,
 				String.format("토스 결제 금액이 일치하지 않습니다. (토스: %s, 요청: %s)", tossAmount, requestAmount)
