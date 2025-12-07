@@ -9,6 +9,7 @@ import org.hibernate.annotations.OnDeleteAction;
 
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.application.dto.PaymentInfo;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
@@ -45,9 +46,10 @@ public class Payment {
 	private Member member;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "booking_id", nullable = false)
-	@Comment("예약 ID")
-	private Booking booking;
+	@JoinColumn(name = "order_id", nullable = false)
+	@OnDelete(action = OnDeleteAction.CASCADE)
+	@Comment("주문 ID")
+	private Order order;
 
 	@Column(name = "order_id", nullable = false, updatable = false)
 	@Comment("주문번호 (토스 결제 요청 시 사용, TempBooking의 bookingCode)")
@@ -94,28 +96,26 @@ public class Payment {
 	@Comment("결제 실패 사유")
 	private String failureMessage;
 
-	private Payment(Member member, Booking booking, String paymentKey, BigDecimal amount,
+	private Payment(Member member, Order order, String paymentKey, BigDecimal amount,
 		PaymentMethod paymentMethod, PaymentStatus paymentStatus) {
 		this.member = member;
-		this.booking = booking;
-		this.orderId = booking.getBookingCode();
+		this.order = order;
+		this.orderId = order.getOrderCode();
 		this.paymentKey = paymentKey;
 		this.amount = amount;
 		this.paymentMethod = paymentMethod;
 		this.paymentStatus = paymentStatus;
 	}
 
-	public static Payment create(Member member, Booking booking, String paymentKey,
-		PaymentInfo paymentInfo) {
-		return new Payment(member, booking, paymentKey, paymentInfo.amount(),
+	public static Payment create(Member member, Order order, String paymentKey, PaymentInfo paymentInfo) {
+		return new Payment(member, order, paymentKey, paymentInfo.amount(),
 			paymentInfo.paymentMethod(), paymentInfo.paymentStatus());
 	}
 
 	// 결제 승인 성공
-	public void approve(String paymentKey, PaymentMethod paymentMethod, Booking booking) {
+	public void approve(String paymentKey, PaymentMethod paymentMethod) {
 		this.paymentKey = paymentKey;
 		this.paymentMethod = paymentMethod;
-		this.booking = booking;
 		this.paymentStatus = PaymentStatus.PAID;
 		this.paidAt = LocalDateTime.now();
 	}
