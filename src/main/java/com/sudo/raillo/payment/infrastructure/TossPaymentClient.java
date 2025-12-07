@@ -37,27 +37,45 @@ public class TossPaymentClient {
 				.uri("/v1/payments/confirm")
 				.body(request)
 				.retrieve()
-				.onStatus(HttpStatusCode::isError, (req, res) -> {
+				.onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
 					String raw = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
-
 					TossErrorResponseV1 error = objectMapper.readValue(raw, TossErrorResponseV1.class);
-					log.warn("[TOSS] 결제 승인 실패: httpStatus={}, code={}, message={}",
+
+					log.warn("[TOSS] 결제 승인 실패 (4xx): httpStatus={}, code={}, message={}",
 						res.getStatusCode().value(), error.code(), error.message());
 
-					throw new TossPaymentException(res.getStatusCode().value(), error.code(), error.message());
+					throw new TossPaymentException(
+						res.getStatusCode().value(),
+						error.code(),
+						error.message()
+					);
+				})
+				.onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+					String raw = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
+					TossErrorResponseV1 error = objectMapper.readValue(raw, TossErrorResponseV1.class);
+
+					log.error("[TOSS] 결제 승인 실패 (5xx): httpStatus={}, code={}, message={}",
+						res.getStatusCode().value(), error.code(), error.message());
+
+					throw new TossPaymentException(
+						res.getStatusCode().value(),
+						error.code(),
+						error.message()
+					);
 				})
 				.body(TossPaymentConfirmResponse.class);
 
-			log.info("토스 결제 승인 성공: ", response.paymentKey(), response);
+			log.info("[TOSS] 결제 승인 성공: paymentKey={}, orderId={}, status={}",
+				response.paymentKey(), response.orderId(), response.status());
 
 			return response;
 
-		} catch (BusinessException e) {
+		} catch (TossPaymentException e) {
 			throw e;
 		} catch (Exception e) {
-			log.error("토스 결제 승인 중 알 수 없는 예외 발생", e);
+			log.error("[TOSS] 결제 승인 중 알 수 없는 예외 발생", e);
 			throw new BusinessException(
-				PaymentError.TOSS_PAYMENT_FAILED,
+				PaymentError.PAYMENT_SYSTEM_ERROR,
 				"결제 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
 			);
 		}
