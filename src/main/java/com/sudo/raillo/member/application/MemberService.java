@@ -80,13 +80,16 @@ public class MemberService {
 	 * */
 	@Transactional(readOnly = true)
 	public MemberInfoResponse getMemberInfo(String memberNo) {
-
-		Member member = memberRepository.findByMemberNo(memberNo)
-			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
+		Member member = getMemberByMemberNo(memberNo);
 
 		MemberDetail memberDetail = member.getMemberDetail();
 
 		return MemberInfoResponse.of(member.getName(), member.getPhoneNumber(), memberDetail);
+	}
+
+	public Member getMemberByMemberNo(String memberNo) {
+		return memberRepository.findByMemberNo(memberNo)
+			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 	}
 
 	/**

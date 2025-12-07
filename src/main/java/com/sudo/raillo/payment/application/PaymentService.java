@@ -209,19 +209,42 @@ public class PaymentService {
 			payment.refund();
 		}
 
-		markBookingAsRefunded(booking);
-
 		log.info("환불 처리 완료: paymentKey={}", payment.getPaymentKey());
 	}
 
-	private void markBookingAsRefunded(Booking booking) {
-		//		booking.refund();
-
-		log.info("예약 환불 처리: bookingId={}", booking.getId());
-	}
-
+	// --------- Toss 리팩토링 이후 만든 메서드들 --------- //
 	public Payment getPaymentByOrder(Order order) {
 		return paymentRepository.findByOrder(order)
-			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND, "결제 정보를 찾을 수 없습니다"));
+			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
+	}
+
+	/**
+	 * Payment 소유자 검증
+	 */
+	public void validatePaymentOwner(Payment payment, Member member) {
+		if (!payment.getMember().getId().equals(member.getId())) {
+			throw new BusinessException(PaymentError.PAYMENT_ACCESS_DENIED);
+		}
+	}
+
+	/**
+	 * Payment 상태 검증 (승인 가능한 상태인지)
+	 */
+	public void validatePaymentApprovable(Payment payment) {
+		if (!payment.canBePaid()) {
+			log.info("승인 불가능한 결제 상태: paymentId={}, status={}", payment.getId(), payment.getPaymentStatus());
+			throw new BusinessException(PaymentError.PAYMENT_NOT_APPROVABLE);
+		}
+	}
+
+	/**
+	 * 중복 결제 검증
+	 */
+	public void validateDuplicatePayment(Order order) {
+		boolean exists = paymentRepository.existsByOrderAndPaymentStatus(order, PaymentStatus.PAID);
+
+		if (exists) {
+			throw new BusinessException(PaymentError.PAYMENT_ALREADY_COMPLETED);
+		}
 	}
 }

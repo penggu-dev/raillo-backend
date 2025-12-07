@@ -9,8 +9,6 @@ import com.sudo.raillo.payment.domain.type.PaymentMethod;
 
 public record PaymentConfirmResponse(
 	Long paymentId,
-	Long bookingId,
-	String bookingCode,
 	String orderId,
 	String paymentKey,
 	BigDecimal amount,
@@ -21,8 +19,6 @@ public record PaymentConfirmResponse(
 	public static PaymentConfirmResponse from(Payment payment) {
 		return new PaymentConfirmResponse(
 			payment.getId(),
-			payment.getBooking().getId(),
-			payment.getBooking().getBookingCode(),
 			payment.getOrderId(),
 			payment.getPaymentKey(),
 			payment.getAmount(),

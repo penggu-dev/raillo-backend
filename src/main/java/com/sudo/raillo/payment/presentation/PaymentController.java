@@ -12,10 +12,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.payment.application.PaymentFacade;
 import com.sudo.raillo.payment.application.PaymentService;
+import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentProcessAccountRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentProcessCardRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentCancelResponse;
+import com.sudo.raillo.payment.application.dto.response.PaymentConfirmResponse;
 import com.sudo.raillo.payment.application.dto.response.PaymentHistoryResponse;
 import com.sudo.raillo.payment.application.dto.response.PaymentProcessResponse;
 import com.sudo.raillo.payment.success.PaymentSuccess;
@@ -32,30 +35,20 @@ import lombok.RequiredArgsConstructor;
 public class PaymentController {
 
 	private final PaymentService paymentService;
+	private final PaymentFacade paymentFacade;
 
-	@Operation(summary = "결제 처리 (카드)", description = "예약에 대한 결제를 카드를 이용해 처리합니다.")
-	@PostMapping("/card")
-	public SuccessResponse<PaymentProcessResponse> processPaymentViaCard(
-			@Valid @RequestBody PaymentProcessCardRequest request,
-			@AuthenticationPrincipal UserDetails userDetails) {
-
+	@Operation(
+		summary = "결제 승인",
+		description = "토스페이먼츠 결제 승인 처리를 수행합니다. 클라이언트가 토스로부터 받은 paymentKey, orderId, amount를 전달받아 결제를 승인합니다."
+	)
+	@PostMapping("/confirm")
+	public SuccessResponse<PaymentConfirmResponse> confirmPayment(@RequestBody @Valid PaymentConfirmRequest request,
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
 		String memberNo = userDetails.getUsername();
-		PaymentProcessResponse response = paymentService.processPaymentViaCard(memberNo, request);
+		PaymentConfirmResponse response = paymentFacade.confirmPayment(request, memberNo);
 
-		return SuccessResponse.of(PaymentSuccess.PAYMENT_PROCESS_SUCCESS, response);
-	}
-
-	@Operation(summary = "결제 처리 (계좌이체)", description = "예약에 대한 결제를 은행 계좌를 이용해 처리합니다.")
-	@PostMapping("/bank-account")
-	public SuccessResponse<PaymentProcessResponse> processPaymentViaBankAccount(
-			@Valid @RequestBody PaymentProcessAccountRequest request,
-			@AuthenticationPrincipal UserDetails userDetails) {
-
-		String memberNo = userDetails.getUsername();
-		PaymentProcessResponse response =
-				paymentService.processPaymentViaBankAccount(memberNo, request);
-
-		return SuccessResponse.of(PaymentSuccess.PAYMENT_PROCESS_SUCCESS, response);
+		return SuccessResponse.of(PaymentSuccess.PAYMENT_CONFIRM_SUCCESS, response);
 	}
 
 	@Operation(summary = "결제 취소", description = "완료된 결제를 취소 및 환불처리 합니다.")

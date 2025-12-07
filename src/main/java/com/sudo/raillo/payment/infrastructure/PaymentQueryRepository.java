@@ -34,7 +34,6 @@ public class PaymentQueryRepository {
 				payment.refundedAt))
 			.from(payment)
 			.join(payment.member, member)
-			.join(payment.booking, booking)
 			.where(payment.member.id.eq(memberId))
 			.orderBy(payment.paidAt.desc()).fetch();
 	}
