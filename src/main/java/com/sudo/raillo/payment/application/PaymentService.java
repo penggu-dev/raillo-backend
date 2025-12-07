@@ -18,6 +18,7 @@ import com.sudo.raillo.payment.application.dto.response.PaymentHistoryResponse;
 import com.sudo.raillo.payment.application.dto.response.PaymentProcessResponse;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
+import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.infrastructure.PaymentQueryRepository;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
@@ -182,6 +183,14 @@ public class PaymentService {
 
 		// 예약 상태 변경
 		markBookingAsPaid(booking);
+	}
+
+	public void approvePayment(Payment payment, String paymentKey, PaymentMethod paymentMethod, Booking booking) {
+		payment.approve(paymentKey, paymentMethod, booking);
+	}
+
+	public void failPayment(Payment payment, String failureCode, String failureMessage) {
+		payment.fail(failureCode, failureMessage);
 	}
 
 	private void markBookingAsPaid(Booking booking) {

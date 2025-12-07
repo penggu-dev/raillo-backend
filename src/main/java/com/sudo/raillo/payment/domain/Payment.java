@@ -78,7 +78,6 @@ public class Payment {
 	@Comment("결제 실패 일시")
 	private LocalDateTime failedAt;
 
-
 	@Column(name = "cancelled_at")
 	@Comment("결제 취소 일자")
 	private LocalDateTime cancelledAt;
@@ -133,8 +132,12 @@ public class Payment {
 		this.refundedAt = LocalDateTime.now();
 	}
 
-	// 결제 실패
-	public void fail(String failureCode, String failureMessage, String traceId) {
+	/**
+	 * 결제 실패 처리
+	 * @param failureCode 토스 PG사에서 받은 에러 코드 (ex: NOT_FOUND_PAYMENT, REJECT_CARD_PAYMENT)
+	 * @param failureMessage 토스 PG사에서 받은 에러 메시지
+	 */
+	public void fail(String failureCode, String failureMessage) {
 		this.paymentStatus = PaymentStatus.FAILED;
 		this.failureCode = failureCode;
 		this.failureMessage = failureMessage;
@@ -142,9 +145,7 @@ public class Payment {
 	}
 
 	// 결제 가능 여부 확인
-	public boolean canBePaid() {
-		return this.paymentStatus.isPayable();
-	}
+	public boolean canBePaid() { return this.paymentStatus.isPayable(); }
 
 	// 취소 가능 여부 확인
 	public boolean canBeCancelled() {
