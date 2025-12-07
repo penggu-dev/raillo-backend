@@ -3,7 +3,6 @@ package com.sudo.raillo.payment.application;
 import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Booking;
-import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -148,9 +147,9 @@ public class PaymentService {
 		}
 
 		// 예약 상태 검증 (결제 가능한 상태인지)
-		if (!booking.canBePaid()) {
-			throw new BusinessException(PaymentError.BOOKING_NOT_PAYABLE);
-		}
+//		if (!booking.canBePaid()) {
+//			throw new BusinessException(PaymentError.BOOKING_NOT_PAYABLE);
+//		}
 	}
 
 	private void validatePaymentProcessRequest(PaymentProcessRequest request, Booking booking) {
@@ -172,9 +171,9 @@ public class PaymentService {
 		}
 
 		// 예약 상태 재검증 (동시성 문제 방지)
-		if (!booking.canBePaid()) {
-			throw new BusinessException(PaymentError.BOOKING_NOT_PAYABLE);
-		}
+//		if (!booking.canBePaid()) {
+//			throw new BusinessException(PaymentError.BOOKING_NOT_PAYABLE);
+//		}
 	}
 
 	private void executePaymentApproval(Payment payment, Booking booking) {
@@ -186,7 +185,7 @@ public class PaymentService {
 	}
 
 	private void markBookingAsPaid(Booking booking) {
-		booking.approve();
+//		booking.approve();
 
 		log.info("예약 결제 완료 처리: bookingId={}", booking.getId());
 	}
@@ -229,9 +228,9 @@ public class PaymentService {
 		}
 
 		// 예약 취소 가능 여부 확인
-		if (!payment.getBooking().canBeCancelled()) {
-			throw new BusinessException(BookingError.BOOKING_DELETE_FAILED);
-		}
+//		if (!payment.getBooking().canBeCancelled()) {
+//			throw new BusinessException(BookingError.BOOKING_DELETE_FAILED);
+//		}
 	}
 
 	private void markBookingAsCancelled(Booking booking) {
@@ -260,7 +259,7 @@ public class PaymentService {
 	}
 
 	private void markBookingAsRefunded(Booking booking) {
-		booking.refund();
+//		booking.refund();
 
 		log.info("예약 환불 처리: bookingId={}", booking.getId());
 	}
