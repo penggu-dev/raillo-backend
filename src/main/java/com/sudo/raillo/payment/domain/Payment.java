@@ -13,10 +13,12 @@ import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.ConstraintMode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,14 +40,12 @@ public class Payment {
 	private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "member_id", nullable = false)
-	@OnDelete(action = OnDeleteAction.CASCADE)
+	@JoinColumn(name = "member_id", nullable = true, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
 	@Comment("멤버 ID")
 	private Member member;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "order_id", nullable = false)
-	@OnDelete(action = OnDeleteAction.CASCADE)
+	@JoinColumn(name = "order_id", nullable = true, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
 	@Comment("주문 ID")
 	private Order order;
 
@@ -53,7 +53,7 @@ public class Payment {
 	@Comment("주문번호 (토스 결제 요청 시 사용, TempBooking의 bookingCode)")
 	private String orderCode;
 
-	@Column(name = "payment_key", nullable = false, unique = true)
+	@Column(name = "payment_key", unique = true)
 	@Comment("토스페이먼츠 결제 고유 키 (결제 승인 후 발급)")
 	private String paymentKey;
 
