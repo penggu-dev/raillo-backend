@@ -7,10 +7,8 @@ import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
-import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.payment.application.dto.PaymentInfo;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
 
@@ -51,9 +49,9 @@ public class Payment {
 	@Comment("주문 ID")
 	private Order order;
 
-	@Column(name = "order_id", nullable = false, updatable = false)
+	@Column(name = "order_code", nullable = false, updatable = false)
 	@Comment("주문번호 (토스 결제 요청 시 사용, TempBooking의 bookingCode)")
-	private String orderId;
+	private String orderCode;
 
 	@Column(name = "payment_key", nullable = false, unique = true)
 	@Comment("토스페이먼츠 결제 고유 키 (결제 승인 후 발급)")
@@ -111,7 +109,6 @@ public class Payment {
 		Payment payment = new Payment();
 		payment.member = member;
 		payment.order = order;
-		payment.orderId = order.getOrderCode();
 		payment.amount = amount;
 		payment.paymentStatus = PaymentStatus.PENDING;
 		return payment;

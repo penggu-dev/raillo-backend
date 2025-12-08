@@ -19,7 +19,7 @@ public record PaymentConfirmResponse(
 	public static PaymentConfirmResponse from(Payment payment) {
 		return new PaymentConfirmResponse(
 			payment.getId(),
-			payment.getOrderId(),
+			payment.getOrderCode(),
 			payment.getPaymentKey(),
 			payment.getAmount(),
 			payment.getPaymentMethod(),
