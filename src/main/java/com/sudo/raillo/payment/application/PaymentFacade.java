@@ -66,15 +66,15 @@ public class PaymentFacade {
 		paymentService.validatePaymentApprovable(payment);
 		paymentService.validateDuplicatePayment(order);
 
-		// 3. 클라이언트에서 받은 paymentKey 저장 (토스 승인 요청 전)
-		payment.updatePaymentKey(request.paymentKey());
+		// 3. 클라이언트에서 받은 PaymentKey 저장 (토스 승인 요청 전 별도 트랜잭션에서 무조건 커밋)
+		paymentService.updatePaymentKeyInNewTransaction(payment.getId(), request.paymentKey());
 
 		// 4. 토스페이먼츠 결제 승인 API 호출
 		TossPaymentConfirmResponse result;
 		try {
 			result = tossPaymentClient.confirmPayment(request);
 		} catch (TossPaymentException e) {
-			payment.fail(e.getErrorCode(), e.getMessage());
+			paymentService.failPaymentInNewTransaction(payment.getId(), e.getErrorCode(), e.getMessage());
 
 			log.info("[토스 결제 승인 실패] orderCode={}, httpStatus={}, tossCode={}, tossMessage={}",
 				request.orderId(), e.getHttpStatus(), e.getErrorCode(), e.getMessage());
