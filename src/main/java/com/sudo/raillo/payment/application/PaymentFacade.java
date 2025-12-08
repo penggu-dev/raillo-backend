@@ -41,15 +41,18 @@ public class PaymentFacade {
 	 * 결제 승인 처리
 	 *
 	 * 1. Member, Order, Payment 조회
-	 * 2. 소유자 검증 (Order, Payment 모두 동일 Member 소유)
-	 * 3. 금액 검증 (Client Request, Order, Payment 모두 일치)
-	 * 4. 상태 검증 (Payment 승인 가능, 중복 결제 방지)
-	 * 5. 토스페이먼츠 결제 승인 API 호출
-	 * 6. 토스 응답 금액 재검증
-	 * 7. 토스 응답 Payment 객체의 paymentKey,
-	 * 7. Booking & SeatBooking 생성 (BOOKED)
-	 * 8. Payment 승인 처리 (PENDING → PAID, paymentKey, paymentMethod 저장)
-	 * 9. Order 상태 변경 (PENDING → ORDERED)
+	 * 2. 소유자 검증 (Order, Payment 모두 요청한 Member 소유인지 확인)
+	 * 3. 금액 3중 검증 (Client Request, Order, Payment 모두 일치 확인)
+	 * 4. 상태 검증 (Payment 승인 가능 여부, 중복 결제 방지)
+	 * 5. PaymentKey 저장 (별도 트랜잭션 - 무조건 커밋)
+	 * 6. 토스페이먼츠 결제 승인 API 호출
+	 *    - 성공: 다음 단계 진행
+	 *    - 실패: 실패 정보 저장 (별도 트랜잭션 - 무조건 커밋) 후 예외 throw
+	 * 7. 토스 응답 검증 (금액, paymentKey 일치 확인)
+	 * 8. PaymentMethod 매핑
+	 * 9. Booking & SeatBooking 생성 (BOOKED) - TODO
+	 * 10. Payment 승인 처리 (PENDING → PAID, paymentMethod 저장)
+	 * 11. Order 상태 변경 (PENDING → ORDERED) - TODO
 	 */
 	public PaymentConfirmResponse confirmPayment(PaymentConfirmRequest request, String memberNo) {
 		log.info("결제 승인 시작: orderId={}, paymentKey={}, amount={}",
@@ -84,8 +87,8 @@ public class PaymentFacade {
 		TossPaymentConfirmResponse tossResponse = result;
 
 
-		// 5. 토스 응답 금액 재검증
-		validateTossResponseAmount(tossResponse, request.amount());
+		// 5. 토스 응답 금액, paymentKey 재검증
+		validateTossResponse(tossResponse, request);
 
 		// 6. PaymentMethod 매핑
 		PaymentMethod paymentMethod = mapToPaymentMethod(tossResponse.method());
@@ -155,19 +158,32 @@ public class PaymentFacade {
 	}
 
 	/**
-	 * 토스 응답 금액 검증
-	 * 토스에서 응답한 금액과 요청 금액이 일치하는지 확인
+	 * 토스 응답 검증
+	 * 1. 토스에서 응답한 금액과 요청 금액이 일치하는지 확인
+	 * 2. 토스에서 응답한 paymentKey와 요청 paymentKey가 일치하는지 확인
 	 */
-	private void validateTossResponseAmount(TossPaymentConfirmResponse tossResponse, BigDecimal requestAmount) {
+	private void validateTossResponse(TossPaymentConfirmResponse tossResponse, PaymentConfirmRequest request) {
 		BigDecimal tossAmount = BigDecimal.valueOf(tossResponse.totalAmount());
-		if (tossAmount.compareTo(requestAmount) != 0) {
-			log.warn("토스 응답 금액 불일치: tossAmount={}, requestAmount={}", tossAmount, requestAmount);
+		if (tossAmount.compareTo(request.amount()) != 0) {
+			log.error("[토스 응답 금액 불일치] tossAmount={}, requestAmount={}", tossAmount, request.amount());
 
 			throw new BusinessException(
 				PaymentError.PAYMENT_AMOUNT_MISMATCH,
-				String.format("토스 결제 금액이 일치하지 않습니다. (토스: %s, 요청: %s)", tossAmount, requestAmount)
+				String.format("토스 결제 금액이 요청 금액과 일치하지 않습니다. (토스: %s, 요청: %s)", tossAmount, request.amount())
 			);
 		}
+
+		if (!tossResponse.paymentKey().equals(request.paymentKey())) {
+			log.error("[토스 응답 paymentKey 불일치] tossPaymentKey={}, requestPaymentKey={}",
+				tossResponse.paymentKey(), request.paymentKey());
+
+			throw new BusinessException(
+				PaymentError.PAYMENT_KEY_MISMATCH,
+				String.format("토스 결제 키가 요청 키와 일치하지 않습니다. (토스: %s, 요청: %s)", tossResponse.paymentKey(), request.paymentKey())
+			);
+		}
+
+		log.debug("[토스 응답 검증 통과] paymentKey={}, amount={}", tossResponse.paymentKey(), tossAmount);
 	}
 
 	/**
