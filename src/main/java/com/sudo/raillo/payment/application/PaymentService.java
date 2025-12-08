@@ -217,6 +217,14 @@ public class PaymentService {
 		payment.fail(failureCode, failureMessage);
 	}
 
+	public void validatePaymentOwner(Payment payment, Member member) {
+		if (!payment.getMember().getId().equals(member.getId())) {
+			log.error("[소유자 불일치] Payment의 소유자가 아님: paymentId={}, requestMemberId={}, paymentMemberId={}",
+				payment.getId(), member.getId(), payment.getMember().getId());
+			throw new BusinessException(PaymentError.PAYMENT_ACCESS_DENIED);
+		}
+	}
+
 	/**
 	 * Payment 상태 검증 (승인 가능한 상태인지)
 	 */

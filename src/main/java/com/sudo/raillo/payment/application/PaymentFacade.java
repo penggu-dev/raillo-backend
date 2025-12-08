@@ -64,7 +64,8 @@ public class PaymentFacade {
 		Payment payment = paymentService.getPaymentByOrder(order);
 
 		// 2. 요청 전 검증
-		validateOwnership(order, payment, member);
+		orderService.validateOrderOwner(order, member);
+		paymentService.validatePaymentOwner(payment, member);
 		validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
 		paymentService.validatePaymentApprovable(payment);
 		paymentService.validateDuplicatePayment(order);
@@ -115,24 +116,6 @@ public class PaymentFacade {
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
 
 		return PaymentConfirmResponse.from(payment);
-	}
-
-	/**
-	 * 소유자 검증
-	 * Order와 Payment 모두 요청한 Member의 소유인지 확인
-	 */
-	private void validateOwnership(Order order, Payment payment, Member member) {
-		if (!order.getMember().getId().equals(member.getId())) {
-			log.error("[소유자 불일치] Order의 소유자가 아님: orderCode={}, requestMemberId={}, orderMemberId={}",
-				order.getOrderCode(), member.getId(), order.getMember().getId());
-			throw new BusinessException(PaymentError.ORDER_ACCESS_DENIED);
-		}
-
-		if (!payment.getMember().getId().equals(member.getId())) {
-			log.error("[소유자 불일치] Payment의 소유자가 아님: paymentId={}, requestMemberId={}, paymentMemberId={}",
-				payment.getId(), member.getId(), payment.getMember().getId());
-			throw new BusinessException(PaymentError.PAYMENT_ACCESS_DENIED);
-		}
 	}
 
 	/**
