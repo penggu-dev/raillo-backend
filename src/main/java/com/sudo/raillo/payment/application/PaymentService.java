@@ -11,15 +11,11 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.application.dto.PaymentInfo;
 import com.sudo.raillo.payment.application.dto.projection.PaymentProjection;
-import com.sudo.raillo.payment.application.dto.request.PaymentProcessAccountRequest;
-import com.sudo.raillo.payment.application.dto.request.PaymentProcessCardRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentProcessRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentCancelResponse;
 import com.sudo.raillo.payment.application.dto.response.PaymentHistoryResponse;
-import com.sudo.raillo.payment.application.dto.response.PaymentProcessResponse;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
-import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.infrastructure.PaymentQueryRepository;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
@@ -72,7 +68,7 @@ public class PaymentService {
 	}
 
 	public PaymentCancelResponse cancelPayment(String memberNo, String paymentKey) {
-		Payment payment = findPayment(memberNo, paymentKey);
+		Payment payment = findPaymentForCancel(memberNo, paymentKey);
 
 		// 결제 취소 처리
 		// payment.cancel("사용자 요청에 의한 취소");
@@ -87,28 +83,6 @@ public class PaymentService {
 		return PaymentCancelResponse.from(payment);
 	}
 
-	/**
-	 * 결제 처리 (공통)
-	 *
-	 * @param memberNo 회원번호
-	 * @param request {@link PaymentProcessRequest} 객체
-	 * @return {@link PaymentProcessResponse} 객체
-	 */
-	private PaymentProcessResponse processPayment(String memberNo, PaymentProcessRequest request, Order order) {
-		Payment payment = createAndSavePayment(request, memberNo, order);
-
-		// validatePaymentApprovalConditions(payment, booking);
-		// executePaymentApproval(payment, booking);
-		// completePaymentProcess(request, payment, booking);
-
-		return PaymentProcessResponse.from(payment);
-	}
-
-	private Booking getBooking(Long bookingId) {
-		return bookingRepository.findById(bookingId)
-			.orElseThrow(() -> new BusinessException(PaymentError.BOOKING_NOT_FOUND));
-	}
-
 	private Payment createAndSavePayment(PaymentProcessRequest request, String memberNo, Order order) {
 		// TODO : Member는 Facade 상위로 옮겨가는 게 나을 것 같음
 		Member member = memberRepository.findByMemberNo(memberNo)
@@ -117,7 +91,7 @@ public class PaymentService {
 		String paymentKey = paymentKeyGenerator.generatePaymentKey(memberNo);
 		PaymentInfo paymentInfo = new PaymentInfo(request.getAmount(), request.getPaymentMethod(),
 			PaymentStatus.PENDING);
-		Payment payment = Payment.create(member, order, paymentKey, paymentInfo);
+		Payment payment = Payment.create(member, order, request.getAmount());
 
 		return paymentRepository.save(payment);
 	}
@@ -167,7 +141,7 @@ public class PaymentService {
 	}
 
 	// TODO : 취소를 위한 결제 조회로 메서드명 변경 필요
-	private Payment findPayment(String memberNo, String paymentKey) {
+	private Payment findPaymentForCancel(String memberNo, String paymentKey) {
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 
@@ -216,15 +190,6 @@ public class PaymentService {
 	public Payment getPaymentByOrder(Order order) {
 		return paymentRepository.findByOrder(order)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
-	}
-
-	/**
-	 * Payment 소유자 검증
-	 */
-	public void validatePaymentOwner(Payment payment, Member member) {
-		if (!payment.getMember().getId().equals(member.getId())) {
-			throw new BusinessException(PaymentError.PAYMENT_ACCESS_DENIED);
-		}
 	}
 
 	/**

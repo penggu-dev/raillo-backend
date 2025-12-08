@@ -46,8 +46,9 @@ public class PaymentFacade {
 	 * 4. 상태 검증 (Payment 승인 가능, 중복 결제 방지)
 	 * 5. 토스페이먼츠 결제 승인 API 호출
 	 * 6. 토스 응답 금액 재검증
+	 * 7. 토스 응답 Payment 객체의 paymentKey,
 	 * 7. Booking & SeatBooking 생성 (BOOKED)
-	 * 8. Payment 승인 처리 (PENDING → PAID)
+	 * 8. Payment 승인 처리 (PENDING → PAID, paymentKey, paymentMethod 저장)
 	 * 9. Order 상태 변경 (PENDING → ORDERED)
 	 */
 	public PaymentConfirmResponse confirmPayment(PaymentConfirmRequest request, String memberNo) {
@@ -59,18 +60,21 @@ public class PaymentFacade {
 		Order order = orderService.getOrderByOrderCode(request.orderId());
 		Payment payment = paymentService.getPaymentByOrder(order);
 
-		// 4. 요청 전 검증
+		// 2. 요청 전 검증
 		validateOwnership(order, payment, member);
 		validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
 		paymentService.validatePaymentApprovable(payment);
 		paymentService.validateDuplicatePayment(order);
 
-		// 5. 토스페이먼츠 결제 승인 API 호출
+		// 3. 클라이언트에서 받은 paymentKey 저장 (토스 승인 요청 전)
+		payment.updatePaymentKey(request.paymentKey());
+
+		// 4. 토스페이먼츠 결제 승인 API 호출
 		TossPaymentConfirmResponse result;
 		try {
 			result = tossPaymentClient.confirmPayment(request);
 		} catch (TossPaymentException e) {
-			paymentService.failPayment(payment, e.getErrorCode(), e.getMessage());
+			payment.fail(e.getErrorCode(), e.getMessage());
 
 			log.info("[토스 결제 승인 실패] orderCode={}, httpStatus={}, tossCode={}, tossMessage={}",
 				request.orderId(), e.getHttpStatus(), e.getErrorCode(), e.getMessage());
@@ -79,13 +83,14 @@ public class PaymentFacade {
 		}
 		TossPaymentConfirmResponse tossResponse = result;
 
-		// 6. 토스 응답 금액 재검증
+
+		// 5. 토스 응답 금액 재검증
 		validateTossResponseAmount(tossResponse, request.amount());
 
-		// 7. PaymentMethod 매핑
+		// 6. PaymentMethod 매핑
 		PaymentMethod paymentMethod = mapToPaymentMethod(tossResponse.method());
 
-		// 8. OrderBooking -> Booking & SeatBooking 생성
+		// 7. OrderBooking -> Booking & SeatBooking 생성
 		// TODO: Booking 관련 로직 구현 필요
 		/*
 		List<OrderBooking> orderBookings = order.getOrderBookings();
@@ -98,10 +103,10 @@ public class PaymentFacade {
 		}
 		*/
 
-		// 9. Payment 승인 처리 (PENDING -> PAID)
-		paymentService.approvePayment(payment, request.paymentKey(), paymentMethod);
+		// 8. Payment 승인 처리 (PENDING -> PAID, paymentMethod 저장)
+		payment.approve(paymentMethod);
 
-		// 10. Order 상태 변경 (PENDING -> ORDERED)
+		// 9. Order 상태 변경 (PENDING -> ORDERED)
 		// orderService.completeOrder(order);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());

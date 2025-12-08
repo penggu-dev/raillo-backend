@@ -96,7 +96,7 @@ public class Payment {
 	@Comment("결제 실패 사유")
 	private String failureMessage;
 
-	private Payment(Member member, Order order, String paymentKey, BigDecimal amount,
+/*	private Payment(Member member, Order order, String paymentKey, BigDecimal amount,
 		PaymentMethod paymentMethod, PaymentStatus paymentStatus) {
 		this.member = member;
 		this.order = order;
@@ -105,16 +105,25 @@ public class Payment {
 		this.amount = amount;
 		this.paymentMethod = paymentMethod;
 		this.paymentStatus = paymentStatus;
+	}*/
+
+	public static Payment create(Member member, Order order, BigDecimal amount) {
+		Payment payment = new Payment();
+		payment.member = member;
+		payment.order = order;
+		payment.orderId = order.getOrderCode();
+		payment.amount = amount;
+		payment.paymentStatus = PaymentStatus.PENDING;
+		return payment;
 	}
 
-	public static Payment create(Member member, Order order, String paymentKey, PaymentInfo paymentInfo) {
-		return new Payment(member, order, paymentKey, paymentInfo.amount(),
-			paymentInfo.paymentMethod(), paymentInfo.paymentStatus());
+	// paymentKey 업데이트
+	public void updatePaymentKey(String paymentKey) {
+		this.paymentKey = paymentKey;
 	}
 
 	// 결제 승인 성공
-	public void approve(String paymentKey, PaymentMethod paymentMethod) {
-		this.paymentKey = paymentKey;
+	public void approve( PaymentMethod paymentMethod) {
 		this.paymentMethod = paymentMethod;
 		this.paymentStatus = PaymentStatus.PAID;
 		this.paidAt = LocalDateTime.now();
