@@ -53,8 +53,7 @@ public class BookingQueryRepository {
 				arrivalStation.stationName,
 				departureStop.departureTime,
 				arrivalStop.arrivalTime,
-				trainSchedule.operationDate,
-				booking.totalFare
+				trainSchedule.operationDate
 			))
 			.from(booking)
 			.join(booking.trainSchedule, trainSchedule)

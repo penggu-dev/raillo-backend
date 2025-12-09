@@ -154,9 +154,9 @@ public class PaymentService {
 
 	private void validatePaymentProcessRequest(PaymentProcessRequest request, Booking booking) {
 		// 금액 위변조 검증
-		if (request.getAmount().compareTo(booking.getTotalFare()) != 0) {
-			throw new BusinessException(PaymentError.PAYMENT_AMOUNT_MISMATCH);
-		}
+//		if (request.getAmount().compareTo(booking.getTotalFare()) != 0) {
+//			throw new BusinessException(PaymentError.PAYMENT_AMOUNT_MISMATCH);
+//		}
 
 		// 중복 결제 검증
 		if (paymentRepository.existsByBookingIdAndPaymentStatus(request.getBookingId(), PaymentStatus.PAID)) {

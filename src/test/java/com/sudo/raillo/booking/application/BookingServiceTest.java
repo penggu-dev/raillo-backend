@@ -23,7 +23,6 @@ import com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithS
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -81,10 +80,8 @@ class BookingServiceTest {
 			standardSeatIds
 		);
 
-		BigDecimal totalFare = BigDecimal.valueOf(80000);
-
 		// when
-		Booking booking = bookingService.createBooking(request, member.getMemberDetail().getMemberNo(), totalFare);
+		Booking booking = bookingService.createBooking(request, member.getMemberDetail().getMemberNo());
 
 		// then
 		Booking savedBooking = bookingRepository.findById(booking.getId())
@@ -92,7 +89,6 @@ class BookingServiceTest {
 
 		assertThat(savedBooking.getMember().getId()).isEqualTo(member.getId());
 		assertThat(savedBooking.getBookingStatus()).isEqualTo(BookingStatus.BOOKED);
-		assertThat(savedBooking.getTotalFare()).isEqualByComparingTo(totalFare);
 		assertThat(savedBooking.getBookingCode()).isNotNull();
 	}
 
