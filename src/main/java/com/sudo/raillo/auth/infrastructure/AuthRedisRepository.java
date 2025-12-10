@@ -5,7 +5,7 @@ import java.time.Duration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
-import com.sudo.raillo.global.redis.LogoutToken;
+import com.sudo.raillo.auth.application.dto.LogoutToken;
 import com.sudo.raillo.global.redis.util.RedisKeyGenerator;
 
 import lombok.RequiredArgsConstructor;
