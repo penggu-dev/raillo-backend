@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -58,9 +59,12 @@ class BookingRedisRepositoryTest {
 	void save_and_getPendingBooking_success() {
 		// when
 		bookingRedisRepository.savePendingBooking(testPendingBooking);
-		PendingBooking savedPendingBooking = bookingRedisRepository.getPendingBooking(testPendingBooking.getId());
+		Optional<PendingBooking> optionalPendingBooking = bookingRedisRepository.getPendingBooking(testPendingBooking.getId());
 
 		// then
+		assertThat(optionalPendingBooking).isPresent();
+		PendingBooking savedPendingBooking = optionalPendingBooking.get();
+
 		// PendingBooking 역직렬화 확인
 		assertThat(savedPendingBooking).isNotNull();
 		assertThat(savedPendingBooking.getClass()).isEqualTo(PendingBooking.class);
@@ -117,23 +121,23 @@ class BookingRedisRepositoryTest {
 
 		// when
 		bookingRedisRepository.deletePendingBooking(testPendingBooking.getId());
-		PendingBooking savedPendingBooking = bookingRedisRepository.getPendingBooking(testPendingBooking.getId());
+		Optional<PendingBooking> savedPendingBooking = bookingRedisRepository.getPendingBooking(testPendingBooking.getId());
 
 		// then
-		assertThat(savedPendingBooking).isNull();
+		assertThat(savedPendingBooking).isEmpty();
 	}
 
 	@Test
-	@DisplayName("존재하지 않거나 만료된 PendingBooking 조회 시 null을 반환한다")
+	@DisplayName("존재하지 않거나 만료된 PendingBooking 조회 시 empty Optional을 반환한다")
 	void getPendingBooking_NotExists() {
 		//given
 		String nonExistId = "non-existing-id";
 
 		// when
-		PendingBooking nonExistPendingBooking = bookingRedisRepository.getPendingBooking(nonExistId);
+		Optional<PendingBooking> nonExistPendingBooking = bookingRedisRepository.getPendingBooking(nonExistId);
 
 		// then
-		assertThat(nonExistPendingBooking).isNull();
+		assertThat(nonExistPendingBooking).isEmpty();
 	}
 
 	@Test

@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -45,15 +46,10 @@ public class BookingRedisRepository {
 		customObjectRedisTemplate.delete(key);
 	}
 
-	public PendingBooking getPendingBooking(String pendingBookingId) {
+	public Optional<PendingBooking> getPendingBooking(String pendingBookingId) {
 		String key = redisKeyGenerator.generatePendingBookingKey(pendingBookingId);
-		Object value = customObjectRedisTemplate.opsForValue().get(key);
-
-		if(value == null) {
-			return null;
-		}
-
-		return (PendingBooking)value;
+		return Optional.ofNullable(customObjectRedisTemplate.opsForValue().get(key))
+			.map(PendingBooking.class::cast);
 	}
 
 	public void savePendingBookingMemberKey(String pendingBookingId, String memberNo) {
@@ -71,7 +67,7 @@ public class BookingRedisRepository {
 		return getPendingBookingMemberKeys(memberNo).stream()
 			.map(this::extractPendingBookingId)
 			.map(this::getPendingBooking)
-			.filter(Objects::nonNull)
+			.flatMap(Optional::stream)
 			.collect(Collectors.toList());
 	}
 
