@@ -19,7 +19,9 @@ import com.sudo.raillo.global.redis.exception.RedisException;
 import com.sudo.raillo.global.redis.util.RedisKeyGenerator;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class BookingRedisRepository {
@@ -91,6 +93,7 @@ public class BookingRedisRepository {
 				memberKeys.add(cursor.next());
 			}
 		} catch (Exception e) {
+			log.error("레디스 임시예약 조회 실패: memberNo={}, error={}", memberNo, e.getMessage());
 			throw new RedisException(RedisError.SCAN_OPERATION_FAIL);
 		}
 
