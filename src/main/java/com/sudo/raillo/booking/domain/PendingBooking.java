@@ -5,29 +5,50 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import lombok.AccessLevel;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PendingBooking {
 
-	private String id;
+	private final String id;
 
-	private String memberNo;
+	private final String memberNo;
 
-	private Long trainScheduleId;
+	private final Long trainScheduleId;
 
-	private Long departureStationId;
+	private final Long departureStationId;
 
-	private Long arrivalStationId;
+	private final Long arrivalStationId;
 
-	private List<PendingSeatBooking> pendingSeatBookings;
+	private final List<PendingSeatBooking> pendingSeatBookings;
 
-	private BigDecimal totalFare;
+	private final BigDecimal totalFare;
 
-	private LocalDateTime createdAt;
+	private final LocalDateTime createdAt;
+
+	@JsonCreator
+	private PendingBooking(
+		@JsonProperty("id") String id,
+		@JsonProperty("memberNo") String memberNo,
+		@JsonProperty("trainScheduleId") Long trainScheduleId,
+		@JsonProperty("departureStationId") Long departureStationId,
+		@JsonProperty("arrivalStationId") Long arrivalStationId,
+		@JsonProperty("pendingSeatBookings") List<PendingSeatBooking> pendingSeatBookings,
+		@JsonProperty("totalFare") BigDecimal totalFare,
+		@JsonProperty("createdAt") LocalDateTime createdAt
+	) {
+		this.id = id;
+		this.memberNo = memberNo;
+		this.trainScheduleId = trainScheduleId;
+		this.departureStationId = departureStationId;
+		this.arrivalStationId = arrivalStationId;
+		this.pendingSeatBookings = pendingSeatBookings;
+		this.totalFare = totalFare;
+		this.createdAt = createdAt;
+	}
 
 	public static PendingBooking create(
 		String memberNo,
@@ -37,15 +58,15 @@ public class PendingBooking {
 		List<PendingSeatBooking> pendingSeatBookings,
 		BigDecimal totalFare
 	) {
-		PendingBooking pendingBooking = new PendingBooking();
-		pendingBooking.id = String.valueOf(UUID.randomUUID());
-		pendingBooking.memberNo = memberNo;
-		pendingBooking.trainScheduleId = trainScheduleId;
-		pendingBooking.departureStationId = departureStationId;
-		pendingBooking.arrivalStationId = arrivalStationId;
-		pendingBooking.pendingSeatBookings = pendingSeatBookings;
-		pendingBooking.totalFare = totalFare;
-		pendingBooking.createdAt = LocalDateTime.now();
-		return pendingBooking;
+		return new PendingBooking(
+			String.valueOf(UUID.randomUUID()),
+			memberNo,
+			trainScheduleId,
+			departureStationId,
+			arrivalStationId,
+			List.copyOf(pendingSeatBookings),
+			totalFare,
+			LocalDateTime.now()
+		);
 	}
 }
