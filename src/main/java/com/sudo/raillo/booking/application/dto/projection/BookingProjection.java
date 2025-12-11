@@ -1,7 +1,6 @@
 package com.sudo.raillo.booking.application.dto.projection;
 
 import com.querydsl.core.annotations.QueryProjection;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import lombok.Getter;
@@ -18,7 +17,6 @@ public class BookingProjection {
 	private final LocalTime departureTime;
 	private final LocalTime arrivalTime;
 	private final LocalDate operationDate;
-	private final BigDecimal totalFare;
 
 	@QueryProjection
 	public BookingProjection(
@@ -30,8 +28,7 @@ public class BookingProjection {
 		String arrivalStationName,
 		LocalTime departureTime,
 		LocalTime arrivalTime,
-		LocalDate operationDate,
-		BigDecimal totalFare
+		LocalDate operationDate
 	) {
 		this.bookingId = bookingId;
 		this.bookingCode = bookingCode;
@@ -42,6 +39,5 @@ public class BookingProjection {
 		this.departureTime = departureTime;
 		this.arrivalTime = arrivalTime;
 		this.operationDate = operationDate;
-		this.totalFare = totalFare;
 	}
 }

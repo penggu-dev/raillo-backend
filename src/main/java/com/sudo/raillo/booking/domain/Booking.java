@@ -18,7 +18,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -68,10 +67,6 @@ public class Booking extends BaseEntity {
 	@Comment("고객용 예매 코드")
 	private String bookingCode;
 
-	@Column(nullable = false)
-	@Comment("운임")
-	private BigDecimal totalFare;
-
 	@Comment("반환(취소) 시간")
 	private LocalDateTime cancelledAt;
 
@@ -79,8 +74,7 @@ public class Booking extends BaseEntity {
 		Member member,
 		TrainSchedule trainSchedule,
 		ScheduleStop departureStop,
-		ScheduleStop arrivalStop,
-		BigDecimal totalFare
+		ScheduleStop arrivalStop
 	) {
 		Booking booking = new Booking();
 		booking.member = member;
@@ -89,8 +83,6 @@ public class Booking extends BaseEntity {
 		booking.arrivalStop = arrivalStop;
 		booking.bookingStatus = BookingStatus.BOOKED;
 		booking.bookingCode = BookingCodeGenerator.generateBookingCode();
-		validateTotalFare(totalFare);
-		booking.totalFare = totalFare;
 		return booking;
 	}
 
@@ -98,12 +90,6 @@ public class Booking extends BaseEntity {
 		validateIsNotCancelled();
 		this.bookingStatus = BookingStatus.CANCELLED;
 		this.cancelledAt = LocalDateTime.now();
-	}
-
-	private static void validateTotalFare(BigDecimal totalAmount) {
-		if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
-			throw new DomainException(BookingError.INVALID_TOTAL_FAIR);
-		}
 	}
 
 	private void validateIsNotCancelled() {

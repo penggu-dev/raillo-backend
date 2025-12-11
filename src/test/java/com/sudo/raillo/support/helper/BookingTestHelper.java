@@ -12,7 +12,6 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -35,8 +34,7 @@ public class BookingTestHelper {
 			member,
 			scheduleWithStops.trainSchedule(),
 			getDepartureStop(scheduleWithStops.scheduleStops()),
-			getArrivalStop(scheduleWithStops.scheduleStops()),
-			BigDecimal.valueOf(50000)
+			getArrivalStop(scheduleWithStops.scheduleStops())
 		);
 
 		bookingRepository.save(booking);
@@ -51,8 +49,7 @@ public class BookingTestHelper {
 			member,
 			scheduleWithStops.trainSchedule(),
 			getDepartureStop(scheduleWithStops.scheduleStops()),
-			getArrivalStop(scheduleWithStops.scheduleStops()),
-			BigDecimal.valueOf(50000)
+			getArrivalStop(scheduleWithStops.scheduleStops())
 		);
 
 		bookingRepository.save(booking);
@@ -83,8 +80,7 @@ public class BookingTestHelper {
 			member,
 			scheduleWithStops.trainSchedule(),
 			departureStop,
-			arrivalStop,
-			BigDecimal.valueOf(50000)
+			arrivalStop
 		);
 
 		bookingRepository.save(booking);

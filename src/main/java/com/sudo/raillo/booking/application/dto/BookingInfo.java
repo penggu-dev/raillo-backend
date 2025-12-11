@@ -2,7 +2,6 @@ package com.sudo.raillo.booking.application.dto;
 
 import com.sudo.raillo.booking.application.dto.projection.BookingProjection;
 import com.sudo.raillo.booking.application.dto.projection.SeatBookingProjection;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -17,7 +16,6 @@ public record BookingInfo(
 	LocalTime departureTime,
 	LocalTime arrivalTime,
 	LocalDate operationDate,
-	BigDecimal totalFare,
 	List<SeatBookingProjection> seats
 ) {
 
@@ -35,7 +33,6 @@ public record BookingInfo(
 			projection.getDepartureTime(),
 			projection.getArrivalTime(),
 			projection.getOperationDate(),
-			projection.getTotalFare(),
 			seats
 		);
 	}

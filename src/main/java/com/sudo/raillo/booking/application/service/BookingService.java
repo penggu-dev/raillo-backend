@@ -20,7 +20,6 @@ import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
-import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,7 +43,7 @@ public class BookingService {
 	 * @param request 예약 생성 요청 DTO
 	 * @return 예약 레코드
 	 */
-	public Booking createBooking(BookingCreateRequest request, String memberNo, BigDecimal totalFare) {
+	public Booking createBooking(BookingCreateRequest request, String memberNo) {
 		Member member = getMember(memberNo);
 		TrainSchedule trainSchedule = getTrainSchedule(request.trainScheduleId());
 		ScheduleStop departureStop = getStopStation(trainSchedule, request.departureStationId());
@@ -56,8 +55,7 @@ public class BookingService {
 			member,
 			trainSchedule,
 			departureStop,
-			arrivalStop,
-			totalFare
+			arrivalStop
 		);
 		return bookingRepository.save(booking);
 	}
