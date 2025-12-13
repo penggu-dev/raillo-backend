@@ -57,6 +57,12 @@ public class RedisConfig {
 		ObjectMapper objectMapper = new ObjectMapper();
 		objectMapper.registerModule(new JavaTimeModule());
 
+		// 타입 정보를 포함한 직렬화 활성화
+		objectMapper.activateDefaultTyping(
+			objectMapper.getPolymorphicTypeValidator(),
+			ObjectMapper.DefaultTyping.NON_FINAL
+		);
+
 		GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
 		redisTemplate.setDefaultSerializer(serializer);
 		redisTemplate.setValueSerializer(serializer);
@@ -64,5 +70,4 @@ public class RedisConfig {
 
 		return redisTemplate;
 	}
-
 }

@@ -66,10 +66,6 @@ jwt:
 cookie:
   domain: localhost
 
-booking:
-  expiration:
-    booking: 10
-
 payment:
   toss:
     api:
@@ -93,3 +89,9 @@ management:
   endpoint:
     prometheus:
       access: unrestricted
+
+# redis TTL
+redis:
+  ttl:
+    pending-booking: 10m
+    pending-booking-member-key: 580s # 유령 인덱스 방지를 위해 주 키의 TTL 설정 값보다 20초 짧게 설정

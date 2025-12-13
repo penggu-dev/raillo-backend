@@ -10,7 +10,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.sudo.raillo.auth.exception.TokenError;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.global.redis.AuthRedisRepository;
+import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
