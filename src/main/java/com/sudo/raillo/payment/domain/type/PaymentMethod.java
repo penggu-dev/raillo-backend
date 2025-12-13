@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum PaymentMethod {
-	CARD("카드", "카드 결제"),
+	CREDIT_CARD("카드", "카드 결제"),
 	VIRTUAL_ACCOUNT("가상계좌", "가상계좌 입금"),
 	TRANSFER("계좌이체", "계좌이체 결제"),
 	MOBILE_PHONE("휴대폰", "휴대폰 소액결제"),

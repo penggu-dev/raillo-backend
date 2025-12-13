@@ -36,6 +36,6 @@ public class PaymentProcessCardRequest extends PaymentProcessRequest {
 
 	@Override
 	public PaymentMethod getPaymentMethod() {
-		return PaymentMethod.CARD;
+		return PaymentMethod.CREDIT_CARD;
 	}
 }

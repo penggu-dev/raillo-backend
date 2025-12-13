@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 public enum PaymentSuccess implements SuccessCode {
 
 	// 결제 처리 관련
+	PAYMENT_CONFIRM_SUCCESS(HttpStatus.OK, "결제 승인이 완료되었습니다."),
 	PAYMENT_PROCESS_SUCCESS(HttpStatus.OK, "결제가 성공적으로 처리되었습니다."),
 	PAYMENT_CANCEL_SUCCESS(HttpStatus.OK, "결제가 성공적으로 취소되었습니다."),
 

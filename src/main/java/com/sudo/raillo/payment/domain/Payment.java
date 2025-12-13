@@ -7,17 +7,18 @@ import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
-import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.payment.application.dto.PaymentInfo;
+import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.ConstraintMode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -39,21 +40,20 @@ public class Payment {
 	private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "member_id", nullable = false)
-	@OnDelete(action = OnDeleteAction.CASCADE)
+	@JoinColumn(name = "member_id", nullable = true, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
 	@Comment("멤버 ID")
 	private Member member;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "booking_id", nullable = false)
-	@Comment("예약 ID")
-	private Booking booking;
+	@JoinColumn(name = "order_id", nullable = true, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+	@Comment("주문 ID")
+	private Order order;
 
-	@Column(name = "order_id", nullable = false, updatable = false)
+	@Column(name = "order_code", nullable = false, updatable = false)
 	@Comment("주문번호 (토스 결제 요청 시 사용, TempBooking의 bookingCode)")
-	private String orderId;
+	private String orderCode;
 
-	@Column(name = "payment_key", nullable = false, unique = true)
+	@Column(name = "payment_key", unique = true)
 	@Comment("토스페이먼츠 결제 고유 키 (결제 승인 후 발급)")
 	private String paymentKey;
 
@@ -86,32 +86,42 @@ public class Payment {
 	@Comment("환불 처리 일자")
 	private LocalDateTime refundedAt;
 
+	@Column(name = "failure_code")
+	@Comment("PG 실패 코드, ex) REJECT_CARD_PAYMENT")
+	private String failureCode;
+
 	@Column(name = "failure_reason")
 	@Comment("결제 실패 사유")
-	private String failureReason;
+	private String failureMessage;
 
-	private Payment(Member member, Booking booking, String paymentKey, BigDecimal amount,
+/*	private Payment(Member member, Order order, String paymentKey, BigDecimal amount,
 		PaymentMethod paymentMethod, PaymentStatus paymentStatus) {
 		this.member = member;
-		this.booking = booking;
-		this.orderId = booking.getBookingCode();
+		this.order = order;
+		this.orderId = order.getOrderCode();
 		this.paymentKey = paymentKey;
 		this.amount = amount;
 		this.paymentMethod = paymentMethod;
 		this.paymentStatus = paymentStatus;
+	}*/
+
+	public static Payment create(Member member, Order order, BigDecimal amount) {
+		Payment payment = new Payment();
+		payment.member = member;
+		payment.order = order;
+		payment.amount = amount;
+		payment.paymentStatus = PaymentStatus.PENDING;
+		return payment;
 	}
 
-	public static Payment create(Member member, Booking booking, String paymentKey,
-		PaymentInfo paymentInfo) {
-		return new Payment(member, booking, paymentKey, paymentInfo.amount(),
-			paymentInfo.paymentMethod(), paymentInfo.paymentStatus());
+	// paymentKey 업데이트
+	public void updatePaymentKey(String paymentKey) {
+		this.paymentKey = paymentKey;
 	}
 
 	// 결제 승인 성공
-	public void approve(String paymentKey, PaymentMethod paymentMethod, Booking booking) {
-		this.paymentKey = paymentKey;
+	public void approve( PaymentMethod paymentMethod) {
 		this.paymentMethod = paymentMethod;
-		this.booking = booking;
 		this.paymentStatus = PaymentStatus.PAID;
 		this.paidAt = LocalDateTime.now();
 	}
@@ -120,7 +130,6 @@ public class Payment {
 	public void cancel(String reason) {
 		this.paymentStatus = PaymentStatus.CANCELLED;
 		this.cancelledAt = LocalDateTime.now();
-		this.failureReason = reason;
 	}
 
 	// 환불 처리
@@ -129,17 +138,20 @@ public class Payment {
 		this.refundedAt = LocalDateTime.now();
 	}
 
-	// 결제 실패
-	public void fail(String reason) {
+	/**
+	 * 결제 실패 처리
+	 * @param failureCode 토스 PG사에서 받은 에러 코드 (ex: NOT_FOUND_PAYMENT, REJECT_CARD_PAYMENT)
+	 * @param failureMessage 토스 PG사에서 받은 에러 메시지
+	 */
+	public void fail(String failureCode, String failureMessage) {
 		this.paymentStatus = PaymentStatus.FAILED;
-		this.failureReason = reason;
+		this.failureCode = failureCode;
+		this.failureMessage = failureMessage;
 		this.failedAt = LocalDateTime.now();
 	}
 
 	// 결제 가능 여부 확인
-	public boolean canBePaid() {
-		return this.paymentStatus.isPayable();
-	}
+	public boolean canBePaid() { return this.paymentStatus.isPayable(); }
 
 	// 취소 가능 여부 확인
 	public boolean canBeCancelled() {
