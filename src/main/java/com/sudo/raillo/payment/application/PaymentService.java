@@ -16,6 +16,7 @@ import com.sudo.raillo.payment.application.dto.response.PaymentCancelResponse;
 import com.sudo.raillo.payment.application.dto.response.PaymentHistoryResponse;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
+import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.infrastructure.PaymentQueryRepository;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
@@ -96,50 +97,6 @@ public class PaymentService {
 		Payment payment = Payment.create(member, order, request.getAmount());
 
 		return paymentRepository.save(payment);
-	}
-
-	public void approvePayment(Payment payment, String paymentKey, PaymentMethod paymentMethod) {
-		payment.approve(paymentKey, paymentMethod);
-	}
-
-	private void validatePaymentProcessRequest(PaymentProcessRequest request, Booking booking) {
-		// 금액 위변조 검증
-//		if (request.getAmount().compareTo(booking.getTotalFare()) != 0) {
-//			throw new BusinessException(PaymentError.PAYMENT_AMOUNT_MISMATCH);
-//		}
-
-		// 중복 결제 검증
-		if (paymentRepository.existsByBookingIdAndPaymentStatus(request.getBookingId(), PaymentStatus.PAID)) {
-			throw new BusinessException(PaymentError.PAYMENT_ALREADY_COMPLETED);
-		}
-	}
-
-	private void validatePaymentApprovalConditions(Payment payment, Booking booking) {
-		// 결제 상태 검증
-		if (!payment.canBePaid()) {
-			throw new BusinessException(PaymentError.PAYMENT_NOT_APPROVABLE);
-		}
-
-		// 예약 상태 재검증 (동시성 문제 방지)
-//		if (!booking.canBePaid()) {
-//			throw new BusinessException(PaymentError.BOOKING_NOT_PAYABLE);
-//		}
-	}
-
-	private void executePaymentApproval(Payment payment, Booking booking) {
-		// 결제 승인 처리
-		// payment.approve();
-
-		// 예약 상태 변경
-		markBookingAsPaid(booking);
-	}
-
-	public void approvePayment(Payment payment, String paymentKey, PaymentMethod paymentMethod, Booking booking) {
-		payment.approve(paymentKey, paymentMethod, booking);
-	}
-
-	public void failPayment(Payment payment, String failureCode, String failureMessage) {
-		payment.fail(failureCode, failureMessage);
 	}
 
 	// TODO : 취소를 위한 결제 조회로 메서드명 변경 필요
