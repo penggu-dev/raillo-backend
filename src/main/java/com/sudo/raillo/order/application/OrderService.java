@@ -34,6 +34,11 @@ import lombok.extern.slf4j.Slf4j;
 public class OrderService {
 
 	private final OrderRepository orderRepository;
+	private final OrderBookingRepository orderBookingRepository;
+	private final OrderSeatBookingRepository orderSeatBookingRepository;
+	private final TrainScheduleRepository trainScheduleRepository;
+	private final ScheduleStopRepository scheduleStopRepository;
+	private final MemberRepository memberRepository;
 
 	@Transactional(readOnly = true)
 	public Order getOrderByOrderCode(String orderCode) {
@@ -48,5 +53,72 @@ public class OrderService {
 				order.getOrderCode(), member.getId(), order.getMember().getId());
 			throw new BusinessException(OrderError.ORDER_ACCESS_DENIED);
 		}
+	}
+
+	/**
+	 * 주문 생성
+	 * @param memberNo 회원 번호
+	 * @param pendingBookings 주문할 PendingBooking 리스트
+	 */
+	public void order(String memberNo, List<PendingBooking> pendingBookings) {
+		Member member = getMember(memberNo);
+		BigDecimal totalAmount = calculateOrderTotalAmount(pendingBookings);
+		Order order = Order.create(member, totalAmount);
+		orderRepository.save(order);
+
+		pendingBookings.forEach(pendingBooking -> createOrderBooking(order, pendingBooking));
+		log.info("[주문 생성] orderId={}, memberNo={}, totalAmount={}", order.getId(), memberNo, totalAmount);
+	}
+
+	private void createOrderBooking(Order order, PendingBooking pendingBooking) {
+		TrainSchedule trainSchedule = getTrainSchedule(pendingBooking.getTrainScheduleId());
+		ScheduleStop departureStop = getScheduleStop(pendingBooking.getDepartureStationId());
+		ScheduleStop arrivalStop = getScheduleStop(pendingBooking.getArrivalStationId());
+
+		OrderBooking orderBooking = OrderBooking.create(
+			order,
+			trainSchedule,
+			departureStop,
+			arrivalStop,
+			calculateBookingAmount(pendingBooking)
+		);
+		orderBookingRepository.save(orderBooking);
+
+		pendingBooking.getPendingSeatBookings()
+			.forEach(seatBooking -> createOrderSeatBooking(orderBooking, seatBooking));
+	}
+
+	private void createOrderSeatBooking(OrderBooking orderBooking, PendingSeatBooking pendingSeatBooking) {
+		OrderSeatBooking orderSeatBooking = OrderSeatBooking.create(
+			orderBooking,
+			pendingSeatBooking.seatId(),
+			pendingSeatBooking.passengerType()
+		);
+		orderSeatBookingRepository.save(orderSeatBooking);
+	}
+
+	private BigDecimal calculateOrderTotalAmount(List<PendingBooking> pendingBookings) {
+		// TODO Order의 총 요금 계산 로직 구현
+		return BigDecimal.ZERO;
+	}
+
+	private BigDecimal calculateBookingAmount(PendingBooking pendingBooking) {
+		// TODO OrderBooking의 요금 계산 로직 구현
+		return BigDecimal.ZERO;
+	}
+
+	private Member getMember(String memberNo) {
+		return memberRepository.findByMemberNo(memberNo)
+			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
+	}
+
+	private TrainSchedule getTrainSchedule(Long trainScheduleId) {
+		return trainScheduleRepository.findById(trainScheduleId)
+			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_DETAIL_NOT_FOUND));
+	}
+
+	private ScheduleStop getScheduleStop(Long scheduleStopId) {
+		return scheduleStopRepository.findById(scheduleStopId)
+			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
 	}
 }
