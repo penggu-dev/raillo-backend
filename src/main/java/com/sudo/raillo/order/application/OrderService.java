@@ -66,7 +66,7 @@ public class OrderService {
 	 * @param memberNo 회원 번호
 	 * @param pendingBookings 주문할 PendingBooking 리스트
 	 */
-	public void order(String memberNo, List<PendingBooking> pendingBookings) {
+	public void createOrder(String memberNo, List<PendingBooking> pendingBookings) {
 		validatePendingBookingsNotEmpty(pendingBookings);
 		Member member = getMember(memberNo);
 		BigDecimal totalAmount = calculateTotalAmount(pendingBookings);

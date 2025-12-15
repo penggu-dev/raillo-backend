@@ -60,7 +60,7 @@ class OrderServiceTest {
 
 	@Test
 	@DisplayName("주문 코드로 주문 조회에 성공한다")
-	void getOrderByOrderCode_success() {
+	void getOrderByCreateOrderCode_success() {
 		// given
 		Member member = MemberFixture.createStandardMember();
 		memberRepository.save(member);
@@ -77,7 +77,7 @@ class OrderServiceTest {
 
 	@Test
 	@DisplayName("존재하지 않는 주문 코드로 조회 시 예외가 발생한다")
-	void getOrderByOrderCode_fail_when_order_not_found() {
+	void getOrderByOrderCode_fail_when_createOrder_not_found() {
 		// given
 		String wrongOrderCode = "WRONG_ORDER_CODE";
 
@@ -89,7 +89,7 @@ class OrderServiceTest {
 
 	@Test
 	@DisplayName("주문 소유자가 일치하지 않으면 예외가 발생한다")
-	void validateOrderOwner_fail_when_owner_mismatch() {
+	void validateCreateOrderOwner_fail_when_owner_mismatch() {
 		// given
 		Member member = MemberFixture.createStandardMember();
 		memberRepository.save(member);
@@ -108,7 +108,7 @@ class OrderServiceTest {
 
 	@Test
 	@DisplayName("주문 소유자가 일치하면 예외가 발생하지 않는다")
-	void validateOrderOwner_success() {
+	void validateCreateOrderOwner_success() {
 		// given
 		Member member = MemberFixture.createStandardMember();
 		memberRepository.save(member);
@@ -122,7 +122,7 @@ class OrderServiceTest {
 
 	@Test
 	@DisplayName("주문 생성에 성공한다")
-	void order_success() {
+	void createOrder_success() {
 		// given
 		Member member = MemberFixture.createStandardMember();
 		memberRepository.save(member);
@@ -149,7 +149,7 @@ class OrderServiceTest {
 		List<PendingBooking> pendingBookings = List.of(pendingBooking);
 
 		// when
-		orderService.order(memberNo, pendingBookings);
+		orderService.createOrder(memberNo, pendingBookings);
 
 		// then
 		List<Order> orders = orderRepository.findAll();
@@ -184,7 +184,7 @@ class OrderServiceTest {
 
 	@Test
 	@DisplayName("여러 개의 PendingBooking으로 주문 생성에 성공한다")
-	void order_success_with_multiple_pending_bookings() {
+	void createOrder_success_with_multiple_pending_bookings() {
 		// given
 		Member member = MemberFixture.createStandardMember();
 		memberRepository.save(member);
@@ -217,7 +217,7 @@ class OrderServiceTest {
 		List<PendingBooking> pendingBookings = List.of(pendingBooking1, pendingBooking2);
 
 		// when
-		orderService.order(memberNo, pendingBookings);
+		orderService.createOrder(memberNo, pendingBookings);
 
 		// then
 		List<Order> orders = orderRepository.findAll();
@@ -238,7 +238,7 @@ class OrderServiceTest {
 
 	@Test
 	@DisplayName("존재하지 않는 회원 번호로 주문 생성 시 예외가 발생한다")
-	void order_fail_when_member_not_found() {
+	void createOrder_fail_when_member_not_found() {
 		// given
 		String nonExistentMemberNo = "999999999999";
 		Train train = trainTestHelper.createKTX();
@@ -260,14 +260,14 @@ class OrderServiceTest {
 		List<PendingBooking> pendingBookings = List.of(pendingBooking);
 
 		// when & then
-		assertThatThrownBy(() -> orderService.order(nonExistentMemberNo, pendingBookings))
+		assertThatThrownBy(() -> orderService.createOrder(nonExistentMemberNo, pendingBookings))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(MemberError.USER_NOT_FOUND.getMessage());
 	}
 
 	@Test
 	@DisplayName("빈 예약 리스트로 주문 생성 시 예외가 발생한다")
-	void order_fail_when_pending_bookings_empty() {
+	void createOrder_fail_when_pending_bookings_empty() {
 		// given
 		Member member = MemberFixture.createStandardMember();
 		memberRepository.save(member);
@@ -276,7 +276,7 @@ class OrderServiceTest {
 		List<PendingBooking> emptyPendingBookings = Collections.emptyList();
 
 		// when & then
-		assertThatThrownBy(() -> orderService.order(memberNo, emptyPendingBookings))
+		assertThatThrownBy(() -> orderService.createOrder(memberNo, emptyPendingBookings))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(OrderError.EMPTY_PENDING_BOOKINGS.getMessage());
 	}
