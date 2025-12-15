@@ -80,7 +80,7 @@ public class OrderService {
 			trainSchedule,
 			departureStop,
 			arrivalStop,
-			calculateTotalFare(pendingBooking)
+			pendingBooking.getTotalFare()
 		);
 		orderBookingRepository.save(orderBooking);
 
@@ -98,13 +98,9 @@ public class OrderService {
 	}
 
 	private BigDecimal calculateTotalAmount(List<PendingBooking> pendingBookings) {
-		// TODO Order의 총 요금 계산 로직 구현
-		return BigDecimal.ZERO;
-	}
-
-	private BigDecimal calculateTotalFare(PendingBooking pendingBooking) {
-		// TODO OrderBooking의 요금 계산 로직 구현
-		return BigDecimal.ZERO;
+		return pendingBookings.stream()
+			.map(PendingBooking::getTotalFare)
+			.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	private Member getMember(String memberNo) {
