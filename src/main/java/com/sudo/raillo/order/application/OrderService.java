@@ -40,12 +40,18 @@ public class OrderService {
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final MemberRepository memberRepository;
 
+	/**
+	 * OrderCode로 Order 조회
+	 */
 	@Transactional(readOnly = true)
 	public Order getOrderByOrderCode(String orderCode) {
 		return orderRepository.findByOrderCode(orderCode)
 			.orElseThrow(() -> new BusinessException(OrderError.ORDER_NOT_FOUND));
 	}
 
+	/**
+	 * 주문 소유자 검증
+	 */
 	@Transactional(readOnly = true)
 	public void validateOrderOwner(Order order, Member member) {
 		if (!order.getMember().getId().equals(member.getId())) {
