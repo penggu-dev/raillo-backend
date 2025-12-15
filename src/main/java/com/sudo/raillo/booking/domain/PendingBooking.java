@@ -19,9 +19,9 @@ public class PendingBooking {
 
 	private final Long trainScheduleId;
 
-	private final Long departureStationId;
+ 	private final Long departureStopId;
 
-	private final Long arrivalStationId;
+	private final Long arrivalStopId;
 
 	private final List<PendingSeatBooking> pendingSeatBookings;
 
@@ -34,8 +34,8 @@ public class PendingBooking {
 		@JsonProperty("id") String id,
 		@JsonProperty("memberNo") String memberNo,
 		@JsonProperty("trainScheduleId") Long trainScheduleId,
-		@JsonProperty("departureStationId") Long departureStationId,
-		@JsonProperty("arrivalStationId") Long arrivalStationId,
+		@JsonProperty("departureStopId") Long departureStopId,
+		@JsonProperty("arrivalStopId") Long arrivalStopId,
 		@JsonProperty("pendingSeatBookings") List<PendingSeatBooking> pendingSeatBookings,
 		@JsonProperty("totalFare") BigDecimal totalFare,
 		@JsonProperty("createdAt") LocalDateTime createdAt
@@ -43,8 +43,8 @@ public class PendingBooking {
 		this.id = id;
 		this.memberNo = memberNo;
 		this.trainScheduleId = trainScheduleId;
-		this.departureStationId = departureStationId;
-		this.arrivalStationId = arrivalStationId;
+		this.departureStopId = departureStopId;
+		this.arrivalStopId = arrivalStopId;
 		this.pendingSeatBookings = pendingSeatBookings;
 		this.totalFare = totalFare;
 		this.createdAt = createdAt;
@@ -53,8 +53,8 @@ public class PendingBooking {
 	public static PendingBooking create(
 		String memberNo,
 		Long trainScheduleId,
-		Long departureStationId,
-		Long arrivalStationId,
+		Long departureStopId,
+		Long arrivalStopId,
 		List<PendingSeatBooking> pendingSeatBookings,
 		BigDecimal totalFare
 	) {
@@ -62,8 +62,8 @@ public class PendingBooking {
 			String.valueOf(UUID.randomUUID()),
 			memberNo,
 			trainScheduleId,
-			departureStationId,
-			arrivalStationId,
+			departureStopId,
+			arrivalStopId,
 			List.copyOf(pendingSeatBookings),
 			totalFare,
 			LocalDateTime.now()

@@ -71,8 +71,8 @@ class BookingRedisRepositoryTest {
 		assertThat(savedPendingBooking.getId()).isEqualTo(testPendingBooking.getId());
 		assertThat(savedPendingBooking.getMemberNo()).isEqualTo(testPendingBooking.getMemberNo());
 		assertThat(savedPendingBooking.getTrainScheduleId()).isEqualTo(testPendingBooking.getTrainScheduleId());
-		assertThat(savedPendingBooking.getDepartureStationId()).isEqualTo(testPendingBooking.getDepartureStationId());
-		assertThat(savedPendingBooking.getArrivalStationId()).isEqualTo(testPendingBooking.getArrivalStationId());
+		assertThat(savedPendingBooking.getDepartureStopId()).isEqualTo(testPendingBooking.getDepartureStopId());
+		assertThat(savedPendingBooking.getArrivalStopId()).isEqualTo(testPendingBooking.getArrivalStopId());
 		assertThat(savedPendingBooking.getTotalFare()).isEqualByComparingTo(testPendingBooking.getTotalFare());
 		assertThat(savedPendingBooking.getCreatedAt()).isEqualTo(testPendingBooking.getCreatedAt());
 
