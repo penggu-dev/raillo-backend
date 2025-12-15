@@ -62,7 +62,7 @@ public class OrderService {
 	 */
 	public void order(String memberNo, List<PendingBooking> pendingBookings) {
 		Member member = getMember(memberNo);
-		BigDecimal totalAmount = calculateOrderTotalAmount(pendingBookings);
+		BigDecimal totalAmount = calculateTotalAmount(pendingBookings);
 		Order order = Order.create(member, totalAmount);
 		orderRepository.save(order);
 
@@ -80,7 +80,7 @@ public class OrderService {
 			trainSchedule,
 			departureStop,
 			arrivalStop,
-			calculateBookingAmount(pendingBooking)
+			calculateTotalFare(pendingBooking)
 		);
 		orderBookingRepository.save(orderBooking);
 
@@ -97,12 +97,12 @@ public class OrderService {
 		orderSeatBookingRepository.save(orderSeatBooking);
 	}
 
-	private BigDecimal calculateOrderTotalAmount(List<PendingBooking> pendingBookings) {
+	private BigDecimal calculateTotalAmount(List<PendingBooking> pendingBookings) {
 		// TODO Order의 총 요금 계산 로직 구현
 		return BigDecimal.ZERO;
 	}
 
-	private BigDecimal calculateBookingAmount(PendingBooking pendingBooking) {
+	private BigDecimal calculateTotalFare(PendingBooking pendingBooking) {
 		// TODO OrderBooking의 요금 계산 로직 구현
 		return BigDecimal.ZERO;
 	}
