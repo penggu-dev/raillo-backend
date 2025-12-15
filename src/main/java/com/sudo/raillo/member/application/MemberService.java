@@ -76,6 +76,15 @@ public class MemberService {
 	}
 
 	/**
+	 * 회원 조회
+	 */
+	@Transactional(readOnly = true)
+	public Member getMemberByMemberNo(String memberNo) {
+		return memberRepository.findByMemberNo(memberNo)
+			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
+	}
+
+	/**
 	 * 회원 정보 조회
 	 * */
 	@Transactional(readOnly = true)
@@ -85,11 +94,6 @@ public class MemberService {
 		MemberDetail memberDetail = member.getMemberDetail();
 
 		return MemberInfoResponse.of(member.getName(), member.getPhoneNumber(), memberDetail);
-	}
-
-	public Member getMemberByMemberNo(String memberNo) {
-		return memberRepository.findByMemberNo(memberNo)
-			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 	}
 
 	/**

@@ -5,6 +5,7 @@ import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.status.OrderStatus;
 import com.sudo.raillo.order.exception.OrderError;
+import com.sudo.raillo.order.util.OrderCodeGenerator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -18,7 +19,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -63,7 +63,7 @@ public class Order extends BaseEntity {
 	public static Order create(Member member, BigDecimal totalAmount) {
 		Order order = new Order();
 		order.member = member;
-		order.orderCode = String.valueOf(UUID.randomUUID());
+		order.orderCode = OrderCodeGenerator.generate();
 		order.orderStatus = OrderStatus.PENDING;
 		validateTotalAmount(totalAmount);
 		order.totalAmount = totalAmount;

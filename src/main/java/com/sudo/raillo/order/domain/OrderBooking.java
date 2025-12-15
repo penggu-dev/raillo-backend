@@ -53,21 +53,21 @@ public class OrderBooking extends BaseEntity {
 
 	@Column(nullable = false)
 	@Comment("총 운임")
-	private BigDecimal totalAmount;
+	private BigDecimal totalFare;
 
 	public static OrderBooking create(
 		Order order,
 		TrainSchedule trainSchedule,
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop,
-		BigDecimal totalAmount
+		BigDecimal totalFare
 	) {
 		OrderBooking orderBooking = new OrderBooking();
 		orderBooking.order = order;
 		orderBooking.trainSchedule = trainSchedule;
 		orderBooking.departureStop = departureStop;
 		orderBooking.arrivalStop = arrivalStop;
-		orderBooking.totalAmount = totalAmount;
+		orderBooking.totalFare = totalFare;
 		return orderBooking;
 	}
 }
