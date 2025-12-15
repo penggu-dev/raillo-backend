@@ -61,6 +61,7 @@ public class OrderService {
 	 * @param pendingBookings 주문할 PendingBooking 리스트
 	 */
 	public void order(String memberNo, List<PendingBooking> pendingBookings) {
+		validatePendingBookingsNotEmpty(pendingBookings);
 		Member member = getMember(memberNo);
 		BigDecimal totalAmount = calculateTotalAmount(pendingBookings);
 		Order order = Order.create(member, totalAmount);
@@ -95,6 +96,13 @@ public class OrderService {
 			pendingSeatBooking.passengerType()
 		);
 		orderSeatBookingRepository.save(orderSeatBooking);
+	}
+
+	private void validatePendingBookingsNotEmpty(List<PendingBooking> pendingBookings) {
+		if (pendingBookings == null || pendingBookings.isEmpty()) {
+			log.error("[주문 검증 실패] 빈 예약 리스트로 주문 시도");
+			throw new BusinessException(OrderError.EMPTY_PENDING_BOOKINGS);
+		}
 	}
 
 	private BigDecimal calculateTotalAmount(List<PendingBooking> pendingBookings) {
