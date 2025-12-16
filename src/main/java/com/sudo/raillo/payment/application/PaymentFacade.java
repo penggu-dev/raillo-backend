@@ -71,7 +71,7 @@ public class PaymentFacade {
 		// 5. Payment 생성 (PENDING)
 		Payment payment = paymentService.createPayment(member, order, totalAmount);
 
-		log.info("[결제 준비 완료] orderId={}, paymentId={}, amount={}, bookingCount={}",
+		log.info("[결제 준비 완료] orderId={}, paymentId={}, amount={}, pendingBookingCount={}",
 			order.getOrderCode(), payment.getId(), totalAmount, pendingBookings.size());
 
 		// 6. orderId, amount 응답
