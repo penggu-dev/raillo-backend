@@ -58,10 +58,6 @@ public class BookingRedisRepository {
 	}
 
 	public Map<String, PendingBooking> getPendingBookingsAsMap(List<String> pendingBookingIds) {
-		if (pendingBookingIds == null || pendingBookingIds.isEmpty()) {
-			return Map.of();
-		}
-
 		List<String> keys = pendingBookingIds.stream()
 			.map(redisKeyGenerator::generatePendingBookingKey)
 			.toList();

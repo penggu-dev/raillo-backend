@@ -114,10 +114,17 @@ public class BookingService {
 	}
 
 	/**
-	 * 여러 PendingBooking 한 번에 조회 및 존재 검증
+	 * 여러 PendingBooking 한 번에 조회 및 검증
+	 * - 예약 ID 목록 필수 (null/empty 불가)
+	 * - 모든 예약이 Redis에 존재해야 함
 	 */
 	@Transactional(readOnly = true)
 	public List<PendingBooking> getPendingBookings(List<String> pendingBookingIds) {
+		if (pendingBookingIds == null || pendingBookingIds.isEmpty()) {
+			log.info("[임시 예약 조회 실패] pendingBookingIds가 null 또는 비어있음");
+			throw new BusinessException(BookingError.PENDING_BOOKING_IDS_REQUIRED);
+		}
+
 		Map<String, PendingBooking> bookingsById = bookingRedisRepository.getPendingBookingsAsMap(pendingBookingIds);
 
 		List<String> notFoundIds = pendingBookingIds.stream()
@@ -125,7 +132,7 @@ public class BookingService {
 			.toList();
 
 		if (!notFoundIds.isEmpty()) {
-			log.warn("[임시 예약 없음] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
+			log.warn("[임시 예약 찾지 못함] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
 			throw new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
 		}
 
