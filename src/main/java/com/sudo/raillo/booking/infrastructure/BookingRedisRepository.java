@@ -1,12 +1,15 @@
 package com.sudo.raillo.booking.infrastructure;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.Cursor;
@@ -30,9 +33,9 @@ public class BookingRedisRepository {
 	private final RedisTemplate<String, Object> customObjectRedisTemplate;
 	private final RedisKeyGenerator redisKeyGenerator;
 
-	@Value( "${redis.ttl.pending-booking}")
+	@Value("${redis.ttl.pending-booking}")
 	private Duration pendingBookingExpireTime;
-	@Value( "${redis.ttl.pending-booking-member-key}")
+	@Value("${redis.ttl.pending-booking-member-key}")
 	private Duration pendingBookingMemberKeyExpireTime;
 
 	public void savePendingBooking(PendingBooking pendingBooking) {
@@ -52,6 +55,34 @@ public class BookingRedisRepository {
 		String key = redisKeyGenerator.generatePendingBookingKey(pendingBookingId);
 		return Optional.ofNullable(customObjectRedisTemplate.opsForValue().get(key))
 			.map(PendingBooking.class::cast);
+	}
+
+	public Map<String, PendingBooking> getPendingBookingsAsMap(List<String> pendingBookingIds) {
+		if (pendingBookingIds == null || pendingBookingIds.isEmpty()) {
+			return Map.of();
+		}
+
+		List<String> keys = pendingBookingIds.stream()
+			.map(redisKeyGenerator::generatePendingBookingKey)
+			.toList();
+
+		List<Object> results = customObjectRedisTemplate.opsForValue().multiGet(keys);
+
+		if (results == null) {
+			log.error("[Redis MGET 실행 실패] Redis 연결 또는 실행 오류");
+			throw new RedisException(RedisError.MGET_OPERATION_FAIL);
+		}
+
+		return IntStream.range(0, results.size())
+			.filter(i -> results.get(i) != null)
+			.boxed()
+			.collect(Collectors.toMap(pendingBookingIds::get, i -> (PendingBooking)results.get(i)));
+	}
+
+	public void savePendingBookingMemberKey(String pendingBookingId, String memberNo) {
+		String key = redisKeyGenerator.generatePendingBookingMemberKey(memberNo, pendingBookingId);
+		customObjectRedisTemplate.opsForValue()
+			.set(key, "1", pendingBookingMemberKeyExpireTime); // 임시 더미값 저장
 	}
 
 	public void deletePendingBookingMemberKey(String memberNo, String pendingBookingId) {

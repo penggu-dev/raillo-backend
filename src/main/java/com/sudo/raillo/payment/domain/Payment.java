@@ -94,17 +94,6 @@ public class Payment {
 	@Comment("결제 실패 사유")
 	private String failureMessage;
 
-/*	private Payment(Member member, Order order, String paymentKey, BigDecimal amount,
-		PaymentMethod paymentMethod, PaymentStatus paymentStatus) {
-		this.member = member;
-		this.order = order;
-		this.orderId = order.getOrderCode();
-		this.paymentKey = paymentKey;
-		this.amount = amount;
-		this.paymentMethod = paymentMethod;
-		this.paymentStatus = paymentStatus;
-	}*/
-
 	public static Payment create(Member member, Order order, BigDecimal amount) {
 		Payment payment = new Payment();
 		payment.member = member;

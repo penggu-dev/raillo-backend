@@ -5,8 +5,10 @@ import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateReque
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.mapper.BookingMapper;
 import com.sudo.raillo.booking.domain.Booking;
+import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingQueryRepository;
+import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -20,10 +22,15 @@ import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
 import java.util.List;
+import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -34,6 +41,7 @@ public class BookingService {
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final BookingRepository bookingRepository;
 	private final BookingQueryRepository bookingQueryRepository;
+	private final BookingRedisRepository bookingRedisRepository;
 	private final BookingMapper bookingMapper;
 
 	/**
@@ -94,6 +102,39 @@ public class BookingService {
 	}
 
 	/**
+	 * PendingBooking 조회
+	 */
+	@Transactional(readOnly = true)
+	public PendingBooking getPendingBooking(String pendingBookingId) {
+		return bookingRedisRepository.getPendingBooking(pendingBookingId)
+			.orElseThrow(() -> {
+				log.info("[임시 예약 조회 실패] pendingBookingId={}", pendingBookingId);
+				return new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
+			});
+	}
+
+	/**
+	 * 여러 PendingBooking 한 번에 조회 및 존재 검증
+	 */
+	@Transactional(readOnly = true)
+	public List<PendingBooking> getPendingBookings(List<String> pendingBookingIds) {
+		Map<String, PendingBooking> bookingsById = bookingRedisRepository.getPendingBookingsAsMap(pendingBookingIds);
+
+		List<String> notFoundIds = pendingBookingIds.stream()
+			.filter(id -> !bookingsById.containsKey(id))
+			.toList();
+
+		if (!notFoundIds.isEmpty()) {
+			log.warn("[임시 예약 없음] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
+			throw new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
+		}
+
+		return pendingBookingIds.stream()
+			.map(bookingsById::get)
+			.toList();
+	}
+
+	/**
 	 * 특정 예약을 삭제하는 메서드
 	 * @param bookingId 삭제할 예약의 ID
 	 */
@@ -124,6 +165,14 @@ public class BookingService {
 	private static void validateTrainOperating(TrainSchedule trainSchedule) {
 		if (trainSchedule.getOperationStatus() == OperationStatus.CANCELLED) {
 			throw new BusinessException(TrainErrorCode.TRAIN_OPERATION_CANCELLED);
+		}
+	}
+
+	public void validatePendingBookingOwner(PendingBooking pendingBooking, String memberNo) {
+		if (!pendingBooking.getMemberNo().equals(memberNo)) {
+			log.error("[임시 예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
+				pendingBooking.getMemberNo(), memberNo);
+			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
 		}
 	}
 }

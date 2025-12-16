@@ -65,16 +65,19 @@ public class OrderService {
 	 * 주문 생성
 	 * @param memberNo 회원 번호
 	 * @param pendingBookings 주문할 PendingBooking 리스트
+	 * @return 생성된 Order
 	 */
-	public void createOrder(String memberNo, List<PendingBooking> pendingBookings) {
+	public Order createOrder(String memberNo, List<PendingBooking> pendingBookings) {
 		validatePendingBookingsNotEmpty(pendingBookings);
 		Member member = getMember(memberNo);
 		BigDecimal totalAmount = calculateTotalAmount(pendingBookings);
 		Order order = Order.create(member, totalAmount);
-		orderRepository.save(order);
+		Order savedOrder = orderRepository.save(order);
 
 		pendingBookings.forEach(pendingBooking -> createOrderBooking(order, pendingBooking));
-		log.info("[주문 생성] orderId={}, memberNo={}, totalAmount={}", order.getId(), memberNo, totalAmount);
+		log.info("[주문 생성] orderId={}, memberNo={}, totalAmount={}", savedOrder.getId(), memberNo, totalAmount);
+
+		return savedOrder;
 	}
 
 	private void createOrderBooking(Order order, PendingBooking pendingBooking) {

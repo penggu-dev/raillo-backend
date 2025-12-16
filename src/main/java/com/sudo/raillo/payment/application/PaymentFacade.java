@@ -1,12 +1,14 @@
 package com.sudo.raillo.payment.application;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.application.service.SeatBookingService;
+import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberService;
 import com.sudo.raillo.member.domain.Member;
@@ -14,7 +16,9 @@ import com.sudo.raillo.order.application.OrderService;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.application.dto.TossPaymentConfirmResponse;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
+import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentConfirmResponse;
+import com.sudo.raillo.payment.application.dto.response.PaymentPrepareResponse;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.payment.exception.PaymentError;
@@ -36,6 +40,44 @@ public class PaymentFacade {
 	private final BookingService bookingService;
 	private final SeatBookingService seatBookingService;
 	private final TossPaymentClient tossPaymentClient;
+
+	/**
+	 * 결제 준비 처리
+	 *
+	 * 1. PendingBooking 조회 (BookingService)
+	 * 2. Member 조회 및 소유자 검증
+	 * 3. Order 생성 (PENDING) - OrderBooking, OrderSeatBooking도 함께 생성
+	 * 4. Payment 생성 (PENDING)
+	 * 5. orderId, amount 응답
+	 */
+	public PaymentPrepareResponse preparePayment(PaymentPrepareRequest request, String memberNo) {
+		// 1. PendingBooking 목록 조회 및 검증 (존재하지 않으면 예외 발생)
+		List<PendingBooking> pendingBookings = bookingService.getPendingBookings(request.pendingBookingIds());
+
+		// 2. Member 조회 및 모든 PendingBooking 소유자 검증
+		Member member = memberService.getMemberByMemberNo(memberNo);
+		pendingBookings.forEach(pendingBooking ->
+			bookingService.validatePendingBookingOwner(pendingBooking, memberNo)
+		);
+
+		// 3. Order 생성
+		Order order = orderService.createOrder(memberNo, pendingBookings);
+
+		// 4. 총 금액 계산
+		BigDecimal totalAmount = pendingBookings.stream()
+			.map(PendingBooking::getTotalFare)
+			.reduce(BigDecimal.ZERO, BigDecimal::add);
+
+		// 5. Payment 생성 (PENDING)
+		Payment payment = paymentService.createPayment(member, order, totalAmount);
+
+		log.info("[결제 준비 완료] orderId={}, paymentId={}, amount={}, bookingCount={}",
+			order.getOrderCode(), payment.getId(), totalAmount, pendingBookings.size());
+
+		// 6. orderId, amount 응답
+		return new PaymentPrepareResponse(order.getOrderCode(), totalAmount);
+	}
+
 
 	/**
 	 * 결제 승인 처리
@@ -111,7 +153,7 @@ public class PaymentFacade {
 		payment.approve(paymentMethod);
 
 		// 9. Order 상태 변경 (PENDING -> ORDERED)
-		// orderService.completeOrder(order);
+		// order.complete();
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
 

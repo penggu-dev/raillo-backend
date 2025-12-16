@@ -23,6 +23,7 @@ import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.payment.util.PaymentKeyGenerator;
 import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
@@ -47,6 +48,18 @@ public class PaymentService {
 	private final PaymentKeyGenerator paymentKeyGenerator;
 	private final BookingFacade bookingFacade;
 	private final TicketService ticketService;
+
+	/**
+	 * Payment 생성 (PENDING 상태)
+	 */
+	public Payment createPayment(Member member, Order order, BigDecimal amount) {
+		Payment payment = Payment.create(member, order, amount);
+		Payment savedPayment = paymentRepository.save(payment);
+
+		log.info("[결제 생성] paymentId={}, orderId={}, amount={}", savedPayment.getId(), order.getId(), amount);
+
+		return savedPayment;
+	}
 
 	/**
 	 * 결제 내역 조회

@@ -39,7 +39,11 @@ public enum BookingError implements ErrorCode {
 
 	// 장바구니 관련
 	BOOKING_ACCESS_DENIED("본인의 예약만 장바구니에 등록할 수 있습니다.", HttpStatus.FORBIDDEN, "B_201"),
-	BOOKING_ALREADY_EXISTED("이미 등록된 예약입니다.", HttpStatus.CONFLICT, "B_202");
+	BOOKING_ALREADY_EXISTED("이미 등록된 예약입니다.", HttpStatus.CONFLICT, "B_202"),
+
+	// PENDING_BOOKING 관련
+	PENDING_BOOKING_NOT_FOUND("임시 예약을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B301"),
+	PENDING_BOOKING_ACCESS_DENIED("해당 임시 예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "B302");
 
 	private final String message;
 	private final HttpStatus status;
