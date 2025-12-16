@@ -42,7 +42,8 @@ public class PaymentController {
 	@Operation(summary = "결제 준비", description = "Redis의 임시 예약(PendingBooking) 목록을 바탕으로 주문(Order)과 결제(Payment)를 생성합니다. "
 		+ "토스페이먼츠 결제 위젯 초기화에 필요한 orderId와 amount를 반환합니다.")
 	@PostMapping("/prepare")
-	public SuccessResponse<PaymentPrepareResponse> preparePayment(@RequestBody @Valid PaymentPrepareRequest request,
+	public SuccessResponse<PaymentPrepareResponse> preparePayment(
+		@RequestBody @Valid PaymentPrepareRequest request,
 		@AuthenticationPrincipal UserDetails userDetails) {
 		String memberNo = userDetails.getUsername();
 		PaymentPrepareResponse response = paymentFacade.preparePayment(request, memberNo);
@@ -52,7 +53,8 @@ public class PaymentController {
 
 	@Operation(summary = "결제 승인", description = "토스페이먼츠 결제 승인 처리를 수행합니다. 클라이언트가 토스로부터 받은 paymentKey, orderId, amount를 전달받아 결제를 승인합니다.")
 	@PostMapping("/confirm")
-	public SuccessResponse<PaymentConfirmResponse> confirmPayment(@RequestBody @Valid PaymentConfirmRequest request,
+	public SuccessResponse<PaymentConfirmResponse> confirmPayment(
+		@RequestBody @Valid PaymentConfirmRequest request,
 		@AuthenticationPrincipal UserDetails userDetails) {
 		String memberNo = userDetails.getUsername();
 		PaymentConfirmResponse response = paymentFacade.confirmPayment(request, memberNo);
@@ -62,7 +64,8 @@ public class PaymentController {
 
 	@Operation(summary = "결제 취소", description = "완료된 결제를 취소 및 환불처리 합니다.")
 	@PostMapping("/{paymentKey}/cancel")
-	public SuccessResponse<PaymentCancelResponse> cancelPayment(@PathVariable String paymentKey,
+	public SuccessResponse<PaymentCancelResponse> cancelPayment(
+		@PathVariable String paymentKey,
 		@AuthenticationPrincipal UserDetails userDetails) {
 		String memberNo = userDetails.getUsername();
 		PaymentCancelResponse response = paymentService.cancelPayment(memberNo, paymentKey);
