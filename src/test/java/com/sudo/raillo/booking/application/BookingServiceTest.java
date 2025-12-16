@@ -76,7 +76,7 @@ class BookingServiceTest {
 			schedule.trainSchedule().getId(),
 			schedule.scheduleStops().get(0).getId(),
 			schedule.scheduleStops().get(1).getId(),
-			List.of(new PassengerSummary(PassengerType.ADULT, 1), new PassengerSummary(PassengerType.CHILD, 1)),
+			List.of(PassengerType.ADULT, PassengerType.CHILD),
 			standardSeatIds
 		);
 
