@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sudo.raillo.booking.application.facade.BookingFacade;
-import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -113,7 +113,7 @@ class TrainSeatQueryServiceTest {
 		memberRepository.save(testMember);
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
-		BookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
+		PendingBookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
 		bookingFacade.createBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
 
 		// when
@@ -138,11 +138,11 @@ class TrainSeatQueryServiceTest {
 		memberRepository.save(testMember);
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 2);
-		BookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
+		PendingBookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
 		bookingFacade.createBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
 
 		List<Long> firstClassSeatIds = trainTestHelper.getSeatIds(train, CarType.FIRST_CLASS, 2);
-		BookingCreateRequest firstClassRequest = getBookingCreateRequest(firstClassSeatIds);
+		PendingBookingCreateRequest firstClassRequest = getBookingCreateRequest(firstClassSeatIds);
 		bookingFacade.createBooking(firstClassRequest, testMember.getMemberDetail().getMemberNo());
 
 		// when & then
@@ -194,7 +194,7 @@ class TrainSeatQueryServiceTest {
 		Member testMember = MemberFixture.createStandardMember();
 		memberRepository.save(testMember);
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
-		BookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
+		PendingBookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
 		bookingFacade.createBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
 		List<TrainCar> trainCars = trainCarRepository.findByTrainIn(List.of(train));
 		TrainCar trainCar = trainCars.get(0);
@@ -213,10 +213,10 @@ class TrainSeatQueryServiceTest {
 		assertThat(secondSeatDetail.isAvailable()).isFalse();
 	}
 
-	private BookingCreateRequest getBookingCreateRequest(List<Long> seatIds) {
+	private PendingBookingCreateRequest getBookingCreateRequest(List<Long> seatIds) {
 		List<PassengerSummary> passengers = List.of(new PassengerSummary(PassengerType.ADULT, seatIds.size()));
 
-		return new BookingCreateRequest(
+		return new PendingBookingCreateRequest(
 			scheduleWithStops.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),

@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
-import com.sudo.raillo.booking.application.dto.response.BookingCreateResponse;
+import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.application.service.BookingService;
@@ -38,11 +38,11 @@ public class BookingController implements BookingControllerDoc {
 	 * @return 예약 생성 성공 응답
 	 */
 	@PostMapping
-	public SuccessResponse<BookingCreateResponse> createBooking(
-		@RequestBody BookingCreateRequest request,
+	public SuccessResponse<PendingBookingCreateResponse> createBooking(
+		@RequestBody PendingBookingCreateRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
-		BookingCreateResponse response = bookingFacade
+		PendingBookingCreateResponse response = bookingFacade
 			.createBooking(request, userDetails.getUsername());
 		return SuccessResponse.of(BookingSuccess.BOOKING_CREATE_SUCCESS, response);
 	}

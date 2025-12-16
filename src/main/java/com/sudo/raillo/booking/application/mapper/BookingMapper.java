@@ -8,7 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sudo.raillo.booking.application.dto.BookingInfo;
 import com.sudo.raillo.booking.application.dto.projection.SeatBookingProjection;
-import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.dto.response.SeatBookingDetail;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -45,7 +45,7 @@ public class BookingMapper {
 		);
 	}
 
-	public String convertPassengersToJson(BookingCreateRequest request) {
+	public String convertPassengersToJson(PendingBookingCreateRequest request) {
 		try {
 			return objectMapper.writeValueAsString(request.passengers());
 		} catch (JsonProcessingException e) {

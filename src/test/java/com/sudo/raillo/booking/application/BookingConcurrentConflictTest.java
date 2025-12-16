@@ -15,7 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -152,14 +152,14 @@ public class BookingConcurrentConflictTest {
 		assertThat(failCount.get()).isEqualTo(threadCount - 1);
 	}
 
-	private static BookingCreateRequest createRequest(
+	private static PendingBookingCreateRequest createRequest(
 		TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleWithStops,
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop,
 		List<PassengerSummary> passengers,
 		List<Long> standardSeatIds
 	) {
-		return new BookingCreateRequest(
+		return new PendingBookingCreateRequest(
 			scheduleWithStops.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),

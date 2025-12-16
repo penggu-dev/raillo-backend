@@ -3,7 +3,7 @@ package com.sudo.raillo.booking.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.service.BookingService;
@@ -72,7 +72,7 @@ class BookingServiceTest {
 	@DisplayName("유효한 요청으로 예약이 성공한다")
 	void validRequest_createBooking_success() {
 		// given
-		BookingCreateRequest request = new BookingCreateRequest(
+		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
 			schedule.trainSchedule().getId(),
 			schedule.scheduleStops().get(0).getId(),
 			schedule.scheduleStops().get(1).getId(),
