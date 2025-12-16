@@ -33,7 +33,7 @@ class FareCalculationServiceTest {
 	@ParameterizedTest(name = "{index}. {1} 계산 결과 = {2}")
 	@MethodSource("providePassengers")
 	void calculateFare_success(
-		List<PassengerSummary> passengers,
+		List<PassengerType> passengerTypes,
 		CarType carType,
 		BigDecimal expectedFare
 	) {
@@ -44,7 +44,7 @@ class FareCalculationServiceTest {
 			50000, 100000);
 
 		// when
-		BigDecimal totalFare = fareCalculationService.calculateFare(seoul.getId(), busan.getId(), passengers, carType);
+		BigDecimal totalFare = fareCalculationService.calculateFare(seoul.getId(), busan.getId(), passengerTypes, carType);
 
 		// then
 		assertThat(totalFare).isEqualByComparingTo(expectedFare);
@@ -55,8 +55,9 @@ class FareCalculationServiceTest {
 			// 어른 2명 + 어린이 1명
 			Arguments.of(
 				List.of(
-					new PassengerSummary(PassengerType.ADULT, 2),
-					new PassengerSummary(PassengerType.CHILD, 1)
+					PassengerType.ADULT,
+					PassengerType.ADULT,
+					PassengerType.CHILD
 				),
 				CarType.STANDARD,
 				BigDecimal.valueOf(130000)
@@ -64,8 +65,7 @@ class FareCalculationServiceTest {
 			// 어른 1명
 			Arguments.of(
 				List.of(
-					new PassengerSummary(PassengerType.ADULT, 1),
-					new PassengerSummary(PassengerType.CHILD, 0)
+					PassengerType.ADULT
 				),
 				CarType.FIRST_CLASS,
 				BigDecimal.valueOf(100000)
