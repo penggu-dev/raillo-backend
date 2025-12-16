@@ -1,7 +1,7 @@
 package com.sudo.raillo.booking.application.service;
 
 import com.sudo.raillo.booking.application.dto.BookingInfo;
-import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.mapper.BookingMapper;
 import com.sudo.raillo.booking.domain.Booking;
@@ -15,11 +15,10 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
-import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
-import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
+
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,7 +33,6 @@ public class BookingService {
 	private final MemberRepository memberRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final BookingRepository bookingRepository;
-	private final SeatRepository seatRepository;
 	private final BookingQueryRepository bookingQueryRepository;
 	private final BookingMapper bookingMapper;
 
@@ -43,7 +41,7 @@ public class BookingService {
 	 * @param request 예약 생성 요청 DTO
 	 * @return 예약 레코드
 	 */
-	public Booking createBooking(BookingCreateRequest request, String memberNo) {
+	public Booking createBooking(PendingBookingCreateRequest request, String memberNo) {
 		Member member = getMember(memberNo);
 		TrainSchedule trainSchedule = getTrainSchedule(request.trainScheduleId());
 		ScheduleStop departureStop = getStopStation(trainSchedule, request.departureStationId());
@@ -58,26 +56,6 @@ public class BookingService {
 			arrivalStop
 		);
 		return bookingRepository.save(booking);
-	}
-
-	/**
-	 * 객차 타입 조회
-	 */
-	public CarType findCarType(List<Long> seatIds) {
-		if (seatIds.isEmpty()) {
-			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
-		}
-
-		List<CarType> carTypes = seatRepository.findCarTypes(seatIds);
-
-		if (carTypes.isEmpty()) {
-			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
-		}
-
-		if (carTypes.size() != 1) {
-			throw new BusinessException(BookingError.INVALID_CAR_TYPE);
-		}
-		return carTypes.get(0);
 	}
 
 	/**
