@@ -115,16 +115,10 @@ public class BookingService {
 
 	/**
 	 * 여러 PendingBooking 한 번에 조회 및 검증
-	 * - 예약 ID 목록 필수 (null/empty 불가)
 	 * - 모든 예약이 Redis에 존재해야 함
 	 */
 	@Transactional(readOnly = true)
 	public List<PendingBooking> getPendingBookings(List<String> pendingBookingIds) {
-		if (pendingBookingIds == null || pendingBookingIds.isEmpty()) {
-			log.info("[임시 예약 조회 실패] pendingBookingIds가 null 또는 비어있음");
-			throw new BusinessException(BookingError.PENDING_BOOKING_IDS_REQUIRED);
-		}
-
 		Map<String, PendingBooking> bookingsById = bookingRedisRepository.getPendingBookingsAsMap(pendingBookingIds);
 
 		List<String> notFoundIds = pendingBookingIds.stream()
