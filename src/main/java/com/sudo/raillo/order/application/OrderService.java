@@ -79,8 +79,8 @@ public class OrderService {
 
 	private void createOrderBooking(Order order, PendingBooking pendingBooking) {
 		TrainSchedule trainSchedule = getTrainSchedule(pendingBooking.getTrainScheduleId());
-		ScheduleStop departureStop = getScheduleStop(pendingBooking.getDepartureStationId());
-		ScheduleStop arrivalStop = getScheduleStop(pendingBooking.getArrivalStationId());
+		ScheduleStop departureStop = getScheduleStop(pendingBooking.getDepartureStopId());
+		ScheduleStop arrivalStop = getScheduleStop(pendingBooking.getArrivalStopId());
 
 		OrderBooking orderBooking = OrderBooking.create(
 			order,
