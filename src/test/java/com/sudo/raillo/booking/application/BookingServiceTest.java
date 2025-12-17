@@ -31,7 +31,9 @@ import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithStopStations;
 import com.sudo.raillo.support.helper.TrainTestHelper;
+import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
+import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
 
 import java.math.BigDecimal;
@@ -376,6 +378,92 @@ class BookingServiceTest {
 
 		// then
 		List<Booking> result = bookingRepository.findAll();
+		assertThat(result.size()).isEqualTo(0);
+	}
+
+	@Test
+	@DisplayName("예약, 좌석, 승객 유형으로 좌석 예약 생성에 성공한다")
+	void bookingAndSeatAndPassengerType_reserveNewSeat_success() {
+		// given
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
+		Seat seat = trainTestHelper.getSeats(train, CarType.STANDARD, 1).get(0);
+
+		// when
+		SeatBooking entity = bookingService.reserveNewSeat(booking, seat, PassengerType.CHILD);
+
+		// then
+		assertThat(entity.getBooking().getBookingCode()).isEqualTo(booking.getBookingCode());
+		assertThat(entity.getPassengerType()).isEqualTo(PassengerType.CHILD);
+	}
+
+	@Test
+	@DisplayName("좌석 예약 ID로 좌석 예약 삭제에 성공한다")
+	void seatBookingId_deleteSeatBooking_success() {
+		// given
+		Train train = trainTestHelper.createKTX();
+		TrainSchedule trainSchedule = trainScheduleTestHelper.createSchedule(train).trainSchedule();
+		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
+
+		SeatBooking seatBooking1 = SeatBooking.create(
+			trainSchedule,
+			seats.get(0),
+			booking,
+			PassengerType.CHILD
+		);
+		SeatBooking savedSeatBooking = seatBookingRepository.save(seatBooking1);
+
+		SeatBooking seatBooking2 = SeatBooking.create(
+			trainSchedule,
+			seats.get(1),
+			booking,
+			PassengerType.VETERAN
+		);
+		seatBookingRepository.save(seatBooking2);
+
+		// when
+		bookingService.deleteSeatBooking(savedSeatBooking.getId());
+
+		// then
+		List<SeatBooking> result = seatBookingRepository.findAll();
+		assertThat(result.size()).isEqualTo(1);
+		assertThat(result.get(0).getPassengerType()).isEqualTo(PassengerType.VETERAN);
+	}
+
+	@Test
+	@DisplayName("예약 ID로 좌석 예약 삭제에 성공한다")
+	void bookingId_deleteSeatBooking_success() {
+		// given
+		Train train = trainTestHelper.createKTX();
+		TrainSchedule trainSchedule = trainScheduleTestHelper.createSchedule(train).trainSchedule();
+		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
+
+		SeatBooking seatBooking1 = SeatBooking.create(
+			trainSchedule,
+			seats.get(0),
+			booking,
+			PassengerType.CHILD
+		);
+		seatBookingRepository.save(seatBooking1);
+
+		SeatBooking seatBooking2 = SeatBooking.create(
+			trainSchedule,
+			seats.get(1),
+			booking,
+			PassengerType.VETERAN
+		);
+		seatBookingRepository.save(seatBooking2);
+
+		// when
+		bookingService.deleteSeatBookingByBookingId(booking.getId());
+
+		// then
+		List<SeatBooking> result = seatBookingRepository.findAll();
 		assertThat(result.size()).isEqualTo(0);
 	}
 
