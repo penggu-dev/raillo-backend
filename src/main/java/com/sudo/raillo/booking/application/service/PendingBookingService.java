@@ -52,6 +52,8 @@ public class PendingBookingService {
 		bookingValidator.validateTrainOperating(trainSchedule);
 		bookingValidator.validateSameSchedule(departureStop, arrivalStop);
 		bookingValidator.validateStopSequence(departureStop, arrivalStop);
+		// 승객 수와 좌석 수 일치 여부 검증
+		bookingValidator.validatePassengerSeatCount(request.passengerTypes(), request.seatIds());
 
 		List<PendingSeatBooking> pendingSeatBookings = createPendingSeatBookings(request.passengerTypes(),
 			request.seatIds());
@@ -97,9 +99,6 @@ public class PendingBookingService {
 		List<PassengerType> passengerTypes,
 		List<Long> seatIds
 	) {
-		// 승객 수와 좌석 수 일치 여부 검증
-		bookingValidator.validatePassengerSeatCount(passengerTypes, seatIds);
-
 		return IntStream.range(0, seatIds.size())
 			.mapToObj(i -> new PendingSeatBooking(seatIds.get(i), passengerTypes.get(i)))
 			.toList();
