@@ -71,8 +71,8 @@ class BookingRedisRepositoryTest {
 		assertThat(savedPendingBooking.getId()).isEqualTo(testPendingBooking.getId());
 		assertThat(savedPendingBooking.getMemberNo()).isEqualTo(testPendingBooking.getMemberNo());
 		assertThat(savedPendingBooking.getTrainScheduleId()).isEqualTo(testPendingBooking.getTrainScheduleId());
-		assertThat(savedPendingBooking.getDepartureStationId()).isEqualTo(testPendingBooking.getDepartureStationId());
-		assertThat(savedPendingBooking.getArrivalStationId()).isEqualTo(testPendingBooking.getArrivalStationId());
+		assertThat(savedPendingBooking.getDepartureStopId()).isEqualTo(testPendingBooking.getDepartureStopId());
+		assertThat(savedPendingBooking.getArrivalStopId()).isEqualTo(testPendingBooking.getArrivalStopId());
 		assertThat(savedPendingBooking.getTotalFare()).isEqualByComparingTo(testPendingBooking.getTotalFare());
 		assertThat(savedPendingBooking.getCreatedAt()).isEqualTo(testPendingBooking.getCreatedAt());
 
@@ -103,7 +103,7 @@ class BookingRedisRepositoryTest {
 	@DisplayName("PendingBookingMemberKey TTL이 580초로 설정된다")
 	void savePendingBookingMemberKey_TTL_success() {
 		// when
-		bookingRedisRepository.savePendingBookingMemberKey(testPendingBooking.getId(), testMemberNo);
+		bookingRedisRepository.savePendingBooking(testPendingBooking);
 
 		// then
 		String key = redisKeyGenerator.generatePendingBookingMemberKey(testMemberNo, testPendingBooking.getId());
@@ -145,7 +145,6 @@ class BookingRedisRepositoryTest {
 	void getPendingBookings_success() {
 		// given
 		bookingRedisRepository.savePendingBooking(testPendingBooking);
-		bookingRedisRepository.savePendingBookingMemberKey(testPendingBooking.getId(), testMemberNo);
 
 		PendingBooking anotherPendingBooking = PendingBooking.create(
 			testMemberNo,
@@ -156,7 +155,6 @@ class BookingRedisRepositoryTest {
 			BigDecimal.valueOf(30000)
 		);
 		bookingRedisRepository.savePendingBooking(anotherPendingBooking);
-		bookingRedisRepository.savePendingBookingMemberKey(anotherPendingBooking.getId(), testMemberNo);
 
 		// when
 		List<PendingBooking> pendingBookings = bookingRedisRepository.getPendingBookings(testMemberNo);

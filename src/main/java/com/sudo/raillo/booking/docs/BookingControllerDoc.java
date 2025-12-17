@@ -4,9 +4,9 @@ import java.util.List;
 
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
-import com.sudo.raillo.booking.application.dto.response.BookingCreateResponse;
+import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
 import com.sudo.raillo.global.success.SuccessResponse;
@@ -43,7 +43,7 @@ public interface BookingControllerDoc {
 				+ "- 사용자를 찾을 수 없음\n",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<BookingCreateResponse> createBooking(BookingCreateRequest request, UserDetails userDetails);
+	SuccessResponse<PendingBookingCreateResponse> createBooking(PendingBookingCreateRequest request, UserDetails userDetails);
 
 	@Operation(method = "DELETE", summary = "예약 삭제", description = "예약 ID를 받아 해당 예약을 삭제합니다.")
 	@ApiResponses(value = {

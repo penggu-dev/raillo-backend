@@ -7,22 +7,41 @@ import org.springframework.stereotype.Component;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
+import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.TrainSchedule;
+import com.sudo.raillo.train.domain.status.OperationStatus;
+import com.sudo.raillo.train.exception.TrainErrorCode;
 
 @Component
 public class BookingValidator {
 
 	/**
 	 * 출발지, 도착지 순서 검증
-	 * @param booking
 	 */
-	public void validateStopSequence(Booking booking) {
-		ScheduleStop departureStop = booking.getDepartureStop();
-		ScheduleStop arrivalStop = booking.getArrivalStop();
+	public void validateStopSequence(ScheduleStop departureStop, ScheduleStop arrivalStop) {
 		if (departureStop.getStopOrder() > arrivalStop.getStopOrder()) {
 			throw new BusinessException(BookingError.TRAIN_NOT_OPERATIONAL);
+		}
+	}
+
+	/**
+	 * 출발역, 도착역이 같은 스케줄을 가지고 있는지 검증
+	 * */
+	public void validateSameSchedule(ScheduleStop departureStop, ScheduleStop arrivalStop) {
+		if (!departureStop.getTrainSchedule().getId().equals(arrivalStop.getTrainSchedule().getId())) {
+			throw new BusinessException(TrainErrorCode.INVALID_ROUTE);
+		}
+	}
+
+	/**
+	 * 열차 스케줄 운행 여부 확인
+	 * */
+	public void validateTrainOperating(TrainSchedule trainSchedule) {
+		if (trainSchedule.getOperationStatus() == OperationStatus.CANCELLED) {
+			throw new BusinessException(TrainErrorCode.TRAIN_OPERATION_CANCELLED);
 		}
 	}
 
@@ -48,12 +67,9 @@ public class BookingValidator {
 	/**
 	 * 요청된 승객 수와 선택한 좌석 수의 일치 여부를 검증
 	 * */
-	public void validatePassengerSeatCount(List<PassengerSummary> passengers, List<Long> seatIds) {
+	public void validatePassengerSeatCount(List<PassengerType> passengerTypes, List<Long> seatIds) {
 		// 요청 승객 수와 선택한 좌석 수를 비교하여 좌석 수가 승객 수보다 많으면 오류 발생
-		int passengersCnt = passengers.stream()
-			.mapToInt(PassengerSummary::getCount)
-			.sum();
-		if (passengersCnt != seatIds.size()) {
+		if (passengerTypes.size() != seatIds.size()) {
 			throw new BusinessException(BookingError.BOOKING_CREATE_SEATS_INVALID);
 		}
 	}

@@ -3,6 +3,7 @@ package com.sudo.raillo.booking.application.service;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import org.springframework.stereotype.Service;
 
@@ -36,14 +37,14 @@ public class FareCalculationService {
 	 * 총 운임을 계산하는 메서드
 	 * @param departureStationId 출발역 ID
 	 * @param arrivalStationId 도착역 ID
-	 * @param passengers 승객 정보
+	 * @param passengerTypes 승객 유형
 	 * @param carType 객차 타입
 	 * @return 할인이 적용 된 총 운임
 	 */
 	public BigDecimal calculateFare(
 		Long departureStationId,
 		Long arrivalStationId,
-		List<PassengerSummary> passengers,
+		List<PassengerType> passengerTypes,
 		CarType carType
 	) {
 		// 요금 정보 조회
@@ -51,12 +52,7 @@ public class FareCalculationService {
 
 		BigDecimal fare = getFareByCarType(stationFare, carType);
 
-		return passengers.stream()
-			.filter(summary -> summary.getCount() > 0)
-			.map(summary -> fare
-				.multiply(DISCOUNT_RATES.get(summary.getPassengerType())) // 할인 적용
-				.multiply(BigDecimal.valueOf(summary.getCount())) // 할인이 적용 된 운임 * 승객 수
-			)
+		return passengerTypes.stream().map(passengerType -> fare.multiply(DISCOUNT_RATES.get(passengerType)))
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 

@@ -3,7 +3,7 @@ package com.sudo.raillo.booking.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sudo.raillo.booking.application.dto.request.BookingCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.service.BookingService;
@@ -72,11 +72,11 @@ class BookingServiceTest {
 	@DisplayName("유효한 요청으로 예약이 성공한다")
 	void validRequest_createBooking_success() {
 		// given
-		BookingCreateRequest request = new BookingCreateRequest(
+		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
 			schedule.trainSchedule().getId(),
 			schedule.scheduleStops().get(0).getId(),
 			schedule.scheduleStops().get(1).getId(),
-			List.of(new PassengerSummary(PassengerType.ADULT, 1), new PassengerSummary(PassengerType.CHILD, 1)),
+			List.of(PassengerType.ADULT, PassengerType.CHILD),
 			standardSeatIds
 		);
 
@@ -246,7 +246,7 @@ class BookingServiceTest {
 			.departureStop(scheduleBusanToDongDaegu.scheduleStops().get(0))
 			.arrivalStop(scheduleBusanToDongDaegu.scheduleStops().get(1))
 			.build();
-		Booking booking2 = bookingTestHelper.createBooking(member, scheduleDaejeonToSeoul);
+		Booking booking2 = bookingTestHelper.createPendingBooking(member, scheduleDaejeonToSeoul);
 		Booking entity1 = bookingRepository.save(booking1);
 		Booking entity2 = bookingRepository.save(booking2);
 

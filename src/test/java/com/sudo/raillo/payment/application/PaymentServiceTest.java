@@ -39,7 +39,7 @@ class PaymentServiceTest {
 //
 // 		Train train = trainTestHelper.createKTX();
 // 		TrainScheduleWithStopStations scheduleWithStops = trainScheduleTestHelper.createSchedule(train);
-// 		booking = bookingTestHelper.createBooking(member, scheduleWithStops);
+// 		booking = bookingTestHelper.createPendingBooking(member, scheduleWithStops);
 // 	}
 //
 // 	@Test
