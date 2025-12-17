@@ -8,13 +8,23 @@ import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.domain.Booking;
+import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
+import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
+import com.sudo.raillo.order.domain.Order;
+import com.sudo.raillo.order.domain.OrderBooking;
+import com.sudo.raillo.order.domain.OrderSeatBooking;
+import com.sudo.raillo.order.exception.OrderError;
+import com.sudo.raillo.order.infrastructure.OrderBookingRepository;
+import com.sudo.raillo.order.infrastructure.OrderRepository;
+import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
@@ -23,6 +33,8 @@ import com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithS
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -54,6 +66,18 @@ class BookingServiceTest {
 	@Autowired
 	private BookingRepository bookingRepository;
 
+	@Autowired
+	private OrderRepository orderRepository;
+
+	@Autowired
+	private OrderBookingRepository orderBookingRepository;
+
+	@Autowired
+	private OrderSeatBookingRepository orderSeatBookingRepository;
+
+	@Autowired
+	private SeatBookingRepository seatBookingRepository;
+
 	private Member member;
 	private Train train;
 	private TrainScheduleWithStopStations schedule;
@@ -63,33 +87,105 @@ class BookingServiceTest {
 	void setup() {
 		Member member = MemberFixture.createStandardMember();
 		this.member = memberRepository.save(member);
-		train = trainTestHelper.createKTX();
+		train = trainTestHelper.createCustomKTX(3, 2);
 		schedule = trainScheduleTestHelper.createSchedule(train);
 		standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 2);
 	}
 
 	@Test
-	@DisplayName("유효한 요청으로 예약이 성공한다")
-	void validRequest_createBooking_success() {
+	@DisplayName("유효한 주문으로 확정 예약 생성에 성공한다")
+	void createBookingFromOrder_success() {
 		// given
-		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
-			schedule.trainSchedule().getId(),
-			schedule.scheduleStops().get(0).getId(),
-			schedule.scheduleStops().get(1).getId(),
-			List.of(PassengerType.ADULT, PassengerType.CHILD),
-			standardSeatIds
+		List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 3);
+
+		Order order = Order.create(member, BigDecimal.valueOf(100000));
+		order.completePayment();
+		Order savedOrder = orderRepository.save(order);
+
+		OrderBooking orderBooking1 = OrderBooking.create(
+			savedOrder,
+			schedule.trainSchedule(),
+			schedule.scheduleStops().get(0),
+			schedule.scheduleStops().get(1),
+			BigDecimal.valueOf(50000)
 		);
+		OrderBooking savedOrderBooking1 = orderBookingRepository.save(orderBooking1);
+
+		OrderBooking orderBooking2 = OrderBooking.create(
+			savedOrder,
+			schedule.trainSchedule(),
+			schedule.scheduleStops().get(0),
+			schedule.scheduleStops().get(1),
+			BigDecimal.valueOf(50000)
+		);
+		OrderBooking savedOrderBooking2 = orderBookingRepository.save(orderBooking2);
+
+		// OrderSeatBooking 3개 생성 (orderBooking1에 좌석 2개, orderBooking2에 좌석 1개)
+		OrderSeatBooking orderSeatBooking1 = OrderSeatBooking.create(savedOrderBooking1, seatIds.get(0), PassengerType.ADULT);
+		OrderSeatBooking orderSeatBooking2 = OrderSeatBooking.create(savedOrderBooking1, seatIds.get(1), PassengerType.CHILD);
+		OrderSeatBooking orderSeatBooking3 = OrderSeatBooking.create(savedOrderBooking2, seatIds.get(2), PassengerType.ADULT);
+		orderSeatBookingRepository.saveAll(List.of(orderSeatBooking1, orderSeatBooking2, orderSeatBooking3));
 
 		// when
-		Booking booking = bookingService.createBooking(request, member.getMemberDetail().getMemberNo());
+		bookingService.createBookingFromOrder(savedOrder);
 
 		// then
-		Booking savedBooking = bookingRepository.findById(booking.getId())
-			.orElseThrow(() -> new AssertionError("예약이 DB에 저장되지 않았습니다"));
+		List<Booking> bookings = bookingRepository.findAll();
+		assertThat(bookings).hasSize(2);
 
-		assertThat(savedBooking.getMember().getId()).isEqualTo(member.getId());
-		assertThat(savedBooking.getBookingStatus()).isEqualTo(BookingStatus.BOOKED);
-		assertThat(savedBooking.getBookingCode()).isNotNull();
+		// 각 Booking 검증
+		for (Booking booking : bookings) {
+			assertThat(booking.getMember().getId()).isEqualTo(member.getId());
+			assertThat(booking.getBookingStatus()).isEqualTo(BookingStatus.BOOKED);
+			assertThat(booking.getTrainSchedule().getId()).isEqualTo(schedule.trainSchedule().getId());
+			assertThat(booking.getBookingCode()).isNotNull();
+		}
+
+		// SeatBooking 검증
+		List<SeatBooking> savedSeatBookings = seatBookingRepository.findAll();
+		assertThat(savedSeatBookings).hasSize(3);
+
+		// Booking별 SeatBooking 개수 검증
+		Long booking1Id = bookings.get(0).getId();
+		Long booking2Id = bookings.get(1).getId();
+
+		List<SeatBooking> booking1SeatBookings = savedSeatBookings.stream()
+			.filter(seatBooking -> seatBooking.getBooking().getId().equals(booking1Id))
+			.toList();
+
+		List<SeatBooking> booking2SeatBookings = savedSeatBookings.stream()
+			.filter(seatBooking -> seatBooking.getBooking().getId().equals(booking2Id))
+			.toList();
+
+		assertThat(booking1SeatBookings).hasSize(2); // orderBooking1에서 생성된 booking1은 seatBooking 2개
+		assertThat(booking2SeatBookings).hasSize(1); // orderBooking2에서 생성된 booking2는 seatBooking 1개
+	}
+
+	@Test
+	@DisplayName("만료된 주문으로 예약 생성 시 예외가 발생한다")
+	void expiredOrder_createBookingFromOrder_throwException() {
+		// given
+		Order order = Order.create(member, BigDecimal.valueOf(50000));
+		order.expired();
+		orderRepository.save(order);
+
+		// when & then
+		assertThatThrownBy(() -> bookingService.createBookingFromOrder(order))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(OrderError.ORDER_IS_EXPIRED.getMessage());
+	}
+
+	@Test
+	@DisplayName("결제되지 않은 주문으로 예약 생성 시 예외가 발생한다")
+	void pendingOrder_createBookingFromOrder_throwException() {
+		// given
+		Order order = Order.create(member, BigDecimal.valueOf(50000));
+		orderRepository.save(order);
+
+		// when & then
+		assertThatThrownBy(() -> bookingService.createBookingFromOrder(order))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(OrderError.NOT_ORDERED.getMessage());
 	}
 
 	@Test
