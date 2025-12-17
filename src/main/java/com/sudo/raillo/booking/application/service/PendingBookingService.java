@@ -40,16 +40,21 @@ public class PendingBookingService {
 	 * @return 임시 예약
 	 * */
 	public PendingBooking createPendingBooking(
-		PendingBookingCreateRequest request, String memberNo, BigDecimal totalFare) {
+		PendingBookingCreateRequest request,
+		String memberNo,
+		BigDecimal totalFare
+	) {
 		TrainSchedule trainSchedule = getTrainSchedule(request.trainScheduleId());
 		ScheduleStop departureStop = getStopStation(trainSchedule, request.departureStationId());
 		ScheduleStop arrivalStop = getStopStation(trainSchedule, request.arrivalStationId());
 
 		// 열차 스케줄, 출발역, 도착역 검증
 		bookingValidator.validateTrainOperating(trainSchedule);
+		bookingValidator.validateSameSchedule(departureStop, arrivalStop);
 		bookingValidator.validateStopSequence(departureStop, arrivalStop);
 
-		List<PendingSeatBooking> pendingSeatBookings = createPendingSeatBookings(request.passengerTypes(), request.seatIds());
+		List<PendingSeatBooking> pendingSeatBookings = createPendingSeatBookings(request.passengerTypes(),
+			request.seatIds());
 
 		PendingBooking pendingBooking = PendingBooking.create(
 			memberNo,
@@ -68,6 +73,7 @@ public class PendingBookingService {
 	}
 
 	// TODO: 객차 타입 검증 위치 조정 필요
+
 	/**
 	 * 객차 타입 조회
 	 */

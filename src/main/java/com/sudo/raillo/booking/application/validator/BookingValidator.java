@@ -28,6 +28,15 @@ public class BookingValidator {
 	}
 
 	/**
+	 * 출발역, 도착역이 같은 스케줄을 가지고 있는지 검증
+	 * */
+	public void validateSameSchedule(ScheduleStop departureStop, ScheduleStop arrivalStop) {
+		if (departureStop.getTrainSchedule() != arrivalStop.getTrainSchedule()) {
+			throw new BusinessException(TrainErrorCode.INVALID_ROUTE);
+		}
+	}
+
+	/**
 	 * 열차 스케줄 운행 여부 확인
 	 * */
 	public void validateTrainOperating(TrainSchedule trainSchedule) {
