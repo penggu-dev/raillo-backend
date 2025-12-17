@@ -54,12 +54,12 @@ public class SeatBookingService {
 			// 3. 락이 걸린 상태에서 충돌 검증 (원자성 보장)
 			bookingValidator.validateConflictWithExistingBookings(booking, existingBookings);
 
-			SeatBooking seatBooking = SeatBooking.builder()
-				.trainSchedule(booking.getTrainSchedule())
-				.seat(lockedSeat)
-				.booking(booking)
-				.passengerType(passengerType)
-				.build();
+			SeatBooking seatBooking = SeatBooking.create(
+				booking.getTrainSchedule(),
+				lockedSeat,
+				booking,
+				passengerType
+			);
 			return seatBookingRepository.save(seatBooking);
 		} catch (OptimisticLockException | DataIntegrityViolationException e) {
 			// 동시성 문제 및 유니크 제약 위반 발생

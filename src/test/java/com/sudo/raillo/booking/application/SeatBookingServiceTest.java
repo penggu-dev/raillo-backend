@@ -18,8 +18,11 @@ import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
+
 import java.util.List;
+
 import lombok.extern.slf4j.Slf4j;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,20 +80,20 @@ class SeatBookingServiceTest {
 		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		SeatBooking seatBooking1 = SeatBooking.builder()
-			.trainSchedule(trainSchedule)
-			.seat(seats.get(0))
-			.booking(booking)
-			.passengerType(PassengerType.CHILD)
-			.build();
+		SeatBooking seatBooking1 = SeatBooking.create(
+			trainSchedule,
+			seats.get(0),
+			booking,
+			PassengerType.CHILD
+		);
 		SeatBooking savedSeatBooking = seatBookingRepository.save(seatBooking1);
 
-		SeatBooking seatBooking2 = SeatBooking.builder()
-			.trainSchedule(trainSchedule)
-			.seat(seats.get(1))
-			.booking(booking)
-			.passengerType(PassengerType.VETERAN)
-			.build();
+		SeatBooking seatBooking2 = SeatBooking.create(
+			trainSchedule,
+			seats.get(1),
+			booking,
+			PassengerType.VETERAN
+		);
 		seatBookingRepository.save(seatBooking2);
 
 		// when
@@ -114,20 +117,20 @@ class SeatBookingServiceTest {
 		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		SeatBooking seatBooking1 = SeatBooking.builder()
-			.trainSchedule(trainSchedule)
-			.seat(seats.get(0))
-			.booking(booking)
-			.passengerType(PassengerType.CHILD)
-			.build();
+		SeatBooking seatBooking1 = SeatBooking.create(
+			trainSchedule,
+			seats.get(0),
+			booking,
+			PassengerType.CHILD
+		);
 		seatBookingRepository.save(seatBooking1);
 
-		SeatBooking seatBooking2 = SeatBooking.builder()
-			.trainSchedule(trainSchedule)
-			.seat(seats.get(1))
-			.booking(booking)
-			.passengerType(PassengerType.VETERAN)
-			.build();
+		SeatBooking seatBooking2 = SeatBooking.create(
+			trainSchedule,
+			seats.get(1),
+			booking,
+			PassengerType.VETERAN
+		);
 		seatBookingRepository.save(seatBooking2);
 
 		// when
