@@ -10,6 +10,9 @@ import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.order.domain.Order;
+import com.sudo.raillo.order.domain.status.OrderStatus;
+import com.sudo.raillo.order.exception.OrderError;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
@@ -71,6 +74,16 @@ public class BookingValidator {
 		// 요청 승객 수와 선택한 좌석 수를 비교하여 좌석 수가 승객 수보다 많으면 오류 발생
 		if (passengerTypes.size() != seatIds.size()) {
 			throw new BusinessException(BookingError.BOOKING_CREATE_SEATS_INVALID);
+		}
+	}
+
+	public void validateOrderForBooking(Order order) {
+		if (order.getOrderStatus() == OrderStatus.EXPIRED) {
+			throw new BusinessException(OrderError.ORDER_IS_EXPIRED);
+		}
+
+		if (order.getOrderStatus() != OrderStatus.ORDERED) {
+			throw new BusinessException(OrderError.NOT_ORDERED);
 		}
 	}
 }

@@ -64,7 +64,7 @@ public class BookingService {
 	 * */
 	public void createBookingFromOrder(Order order) {
 		// 1. 도메인 규칙 검증
-		validateOrderForBooking(order);
+		bookingValidator.validateOrderForBooking(order);
 
 		// 2. 관련 OrderBooking, OrderSeatBooking 조회
 		List<OrderBooking> orderBookings = getOrderBookings(order.getId());
@@ -256,16 +256,6 @@ public class BookingService {
 	private Member getMember(String memberNo) {
 		return memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
-	}
-
-	private void validateOrderForBooking(Order order) {
-		if (order.getOrderStatus() == OrderStatus.EXPIRED) {
-			throw new BusinessException(OrderError.ORDER_IS_EXPIRED);
-		}
-
-		if (order.getOrderStatus() != OrderStatus.ORDERED) {
-			throw new BusinessException(OrderError.NOT_ORDERED);
-		}
 	}
 
 }
