@@ -1,7 +1,6 @@
 package com.sudo.raillo.booking.application.service;
 
 import com.sudo.raillo.booking.application.dto.BookingInfo;
-import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.mapper.BookingMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
@@ -21,7 +20,6 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.order.domain.OrderBooking;
 import com.sudo.raillo.order.domain.OrderSeatBooking;
-import com.sudo.raillo.order.domain.status.OrderStatus;
 import com.sudo.raillo.order.exception.OrderError;
 import com.sudo.raillo.order.infrastructure.OrderBookingRepository;
 import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
@@ -64,7 +62,7 @@ public class BookingService {
 	 * */
 	public void createBookingFromOrder(Order order) {
 		// 1. 도메인 규칙 검증
-		bookingValidator.validateOrderForBooking(order);
+		order.validateCompleted();
 
 		// 2. 관련 OrderBooking, OrderSeatBooking 조회
 		List<OrderBooking> orderBookings = getOrderBookings(order.getId());

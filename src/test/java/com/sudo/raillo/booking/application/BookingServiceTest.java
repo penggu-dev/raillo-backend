@@ -3,19 +3,17 @@ package com.sudo.raillo.booking.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
-import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
@@ -173,7 +171,7 @@ class BookingServiceTest {
 
 		// when & then
 		assertThatThrownBy(() -> bookingService.createBookingFromOrder(order))
-			.isInstanceOf(BusinessException.class)
+			.isInstanceOf(DomainException.class)
 			.hasMessage(OrderError.ORDER_IS_EXPIRED.getMessage());
 	}
 
@@ -186,7 +184,7 @@ class BookingServiceTest {
 
 		// when & then
 		assertThatThrownBy(() -> bookingService.createBookingFromOrder(order))
-			.isInstanceOf(BusinessException.class)
+			.isInstanceOf(DomainException.class)
 			.hasMessage(OrderError.NOT_ORDERED.getMessage());
 	}
 

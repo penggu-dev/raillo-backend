@@ -6,13 +6,9 @@ import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
-import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.order.domain.status.OrderStatus;
-import com.sudo.raillo.order.exception.OrderError;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
@@ -77,13 +73,4 @@ public class BookingValidator {
 		}
 	}
 
-	public void validateOrderForBooking(Order order) {
-		if (order.getOrderStatus() == OrderStatus.EXPIRED) {
-			throw new BusinessException(OrderError.ORDER_IS_EXPIRED);
-		}
-
-		if (order.getOrderStatus() != OrderStatus.ORDERED) {
-			throw new BusinessException(OrderError.NOT_ORDERED);
-		}
-	}
 }
