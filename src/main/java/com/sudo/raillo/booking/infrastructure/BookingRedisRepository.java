@@ -39,6 +39,8 @@ public class BookingRedisRepository {
 		String key = redisKeyGenerator.generatePendingBookingKey(pendingBooking.getId());
 		customObjectRedisTemplate.opsForValue()
 			.set(key, pendingBooking, pendingBookingExpireTime);
+		// PendingBookingMemberKey는 항상 같이 저장
+		savePendingBookingMemberKey(pendingBooking.getId(), pendingBooking.getMemberNo());
 	}
 
 	public void deletePendingBooking(String pendingBookingId) {
@@ -50,12 +52,6 @@ public class BookingRedisRepository {
 		String key = redisKeyGenerator.generatePendingBookingKey(pendingBookingId);
 		return Optional.ofNullable(customObjectRedisTemplate.opsForValue().get(key))
 			.map(PendingBooking.class::cast);
-	}
-
-	public void savePendingBookingMemberKey(String pendingBookingId, String memberNo) {
-		String key = redisKeyGenerator.generatePendingBookingMemberKey(memberNo, pendingBookingId);
-		customObjectRedisTemplate.opsForValue()
-			.set(key, "1", pendingBookingMemberKeyExpireTime); // 임시 더미값 저장
 	}
 
 	public void deletePendingBookingMemberKey(String memberNo, String pendingBookingId) {
@@ -94,6 +90,12 @@ public class BookingRedisRepository {
 		}
 
 		return memberKeys;
+	}
+
+	private void savePendingBookingMemberKey(String pendingBookingId, String memberNo) {
+		String key = redisKeyGenerator.generatePendingBookingMemberKey(memberNo, pendingBookingId);
+		customObjectRedisTemplate.opsForValue()
+			.set(key, "1", pendingBookingMemberKeyExpireTime); // 임시 더미값 저장
 	}
 }
 

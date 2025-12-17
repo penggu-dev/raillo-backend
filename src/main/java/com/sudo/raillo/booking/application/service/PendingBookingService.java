@@ -67,7 +67,6 @@ public class PendingBookingService {
 
 		// redis 에 저장
 		bookingRedisRepository.savePendingBooking(pendingBooking);
-		bookingRedisRepository.savePendingBookingMemberKey(pendingBooking.getId(), memberNo);
 
 		return pendingBooking;
 	}
