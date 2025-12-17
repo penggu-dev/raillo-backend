@@ -31,7 +31,7 @@ public class BookingValidator {
 	 * 출발역, 도착역이 같은 스케줄을 가지고 있는지 검증
 	 * */
 	public void validateSameSchedule(ScheduleStop departureStop, ScheduleStop arrivalStop) {
-		if (departureStop.getTrainSchedule() != arrivalStop.getTrainSchedule()) {
+		if (!departureStop.getTrainSchedule().getId().equals(arrivalStop.getTrainSchedule().getId())) {
 			throw new BusinessException(TrainErrorCode.INVALID_ROUTE);
 		}
 	}
