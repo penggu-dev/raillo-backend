@@ -81,7 +81,6 @@ class BookingServiceTest {
 	private Member member;
 	private Train train;
 	private TrainScheduleWithStopStations schedule;
-	private List<Long> standardSeatIds;
 
 	@BeforeEach
 	void setup() {
@@ -89,7 +88,6 @@ class BookingServiceTest {
 		this.member = memberRepository.save(member);
 		train = trainTestHelper.createCustomKTX(3, 2);
 		schedule = trainScheduleTestHelper.createSchedule(train);
-		standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 2);
 	}
 
 	@Test
