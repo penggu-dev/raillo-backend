@@ -113,7 +113,7 @@ class TrainSeatQueryServiceTest {
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
 		PendingBookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
-		bookingFacade.createBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
+		bookingFacade.createPendingBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
 
 		// when
 		List<TrainCarInfo> availableTrainCars = trainSeatQueryService.getAvailableTrainCars(
@@ -138,11 +138,11 @@ class TrainSeatQueryServiceTest {
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 2);
 		PendingBookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
-		bookingFacade.createBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
+		bookingFacade.createPendingBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
 
 		List<Long> firstClassSeatIds = trainTestHelper.getSeatIds(train, CarType.FIRST_CLASS, 2);
 		PendingBookingCreateRequest firstClassRequest = getBookingCreateRequest(firstClassSeatIds);
-		bookingFacade.createBooking(firstClassRequest, testMember.getMemberDetail().getMemberNo());
+		bookingFacade.createPendingBooking(firstClassRequest, testMember.getMemberDetail().getMemberNo());
 
 		// when & then
 		assertThatThrownBy(() -> trainSeatQueryService.getAvailableTrainCars(
@@ -194,7 +194,7 @@ class TrainSeatQueryServiceTest {
 		memberRepository.save(testMember);
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
 		PendingBookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
-		bookingFacade.createBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
+		bookingFacade.createPendingBooking(standardRequest, testMember.getMemberDetail().getMemberNo());
 		List<TrainCar> trainCars = trainCarRepository.findByTrainIn(List.of(train));
 		TrainCar trainCar = trainCars.get(0);
 		TrainCarSeatDetailRequest request = new TrainCarSeatDetailRequest(

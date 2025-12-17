@@ -246,7 +246,7 @@ class BookingServiceTest {
 			.departureStop(scheduleBusanToDongDaegu.scheduleStops().get(0))
 			.arrivalStop(scheduleBusanToDongDaegu.scheduleStops().get(1))
 			.build();
-		Booking booking2 = bookingTestHelper.createBooking(member, scheduleDaejeonToSeoul);
+		Booking booking2 = bookingTestHelper.createPendingBooking(member, scheduleDaejeonToSeoul);
 		Booking entity1 = bookingRepository.save(booking1);
 		Booking entity2 = bookingRepository.save(booking2);
 

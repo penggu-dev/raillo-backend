@@ -77,12 +77,12 @@ class BookingFacadeTest {
 
 	/*@Test
 	@DisplayName("예약 관련 정보를 받아 예약을 생성한다.")
-	void createBooking() {
+	void createPendingBooking() {
 		// given
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when
-		var response = bookingFacade.createBooking(request, memberNo);
+		var response = bookingFacade.createPendingBooking(request, memberNo);
 
 		// then
 		Booking savedBooking = bookingRepository.findById(response.bookingId()).orElseThrow();
@@ -99,7 +99,7 @@ class BookingFacadeTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when
-		var response = bookingFacade.createBooking(request, memberNo);
+		var response = bookingFacade.createPendingBooking(request, memberNo);
 
 		// then
 		List<SeatBooking> savedSeatBookings = seatBookingRepository.findByBookingId(response.bookingId());
@@ -119,7 +119,7 @@ class BookingFacadeTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when
-		var response = bookingFacade.createBooking(request, memberNo);
+		var response = bookingFacade.createPendingBooking(request, memberNo);
 
 		// then
 		assertThat(response.seatBookingIds()).containsExactlyElementsOf(standardSeatIds);
@@ -134,7 +134,7 @@ class BookingFacadeTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when & then
-		assertThatThrownBy(() -> bookingFacade.createBooking(request, memberNo))
+		assertThatThrownBy(() -> bookingFacade.createPendingBooking(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.BOOKING_CREATE_SEATS_INVALID.getMessage());
 	}
@@ -147,7 +147,7 @@ class BookingFacadeTest {
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
 
 		// when & then
-		assertThatThrownBy(() -> bookingFacade.createBooking(request, memberNo))
+		assertThatThrownBy(() -> bookingFacade.createPendingBooking(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.SEAT_NOT_FOUND.getMessage());
 	}
@@ -157,10 +157,10 @@ class BookingFacadeTest {
 	void shouldThrowsExceptionWhenSeatAlreadyBooked() {
 		// given
 		var request = createRequest(scheduleWithStops, departureStop, arrivalStop, passengers, standardSeatIds);
-		bookingFacade.createBooking(request, memberNo);
+		bookingFacade.createPendingBooking(request, memberNo);
 
 		// when & then
-		assertThatThrownBy(() -> bookingFacade.createBooking(request, memberNo))
+		assertThatThrownBy(() -> bookingFacade.createPendingBooking(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
 	}
@@ -173,7 +173,7 @@ class BookingFacadeTest {
 		trainScheduleTestHelper.createOrUpdateStationFare("부산", "서울", 50000, 10000);
 
 		// when & then
-		assertThatThrownBy(() -> bookingFacade.createBooking(request, memberNo))
+		assertThatThrownBy(() -> bookingFacade.createPendingBooking(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.TRAIN_NOT_OPERATIONAL.getMessage());
 	}*/

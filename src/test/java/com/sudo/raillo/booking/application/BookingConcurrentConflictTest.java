@@ -89,7 +89,7 @@ public class BookingConcurrentConflictTest {
 		for (int i = 0; i < threadCount; i++) {
 			executorService.submit(() -> {
 				try {
-					bookingFacade.createBooking(request, memberNo);
+					bookingFacade.createPendingBooking(request, memberNo);
 					successCount.getAndIncrement();
 				} catch (BusinessException e) {
 					failCount.getAndIncrement();
@@ -132,9 +132,9 @@ public class BookingConcurrentConflictTest {
 			executorService.submit(() -> {
 				try {
 					if (index % 2 == 0) {
-						bookingFacade.createBooking(oneToThreeRequest, memberNo);
+						bookingFacade.createPendingBooking(oneToThreeRequest, memberNo);
 					} else {
-						bookingFacade.createBooking(twoToFourRequest, memberNo);
+						bookingFacade.createPendingBooking(twoToFourRequest, memberNo);
 					}
 					successCount.getAndIncrement();
 				} catch (BusinessException e) {

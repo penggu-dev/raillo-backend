@@ -30,7 +30,7 @@ public class BookingFacade {
 	private final TicketService ticketService;
 	private final FareCalculationService fareCalculationService;
 
-	public PendingBookingCreateResponse createBooking(PendingBookingCreateRequest request, String memberNo) {
+	public PendingBookingCreateResponse createPendingBooking(PendingBookingCreateRequest request, String memberNo) {
 		CarType carType = pendingBookingService.findCarType(request.seatIds());
 		BigDecimal totalFare = fareCalculationService.calculateFare(
 			request.departureStationId(),

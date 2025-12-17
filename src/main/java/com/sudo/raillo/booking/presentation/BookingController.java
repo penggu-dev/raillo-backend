@@ -43,7 +43,7 @@ public class BookingController implements BookingControllerDoc {
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
 		PendingBookingCreateResponse response = bookingFacade
-			.createBooking(request, userDetails.getUsername());
+			.createPendingBooking(request, userDetails.getUsername());
 		return SuccessResponse.of(BookingSuccess.BOOKING_CREATE_SUCCESS, response);
 	}
 
