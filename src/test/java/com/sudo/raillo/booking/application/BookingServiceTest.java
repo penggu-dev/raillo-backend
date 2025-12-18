@@ -193,7 +193,7 @@ class BookingServiceTest {
 		String memberNo = member.getMemberDetail().getMemberNo();
 
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
 		Booking booking = bookingTestHelper.createBooking(member, schedule);
 		Booking entity = bookingRepository.save(booking);
 
@@ -216,7 +216,7 @@ class BookingServiceTest {
 		String memberNo = member.getMemberDetail().getMemberNo();
 
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
 		Booking booking = bookingTestHelper.createBooking(member, schedule);
 		bookingRepository.save(booking);
 
@@ -260,7 +260,7 @@ class BookingServiceTest {
 		String memberNo = member.getMemberDetail().getMemberNo();
 
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleBusanToDongDaegu = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleWithStopStations scheduleBusanToDongDaegu = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("커스텀 노선 - 부산에서 동대구")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -268,7 +268,7 @@ class BookingServiceTest {
 			.addStop("동대구", LocalTime.of(8, 0), null)
 			.build();
 
-		TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleDaejeonToSeoul = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleWithStopStations scheduleDaejeonToSeoul = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("커스텀 노선 - 대전에서 서울")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -311,7 +311,7 @@ class BookingServiceTest {
 		String memberNo = member.getMemberDetail().getMemberNo();
 
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleBusanToDongDaegu = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleWithStopStations scheduleBusanToDongDaegu = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("커스텀 노선 - 부산에서 동대구")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -319,7 +319,7 @@ class BookingServiceTest {
 			.addStop("동대구", LocalTime.of(8, 0), null)
 			.build();
 
-		TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleDaejeonToSeoul = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleWithStopStations scheduleDaejeonToSeoul = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("커스텀 노선 - 대전에서 서울")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -364,7 +364,7 @@ class BookingServiceTest {
 	void validRequestDto_deleteBooking_success() {
 		// given
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
 		Booking booking = bookingTestHelper.createBooking(member, schedule);
 		Booking entity = bookingRepository.save(booking);
 		BookingDeleteRequest request = new BookingDeleteRequest(entity.getId());
@@ -382,7 +382,7 @@ class BookingServiceTest {
 	void bookingAndSeatAndPassengerType_reserveNewSeat_success() {
 		// given
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
 		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
 		Seat seat = trainTestHelper.getSeats(train, CarType.STANDARD, 1).get(0);
 
@@ -400,7 +400,7 @@ class BookingServiceTest {
 		// given
 		Train train = trainTestHelper.createKTX();
 		TrainSchedule trainSchedule = trainScheduleTestHelper.createSchedule(train).trainSchedule();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
 		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
@@ -435,7 +435,7 @@ class BookingServiceTest {
 		// given
 		Train train = trainTestHelper.createKTX();
 		TrainSchedule trainSchedule = trainScheduleTestHelper.createSchedule(train).trainSchedule();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
 		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
