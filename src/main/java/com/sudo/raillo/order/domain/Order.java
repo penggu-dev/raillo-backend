@@ -81,6 +81,11 @@ public class Order extends BaseEntity {
 		this.expiredAt = LocalDateTime.now();
 	}
 
+	public void validateCompleted() {
+		validateNotExpired();
+		validateIsOrdered();
+	}
+
 	private static void validateTotalAmount(BigDecimal totalAmount) {
 		if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
 			throw new DomainException(OrderError.INVALID_TOTAL_AMOUNT);
@@ -92,4 +97,18 @@ public class Order extends BaseEntity {
 			throw new DomainException(OrderError.NOT_PENDING);
 		}
 	}
+
+	private void validateIsOrdered() {
+		if (this.orderStatus != OrderStatus.ORDERED) {
+			throw new DomainException(OrderError.NOT_ORDERED);
+		}
+	}
+
+	private void validateNotExpired() {
+		if(this.orderStatus == OrderStatus.EXPIRED) {
+			throw new DomainException(OrderError.ORDER_IS_EXPIRED);
+		}
+	}
+
+
 }

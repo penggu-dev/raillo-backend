@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
-import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -73,4 +72,5 @@ public class BookingValidator {
 			throw new BusinessException(BookingError.BOOKING_CREATE_SEATS_INVALID);
 		}
 	}
+
 }

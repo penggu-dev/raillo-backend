@@ -24,6 +24,7 @@ public enum TrainErrorCode implements ErrorCode {
 	SEAT_ALREADY_EXISTED("이미 예약된 좌석입니다.", HttpStatus.CONFLICT, "T4102"),
 	INSUFFICIENT_SEATS("요청한 승객 수만큼 좌석이 부족합니다.", HttpStatus.BAD_REQUEST, "T4103"),
 	TRAIN_SOLD_OUT("해당 열차는 완전 매진되었습니다.", HttpStatus.BAD_REQUEST, "T4105"),
+	SEAT_NOT_FOUND("좌석을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "T4106"),
 
 	// 역 및 구간 관련
 	STATION_NOT_FOUND("존재하지 않는 역입니다.", HttpStatus.NOT_FOUND, "T4201"),

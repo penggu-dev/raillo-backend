@@ -30,8 +30,6 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@Builder
-@AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
 	name = "seat_booking",
@@ -66,5 +64,19 @@ public class SeatBooking extends BaseEntity {
 	@Column(name = "passenger_type", nullable = false)
 	@Comment("승객 유형")
 	private PassengerType passengerType;
+
+	public static SeatBooking create(
+		TrainSchedule trainSchedule,
+		Seat seat,
+		Booking booking,
+		PassengerType passengerType
+	) {
+		SeatBooking seatBooking = new SeatBooking();
+		seatBooking.trainSchedule = trainSchedule;
+		seatBooking.seat = seat;
+		seatBooking.booking = booking;
+		seatBooking.passengerType = passengerType;
+		return seatBooking;
+	}
 
 }

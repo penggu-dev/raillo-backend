@@ -96,12 +96,12 @@ public class BookingTestHelper {
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
 
 		List<SeatBooking> seatBookings = seats.stream()
-			.map(seat -> SeatBooking.builder()
-				.trainSchedule(booking.getTrainSchedule())
-				.seat(seat)
-				.booking(booking)
-				.passengerType(PassengerType.ADULT)
-				.build())
+			.map(seat -> SeatBooking.create(
+				booking.getTrainSchedule(),
+				seat,
+				booking,
+				PassengerType.ADULT
+			))
 			.toList();
 
 		seatBookingRepository.saveAll(seatBookings);
@@ -114,12 +114,12 @@ public class BookingTestHelper {
 		List<Seat> seats = trainTestHelper.getSeatsByIds(seatIds);
 
 		List<SeatBooking> seatBookings = seats.stream()
-			.map(seat -> SeatBooking.builder()
-				.trainSchedule(booking.getTrainSchedule())
-				.seat(seat)
-				.booking(booking)
-				.passengerType(passengerType)
-				.build())
+			.map(seat -> SeatBooking.create(
+				booking.getTrainSchedule(),
+				seat,
+				booking,
+				passengerType
+			))
 			.toList();
 
 		seatBookingRepository.saveAll(seatBookings);

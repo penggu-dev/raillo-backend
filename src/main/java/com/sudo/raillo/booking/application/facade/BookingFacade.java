@@ -5,7 +5,6 @@ import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResp
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.application.service.FareCalculationService;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
-import com.sudo.raillo.booking.application.service.SeatBookingService;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.PendingBooking;
@@ -26,7 +25,6 @@ public class BookingFacade {
 
 	private final BookingService bookingService;
 	private final PendingBookingService pendingBookingService;
-	private final SeatBookingService seatBookingService;
 	private final TicketService ticketService;
 	private final FareCalculationService fareCalculationService;
 
@@ -48,7 +46,7 @@ public class BookingFacade {
 
 	public void cancelBooking(Booking booking) {
 		Long bookingId = booking.getId();
-		seatBookingService.deleteSeatBookingByBookingId(bookingId);
+		bookingService.deleteSeatBookingByBookingId(bookingId);
 		ticketService.deleteTicketByBookingId(bookingId);
 	}
 

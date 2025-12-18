@@ -7,8 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.service.PendingBookingService;
-import com.sudo.raillo.booking.application.service.SeatBookingService;
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberService;
 import com.sudo.raillo.member.domain.Member;
@@ -38,7 +38,7 @@ public class PaymentFacade {
 	private final OrderService orderService;
 	private final MemberService memberService;
 	private final PendingBookingService pendingBookingService;
-	private final SeatBookingService seatBookingService;
+	private final BookingService bookingService;
 	private final TossPaymentClient tossPaymentClient;
 
 	/**
