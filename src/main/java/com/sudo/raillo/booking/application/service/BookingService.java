@@ -179,7 +179,7 @@ public class BookingService {
 	}
 
 	/**
-	 * 확정 예약과 연관된 확정 좌석 예약을 모두 삭제하는 메서드
+	 * 확정 예약과 연관된 확정 좌석 예약을 삭제하는 메서드
 	 * @param seatBookingId 삭제할 확정 좌석 예약의 ID
 	 */
 	public void deleteSeatBooking(Long seatBookingId) {
