@@ -5,7 +5,6 @@ import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.mapper.BookingMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Booking;
-import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -49,7 +48,6 @@ public class BookingService {
 	private final MemberRepository memberRepository;
 	private final BookingRepository bookingRepository;
 	private final BookingQueryRepository bookingQueryRepository;
-	private final BookingRedisRepository bookingRedisRepository;
 	private final OrderBookingRepository orderBookingRepository;
 	private final OrderSeatBookingRepository orderSeatBookingRepository;
 	private final SeatRepository seatRepository;
