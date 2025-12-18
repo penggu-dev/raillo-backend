@@ -5,8 +5,10 @@ import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateReque
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.mapper.BookingMapper;
 import com.sudo.raillo.booking.domain.Booking;
+import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingQueryRepository;
+import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -20,10 +22,15 @@ import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
 import java.util.List;
+import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -34,6 +41,7 @@ public class BookingService {
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final BookingRepository bookingRepository;
 	private final BookingQueryRepository bookingQueryRepository;
+	private final BookingRedisRepository bookingRedisRepository;
 	private final BookingMapper bookingMapper;
 
 	/**
