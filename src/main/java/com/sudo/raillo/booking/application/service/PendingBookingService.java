@@ -2,9 +2,11 @@ package com.sudo.raillo.booking.application.service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
@@ -23,7 +25,9 @@ import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PendingBookingService {
@@ -73,6 +77,33 @@ public class PendingBookingService {
 		return pendingBooking;
 	}
 
+
+	/**
+	 * 여러 PendingBooking 한 번에 조회 및 검증
+	 * - 모든 예약이 Redis에 존재해야 함
+	 */
+	@Transactional(readOnly = true)
+	public List<PendingBooking> getPendingBookings(List<String> pendingBookingIds) {
+		Map<String, PendingBooking> bookingsById = bookingRedisRepository.getPendingBookingsAsMap(pendingBookingIds);
+
+		validateAllPendingBookingsExist(pendingBookingIds, bookingsById);
+
+		return pendingBookingIds.stream()
+			.map(bookingsById::get)
+			.toList();
+	}
+
+	private static void validateAllPendingBookingsExist(List<String> pendingBookingIds, Map<String, PendingBooking> bookingsById) {
+		List<String> notFoundIds = pendingBookingIds.stream()
+			.filter(id -> !bookingsById.containsKey(id))
+			.toList();
+
+		if (!notFoundIds.isEmpty()) {
+			log.warn("[임시 예약 찾지 못함] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
+			throw new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
+		}
+	}
+
 	// TODO: 객차 타입 검증 위치 조정 필요
 
 	/**
@@ -112,5 +143,14 @@ public class PendingBookingService {
 	private TrainSchedule getTrainSchedule(Long trainScheduleId) {
 		return trainScheduleRepository.findById(trainScheduleId)
 			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
+	}
+
+
+	public void validatePendingBookingOwner(PendingBooking pendingBooking, String memberNo) {
+		if (!pendingBooking.getMemberNo().equals(memberNo)) {
+			log.error("[임시 예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
+				pendingBooking.getMemberNo(), memberNo);
+			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
+		}
 	}
 }

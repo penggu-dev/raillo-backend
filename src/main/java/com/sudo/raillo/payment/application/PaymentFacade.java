@@ -6,7 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sudo.raillo.booking.application.service.BookingService;
+import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.application.service.SeatBookingService;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -37,7 +37,7 @@ public class PaymentFacade {
 	private final PaymentService paymentService;
 	private final OrderService orderService;
 	private final MemberService memberService;
-	private final BookingService bookingService;
+	private final PendingBookingService pendingBookingService;
 	private final SeatBookingService seatBookingService;
 	private final TossPaymentClient tossPaymentClient;
 
@@ -52,12 +52,12 @@ public class PaymentFacade {
 	 */
 	public PaymentPrepareResponse preparePayment(PaymentPrepareRequest request, String memberNo) {
 		// 1. PendingBooking 목록 조회 및 검증 (존재하지 않으면 예외 발생)
-		List<PendingBooking> pendingBookings = bookingService.getPendingBookings(request.pendingBookingIds());
+		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(request.pendingBookingIds());
 
 		// 2. Member 조회 및 모든 PendingBooking 소유자 검증
 		Member member = memberService.getMemberByMemberNo(memberNo);
 		pendingBookings.forEach(pendingBooking ->
-			bookingService.validatePendingBookingOwner(pendingBooking, memberNo)
+			pendingBookingService.validatePendingBookingOwner(pendingBooking, memberNo)
 		);
 
 		// 3. Order 생성

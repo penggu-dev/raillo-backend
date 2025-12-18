@@ -102,44 +102,6 @@ public class BookingService {
 	}
 
 	/**
-	 * PendingBooking 조회
-	 */
-	@Transactional(readOnly = true)
-	public PendingBooking getPendingBooking(String pendingBookingId) {
-		return bookingRedisRepository.getPendingBooking(pendingBookingId)
-			.orElseThrow(() -> {
-				log.info("[임시 예약 조회 실패] pendingBookingId={}", pendingBookingId);
-				return new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
-			});
-	}
-
-	/**
-	 * 여러 PendingBooking 한 번에 조회 및 검증
-	 * - 모든 예약이 Redis에 존재해야 함
-	 */
-	@Transactional(readOnly = true)
-	public List<PendingBooking> getPendingBookings(List<String> pendingBookingIds) {
-		Map<String, PendingBooking> bookingsById = bookingRedisRepository.getPendingBookingsAsMap(pendingBookingIds);
-
-		validateAllPendingBookingsExist(pendingBookingIds, bookingsById);
-
-		return pendingBookingIds.stream()
-			.map(bookingsById::get)
-			.toList();
-	}
-
-	private static void validateAllPendingBookingsExist(List<String> pendingBookingIds, Map<String, PendingBooking> bookingsById) {
-		List<String> notFoundIds = pendingBookingIds.stream()
-			.filter(id -> !bookingsById.containsKey(id))
-			.toList();
-
-		if (!notFoundIds.isEmpty()) {
-			log.warn("[임시 예약 찾지 못함] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
-			throw new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
-		}
-	}
-
-	/**
 	 * 특정 예약을 삭제하는 메서드
 	 * @param bookingId 삭제할 예약의 ID
 	 */
@@ -170,14 +132,6 @@ public class BookingService {
 	private static void validateTrainOperating(TrainSchedule trainSchedule) {
 		if (trainSchedule.getOperationStatus() == OperationStatus.CANCELLED) {
 			throw new BusinessException(TrainErrorCode.TRAIN_OPERATION_CANCELLED);
-		}
-	}
-
-	public void validatePendingBookingOwner(PendingBooking pendingBooking, String memberNo) {
-		if (!pendingBooking.getMemberNo().equals(memberNo)) {
-			log.error("[임시 예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
-				pendingBooking.getMemberNo(), memberNo);
-			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
 		}
 	}
 }

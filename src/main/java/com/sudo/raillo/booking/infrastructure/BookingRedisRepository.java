@@ -75,12 +75,6 @@ public class BookingRedisRepository {
 			.collect(Collectors.toMap(pendingBookingIds::get, i -> (PendingBooking)results.get(i)));
 	}
 
-	public void savePendingBookingMemberKey(String pendingBookingId, String memberNo) {
-		String key = redisKeyGenerator.generatePendingBookingMemberKey(memberNo, pendingBookingId);
-		customObjectRedisTemplate.opsForValue()
-			.set(key, "1", pendingBookingMemberKeyExpireTime); // 임시 더미값 저장
-	}
-
 	public void deletePendingBookingMemberKey(String memberNo, String pendingBookingId) {
 		String key = redisKeyGenerator.generatePendingBookingMemberKey(memberNo, pendingBookingId);
 		customObjectRedisTemplate.delete(key);
