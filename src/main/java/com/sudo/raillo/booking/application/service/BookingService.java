@@ -29,6 +29,7 @@ import com.sudo.raillo.train.infrastructure.SeatRepository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import jakarta.persistence.OptimisticLockException;
@@ -79,14 +80,18 @@ public class BookingService {
 		// 3. OrderSeatBooking seatId로 좌석 조회
 		List<Seat> seats = getSeats(
 			orderSeatBookings.stream()
-			.map(OrderSeatBooking::getSeatId)
-			.toList()
+				.map(OrderSeatBooking::getSeatId)
+				.toList()
 		);
+
+		// Seat List -> Map 변환
+		Map<Long, Seat> seatMap = seats.stream()
+			.collect(Collectors.toMap(Seat::getId, Function.identity()));
 
 		// 4. Booking, SeatBooking 생성
 		orderBookings.forEach(orderBooking -> {
 			List<OrderSeatBooking> relatedSeatBookings = seatBookingMap.get(orderBooking.getId());
-			createBooking(order.getMember(), orderBooking, relatedSeatBookings, seats);
+			createBooking(order.getMember(), orderBooking, relatedSeatBookings, seatMap);
 		});
 
 		log.info("[주문에 대한 확정 예약 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());
@@ -201,7 +206,7 @@ public class BookingService {
 		Member member,
 		OrderBooking orderBooking,
 		List<OrderSeatBooking> orderSeatBookings,
-		List<Seat> seats
+		Map<Long, Seat> seatMap
 	) {
 		Booking booking = Booking.create(
 			member,
@@ -211,14 +216,18 @@ public class BookingService {
 		);
 		bookingRepository.save(booking);
 
-		orderSeatBookings.forEach(orderSeatBooking -> createSeatBooking(booking, orderSeatBooking, seats));
+		orderSeatBookings.forEach(orderSeatBooking -> createSeatBooking(booking, orderSeatBooking, seatMap));
 	}
 
-	private void createSeatBooking(Booking booking, OrderSeatBooking orderSeatBooking, List<Seat> seats) {
-		Seat seat = seats.stream()
-			.filter(s -> s.getId().equals(orderSeatBooking.getSeatId()))
-			.findFirst()
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.SEAT_NOT_FOUND));
+	private void createSeatBooking(
+		Booking booking,
+		OrderSeatBooking orderSeatBooking,
+		Map<Long, Seat> seatMap
+	) {
+		Seat seat = seatMap.get(orderSeatBooking.getSeatId());
+		if(seat == null) {
+			throw new BusinessException(TrainErrorCode.SEAT_NOT_FOUND);
+		}
 
 		SeatBooking seatBooking = SeatBooking.create(
 			booking.getTrainSchedule(),
