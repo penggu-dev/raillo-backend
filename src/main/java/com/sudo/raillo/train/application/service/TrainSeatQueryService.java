@@ -7,8 +7,10 @@ import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.response.SeatDetail;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
 import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse;
+import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.SeatQueryRepository;
+import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainCarQueryRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class TrainSeatQueryService {
 
 	private final TrainCarQueryRepository trainCarQueryRepository;
 	private final SeatQueryRepository seatQueryRepository;
+	private final SeatRepository seatRepository;
 
 	/**
 	 * 열차 객차 목록 조회 (잔여 좌석이 있는 객차만)
@@ -71,6 +74,15 @@ public class TrainSeatQueryService {
 			seatDetails
 		);
 	}
+
+	/**
+	 * 좌석 ID 목록에 해당하는 객차 타입 조회
+	 * @return 중복 제거된 객차 타입 목록
+	 */
+	public List<CarType> getCarTypes(List<Long> seatIds) {
+		return seatRepository.findCarTypes(seatIds);
+	}
+
 	// ===== Private Helper Methods =====
 
 	/**
