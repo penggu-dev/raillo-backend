@@ -1,13 +1,5 @@
 package com.sudo.raillo.booking.application.service;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.IntStream;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
@@ -18,14 +10,17 @@ import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
-import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
-
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -35,7 +30,6 @@ public class PendingBookingService {
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final BookingRedisRepository bookingRedisRepository;
-	private final SeatRepository seatRepository;
 	private final BookingValidator bookingValidator;
 
 	/**
@@ -77,7 +71,6 @@ public class PendingBookingService {
 		return pendingBooking;
 	}
 
-
 	/**
 	 * 여러 PendingBooking 한 번에 조회 및 검증
 	 * - 모든 예약이 Redis에 존재해야 함
@@ -93,7 +86,15 @@ public class PendingBookingService {
 			.toList();
 	}
 
-	private static void validateAllPendingBookingsExist(List<String> pendingBookingIds, Map<String, PendingBooking> bookingsById) {
+	public void validatePendingBookingOwner(PendingBooking pendingBooking, String memberNo) {
+		if (!pendingBooking.getMemberNo().equals(memberNo)) {
+			log.error("[임시 예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
+				pendingBooking.getMemberNo(), memberNo);
+			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
+		}
+	}
+
+	private void validateAllPendingBookingsExist(List<String> pendingBookingIds, Map<String, PendingBooking> bookingsById) {
 		List<String> notFoundIds = pendingBookingIds.stream()
 			.filter(id -> !bookingsById.containsKey(id))
 			.toList();
@@ -102,28 +103,6 @@ public class PendingBookingService {
 			log.warn("[임시 예약 찾지 못함] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
 			throw new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
 		}
-	}
-
-	// TODO: 객차 타입 검증 위치 조정 필요
-
-	/**
-	 * 객차 타입 조회
-	 */
-	public CarType findCarType(List<Long> seatIds) {
-		if (seatIds.isEmpty()) {
-			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
-		}
-
-		List<CarType> carTypes = seatRepository.findCarTypes(seatIds);
-
-		if (carTypes.isEmpty()) {
-			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
-		}
-
-		if (carTypes.size() != 1) {
-			throw new BusinessException(BookingError.INVALID_CAR_TYPE);
-		}
-		return carTypes.get(0);
 	}
 
 	private List<PendingSeatBooking> createPendingSeatBookings(
@@ -143,14 +122,5 @@ public class PendingBookingService {
 	private TrainSchedule getTrainSchedule(Long trainScheduleId) {
 		return trainScheduleRepository.findById(trainScheduleId)
 			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
-	}
-
-
-	public void validatePendingBookingOwner(PendingBooking pendingBooking, String memberNo) {
-		if (!pendingBooking.getMemberNo().equals(memberNo)) {
-			log.error("[임시 예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
-				pendingBooking.getMemberNo(), memberNo);
-			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
-		}
 	}
 }
