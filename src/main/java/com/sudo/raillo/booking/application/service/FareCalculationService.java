@@ -1,21 +1,16 @@
 package com.sudo.raillo.booking.application.service;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.IntStream;
-
-import org.springframework.stereotype.Service;
-
-import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
-
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -41,7 +36,7 @@ public class FareCalculationService {
 	 * @param carType 객차 타입
 	 * @return 할인이 적용 된 총 운임
 	 */
-	public BigDecimal calculateFare(
+	public BigDecimal calculateTotalFare(
 		Long departureStationId,
 		Long arrivalStationId,
 		List<PassengerType> passengerTypes,
@@ -49,10 +44,10 @@ public class FareCalculationService {
 	) {
 		// 요금 정보 조회
 		StationFare stationFare = findStationFare(departureStationId, arrivalStationId);
-
 		BigDecimal fare = getFareByCarType(stationFare, carType);
 
-		return passengerTypes.stream().map(passengerType -> fare.multiply(DISCOUNT_RATES.get(passengerType)))
+		return passengerTypes.stream()
+			.map(passengerType -> fare.multiply(DISCOUNT_RATES.get(passengerType)))
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
