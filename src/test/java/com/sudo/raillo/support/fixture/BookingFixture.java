@@ -1,5 +1,9 @@
 package com.sudo.raillo.support.fixture;
 
+import com.sudo.raillo.support.fixture.train.ScheduleStopFixture;
+import com.sudo.raillo.support.fixture.train.StationFixture;
+import com.sudo.raillo.support.fixture.train.TrainFixture;
+import com.sudo.raillo.support.fixture.train.TrainScheduleFixture;
 import java.time.LocalDate;
 import java.time.LocalTime;
 

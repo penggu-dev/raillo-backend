@@ -1,8 +1,8 @@
 package com.sudo.raillo.support.helper;
 
-import com.sudo.raillo.support.fixture.SeatFixture;
-import com.sudo.raillo.support.fixture.TrainCarFixture;
-import com.sudo.raillo.support.fixture.TrainFixture;
+import com.sudo.raillo.support.fixture.train.SeatFixture;
+import com.sudo.raillo.support.fixture.train.TrainCarFixture;
+import com.sudo.raillo.support.fixture.train.TrainFixture;
 import com.sudo.raillo.support.repository.TestSeatRepository;
 import com.sudo.raillo.support.repository.TrainRepository;
 import com.sudo.raillo.train.config.TrainTemplateProperties.CarSpec;

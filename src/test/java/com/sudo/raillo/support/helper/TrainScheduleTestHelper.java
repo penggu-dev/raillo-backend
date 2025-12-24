@@ -10,10 +10,10 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sudo.raillo.support.fixture.ScheduleStopFixture;
-import com.sudo.raillo.support.fixture.StationFareFixture;
-import com.sudo.raillo.support.fixture.StationFixture;
-import com.sudo.raillo.support.fixture.TrainScheduleFixture;
+import com.sudo.raillo.support.fixture.train.ScheduleStopFixture;
+import com.sudo.raillo.support.fixture.train.StationFareFixture;
+import com.sudo.raillo.support.fixture.train.StationFixture;
+import com.sudo.raillo.support.fixture.train.TrainScheduleFixture;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.StationFare;

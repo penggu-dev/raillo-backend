@@ -4,6 +4,7 @@ import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
+import com.sudo.raillo.support.fixture.train.SeatFixture;
 import com.sudo.raillo.train.domain.Seat;
 
 import com.sudo.raillo.train.domain.type.SeatType;
