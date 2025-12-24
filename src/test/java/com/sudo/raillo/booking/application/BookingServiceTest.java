@@ -84,7 +84,7 @@ class BookingServiceTest {
 
 	@BeforeEach
 	void setup() {
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		this.member = memberRepository.save(member);
 		train = trainTestHelper.createCustomKTX(3, 2);
 		schedule = trainScheduleTestHelper.createSchedule(train);

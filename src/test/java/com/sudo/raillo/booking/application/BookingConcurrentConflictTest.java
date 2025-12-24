@@ -1,25 +1,8 @@
 package com.sudo.raillo.booking.application;
 
-import static org.assertj.core.api.Assertions.*;
-
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.facade.BookingFacade;
-import com.sudo.raillo.booking.domain.type.PassengerSummary;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
@@ -29,6 +12,13 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 public class BookingConcurrentConflictTest {
@@ -65,7 +55,7 @@ public class BookingConcurrentConflictTest {
 			.addStop("4", LocalTime.of(11, 30), null)
 			.build();
 
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 		memberNo = member.getMemberDetail().getMemberNo();
 		passengerTypes = List.of(PassengerType.ADULT);

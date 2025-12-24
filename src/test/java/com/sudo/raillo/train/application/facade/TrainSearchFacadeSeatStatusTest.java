@@ -113,7 +113,7 @@ public class TrainSearchFacadeSeatStatusTest {
 		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 80000);
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
-		Member member = memberRepository.save(MemberFixture.createStandardMember());
+		Member member = memberRepository.save(MemberFixture.create());
 
 		Train train = trainTestHelper.createRealisticTrain(
 			scenario.standardCars, scenario.firstClassCars,

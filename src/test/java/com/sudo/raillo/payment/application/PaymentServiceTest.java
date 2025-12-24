@@ -34,7 +34,7 @@ class PaymentServiceTest {
 //
 // 	@BeforeEach
 // 	void beforeEach() {
-// 		member = MemberFixture.createStandardMember();
+// 		member = MemberFixture.create();
 // 		memberRepository.save(member);
 //
 // 		Train train = trainTestHelper.createKTX();

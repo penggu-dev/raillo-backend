@@ -124,7 +124,7 @@ class MemberServiceTest {
 	@DisplayName("회원의 정보 조회에 성공한다.")
 	void getMemberInfo_success() {
 		//given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 
 		String memberNo = "202507300001";
@@ -161,7 +161,7 @@ class MemberServiceTest {
 	@DisplayName("회원 이메일 조회에 성공한다.")
 	void getMemberEmail_success() {
 		//given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 
 		String memberNo = "202507300001";
@@ -187,7 +187,7 @@ class MemberServiceTest {
 	}
 
 	private Member createMemberWithEncryptedPassword() {
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		String plainPwd = member.getPassword();
 		String encodedPwd = passwordEncoder.encode(plainPwd);
 

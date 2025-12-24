@@ -58,7 +58,7 @@ class TicketServiceTest {
 
 	@BeforeEach
 	void setup() {
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
@@ -104,7 +104,7 @@ class TicketServiceTest {
 			.passengerType(passengerType2)
 			.build();
 		ticketRepository.save(ticket2);
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 
 		// when
 		List<TicketReadResponse> result = ticketService.getMyTickets(member.getMemberDetail().getMemberNo());

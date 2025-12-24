@@ -52,7 +52,7 @@ class CartServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberNo = member.getMemberDetail().getMemberNo();
 		memberRepository.save(member);
 
@@ -79,7 +79,7 @@ class CartServiceTest {
 	@DisplayName("자신의 예약이 아니라면 예외가 발생한다")
 	void createCart_accessDenied_throwsException() {
 		// given
-		Member otherMember = MemberFixture.createOtherMember();
+		Member otherMember = MemberFixture.createOther();
 		String otherMemberNo = otherMember.getMemberDetail().getMemberNo();
 		memberRepository.save(otherMember);
 

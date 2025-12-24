@@ -126,7 +126,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 		ScheduleStop daeguStop = trainScheduleTestHelper.getScheduleStopByStationName(schedule, "대구");
 		ScheduleStop busanStop = trainScheduleTestHelper.getScheduleStopByStationName(schedule, "부산");
 
-		Member member = memberRepository.save(MemberFixture.createStandardMember());
+		Member member = memberRepository.save(MemberFixture.create());
 
 		// 예약 생성
 		String[] segments = s.existingBookingRoute().split("\\+");

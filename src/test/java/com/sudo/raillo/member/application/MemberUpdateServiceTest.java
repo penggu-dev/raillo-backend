@@ -69,7 +69,7 @@ class MemberUpdateServiceTest {
 		greenMail.start();
 		mailSender.setPort(greenMail.getSmtp().getPort());
 
-		member = MemberFixture.createStandardMember();
+		member = MemberFixture.create();
 		String plainPwd = member.getPassword();
 		String encodedPwd = passwordEncoder.encode(plainPwd);
 

@@ -62,7 +62,7 @@ class OrderServiceTest {
 	@DisplayName("주문 코드로 주문 조회에 성공한다")
 	void getOrderByCreateOrderCode_success() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 		Order order = Order.create(member, BigDecimal.ZERO);
 		Order savedOrder = orderRepository.save(order);
@@ -91,10 +91,10 @@ class OrderServiceTest {
 	@DisplayName("주문 소유자가 일치하지 않으면 예외가 발생한다")
 	void validateCreateOrderOwner_fail_when_owner_mismatch() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 
-		Member otherMember = MemberFixture.createOtherMember();
+		Member otherMember = MemberFixture.createOther();
 		memberRepository.save(otherMember);
 
 		Order order = Order.create(member, BigDecimal.valueOf(50000));
@@ -110,7 +110,7 @@ class OrderServiceTest {
 	@DisplayName("주문 소유자가 일치하면 예외가 발생하지 않는다")
 	void validateCreateOrderOwner_success() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 		Order order = Order.create(member, BigDecimal.valueOf(50000));
 		orderRepository.save(order);
@@ -124,7 +124,7 @@ class OrderServiceTest {
 	@DisplayName("주문 생성에 성공한다")
 	void createOrder_success() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 		String memberNo = member.getMemberDetail().getMemberNo();
 		Train train = trainTestHelper.createKTX();
@@ -186,7 +186,7 @@ class OrderServiceTest {
 	@DisplayName("여러 개의 PendingBooking으로 주문 생성에 성공한다")
 	void createOrder_success_with_multiple_pending_bookings() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 		String memberNo = member.getMemberDetail().getMemberNo();
 		Train train = trainTestHelper.createKTX();
@@ -269,7 +269,7 @@ class OrderServiceTest {
 	@DisplayName("빈 예약 리스트로 주문 생성 시 예외가 발생한다")
 	void createOrder_fail_when_pending_bookings_empty() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 		String memberNo = member.getMemberDetail().getMemberNo();
 

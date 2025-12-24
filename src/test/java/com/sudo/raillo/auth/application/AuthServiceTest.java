@@ -84,7 +84,7 @@ class AuthServiceTest {
 	@DisplayName("중복된 이메일로 회원가입 시도 시 실패한다.")
 	void signUp_fail() {
 		//given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 
 		SignUpRequest request = new SignUpRequest("김이름", "01012341234", "testPwd", "test@example.com", "1990-01-01",
@@ -188,7 +188,7 @@ class AuthServiceTest {
 	@DisplayName("저장된 리프레시 토큰과 일치하지 않을 경우 액세스 토큰 재발급에 실패한다.")
 	void reissueAccessToken_fail() {
 		//given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 
 		// refreshToken 이 일치하지 않도록 테스트 인증 객체 따로 생성 후 토큰 생성
@@ -211,7 +211,7 @@ class AuthServiceTest {
 	}
 
 	private Member createMemberWithEncryptedPassword() {
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		String plainPwd = member.getPassword();
 		String encodedPwd = passwordEncoder.encode(plainPwd);
 

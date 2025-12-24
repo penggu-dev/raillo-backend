@@ -108,7 +108,7 @@ class TrainSeatQueryServiceTest {
 	@DisplayName("예약된 좌석이 있으면 해당 좌석은 조회 되지 않는다")
 	void shouldExcludeBookedSeatsFromAvailableCount() {
 		/*// given
-		Member testMember = MemberFixture.createStandardMember();
+		Member testMember = MemberFixture.create();
 		memberRepository.save(testMember);
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
@@ -133,7 +133,7 @@ class TrainSeatQueryServiceTest {
 	@DisplayName("잔여 좌석이 없으면 조회 되지 않는다")
 	void shouldThrowExceptionWhenNoAvailableSeats() {
 		/*// given
-		Member testMember = MemberFixture.createStandardMember();
+		Member testMember = MemberFixture.create();
 		memberRepository.save(testMember);
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 2);
@@ -190,7 +190,7 @@ class TrainSeatQueryServiceTest {
 	@DisplayName("예약된 좌석은 조회시 사용 불가능한 상태로 조회된다.")
 	void shouldBookedSeatsAsUnavailable() {
 		/*// given
-		Member testMember = MemberFixture.createStandardMember();
+		Member testMember = MemberFixture.create();
 		memberRepository.save(testMember);
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
 		PendingBookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
