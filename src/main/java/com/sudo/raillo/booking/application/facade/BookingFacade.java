@@ -5,11 +5,9 @@ import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.member.domain.Member;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
