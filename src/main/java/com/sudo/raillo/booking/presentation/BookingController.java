@@ -21,7 +21,7 @@ import com.sudo.raillo.global.success.SuccessResponse;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/booking")
+@RequestMapping("/api/v1/bookings")
 @RequiredArgsConstructor
 public class BookingController implements BookingControllerDoc {
 
