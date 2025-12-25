@@ -7,6 +7,7 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.helper.ScheduleWithStops;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.ScheduleStop;
@@ -37,7 +38,7 @@ public class BookingConcurrentConflictTest {
 	@Autowired
 	private BookingFacade bookingFacade;
 
-	private TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleWithStops;
+	private ScheduleWithStops scheduleWithStops;
 	private String memberNo;
 	private List<PassengerType> passengerTypes;
 	private List<Long> standardSeatIds;
@@ -143,7 +144,7 @@ public class BookingConcurrentConflictTest {
 	}
 
 	private static PendingBookingCreateRequest createRequest(
-		TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleWithStops,
+		ScheduleWithStops scheduleWithStops,
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop,
 		List<PassengerType> passengerTypes,

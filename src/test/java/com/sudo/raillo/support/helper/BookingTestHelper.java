@@ -1,7 +1,5 @@
 package com.sudo.raillo.support.helper;
 
-import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithStopStations;
-
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -29,7 +27,7 @@ public class BookingTestHelper {
 	/**
 	 * 예약 생성 메서드 (좌석 생성 X)
 	 */
-	public Booking createOnlyBooking(Member member, TrainScheduleWithStopStations scheduleWithStops) {
+	public Booking createOnlyBooking(Member member, ScheduleWithStops scheduleWithStops) {
 		Booking booking = Booking.create(
 			member,
 			scheduleWithStops.trainSchedule(),
@@ -44,7 +42,7 @@ public class BookingTestHelper {
 	/**
 	 * 기본 예약 생성 메서드
 	 */
-	public Booking createBooking(Member member, TrainScheduleWithStopStations scheduleWithStops) {
+	public Booking createBooking(Member member, ScheduleWithStops scheduleWithStops) {
 		Booking booking = Booking.create(
 			member,
 			scheduleWithStops.trainSchedule(),
@@ -70,7 +68,7 @@ public class BookingTestHelper {
 	 */
 	public Booking createBookingWithSeatIds(
 		Member member,
-		TrainScheduleWithStopStations scheduleWithStops,
+		ScheduleWithStops scheduleWithStops,
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop,
 		List<Long> seatIds,

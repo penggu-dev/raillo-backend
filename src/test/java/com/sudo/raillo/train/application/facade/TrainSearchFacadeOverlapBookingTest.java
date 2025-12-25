@@ -1,18 +1,6 @@
 package com.sudo.raillo.train.application.facade;
 
-import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.*;
-import static org.assertj.core.api.Assertions.*;
-
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-import java.util.stream.Stream;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.member.domain.Member;
@@ -20,6 +8,7 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
+import com.sudo.raillo.support.helper.ScheduleWithStops;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
@@ -29,8 +18,16 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 
 @ServiceTest
 @Slf4j
@@ -106,7 +103,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 80000);
 		trainScheduleTestHelper.createOrUpdateStationFare("대전", "부산", 30000, 48000);
 
-		TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createCustomSchedule()
+		ScheduleWithStops schedule = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("KTX 복합구간")
 			.operationDate(searchDate)
 			.train(train)

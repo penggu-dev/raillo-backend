@@ -15,8 +15,8 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.helper.ScheduleWithStops;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
-import com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithStopStations;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Train;
@@ -44,7 +44,7 @@ class PendingBookingFacadeTest {
 	private BookingFacade bookingFacade;
 
 	private Train train;
-	private TrainScheduleWithStopStations scheduleWithStops;
+	private ScheduleWithStops scheduleWithStops;
 	private String memberNo;
 	private List<PassengerSummary> passengers;
 	private List<Long> standardSeatIds;
@@ -168,7 +168,7 @@ class PendingBookingFacadeTest {
 	}*/
 
 	private static PendingBookingCreateRequest createRequest(
-		TrainScheduleWithStopStations scheduleWithStops,
+		ScheduleWithStops scheduleWithStops,
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop,
 		List<PassengerType> passengerTypes,

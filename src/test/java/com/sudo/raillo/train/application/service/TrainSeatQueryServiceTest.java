@@ -1,26 +1,14 @@
 package com.sudo.raillo.train.application.service;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
+import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
-import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.helper.ScheduleWithStops;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
-import com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithStopStations;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.response.SeatDetail;
@@ -30,8 +18,14 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainCar;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.TrainCarRepository;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 class TrainSeatQueryServiceTest {
@@ -54,7 +48,7 @@ class TrainSeatQueryServiceTest {
 	@Autowired
 	private MemberRepository memberRepository;
 
-	private TrainScheduleWithStopStations scheduleWithStops;
+	private ScheduleWithStops scheduleWithStops;
 	private ScheduleStop departureStop;
 	private ScheduleStop arrivalStop;
 	private Train train;
