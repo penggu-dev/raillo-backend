@@ -52,8 +52,8 @@ public class BookingTestHelper {
 	 * <pre>{@code
 	 * // 중간역 구간 예약 + 특등석 2좌석
 	 * BookingWithSeats result = bookingTestHelper.createCustomBooking(member, schedule)
-	 *     .departureScheduleStop(departureScheduleStop) // 출발 scheduleStop
-	 *     .arrivalScheduleStop(arrivalScheduleStop) // 도착 scheduleStop
+	 *     .setDepartureScheduleStop(departureScheduleStop) // 출발 scheduleStop
+	 *     .setArrivalScheduleStop(arrivalScheduleStop) // 도착 scheduleStop
 	 *     .addSeatsByCarType(CarType.STANDARD, 2, PassengerType.ADULT) // 일반석,어른 2개 좌석 예약
 	 *     .build();
 	 *
@@ -90,7 +90,7 @@ public class BookingTestHelper {
 		 *
 		 * @param departureScheduleStop 출발역 ScheduleStop
 		 */
-		public BookingBuilder departureStation(ScheduleStop departureScheduleStop) {
+		public BookingBuilder setDepartureScheduleStop(ScheduleStop departureScheduleStop) {
 			this.departureScheduleStop = departureScheduleStop;
 			return this;
 		}
@@ -102,7 +102,7 @@ public class BookingTestHelper {
 		 *
 		 * @param arrivalScheduleStop 도착역 ScheduleStop
 		 */
-		public BookingBuilder arrivalStation(ScheduleStop arrivalScheduleStop) {
+		public BookingBuilder setArrivalScheduleStop(ScheduleStop arrivalScheduleStop) {
 			this.arrivalScheduleStop = arrivalScheduleStop;
 			return this;
 		}

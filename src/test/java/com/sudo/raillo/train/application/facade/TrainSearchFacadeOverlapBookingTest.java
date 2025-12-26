@@ -139,8 +139,8 @@ public class TrainSearchFacadeOverlapBookingTest {
 			int seatsToReserve = s.bookedSeatsPerSegment().get(i);
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, seatsToReserve);
 			bookingTestHelper.createCustomBooking(member, trainScheduleWithScheduleStops)
-				.departureStation(departureStop)
-				.arrivalStation(arrivalStop)
+				.setDepartureScheduleStop(departureStop)
+				.setArrivalScheduleStop(arrivalStop)
 				.addSeats(seats, PassengerType.ADULT)
 				.build();
 		}

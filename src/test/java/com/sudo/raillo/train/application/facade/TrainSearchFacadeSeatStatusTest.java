@@ -132,16 +132,16 @@ public class TrainSearchFacadeSeatStatusTest {
 		if (scenario.bookedStandardSeats > 0) {
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, scenario.bookedStandardSeats);
 			bookingTestHelper.createCustomBooking(member, trainScheduleWithScheduleStops)
-				.departureStation(departureStop)
-				.arrivalStation(arrivalStop)
+				.setDepartureScheduleStop(departureStop)
+				.setArrivalScheduleStop(arrivalStop)
 				.addSeats(seats, PassengerType.ADULT)
 				.build();
 		}
 		if (scenario.bookedFirstClassSeats > 0) {
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, scenario.bookedFirstClassSeats);
 			bookingTestHelper.createCustomBooking(member, trainScheduleWithScheduleStops)
-				.departureStation(departureStop)
-				.arrivalStation(arrivalStop)
+				.setDepartureScheduleStop(departureStop)
+				.setArrivalScheduleStop(arrivalStop)
 				.addSeats(seats, PassengerType.ADULT)
 				.build();
 		}
