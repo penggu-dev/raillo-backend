@@ -126,8 +126,9 @@ public class BookingTestHelper {
 		 * @param seats 예약할 좌석
 		 * @param passengerType 승객 유형
 		 */
-		public void addSeats(List<Seat> seats, PassengerType passengerType) {
+		public BookingBuilder addSeats(List<Seat> seats, PassengerType passengerType) {
 			seats.forEach(seat -> addSeat(seat, passengerType));
+			return this;
 		}
 
 		/**

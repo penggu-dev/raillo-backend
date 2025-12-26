@@ -15,7 +15,7 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
-import com.sudo.raillo.support.helper.ScheduleWithStops;
+import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Train;
@@ -56,8 +56,8 @@ class CartServiceTest {
 		memberRepository.save(member);
 
 		Train train = trainTestHelper.createKTX();
-		ScheduleWithStops scheduleWithStops = trainScheduleTestHelper.createSchedule(train);
-		booking = bookingTestHelper.createBooking(member, scheduleWithStops);
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createSchedule(train);
+		booking = bookingTestHelper.createBooking(member, trainScheduleWithScheduleStops).booking();
 	}
 
 	@Test

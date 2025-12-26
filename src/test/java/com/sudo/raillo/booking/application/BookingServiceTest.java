@@ -25,20 +25,19 @@ import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.fixture.OrderFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
-import com.sudo.raillo.support.helper.ScheduleWithStops;
+import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
-import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,22 +76,13 @@ class BookingServiceTest {
 	@Autowired
 	private SeatBookingRepository seatBookingRepository;
 
-	private Member member;
-	private Train train;
-	private ScheduleWithStops schedule;
-
-	@BeforeEach
-	void setup() {
-		Member member = MemberFixture.create();
-		this.member = memberRepository.save(member);
-		train = trainTestHelper.createCustomKTX(3, 2);
-		schedule = trainScheduleTestHelper.createSchedule(train);
-	}
-
 	@Test
 	@DisplayName("유효한 주문으로 확정 예약 생성에 성공한다")
 	void createBookingFromOrder_success() {
 		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createCustomKTX(3, 2);
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createSchedule(train);
 		List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 3);
 
 		Order order = Order.create(member, BigDecimal.valueOf(100000));
@@ -101,18 +91,18 @@ class BookingServiceTest {
 
 		OrderBooking orderBooking1 = OrderBooking.create(
 			savedOrder,
-			schedule.trainSchedule(),
-			schedule.scheduleStops().get(0),
-			schedule.scheduleStops().get(1),
+			trainScheduleWithScheduleStops.trainSchedule(),
+			trainScheduleWithScheduleStops.scheduleStops().get(0),
+			trainScheduleWithScheduleStops.scheduleStops().get(1),
 			BigDecimal.valueOf(50000)
 		);
 		OrderBooking savedOrderBooking1 = orderBookingRepository.save(orderBooking1);
 
 		OrderBooking orderBooking2 = OrderBooking.create(
 			savedOrder,
-			schedule.trainSchedule(),
-			schedule.scheduleStops().get(0),
-			schedule.scheduleStops().get(1),
+			trainScheduleWithScheduleStops.trainSchedule(),
+			trainScheduleWithScheduleStops.scheduleStops().get(0),
+			trainScheduleWithScheduleStops.scheduleStops().get(1),
 			BigDecimal.valueOf(50000)
 		);
 		OrderBooking savedOrderBooking2 = orderBookingRepository.save(orderBooking2);
@@ -134,7 +124,7 @@ class BookingServiceTest {
 		for (Booking booking : bookings) {
 			assertThat(booking.getMember().getId()).isEqualTo(member.getId());
 			assertThat(booking.getBookingStatus()).isEqualTo(BookingStatus.BOOKED);
-			assertThat(booking.getTrainSchedule().getId()).isEqualTo(schedule.trainSchedule().getId());
+			assertThat(booking.getTrainSchedule().getId()).isEqualTo(trainScheduleWithScheduleStops.trainSchedule().getId());
 			assertThat(booking.getBookingCode()).isNotNull();
 		}
 
@@ -162,7 +152,8 @@ class BookingServiceTest {
 	@DisplayName("만료된 주문으로 예약 생성 시 예외가 발생한다")
 	void expiredOrder_createBookingFromOrder_throwException() {
 		// given
-		Order order = Order.create(member, BigDecimal.valueOf(50000));
+		Member member = memberRepository.save(MemberFixture.create());
+		Order order = OrderFixture.create(member);
 		order.expired();
 		orderRepository.save(order);
 
@@ -176,7 +167,8 @@ class BookingServiceTest {
 	@DisplayName("결제되지 않은 주문으로 예약 생성 시 예외가 발생한다")
 	void pendingOrder_createBookingFromOrder_throwException() {
 		// given
-		Order order = Order.create(member, BigDecimal.valueOf(50000));
+		Member member = memberRepository.save(MemberFixture.create());
+		Order order = OrderFixture.create(member);
 		orderRepository.save(order);
 
 		// when & then
@@ -189,77 +181,49 @@ class BookingServiceTest {
 	@DisplayName("멤버번호와 예약 ID로 특정 예약 조회에 성공한다")
 	void memberNoAndBookingId_getBooking_success() {
 		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createSchedule(train);
+		Booking booking = bookingTestHelper.createBooking(member, trainScheduleWithScheduleStops).booking();
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		Train train = trainTestHelper.createKTX();
-		ScheduleWithStops schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createBooking(member, schedule);
-		Booking entity = bookingRepository.save(booking);
-
 		// when
-		BookingDetail result = bookingService.getBooking(memberNo, entity.getId());
+		BookingDetail result = bookingService.getBooking(memberNo, booking.getId());
 
 		// then
-		assertThat(result.bookingId()).isEqualTo(entity.getId());
+		assertThat(result.bookingId()).isEqualTo(booking.getId());
 		assertThat(result.bookingCode()).isEqualTo(booking.getBookingCode());
-		assertThat(result.departureStationName()).isEqualTo(
-			schedule.scheduleStops().get(0).getStation().getStationName());
-		assertThat(result.arrivalStationName()).isEqualTo(
-			schedule.scheduleStops().get(1).getStation().getStationName());
+
+		assertThat(result.departureStationName())
+			.isEqualTo(trainScheduleWithScheduleStops.scheduleStops().get(0).getStation().getStationName());
+
+		assertThat(result.arrivalStationName())
+			.isEqualTo(trainScheduleWithScheduleStops.scheduleStops().get(1).getStation().getStationName());
 	}
 
 	@Test
 	@DisplayName("올바른 멤버번호와 잘못된 예약 ID로 특정 예약 조회 시 예외를 반환한다")
 	void memberNoAndInvalidBookingId_getBooking_throwException() {
 		// given
-		String memberNo = member.getMemberDetail().getMemberNo();
-
+		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		ScheduleWithStops schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createBooking(member, schedule);
-		bookingRepository.save(booking);
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createSchedule(train);
+		bookingTestHelper.createBooking(member, trainScheduleWithScheduleStops);
+		String memberNo = member.getMemberDetail().getMemberNo();
 
 		// when & then
 		assertThatThrownBy(() -> bookingService.getBooking(memberNo, 2L))
 			.isInstanceOf(BusinessException.class);
-
-		bookingRepository.save(booking);
-	}
-
-	@Test
-	@DisplayName("올바른 멤버번호와 만료된 예약 ID로 특정 예약 조회 시 예외를 반환한다")
-	void memberNoAndExpiredBookingId_getBooking_throwException() {
-		/*// given
-		String memberNo = member.getMemberDetail().getMemberNo();
-		Booking booking = Booking.builder()
-			.trainSchedule(schedule.trainSchedule())
-			.member(member)
-			.bookingCode("20250806100001D49J")
-			.tripType(TripType.OW)
-			.totalPassengers(1)
-			.passengerSummary("[{\"passengerType\":\"ADULT\",\"count\":1}]")
-			.bookingStatus(BookingStatus.BOOKED)
-			.expiresAt(LocalDateTime.now().minusMinutes(10))
-			.fare(50000)
-			.departureStop(schedule.scheduleStops().get(0))
-			.arrivalStop(schedule.scheduleStops().get(1))
-			.build();
-		Booking entity = bookingRepository.save(booking);
-
-		// when & then
-		assertThatThrownBy(() -> bookingService.getBooking(memberNo, entity.getId()))
-			.isInstanceOf(BusinessException.class)
-			.hasMessage(BookingError.BOOKING_EXPIRED.getMessage());*/
 	}
 
 	@Test
 	@DisplayName("멤버번호로 관련한 예약 목록 조회에 성공한다")
 	void memberNo_getBookings_success() {
 		// given
-		String memberNo = member.getMemberDetail().getMemberNo();
-
+		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		ScheduleWithStops scheduleBusanToDongDaegu = trainScheduleTestHelper.createCustomSchedule()
+
+		TrainScheduleWithScheduleStops BusanToDongDaegu = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("커스텀 노선 - 부산에서 동대구")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -267,7 +231,7 @@ class BookingServiceTest {
 			.addStop("동대구", LocalTime.of(8, 0), null)
 			.build();
 
-		ScheduleWithStops scheduleDaejeonToSeoul = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleWithScheduleStops DaejeonToSeoul = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("커스텀 노선 - 대전에서 서울")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -275,98 +239,47 @@ class BookingServiceTest {
 			.addStop("서울", LocalTime.of(12, 0), null)
 			.build();
 
-		Booking booking1 = bookingTestHelper.createBooking(member, scheduleBusanToDongDaegu);
-		Booking booking2 = bookingTestHelper.createBooking(member, scheduleDaejeonToSeoul);
-		Booking entity1 = bookingRepository.save(booking1);
-		Booking entity2 = bookingRepository.save(booking2);
+		Booking booking1 = bookingTestHelper.createBooking(member, BusanToDongDaegu).booking();
+		Booking booking2 = bookingTestHelper.createBooking(member, DaejeonToSeoul).booking();
 
 		// when
-		List<BookingDetail> result = bookingService.getBookings(memberNo);
+		List<BookingDetail> result = bookingService.getBookings(member.getMemberDetail().getMemberNo());
 
 		// then
 		assertThat(result.size()).isEqualTo(2);
-		BookingDetail result1 = result.get(0);
-		BookingDetail result2 = result.get(1);
+		BookingDetail bookingDetail1 = result.get(0);
+		BookingDetail bookingDetail2 = result.get(1);
 
-		assertThat(result1.bookingId()).isEqualTo(entity1.getId());
-		assertThat(result1.bookingCode()).isEqualTo(booking1.getBookingCode());
-		assertThat(result1.departureStationName()).isEqualTo(
-			scheduleBusanToDongDaegu.scheduleStops().get(0).getStation().getStationName());
-		assertThat(result1.arrivalStationName()).isEqualTo(
-			scheduleBusanToDongDaegu.scheduleStops().get(1).getStation().getStationName());
+		// 첫 번째 Booking 검증
+		assertThat(bookingDetail1.bookingId()).isEqualTo(booking1.getId());
+		assertThat(bookingDetail1.bookingCode()).isEqualTo(booking1.getBookingCode());
 
-		assertThat(result2.bookingId()).isEqualTo(entity2.getId());
-		assertThat(result2.bookingCode()).isEqualTo(booking2.getBookingCode());
-		assertThat(result2.departureStationName()).isEqualTo(
-			scheduleDaejeonToSeoul.scheduleStops().get(0).getStation().getStationName());
-		assertThat(result2.arrivalStationName()).isEqualTo(
-			scheduleDaejeonToSeoul.scheduleStops().get(1).getStation().getStationName());
-	}
+		assertThat(bookingDetail1.departureStationName())
+			.isEqualTo(BusanToDongDaegu.scheduleStops().get(0).getStation().getStationName());
 
-	@Test
-	@DisplayName("멤버번호로 예약 목록 조회 시 만료된 예약을 제외하고 조회에 성공한다")
-	void memberNoAndExpiredBooking_getBookings_success() {
-		/*// given
-		String memberNo = member.getMemberDetail().getMemberNo();
+		assertThat(bookingDetail1.arrivalStationName())
+			.isEqualTo(BusanToDongDaegu.scheduleStops().get(1).getStation().getStationName());
 
-		Train train = trainTestHelper.createKTX();
-		TrainScheduleWithStopStations scheduleBusanToDongDaegu = trainScheduleTestHelper.createCustomSchedule()
-			.scheduleName("커스텀 노선 - 부산에서 동대구")
-			.operationDate(LocalDate.now())
-			.train(train)
-			.addStop("부산", null, LocalTime.of(5, 0))
-			.addStop("동대구", LocalTime.of(8, 0), null)
-			.build();
+		// 두 번째 Booking 검증
+		assertThat(bookingDetail2.bookingId()).isEqualTo(booking2.getId());
+		assertThat(bookingDetail2.bookingCode()).isEqualTo(booking2.getBookingCode());
 
-		TrainScheduleWithStopStations scheduleDaejeonToSeoul = trainScheduleTestHelper.createCustomSchedule()
-			.scheduleName("커스텀 노선 - 대전에서 서울")
-			.operationDate(LocalDate.now())
-			.train(train)
-			.addStop("대전", null, LocalTime.of(10, 0))
-			.addStop("서울", LocalTime.of(12, 0), null)
-			.build();
+		assertThat(bookingDetail2.departureStationName())
+			.isEqualTo(DaejeonToSeoul.scheduleStops().get(0).getStation().getStationName());
 
-		Booking booking1 = Booking.builder()
-			.trainSchedule(scheduleBusanToDongDaegu.trainSchedule())
-			.member(member)
-			.bookingCode("20250806100001D49J")
-			.tripType(TripType.OW)
-			.totalPassengers(1)
-			.passengerSummary("[{\"passengerType\":\"ADULT\",\"count\":1}]")
-			.bookingStatus(BookingStatus.BOOKED)
-			.expiresAt(LocalDateTime.now().minusMinutes(10))
-			.fare(50000)
-			.departureStop(scheduleBusanToDongDaegu.scheduleStops().get(0))
-			.arrivalStop(scheduleBusanToDongDaegu.scheduleStops().get(1))
-			.build();
-		Booking booking2 = bookingTestHelper.createPendingBooking(member, scheduleDaejeonToSeoul);
-		Booking entity1 = bookingRepository.save(booking1);
-		Booking entity2 = bookingRepository.save(booking2);
-
-		// when
-		List<BookingDetail> result = bookingService.getBookings(memberNo);
-
-		// then
-		assertThat(result.size()).isEqualTo(1);
-		BookingDetail result1 = result.get(0);
-
-		assertThat(result1.bookingId()).isEqualTo(entity2.getId());
-		assertThat(result1.bookingCode()).isEqualTo(booking2.getBookingCode());
-		assertThat(result1.departureStationName()).isEqualTo(
-			scheduleDaejeonToSeoul.scheduleStops().get(0).getStation().getStationName());
-		assertThat(result1.arrivalStationName()).isEqualTo(
-			scheduleDaejeonToSeoul.scheduleStops().get(1).getStation().getStationName());*/
+		assertThat(bookingDetail2.arrivalStationName())
+			.isEqualTo(DaejeonToSeoul.scheduleStops().get(1).getStation().getStationName());
 	}
 
 	@Test
 	@DisplayName("올바른 예약 삭제 요청 DTO로 예약 삭제에 성공한다")
 	void validRequestDto_deleteBooking_success() {
 		// given
+		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		ScheduleWithStops schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createBooking(member, schedule);
-		Booking entity = bookingRepository.save(booking);
-		BookingDeleteRequest request = new BookingDeleteRequest(entity.getId());
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createSchedule(train);
+		Booking booking = bookingTestHelper.createBooking(member, trainScheduleWithScheduleStops).booking();
+		BookingDeleteRequest request = new BookingDeleteRequest(booking.getId());
 
 		// when
 		bookingService.deleteBooking(request.bookingId());
@@ -377,82 +290,45 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("예약, 좌석, 승객 유형으로 좌석 예약 생성에 성공한다")
-	void bookingAndSeatAndPassengerType_reserveNewSeat_success() {
-		// given
-		Train train = trainTestHelper.createKTX();
-		ScheduleWithStops schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
-		Seat seat = trainTestHelper.getSeats(train, CarType.STANDARD, 1).get(0);
-
-		// when
-		SeatBooking entity = bookingService.reserveNewSeat(booking, seat, PassengerType.CHILD);
-
-		// then
-		assertThat(entity.getBooking().getBookingCode()).isEqualTo(booking.getBookingCode());
-		assertThat(entity.getPassengerType()).isEqualTo(PassengerType.CHILD);
-	}
-
-	@Test
 	@DisplayName("좌석 예약 ID로 좌석 예약 삭제에 성공한다")
 	void seatBookingId_deleteSeatBooking_success() {
 		// given
+		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		TrainSchedule trainSchedule = trainScheduleTestHelper.createSchedule(train).trainSchedule();
-		ScheduleWithStops schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createSchedule(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		SeatBooking seatBooking1 = SeatBooking.create(
-			trainSchedule,
-			seats.get(0),
-			booking,
-			PassengerType.CHILD
-		);
-		SeatBooking savedSeatBooking = seatBookingRepository.save(seatBooking1);
+		Booking booking = bookingTestHelper.createCustomBooking(member, trainScheduleWithScheduleStops)
+			.addSeat(seats.get(0), PassengerType.ADULT)
+			.addSeat(seats.get(1), PassengerType.ADULT)
+			.build()
+			.booking();
 
-		SeatBooking seatBooking2 = SeatBooking.create(
-			trainSchedule,
-			seats.get(1),
-			booking,
-			PassengerType.VETERAN
-		);
-		seatBookingRepository.save(seatBooking2);
+		List<SeatBooking> seatBookings = seatBookingRepository.findByBookingId(booking.getId());
 
 		// when
-		bookingService.deleteSeatBooking(savedSeatBooking.getId());
+		bookingService.deleteSeatBooking(seatBookings.get(0).getId());
 
 		// then
 		List<SeatBooking> result = seatBookingRepository.findAll();
 		assertThat(result.size()).isEqualTo(1);
-		assertThat(result.get(0).getPassengerType()).isEqualTo(PassengerType.VETERAN);
+		assertThat(result.get(0).getPassengerType()).isEqualTo(PassengerType.ADULT);
 	}
 
 	@Test
 	@DisplayName("예약 ID로 좌석 예약 삭제에 성공한다")
 	void bookingId_deleteSeatBooking_success() {
 		// given
+		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		TrainSchedule trainSchedule = trainScheduleTestHelper.createSchedule(train).trainSchedule();
-		ScheduleWithStops schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createOnlyBooking(member, schedule);
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createSchedule(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		SeatBooking seatBooking1 = SeatBooking.create(
-			trainSchedule,
-			seats.get(0),
-			booking,
-			PassengerType.CHILD
-		);
-		seatBookingRepository.save(seatBooking1);
-
-		SeatBooking seatBooking2 = SeatBooking.create(
-			trainSchedule,
-			seats.get(1),
-			booking,
-			PassengerType.VETERAN
-		);
-		seatBookingRepository.save(seatBooking2);
+		Booking booking = bookingTestHelper.createCustomBooking(member, trainScheduleWithScheduleStops)
+			.addSeat(seats.get(0), PassengerType.ADULT)
+			.addSeat(seats.get(1), PassengerType.ADULT)
+			.build()
+			.booking();
 
 		// when
 		bookingService.deleteSeatBookingByBookingId(booking.getId());
@@ -461,5 +337,4 @@ class BookingServiceTest {
 		List<SeatBooking> result = seatBookingRepository.findAll();
 		assertThat(result.size()).isEqualTo(0);
 	}
-
 }

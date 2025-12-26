@@ -3,7 +3,7 @@ package com.sudo.raillo.train.application.facade;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.support.annotation.ServiceTest;
-import com.sudo.raillo.support.helper.ScheduleWithStops;
+import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
@@ -48,13 +48,13 @@ public class TrainSearchFacadeCarAndSeatTest {
 	void getAvailableTrainCars() {
 		// given
 		Train train = trainTestHelper.createCustomKTX(3, 2);
-		ScheduleWithStops scheduleWithStop = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStopWithStops = trainScheduleTestHelper.createSchedule(train);
 
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
 
 		TrainCarListRequest request = new TrainCarListRequest(
-			scheduleWithStop.trainSchedule().getId(),
+			trainScheduleWithScheduleStopWithStops.trainSchedule().getId(),
 			seoul.getId(),
 			busan.getId(),
 			2
@@ -84,7 +84,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 	Collection<DynamicTest> getAvailableTrainCars_recommendationLogicScenarios() {
 		// given
 		Train train = trainTestHelper.createCustomKTX(6, 2);
-		ScheduleWithStops scheduleWithStops = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createSchedule(train);
 
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
@@ -141,7 +141,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 				() -> {
 					// given
 					TrainCarListRequest request = new TrainCarListRequest(
-						scheduleWithStops.trainSchedule().getId(),
+						trainScheduleWithScheduleStops.trainSchedule().getId(),
 						seoul.getId(),
 						busan.getId(),
 						scenario.passengerCount
@@ -207,7 +207,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 	void getTrainCarSeatDetail_delegatesToSeatQueryService() {
 		// given
 		Train train = trainTestHelper.createKTX();
-		ScheduleWithStops scheduleWithStops = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createSchedule(train);
 
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
@@ -216,7 +216,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 		TrainCar firstCar = trainCars.get(0);
 
 		TrainCarSeatDetailRequest request = new TrainCarSeatDetailRequest(
-			firstCar.getId(), scheduleWithStops.trainSchedule().getId(),
+			firstCar.getId(), trainScheduleWithScheduleStops.trainSchedule().getId(),
 			seoul.getId(), busan.getId()
 		);
 

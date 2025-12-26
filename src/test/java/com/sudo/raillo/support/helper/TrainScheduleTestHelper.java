@@ -38,7 +38,7 @@ public class TrainScheduleTestHelper {
 	/**
 	 * 기본 스케줄 생성 메서드 서울 -> 부산 (출발: 5:00 -> 도착: 8:00) standardFare: 50,000원, firstClassFare: 100,000원
 	 */
-	public ScheduleWithStops createSchedule(Train train) {
+	public TrainScheduleWithScheduleStops createSchedule(Train train) {
 		createOrUpdateStationFare("서울", "부산", 50000, 100000);
 		return createCustomSchedule()
 			.scheduleName("KTX 001 경부선")
@@ -63,8 +63,8 @@ public class TrainScheduleTestHelper {
 	/**
 	 * 특정 역의 정차 정보 조회
 	 */
-	public ScheduleStop getScheduleStopByStationName(ScheduleWithStops schedule, String stationName) {
-		return schedule.scheduleStops().stream()
+	public ScheduleStop getScheduleStopByStationName(TrainScheduleWithScheduleStops trainScheduleWithScheduleStops, String stationName) {
+		return trainScheduleWithScheduleStops.scheduleStops().stream()
 			.filter(s -> s.getStation().getStationName().equals(stationName))
 			.findFirst()
 			.orElseThrow(() -> new IllegalArgumentException("정차역을 찾을 수 없습니다: " + stationName));
@@ -143,13 +143,13 @@ public class TrainScheduleTestHelper {
 		}
 
 		@Transactional
-		public ScheduleWithStops build() {
+		public TrainScheduleWithScheduleStops build() {
 			validateStops();
 			setDepartureAndArrivalTime();
 			TrainSchedule schedule = saveSchedule();
 			stops.forEach(stop -> stop.setTrainSchedule(schedule));
 			List<ScheduleStop> savedStops = scheduleStopRepository.saveAll(stops);
-			return new ScheduleWithStops(schedule, savedStops);
+			return new TrainScheduleWithScheduleStops(schedule, savedStops);
 		}
 
 		private void validateStops() {

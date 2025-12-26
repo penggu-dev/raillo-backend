@@ -21,7 +21,7 @@ import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import com.sudo.raillo.support.helper.ScheduleWithStops;
+import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Station;
@@ -128,8 +128,8 @@ class OrderServiceTest {
 		memberRepository.save(member);
 		String memberNo = member.getMemberDetail().getMemberNo();
 		Train train = trainTestHelper.createKTX();
-		ScheduleWithStops scheduleAndStation = trainScheduleTestHelper.createSchedule(train);
-		Long trainScheduleId = scheduleAndStation.trainSchedule().getId();
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStopsAndStation = trainScheduleTestHelper.createSchedule(train);
+		Long trainScheduleId = trainScheduleWithScheduleStopsAndStation.trainSchedule().getId();
 		List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 2);
 		Station departureStation = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station arrivalStation = trainScheduleTestHelper.getOrCreateStation("부산");
@@ -190,8 +190,8 @@ class OrderServiceTest {
 		memberRepository.save(member);
 		String memberNo = member.getMemberDetail().getMemberNo();
 		Train train = trainTestHelper.createKTX();
-		ScheduleWithStops scheduleAndStation = trainScheduleTestHelper.createSchedule(train);
-		Long trainScheduleId = scheduleAndStation.trainSchedule().getId();
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStopsAndStation = trainScheduleTestHelper.createSchedule(train);
+		Long trainScheduleId = trainScheduleWithScheduleStopsAndStation.trainSchedule().getId();
 		List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 2);
 		Station departureStation = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station arrivalStation = trainScheduleTestHelper.getOrCreateStation("부산");
@@ -242,8 +242,8 @@ class OrderServiceTest {
 		// given
 		String nonExistentMemberNo = "999999999999";
 		Train train = trainTestHelper.createKTX();
-		ScheduleWithStops scheduleAndStation = trainScheduleTestHelper.createSchedule(train);
-		Long trainScheduleId = scheduleAndStation.trainSchedule().getId();
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStopsAndStation = trainScheduleTestHelper.createSchedule(train);
+		Long trainScheduleId = trainScheduleWithScheduleStopsAndStation.trainSchedule().getId();
 		List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
 		Station departureStation = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station arrivalStation = trainScheduleTestHelper.getOrCreateStation("부산");

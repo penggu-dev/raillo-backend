@@ -8,13 +8,14 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
-import com.sudo.raillo.support.helper.ScheduleWithStops;
+import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
 import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
@@ -116,7 +117,7 @@ public class TrainSearchFacadeSeatStatusTest {
 			scenario.standardCars, scenario.firstClassCars,
 			scenario.standardRows, scenario.firstClassRows);
 
-		ScheduleWithStops schedule = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("KTX TEST")
 			.operationDate(searchDate)
 			.train(train)
@@ -124,19 +125,25 @@ public class TrainSearchFacadeSeatStatusTest {
 			.addStop("부산", LocalTime.of(13, 0), null)
 			.build();
 
-		ScheduleStop departureStop = trainScheduleTestHelper.getScheduleStopByStationName(schedule, "서울");
-		ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(schedule, "부산");
+		ScheduleStop departureStop = trainScheduleTestHelper.getScheduleStopByStationName(
+			trainScheduleWithScheduleStops, "서울");
+		ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleWithScheduleStops, "부산");
 
 		if (scenario.bookedStandardSeats > 0) {
-			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, scenario.bookedStandardSeats);
-			bookingTestHelper.createBookingWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
-				PassengerType.ADULT);
+			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, scenario.bookedStandardSeats);
+			bookingTestHelper.createCustomBooking(member, trainScheduleWithScheduleStops)
+				.departureStation(departureStop)
+				.arrivalStation(arrivalStop)
+				.addSeats(seats, PassengerType.ADULT)
+				.build();
 		}
 		if (scenario.bookedFirstClassSeats > 0) {
-			List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.FIRST_CLASS,
-				scenario.bookedFirstClassSeats);
-			bookingTestHelper.createBookingWithSeatIds(member, schedule, departureStop, arrivalStop, seatIds,
-				PassengerType.ADULT);
+			List<Seat> seats = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, scenario.bookedFirstClassSeats);
+			bookingTestHelper.createCustomBooking(member, trainScheduleWithScheduleStops)
+				.departureStation(departureStop)
+				.arrivalStation(arrivalStop)
+				.addSeats(seats, PassengerType.ADULT)
+				.build();
 		}
 
 		// when
@@ -162,28 +169,5 @@ public class TrainSearchFacadeSeatStatusTest {
 		assertThat(trainResult.standardSeat().remainingSeats()).isEqualTo(expectedStandardRemaining);
 		assertThat(trainResult.firstClassSeat().totalSeats()).isEqualTo(expectedFirstClassTotal);
 		assertThat(trainResult.firstClassSeat().remainingSeats()).isEqualTo(expectedFirstClassRemaining);
-	}
-
-	/**
-	 * 열차 스케줄 생성 헬퍼
-	 */
-	private ScheduleWithStops createTrainSchedule(Train train,
-                                                  LocalDate operationDate,
-                                                  String scheduleName, LocalTime departureTime, LocalTime arrivalTime,
-                                                  String departureStation, String arrivalStation) {
-		return trainScheduleTestHelper.createCustomSchedule()
-			.scheduleName(scheduleName)
-			.operationDate(operationDate)
-			.train(train)
-			.addStop(departureStation, null, departureTime)
-			.addStop(arrivalStation, arrivalTime, null)
-			.build();
-	}
-
-	private TrainSearchResponse findTrainByTime(List<TrainSearchResponse> trains, LocalTime time) {
-		return trains.stream()
-			.filter(train -> train.departureTime().equals(time))
-			.findFirst()
-			.orElseThrow(() -> new AssertionError("시간 " + time + "에 해당하는 열차를 찾을 수 없습니다"));
 	}
 }
