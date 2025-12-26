@@ -1,6 +1,6 @@
 package com.sudo.raillo.booking.domain;
 
-import com.sudo.raillo.booking.application.generator.BookingCodeGenerator;
+import com.sudo.raillo.booking.util.BookingCodeGenerator;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.domain.BaseEntity;

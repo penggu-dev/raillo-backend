@@ -1,4 +1,4 @@
-package com.sudo.raillo.booking.application.generator;
+package com.sudo.raillo.booking.util;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
