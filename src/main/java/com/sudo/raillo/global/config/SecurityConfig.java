@@ -23,6 +23,7 @@ import com.sudo.raillo.auth.security.jwt.TokenExtractor;
 import com.sudo.raillo.auth.security.jwt.TokenValidator;
 import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -67,6 +68,7 @@ public class SecurityConfig {
 					.requestMatchers("/api/v1/guest/register", "/api/v1/trains/**").permitAll()
 					.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 					.requestMatchers("/actuator/**", "/health").permitAll()
+					.requestMatchers("/test/payments/**").permitAll()
 					.anyRequest().authenticated();
 			})
 			.addFilterBefore(new JwtFilter(tokenExtractor, tokenValidator, authRedisRepository),
