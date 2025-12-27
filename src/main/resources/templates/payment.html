@@ -138,7 +138,7 @@
                 await widgets.requestPayment({
                     orderId: orderId,
                     orderName: "토스 결제 테스트",
-                    successUrl: "http://localhost:8080/test/payments/success",
+                    successUrl: "http://localhost:8080/test/payments/confirm",
                     failUrl: "http://localhost:8080/test/payments/fail",
                 });
             } catch (e) {
