@@ -22,5 +22,5 @@ import com.sudo.raillo.train.domain.TrainSchedule;
  * @param trainSchedule 생성된 열차 스케줄
  * @param scheduleStops 해당 스케줄의 정차역 목록 (정차 순서대로 정렬)
  */
-public record TrainScheduleWithScheduleStops(TrainSchedule trainSchedule, List<ScheduleStop> scheduleStops) {
+public record TrainScheduleResult(TrainSchedule trainSchedule, List<ScheduleStop> scheduleStops) {
 }

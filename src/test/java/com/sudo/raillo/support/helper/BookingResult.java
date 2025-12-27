@@ -22,5 +22,5 @@ import com.sudo.raillo.booking.domain.SeatBooking;
  * @param booking 생성된 예약
  * @param seatBookings 해당 예약의 좌석 예약 목록
  */
-public record BookingWithSeatBookings(Booking booking, List<SeatBooking> seatBookings) {
+public record BookingResult(Booking booking, List<SeatBooking> seatBookings) {
 }

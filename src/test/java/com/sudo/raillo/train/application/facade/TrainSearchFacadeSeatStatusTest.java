@@ -8,7 +8,7 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
-import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
+import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
@@ -117,7 +117,7 @@ public class TrainSearchFacadeSeatStatusTest {
 			scenario.standardCars, scenario.firstClassCars,
 			scenario.standardRows, scenario.firstClassRows);
 
-		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("KTX TEST")
 			.operationDate(searchDate)
 			.train(train)
@@ -126,12 +126,12 @@ public class TrainSearchFacadeSeatStatusTest {
 			.build();
 
 		ScheduleStop departureStop = trainScheduleTestHelper.getScheduleStopByStationName(
-			trainScheduleWithScheduleStops, "서울");
-		ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleWithScheduleStops, "부산");
+                trainScheduleResult, "서울");
+		ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "부산");
 
 		if (scenario.bookedStandardSeats > 0) {
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, scenario.bookedStandardSeats);
-			bookingTestHelper.createCustomBooking(member, trainScheduleWithScheduleStops)
+			bookingTestHelper.createCustomBooking(member, trainScheduleResult)
 				.setDepartureScheduleStop(departureStop)
 				.setArrivalScheduleStop(arrivalStop)
 				.addSeats(seats, PassengerType.ADULT)
@@ -139,7 +139,7 @@ public class TrainSearchFacadeSeatStatusTest {
 		}
 		if (scenario.bookedFirstClassSeats > 0) {
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, scenario.bookedFirstClassSeats);
-			bookingTestHelper.createCustomBooking(member, trainScheduleWithScheduleStops)
+			bookingTestHelper.createCustomBooking(member, trainScheduleResult)
 				.setDepartureScheduleStop(departureStop)
 				.setArrivalScheduleStop(arrivalStop)
 				.addSeats(seats, PassengerType.ADULT)

@@ -39,12 +39,12 @@ public class OrderTestHelper {
 	 * <p>출발역에서 도착역까지 성인 1명, 일반석 1좌석으로 주문을 생성한다.</p>
 	 *
 	 * @param member 주문할 회원
-	 * @param trainScheduleWithScheduleStops 열차 스케줄 및 정차역 정보
+	 * @param trainScheduleResult 열차 스케줄 및 정차역 정보
 	 * @return 생성된 주문 결과 (Order, OrderBookings, OrderSeatBookings)
 	 */
-	public OrderResult createOrder(Member member, TrainScheduleWithScheduleStops trainScheduleWithScheduleStops) {
+	public OrderResult createOrder(Member member, TrainScheduleResult trainScheduleResult) {
 		return createCustomOrder(member)
-			.addOrderBooking(trainScheduleWithScheduleStops)
+			.addOrderBooking(trainScheduleResult)
 				.addSeatsByCarType(CarType.STANDARD, 1, PassengerType.ADULT)
 				.and()
 			.build();
@@ -96,11 +96,11 @@ public class OrderTestHelper {
 		/**
 		 * OrderBooking을 추가한다.
 		 *
-		 * @param trainScheduleWithScheduleStops 열차 스케줄 및 정차역 정보
+		 * @param trainScheduleResult 열차 스케줄 및 정차역 정보
 		 * @return OrderBookingBuilder
 		 */
-		public OrderBookingBuilder addOrderBooking(TrainScheduleWithScheduleStops trainScheduleWithScheduleStops) {
-			OrderBookingBuilder builder = new OrderBookingBuilder(this, trainScheduleWithScheduleStops);
+		public OrderBookingBuilder addOrderBooking(TrainScheduleResult trainScheduleResult) {
+			OrderBookingBuilder builder = new OrderBookingBuilder(this, trainScheduleResult);
 			orderBookingBuilders.add(builder);
 			return builder;
 		}
@@ -152,15 +152,15 @@ public class OrderTestHelper {
 	 */
 	public class OrderBookingBuilder {
 		private final OrderBuilder parent;
-		private final TrainScheduleWithScheduleStops trainScheduleWithScheduleStops;
+		private final TrainScheduleResult trainScheduleResult;
 		private final List<SeatWithPassengerType> seatWithPassengerTypes = new ArrayList<>();
 		private ScheduleStop departureScheduleStop;
 		private ScheduleStop arrivalScheduleStop;
 		private BigDecimal totalFare;
 
-		public OrderBookingBuilder(OrderBuilder parent, TrainScheduleWithScheduleStops trainScheduleWithScheduleStops) {
+		public OrderBookingBuilder(OrderBuilder parent, TrainScheduleResult trainScheduleResult) {
 			this.parent = parent;
-			this.trainScheduleWithScheduleStops = trainScheduleWithScheduleStops;
+			this.trainScheduleResult = trainScheduleResult;
 		}
 
 		/**
@@ -194,7 +194,7 @@ public class OrderTestHelper {
 		 * 좌석을 직접 지정하여 추가한다.
 		 */
 		public OrderBookingBuilder addSeat(Seat seat, PassengerType passengerType) {
-			validateSeat(seat, trainScheduleWithScheduleStops.trainSchedule().getTrain());
+			validateSeat(seat, trainScheduleResult.trainSchedule().getTrain());
 			seatWithPassengerTypes.add(new SeatWithPassengerType(seat, passengerType));
 			return this;
 		}
@@ -212,7 +212,7 @@ public class OrderTestHelper {
 		 */
 		public OrderBookingBuilder addSeatsByCarType(CarType carType, int count, PassengerType passengerType) {
 			List<Seat> seats = trainTestHelper.getSeats(
-				trainScheduleWithScheduleStops.trainSchedule().getTrain(), carType, count);
+				trainScheduleResult.trainSchedule().getTrain(), carType, count);
 			seats.forEach(seat -> addSeat(seat, passengerType));
 			return this;
 		}
@@ -261,7 +261,7 @@ public class OrderTestHelper {
 
 			OrderBooking orderBooking = OrderBooking.create(
 				order,
-				trainScheduleWithScheduleStops.trainSchedule(),
+				trainScheduleResult.trainSchedule(),
 				departureScheduleStop,
 				arrivalScheduleStop,
 				getTotalFare()
@@ -287,10 +287,10 @@ public class OrderTestHelper {
 
 		private void setDefaultStops() {
 			if (departureScheduleStop == null) {
-				departureScheduleStop = getFirstStop(trainScheduleWithScheduleStops);
+				departureScheduleStop = getFirstStop(trainScheduleResult);
 			}
 			if (arrivalScheduleStop == null) {
-				arrivalScheduleStop = getLastStop(trainScheduleWithScheduleStops);
+				arrivalScheduleStop = getLastStop(trainScheduleResult);
 			}
 		}
 
@@ -301,16 +301,16 @@ public class OrderTestHelper {
 		}
 	}
 
-	private ScheduleStop getFirstStop(TrainScheduleWithScheduleStops trainScheduleWithScheduleStops) {
-		List<ScheduleStop> stops = trainScheduleWithScheduleStops.scheduleStops();
+	private ScheduleStop getFirstStop(TrainScheduleResult trainScheduleResult) {
+		List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
 		if (stops.isEmpty()) {
 			throw new IllegalArgumentException("출발역을 찾을 수 없습니다.");
 		}
 		return stops.get(0);
 	}
 
-	private ScheduleStop getLastStop(TrainScheduleWithScheduleStops trainScheduleWithScheduleStops) {
-		List<ScheduleStop> stops = trainScheduleWithScheduleStops.scheduleStops();
+	private ScheduleStop getLastStop(TrainScheduleResult trainScheduleResult) {
+		List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
 		if (stops.isEmpty()) {
 			throw new IllegalArgumentException("도착역을 찾을 수 없습니다.");
 		}

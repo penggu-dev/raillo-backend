@@ -7,7 +7,7 @@ import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
-import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
+import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
@@ -48,7 +48,7 @@ class TrainSeatQueryServiceTest {
 	@Autowired
 	private MemberRepository memberRepository;
 
-	private TrainScheduleWithScheduleStops trainScheduleWithScheduleStops;
+	private TrainScheduleResult trainScheduleResult;
 	private ScheduleStop departureStop;
 	private ScheduleStop arrivalStop;
 	private Train train;
@@ -56,7 +56,7 @@ class TrainSeatQueryServiceTest {
 	@BeforeEach
 	void setUp() {
 		train = trainTestHelper.createCustomKTX(1, 1);
-		trainScheduleWithScheduleStops = trainScheduleTestHelper.createCustomSchedule()
+		trainScheduleResult = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("test-schedule")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -65,8 +65,8 @@ class TrainSeatQueryServiceTest {
 			.addStop("부산", LocalTime.of(12, 30), null)
 			.build();
 
-		departureStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleWithScheduleStops, "서울");
-		arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleWithScheduleStops, "부산");
+		departureStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "서울");
+		arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "부산");
 		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 10000);
 	}
 
@@ -75,7 +75,7 @@ class TrainSeatQueryServiceTest {
 	void getAvailableTrainCars() {
 		// when
 		List<TrainCarInfo> availableTrainCars = trainSeatQueryService.getAvailableTrainCars(
-			trainScheduleWithScheduleStops.trainSchedule().getId(),
+			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId()
 		);
@@ -155,7 +155,7 @@ class TrainSeatQueryServiceTest {
 		TrainCar trainCar = trainCars.get(0);
 		TrainCarSeatDetailRequest request = new TrainCarSeatDetailRequest(
 			trainCar.getId(),
-			trainScheduleWithScheduleStops.trainSchedule().getId(),
+			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId()
 		);
@@ -212,7 +212,7 @@ class TrainSeatQueryServiceTest {
 			.toList();
 
 		return new PendingBookingCreateRequest(
-			trainScheduleWithScheduleStops.trainSchedule().getId(),
+			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),
 			passengerTypes,

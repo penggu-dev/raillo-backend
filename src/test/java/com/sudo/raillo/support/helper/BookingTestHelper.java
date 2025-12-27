@@ -34,11 +34,11 @@ public class BookingTestHelper {
 	 * <p>출발역에서 도착역까지 성인 1명, 일반석 1좌석으로 예약을 생성한다.</p>
 	 *
 	 * @param member 예약할 회원
-	 * @param trainScheduleWithScheduleStops 열차 스케줄 및 정차역 정보
+	 * @param trainScheduleResult 열차 스케줄 및 정차역 정보
 	 * @return 생성된 예약과 좌석 예약 정보
 	 */
-	public BookingWithSeatBookings createBooking(Member member, TrainScheduleWithScheduleStops trainScheduleWithScheduleStops) {
-		return createCustomBooking(member, trainScheduleWithScheduleStops)
+	public BookingResult createBooking(Member member, TrainScheduleResult trainScheduleResult) {
+		return createCustomBooking(member, trainScheduleResult)
 			.addSeatsByCarType(CarType.STANDARD, 1, PassengerType.ADULT)
 			.build();
 	}
@@ -64,8 +64,8 @@ public class BookingTestHelper {
 	 *     .build();
 	 * }</pre>
 	 */
-	public BookingBuilder createCustomBooking(Member member, TrainScheduleWithScheduleStops trainScheduleWithScheduleStops) {
-		return new BookingBuilder(member, trainScheduleWithScheduleStops);
+	public BookingBuilder createCustomBooking(Member member, TrainScheduleResult trainScheduleResult) {
+		return new BookingBuilder(member, trainScheduleResult);
 	}
 
 	/**
@@ -74,12 +74,12 @@ public class BookingTestHelper {
 	public class BookingBuilder {
 		private final List<SeatBooking> seatBookings = new ArrayList<>();
 		private final Member member;
-		private final TrainScheduleWithScheduleStops trainScheduleWithScheduleStops;
+		private final TrainScheduleResult trainScheduleResult;
 		private ScheduleStop departureScheduleStop;
 		private ScheduleStop arrivalScheduleStop;
 
-		public BookingBuilder (Member member, TrainScheduleWithScheduleStops trainScheduleWithScheduleStops) {
-			this.trainScheduleWithScheduleStops = trainScheduleWithScheduleStops;
+		public BookingBuilder (Member member, TrainScheduleResult trainScheduleResult) {
+			this.trainScheduleResult = trainScheduleResult;
 			this.member = member;
 		}
 
@@ -114,7 +114,7 @@ public class BookingTestHelper {
 		 * @param passengerType 승객 유형
 		 */
 		public BookingBuilder addSeat(Seat seat, PassengerType passengerType) {
-			validateSeat(seat, trainScheduleWithScheduleStops.trainSchedule().getTrain());
+			validateSeat(seat, trainScheduleResult.trainSchedule().getTrain());
 			SeatBooking seatBooking = SeatBooking.create(null, seat, null, passengerType);
 			seatBookings.add(seatBooking);
 			return this;
@@ -142,44 +142,44 @@ public class BookingTestHelper {
 		 */
 		public BookingBuilder addSeatsByCarType(CarType carType, int count, PassengerType passengerType) {
 			// TODO train에서 예약 안된 좌석만 고르는 기능 추가
-			List<Seat> seats = trainTestHelper.getSeats(trainScheduleWithScheduleStops.trainSchedule().getTrain(), carType, count);
+			List<Seat> seats = trainTestHelper.getSeats(trainScheduleResult.trainSchedule().getTrain(), carType, count);
 			seats.forEach(seat -> addSeat(seat, passengerType));
 			return this;
 		}
 
 		@Transactional
-		public BookingWithSeatBookings build() {
+		public BookingResult build() {
 			validateRequired();
 			setDefaultStops();
 
 			Booking booking = saveBooking();
 			List<SeatBooking> savedSeatBookings = saveSeatBookings(booking);
 
-			return new BookingWithSeatBookings(booking, savedSeatBookings);
+			return new BookingResult(booking, savedSeatBookings);
 		}
 
 		private void validateRequired() {
 			if (member == null) {
 				throw new IllegalArgumentException("member는 필수입니다.");
 			}
-			if (trainScheduleWithScheduleStops == null) {
+			if (trainScheduleResult == null) {
 				throw new IllegalArgumentException("schedule은 필수입니다.");
 			}
 		}
 
 		private void setDefaultStops() {
 			if (departureScheduleStop == null) {
-				departureScheduleStop = getFirstStop(trainScheduleWithScheduleStops);
+				departureScheduleStop = getFirstStop(trainScheduleResult);
 			}
 			if (arrivalScheduleStop == null) {
-				arrivalScheduleStop = getLastStop(trainScheduleWithScheduleStops);
+				arrivalScheduleStop = getLastStop(trainScheduleResult);
 			}
 		}
 
 		private Booking saveBooking() {
 			Booking booking = Booking.create(
 				member,
-				trainScheduleWithScheduleStops.trainSchedule(),
+				trainScheduleResult.trainSchedule(),
 				departureScheduleStop,
 				arrivalScheduleStop
 			);
@@ -193,7 +193,7 @@ public class BookingTestHelper {
 
 			List<SeatBooking> toSave = seatBookings.stream()
 				.map(sb -> SeatBooking.create(
-					trainScheduleWithScheduleStops.trainSchedule(),
+					trainScheduleResult.trainSchedule(),
 					sb.getSeat(),
 					booking,
 					sb.getPassengerType()
@@ -210,16 +210,16 @@ public class BookingTestHelper {
 		}
 	}
 
-	private ScheduleStop getFirstStop(TrainScheduleWithScheduleStops trainScheduleWithScheduleStops) {
-		List<ScheduleStop> stops = trainScheduleWithScheduleStops.scheduleStops();
+	private ScheduleStop getFirstStop(TrainScheduleResult trainScheduleResult) {
+		List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
 		if (stops.isEmpty()) {
 			throw new IllegalArgumentException("출발역을 찾을 수 없습니다.");
 		}
 		return stops.get(0);
 	}
 
-	private ScheduleStop getLastStop(TrainScheduleWithScheduleStops trainScheduleWithScheduleStops) {
-		List<ScheduleStop> stops = trainScheduleWithScheduleStops.scheduleStops();
+	private ScheduleStop getLastStop(TrainScheduleResult trainScheduleResult) {
+		List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
 		if (stops.isEmpty()) {
 			throw new IllegalArgumentException("도착역을 찾을 수 없습니다.");
 		}

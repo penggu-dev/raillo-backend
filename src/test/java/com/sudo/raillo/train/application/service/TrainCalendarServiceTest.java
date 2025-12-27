@@ -3,7 +3,7 @@ package com.sudo.raillo.train.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.support.annotation.ServiceTest;
-import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
+import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
@@ -181,8 +181,8 @@ class TrainCalendarServiceTest {
 			.orElseThrow(() -> new AssertionError("날짜 " + date + "를 찾을 수 없습니다"));
 	}
 
-	private TrainScheduleWithScheduleStops createTrainSchedule(Train train, LocalDate operationDate,
-															   String scheduleName, LocalTime departureTime, LocalTime arrivalTime) {
+	private TrainScheduleResult createTrainSchedule(Train train, LocalDate operationDate,
+                                                    String scheduleName, LocalTime departureTime, LocalTime arrivalTime) {
 		return trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName(scheduleName)
 			.operationDate(operationDate)

@@ -9,7 +9,7 @@ import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
-import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
+import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
@@ -104,7 +104,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 80000);
 		trainScheduleTestHelper.createOrUpdateStationFare("대전", "부산", 30000, 48000);
 
-		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createCustomSchedule()
 			.scheduleName("KTX 복합구간")
 			.operationDate(searchDate)
 			.train(train)
@@ -119,10 +119,10 @@ public class TrainSearchFacadeOverlapBookingTest {
 		Station daegu = trainScheduleTestHelper.getOrCreateStation("대구");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
 
-		ScheduleStop seoulStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleWithScheduleStops, "서울");
-		ScheduleStop daejeonStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleWithScheduleStops, "대전");
-		ScheduleStop daeguStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleWithScheduleStops, "대구");
-		ScheduleStop busanStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleWithScheduleStops, "부산");
+		ScheduleStop seoulStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "서울");
+		ScheduleStop daejeonStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "대전");
+		ScheduleStop daeguStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "대구");
+		ScheduleStop busanStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "부산");
 
 		Member member = memberRepository.save(MemberFixture.create());
 
@@ -132,13 +132,13 @@ public class TrainSearchFacadeOverlapBookingTest {
 			String segment = segments[i];
 			String[] stops = segment.split("-");
 			ScheduleStop departureStop = trainScheduleTestHelper
-				.getScheduleStopByStationName(trainScheduleWithScheduleStops, stops[0]);
+				.getScheduleStopByStationName(trainScheduleResult, stops[0]);
 			ScheduleStop arrivalStop = trainScheduleTestHelper
-				.getScheduleStopByStationName(trainScheduleWithScheduleStops, stops[1]);
+				.getScheduleStopByStationName(trainScheduleResult, stops[1]);
 
 			int seatsToReserve = s.bookedSeatsPerSegment().get(i);
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, seatsToReserve);
-			bookingTestHelper.createCustomBooking(member, trainScheduleWithScheduleStops)
+			bookingTestHelper.createCustomBooking(member, trainScheduleResult)
 				.setDepartureScheduleStop(departureStop)
 				.setArrivalScheduleStop(arrivalStop)
 				.addSeats(seats, PassengerType.ADULT)
