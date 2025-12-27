@@ -16,14 +16,13 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
+import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 import com.sudo.raillo.auth.security.jwt.JwtAccessDeniedHandler;
 import com.sudo.raillo.auth.security.jwt.JwtAuthenticationEntryPoint;
 import com.sudo.raillo.auth.security.jwt.JwtFilter;
 import com.sudo.raillo.auth.security.jwt.TokenExtractor;
 import com.sudo.raillo.auth.security.jwt.TokenValidator;
-import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 
-import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
