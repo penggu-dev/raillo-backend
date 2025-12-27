@@ -17,23 +17,18 @@ import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.order.domain.OrderBooking;
-import com.sudo.raillo.order.domain.OrderSeatBooking;
 import com.sudo.raillo.order.exception.OrderError;
-import com.sudo.raillo.order.infrastructure.OrderBookingRepository;
-import com.sudo.raillo.order.infrastructure.OrderRepository;
-import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.OrderFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
-import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
+import com.sudo.raillo.support.helper.OrderTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
+import com.sudo.raillo.support.helper.TrainScheduleWithScheduleStops;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -53,6 +48,12 @@ class BookingServiceTest {
 	private MemberRepository memberRepository;
 
 	@Autowired
+	private BookingRepository bookingRepository;
+
+	@Autowired
+	private SeatBookingRepository seatBookingRepository;
+
+	@Autowired
 	private TrainTestHelper trainTestHelper;
 
 	@Autowired
@@ -62,19 +63,7 @@ class BookingServiceTest {
 	private BookingTestHelper bookingTestHelper;
 
 	@Autowired
-	private BookingRepository bookingRepository;
-
-	@Autowired
-	private OrderRepository orderRepository;
-
-	@Autowired
-	private OrderBookingRepository orderBookingRepository;
-
-	@Autowired
-	private OrderSeatBookingRepository orderSeatBookingRepository;
-
-	@Autowired
-	private SeatBookingRepository seatBookingRepository;
+	private OrderTestHelper orderTestHelper;
 
 	@Test
 	@DisplayName("유효한 주문으로 확정 예약 생성에 성공한다")
@@ -83,38 +72,22 @@ class BookingServiceTest {
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createCustomKTX(3, 2);
 		TrainScheduleWithScheduleStops trainScheduleWithScheduleStops = trainScheduleTestHelper.createSchedule(train);
-		List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 3);
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 3);
 
-		Order order = Order.create(member, BigDecimal.valueOf(100000));
+		Order order = orderTestHelper.createCustomOrder(member)
+			.addOrderBooking(trainScheduleWithScheduleStops)
+				.addSeat(seats.get(0), PassengerType.ADULT)
+				.addSeat(seats.get(1), PassengerType.CHILD)
+				.and()
+			.addOrderBooking(trainScheduleWithScheduleStops)
+				.addSeat(seats.get(2), PassengerType.ADULT)
+				.and()
+			.build()
+			.order();
 		order.completePayment();
-		Order savedOrder = orderRepository.save(order);
-
-		OrderBooking orderBooking1 = OrderBooking.create(
-			savedOrder,
-			trainScheduleWithScheduleStops.trainSchedule(),
-			trainScheduleWithScheduleStops.scheduleStops().get(0),
-			trainScheduleWithScheduleStops.scheduleStops().get(1),
-			BigDecimal.valueOf(50000)
-		);
-		OrderBooking savedOrderBooking1 = orderBookingRepository.save(orderBooking1);
-
-		OrderBooking orderBooking2 = OrderBooking.create(
-			savedOrder,
-			trainScheduleWithScheduleStops.trainSchedule(),
-			trainScheduleWithScheduleStops.scheduleStops().get(0),
-			trainScheduleWithScheduleStops.scheduleStops().get(1),
-			BigDecimal.valueOf(50000)
-		);
-		OrderBooking savedOrderBooking2 = orderBookingRepository.save(orderBooking2);
-
-		// OrderSeatBooking 3개 생성 (orderBooking1에 좌석 2개, orderBooking2에 좌석 1개)
-		OrderSeatBooking orderSeatBooking1 = OrderSeatBooking.create(savedOrderBooking1, seatIds.get(0), PassengerType.ADULT);
-		OrderSeatBooking orderSeatBooking2 = OrderSeatBooking.create(savedOrderBooking1, seatIds.get(1), PassengerType.CHILD);
-		OrderSeatBooking orderSeatBooking3 = OrderSeatBooking.create(savedOrderBooking2, seatIds.get(2), PassengerType.ADULT);
-		orderSeatBookingRepository.saveAll(List.of(orderSeatBooking1, orderSeatBooking2, orderSeatBooking3));
 
 		// when
-		bookingService.createBookingFromOrder(savedOrder);
+		bookingService.createBookingFromOrder(order);
 
 		// then
 		List<Booking> bookings = bookingRepository.findAll();
@@ -155,7 +128,6 @@ class BookingServiceTest {
 		Member member = memberRepository.save(MemberFixture.create());
 		Order order = OrderFixture.create(member);
 		order.expired();
-		orderRepository.save(order);
 
 		// when & then
 		assertThatThrownBy(() -> bookingService.createBookingFromOrder(order))
@@ -169,7 +141,6 @@ class BookingServiceTest {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
 		Order order = OrderFixture.create(member);
-		orderRepository.save(order);
 
 		// when & then
 		assertThatThrownBy(() -> bookingService.createBookingFromOrder(order))
