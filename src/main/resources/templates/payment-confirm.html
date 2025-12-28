@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="https://static.toss.im/icons/png/4x/icon-toss-logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>결제 성공</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+            background: #f5f6f8;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        .wrapper {
+            display: flex;
+            justify-content: center;
+            padding: 48px 16px;
+        }
+
+        .flex-column {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .align-center {
+            align-items: center;
+        }
+
+        .max-w {
+            width: 100%;
+            max-width: 680px; /* ⬅ 박스 폭 확장 */
+        }
+
+        h2 {
+            margin: 16px 0 8px;
+            font-size: 22px;
+        }
+
+        .description {
+            margin-bottom: 24px;
+            color: #6b7280;
+            font-size: 15px;
+        }
+
+        .btn {
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 15px;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            background: #e5e7eb;
+            color: #111;
+            text-decoration: none;
+        }
+
+        .btn.primary {
+            background: #3182f6;
+            color: white;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .response-section {
+            margin-top: 28px;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .row:last-child {
+            margin-bottom: 0;
+        }
+
+        .label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #6b7280;
+        }
+
+        .value {
+            font-size: 15px;
+            font-family: monospace;
+            color: #111827;
+            word-break: break-all; /* paymentKey 대비 */
+            line-height: 1.5;
+        }
+
+        .value.amount {
+            font-weight: 600;
+            color: #2563eb;
+        }
+
+        .button-group {
+            margin-top: 28px;
+            width: 100%;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+    <!-- ================= 승인 전 ================= -->
+    <div id="confirmLoading" class="flex-column align-center max-w">
+
+        <img src="https://static.toss.im/lotties/loading-spot-apng.png" width="120" height="120" />
+
+        <h2>결제 요청까지 성공했어요.</h2>
+        <p class="description">결제 승인하고 완료해보세요.</p>
+
+        <!-- 결제 정보 -->
+        <div class="response-section">
+            <div class="row">
+                <span class="label">결제 금액</span>
+                <span class="value amount" th:text="${amount} + '원'"></span>
+            </div>
+            <div class="row">
+                <span class="label">주문번호</span>
+                <span class="value" th:text="${orderId}"></span>
+            </div>
+            <div class="row">
+                <span class="label">paymentKey</span>
+                <span class="value" th:text="${paymentKey}"></span>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button id="confirmPaymentButton" class="btn primary" style="width:100%;">
+                결제 승인하기
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= 승인 후 ================= -->
+    <div id="confirmSuccess" class="flex-column align-center max-w hidden">
+
+        <img src="https://static.toss.im/illusts/check-blue-spot-ending-frame.png" width="120" height="120" />
+
+        <h2>결제를 완료했어요 🎉</h2>
+
+        <div class="response-section">
+            <div class="row">
+                <span class="label">결제 금액</span>
+                <span id="successAmount" class="value amount"></span>
+            </div>
+            <div class="row">
+                <span class="label">주문번호</span>
+                <span id="successOrderId" class="value"></span>
+            </div>
+            <div class="row">
+                <span class="label">paymentKey</span>
+                <span id="successPaymentKey" class="value"></span>
+            </div>
+            <div class="row">
+                <span class="label">결제 수단</span>
+                <span id="successMethod" class="value"></span>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <div style="display:flex; gap:16px;">
+                <a class="btn" style="width:100%;" href="/test/payments">다시 테스트하기</a>
+                <a class="btn" style="width:100%;" href="https://docs.tosspayments.com" target="_blank">
+                    결제 문서 보기
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 승인 실패 ================= -->
+    <div id="confirmFailed" class="flex-column align-center max-w hidden">
+
+        <img src="https://static.toss.im/lotties/error-spot-apng.png" width="120" height="120" />
+
+        <h2 style="color: #dc2626;">결제에 실패했어요</h2>
+
+        <div class="response-section">
+            <div class="row">
+                <span class="label">HTTP 상태</span>
+                <span id="failHttpStatus" class="value"></span>
+            </div>
+            <div class="row">
+                <span class="label">에러 코드</span>
+                <span id="failErrorCode" class="value"></span>
+            </div>
+            <div class="row">
+                <span class="label">에러 메시지</span>
+                <span id="failErrorMessage" class="value"></span>
+            </div>
+        </div>
+
+        <div class="button-group" style="width:100%;">
+            <div style="display:flex; gap:16px;">
+                <a class="btn primary" style="width:100%;" href="/test/payments">다시 테스트하기</a>
+                <a class="btn" style="width:100%;" href="https://docs.tosspayments.com" target="_blank">
+                    결제 문서 보기
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script th:inline="javascript">
+    const paymentKey = [[${paymentKey}]];
+    const orderId = [[${orderId}]];
+    const amount = [[${amount}]];
+
+    document.getElementById("confirmPaymentButton").addEventListener("click", async () => {
+        try {
+            const res = await fetch("/test/payments/confirm-toss", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ paymentKey, orderId, amount }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                // 실패 화면으로 전환
+                document.getElementById("confirmLoading").classList.add("hidden");
+                document.getElementById("confirmFailed").classList.remove("hidden");
+
+                document.getElementById("failHttpStatus").innerText = res.status;
+                document.getElementById("failErrorCode").innerText = data.errorCode;
+                document.getElementById("failErrorMessage").innerText = data.errorMessage;
+                return;
+            }
+
+            // 성공 화면 전환
+            document.getElementById("confirmLoading").classList.add("hidden");
+            document.getElementById("confirmSuccess").classList.remove("hidden");
+
+            // 결과 바인딩
+            document.getElementById("successAmount").innerText = data.totalAmount + "원";
+            document.getElementById("successOrderId").innerText = data.orderId;
+            document.getElementById("successPaymentKey").innerText = data.paymentKey;
+            document.getElementById("successMethod").innerText = data.method;
+
+        } catch (e) {
+            alert("결제 승인 중 오류가 발생했습니다.");
+            console.error(e);
+        }
+    });
+</script>
+
+</body>
+</html>

@@ -92,9 +92,9 @@ public class PaymentFacade {
 	 *    - 실패: 실패 정보 저장 (별도 트랜잭션 - 무조건 커밋) 후 예외 throw
 	 * 7. 토스 응답 검증 (금액, paymentKey 일치 확인)
 	 * 8. PaymentMethod 매핑
-	 * 9. Booking & SeatBooking 생성 (BOOKED) - TODO
-	 * 10. Payment 승인 처리 (PENDING → PAID, paymentMethod 저장)
-	 * 11. Order 상태 변경 (PENDING → ORDERED) - TODO
+	 * 9. Order 상태 변경 (PENDING → ORDERED)
+	 * 10. Booking & SeatBooking 생성 (BOOKED)
+	 * 11. Payment 승인 처리 (PENDING → PAID, paymentMethod 저장)
 	 */
 	public PaymentConfirmResponse confirmPayment(PaymentConfirmRequest request, String memberNo) {
 		log.info("결제 승인 시작: orderId={}, paymentKey={}, amount={}",
@@ -105,7 +105,7 @@ public class PaymentFacade {
 		Order order = orderService.getOrderByOrderCode(request.orderId());
 		Payment payment = paymentService.getPaymentByOrder(order);
 
-		// 2. 요청 전 검증
+		// 2. 요청 전 검증 (소유자, 금액, 상태)
 		orderService.validateOrderOwner(order, member);
 		paymentService.validatePaymentOwner(payment, member);
 		validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
@@ -136,24 +136,14 @@ public class PaymentFacade {
 		// 6. PaymentMethod 매핑
 		PaymentMethod paymentMethod = mapToPaymentMethod(tossResponse.method());
 
-		// 7. OrderBooking -> Booking & SeatBooking 생성
-		// TODO: Booking 관련 로직 구현 필요
-		/*
-		List<OrderBooking> orderBookings = order.getOrderBookings();
-		for (OrderBooking orderBooking : orderBookings) {
-			Booking booking = bookingService.createBookingFromOrder(orderBooking);
-			List<OrderSeatBooking> orderSeatBookings = orderBooking.getOrderSeatBookings();
-			for (OrderSeatBooking orderSeatBooking : orderSeatBookings) {
-				seatBookingService.createSeatBookingFromOrder(booking, orderSeatBooking);
-			}
-		}
-		*/
+		// 7. Order 상태 변경 (PENDING -> ORDERED)
+		order.completePayment();
 
-		// 8. Payment 승인 처리 (PENDING -> PAID, paymentMethod 저장)
+		// 8. Booking & SeatBooking 생성 (BOOKED)
+		bookingService.createBookingFromOrder(order);
+
+		// 9. Payment 승인 처리 (PENDING -> PAID, paymentMethod, paidAt 저장)
 		payment.approve(paymentMethod);
-
-		// 9. Order 상태 변경 (PENDING -> ORDERED)
-		// order.complete();
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
 
