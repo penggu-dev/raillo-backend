@@ -10,17 +10,16 @@ import com.icegreen.greenmail.util.ServerSetup;
 import com.sudo.raillo.auth.application.dto.request.SendCodeRequest;
 import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
 import com.sudo.raillo.auth.exception.AuthError;
-import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
-import com.sudo.raillo.member.infrastructure.MemberRedisRepository;
+import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.dto.request.UpdateEmailRequest;
 import com.sudo.raillo.member.application.dto.request.UpdatePasswordRequest;
 import com.sudo.raillo.member.application.dto.request.UpdatePhoneNumberRequest;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.domain.MemberDetail;
-import com.sudo.raillo.member.domain.Membership;
 import com.sudo.raillo.member.domain.Role;
 import com.sudo.raillo.member.exception.MemberError;
+import com.sudo.raillo.member.infrastructure.MemberRedisRepository;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
@@ -83,7 +82,7 @@ class MemberUpdateServiceTest {
 		);
 		memberRepository.save(saveMember);
 
-		MemberDetail otherMemberDetail = MemberDetail.create("202507300002", Membership.BUSINESS, "test2@example.com",
+		MemberDetail otherMemberDetail = MemberDetail.create("202507300002", "test2@example.com",
 			LocalDate.of(2000, 2, 2), "W");
 		otherMember = Member.create("김구름", "01088889999", "testPwd", Role.MEMBER, otherMemberDetail);
 		memberRepository.save(otherMember);

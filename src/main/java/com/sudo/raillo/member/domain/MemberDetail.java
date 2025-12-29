@@ -1,11 +1,8 @@
 package com.sudo.raillo.member.domain;
 
-import java.time.LocalDate;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
+import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -20,9 +17,6 @@ public class MemberDetail {
 	@Column(unique = true)
 	private String memberNo;
 
-	@Enumerated(EnumType.STRING)
-	private Membership membership;
-
 	@Column(unique = true)
 	private String email;
 
@@ -31,15 +25,9 @@ public class MemberDetail {
 	@Column(length = 1)
 	private String gender;
 
-	private Long totalMileage;
-
-	private boolean isLocked;
-
-	private int lockCount;
-
-	public static MemberDetail create(String memberNo, Membership membership, String email, LocalDate birthDate,
+	public static MemberDetail create(String memberNo, String email, LocalDate birthDate,
 		String gender) {
-		return new MemberDetail(memberNo, membership, email, birthDate, gender, 0L, false, 0);
+		return new MemberDetail(memberNo, email, birthDate, gender);
 	}
 
 	public void updateEmail(String newEmail) {

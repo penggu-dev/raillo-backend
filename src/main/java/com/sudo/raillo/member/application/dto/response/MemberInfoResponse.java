@@ -1,12 +1,9 @@
 package com.sudo.raillo.member.application.dto.response;
 
-import java.time.LocalDate;
-
 import com.sudo.raillo.member.domain.MemberDetail;
-import com.sudo.raillo.member.domain.Membership;
 import com.sudo.raillo.member.domain.Role;
-
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.LocalDate;
 
 @Schema(description = "회원 정보 응답 DTO")
 public record MemberInfoResponse(
@@ -29,11 +26,9 @@ public record MemberInfoResponse(
 
 		MemberDetailInfo memberDetailInfo = new MemberDetailInfo(
 			memberDetail.getMemberNo(),
-			memberDetail.getMembership(),
 			memberDetail.getEmail(),
 			memberDetail.getBirthDate(),
-			memberDetail.getGender(),
-			memberDetail.getTotalMileage()
+			memberDetail.getGender()
 		);
 
 		return new MemberInfoResponse(name, phoneNumber, Role.MEMBER, memberDetailInfo);
@@ -45,9 +40,6 @@ public record MemberInfoResponse(
 		@Schema(description = "회원 번호", example = "202507020001")
 		String memberNo,
 
-		@Schema(description = "회원 등급", example = "BUSINESS")
-		Membership membership,
-
 		@Schema(description = "회원 이메일", example = "honggildong@example.com")
 		String email,
 
@@ -55,10 +47,7 @@ public record MemberInfoResponse(
 		LocalDate birthDate,
 
 		@Schema(description = "회원 성별", example = "M")
-		String gender,
-
-		@Schema(description = "총 마일리지", example = "2000")
-		Long totalMileage
+		String gender
 	) {
 	}
 }
