@@ -139,11 +139,9 @@ class MemberServiceTest {
 
 		MemberInfoResponse.MemberDetailInfo detailInfo = response.memberDetailInfo();
 		assertThat(detailInfo.memberNo()).isEqualTo(member.getMemberDetail().getMemberNo());
-		assertThat(detailInfo.membership()).isEqualTo(member.getMemberDetail().getMembership());
 		assertThat(detailInfo.email()).isEqualTo(member.getMemberDetail().getEmail());
 		assertThat(detailInfo.birthDate()).isEqualTo(member.getMemberDetail().getBirthDate().toString());
 		assertThat(detailInfo.gender()).isEqualTo(member.getMemberDetail().getGender());
-		assertThat(detailInfo.totalMileage()).isEqualTo(member.getMemberDetail().getTotalMileage());
 	}
 
 	@Test

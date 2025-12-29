@@ -1,36 +1,32 @@
 package com.sudo.raillo.auth.application;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.sudo.raillo.auth.application.dto.LogoutToken;
 import com.sudo.raillo.auth.application.dto.request.LoginRequest;
 import com.sudo.raillo.auth.application.dto.request.SignUpRequest;
 import com.sudo.raillo.auth.application.dto.response.ReissueTokenResponse;
 import com.sudo.raillo.auth.application.dto.response.SignUpResponse;
 import com.sudo.raillo.auth.application.dto.response.TokenResponse;
 import com.sudo.raillo.auth.exception.TokenError;
+import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 import com.sudo.raillo.auth.security.jwt.TokenExtractor;
 import com.sudo.raillo.auth.security.jwt.TokenGenerator;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
-import com.sudo.raillo.auth.application.dto.LogoutToken;
 import com.sudo.raillo.member.application.MemberNoGenerator;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.domain.MemberDetail;
-import com.sudo.raillo.member.domain.Membership;
 import com.sudo.raillo.member.domain.Role;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
-
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -54,8 +50,7 @@ public class AuthService {
 		String memberNo = memberNoGenerator.generateMemberNo();
 		LocalDate birthDate = LocalDate.parse(request.birthDate(), DateTimeFormatter.ISO_LOCAL_DATE);
 
-		MemberDetail memberDetail = MemberDetail.create(memberNo, Membership.BUSINESS, request.email(), birthDate,
-			request.gender());
+		MemberDetail memberDetail = MemberDetail.create(memberNo, request.email(), birthDate, request.gender());
 		Member member = Member.create(request.name(), request.phoneNumber(), passwordEncoder.encode(request.password()),
 			Role.MEMBER, memberDetail);
 
