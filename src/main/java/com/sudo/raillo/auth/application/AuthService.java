@@ -13,8 +13,6 @@ import com.sudo.raillo.auth.security.jwt.TokenGenerator;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberNoGenerator;
 import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.member.domain.MemberDetail;
-import com.sudo.raillo.member.domain.Role;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import java.time.Duration;
@@ -48,12 +46,16 @@ public class AuthService {
 		}
 
 		String memberNo = memberNoGenerator.generateMemberNo();
-		LocalDate birthDate = LocalDate.parse(request.birthDate(), DateTimeFormatter.ISO_LOCAL_DATE);
 
-		MemberDetail memberDetail = MemberDetail.create(memberNo, request.email(), birthDate, request.gender());
-		Member member = Member.create(request.name(), request.phoneNumber(), passwordEncoder.encode(request.password()),
-			Role.MEMBER, memberDetail);
-
+		Member member = Member.create(
+			request.name(),
+			passwordEncoder.encode(request.password()),
+			request.phoneNumber(),
+			memberNo,
+			request.email(),
+			LocalDate.parse(request.birthDate(), DateTimeFormatter.ISO_LOCAL_DATE),
+			request.gender()
+		);
 		memberRepository.save(member);
 
 		return new SignUpResponse(memberNo);

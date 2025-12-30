@@ -83,6 +83,7 @@ public class Member extends BaseEntity {
 		member.name = name;
 		member.password = password;
 		member.phoneNumber = phoneNumber;
+		member.role = Role.GUEST;
 		return member;
 	}
 

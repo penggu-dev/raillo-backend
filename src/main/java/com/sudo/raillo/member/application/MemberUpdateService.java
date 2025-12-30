@@ -75,7 +75,7 @@ public class MemberUpdateService {
 			throw new BusinessException(AuthError.INVALID_AUTH_CODE);
 		}
 
-		memberDetail.updateEmail(newEmail);
+		member.updateEmail(newEmail);
 		memberRedisRepository.deleteUpdateEmailRequest(newEmail); // 해당 변경 요청 건 redis 에서 삭제
 	}
 
