@@ -27,13 +27,13 @@ public enum PaymentStatus {
 	 * 취소 가능한 상태인지 확인
 	 */
 	public boolean isCancellable() {
-		return this == PAID;
+		return this == PENDING;
 	}
 
 	/**
 	 * 환불 가능한 상태인지 확인
 	 */
 	public boolean isRefundable() {
-		return this == CANCELLED;
+		return this == PAID;
 	}
 }
