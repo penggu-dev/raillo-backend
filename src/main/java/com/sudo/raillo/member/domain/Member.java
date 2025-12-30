@@ -1,5 +1,6 @@
 package com.sudo.raillo.member.domain;
 
+import java.time.LocalDate;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -16,14 +17,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @SQLDelete(sql = "UPDATE member SET is_deleted = true WHERE id = ?")
 @SQLRestriction("is_deleted = false")
 @Table(
@@ -42,10 +41,10 @@ public class Member extends BaseEntity {
 	private String name;
 
 	@Column(nullable = false)
-	private String phoneNumber;
+	private String password;
 
 	@Column(nullable = false)
-	private String password;
+	private String phoneNumber;
 
 	@Enumerated(EnumType.STRING)
 	private Role role;
@@ -56,23 +55,35 @@ public class Member extends BaseEntity {
 	@Column(name = "is_deleted", nullable = false)
 	private boolean isDeleted = false;
 
-	private Member(String name, String phoneNumber, String password, Role role, MemberDetail memberDetail) {
-		this.name = name;
-		this.phoneNumber = phoneNumber;
-		this.password = password;
-		this.role = role;
-		this.memberDetail = memberDetail;
-		this.isDeleted = false;
-	}
-
-	public static Member create(String name, String phoneNumber, String password, Role role,
-		MemberDetail memberDetail) {
-		return new Member(name, phoneNumber, password, role, memberDetail);
+	public static Member create(
+		String name,
+		String password,
+		String phoneNumber,
+		String memberNo,
+		String email,
+		LocalDate birthDate,
+		String gender
+	) {
+		Member member = new Member();
+		member.name = name;
+		member.password = password;
+		member.phoneNumber = phoneNumber;
+		member.role = Role.MEMBER;
+		member.memberDetail = MemberDetail.create(memberNo, email, birthDate, gender);
+		return member;
 	}
 
 	// 비회원 등록 정적 팩토리 메서드
-	public static Member guestCreate(String name, String phoneNumber, String password) {
-		return new Member(name, phoneNumber, password, Role.GUEST, null);
+	public static Member createGuest(
+		String name,
+		String password,
+		String phoneNumber
+	) {
+		Member member = new Member();
+		member.name = name;
+		member.password = password;
+		member.phoneNumber = phoneNumber;
+		return member;
 	}
 
 	public void updatePhoneNumber(String phoneNumber) {
@@ -83,4 +94,7 @@ public class Member extends BaseEntity {
 		this.password = password;
 	}
 
+	public void updateEmail(String email) {
+		this.memberDetail.updateEmail(email);
+	}
 }

@@ -4,14 +4,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import java.time.LocalDate;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Embeddable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class MemberDetail {
 
 	@Column(unique = true)
@@ -25,13 +23,21 @@ public class MemberDetail {
 	@Column(length = 1)
 	private String gender;
 
-	public static MemberDetail create(String memberNo, String email, LocalDate birthDate,
-		String gender) {
-		return new MemberDetail(memberNo, email, birthDate, gender);
+	protected static MemberDetail create(
+		String memberNo,
+		String email,
+		LocalDate birthDate,
+		String gender
+	) {
+		MemberDetail memberDetail = new MemberDetail();
+		memberDetail.memberNo = memberNo;
+		memberDetail.email = email;
+		memberDetail.birthDate = birthDate;
+		memberDetail.gender = gender;
+		return memberDetail;
 	}
 
-	public void updateEmail(String newEmail) {
-		this.email = newEmail;
+	protected void updateEmail(String email) {
+		this.email = email;
 	}
-
 }

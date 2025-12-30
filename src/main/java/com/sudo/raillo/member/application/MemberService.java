@@ -49,7 +49,7 @@ public class MemberService {
 
 		String encodedPassword = passwordEncoder.encode(request.password());
 
-		Member member = Member.guestCreate(request.name(), request.phoneNumber(), encodedPassword);
+		Member member = Member.createGuest(request.name(), request.phoneNumber(), encodedPassword);
 		memberRepository.save(member);
 
 		return new GuestRegisterResponse(request.name(), Role.GUEST);
