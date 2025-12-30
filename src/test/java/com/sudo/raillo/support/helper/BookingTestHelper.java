@@ -185,7 +185,7 @@ public class BookingTestHelper {
 		 * @param passengerType 승객 유형
 		 */
 		public BookingBuilder addSeatsByCarType(CarType carType, int count, PassengerType passengerType) {
-			List<Seat> seats = trainTestHelper.getSeats(trainScheduleResult.trainSchedule().getTrain(), carType, count);
+			List<Seat> seats = trainTestHelper.getAvailableSeats(trainScheduleResult.trainSchedule(), carType, count);
 			seats.forEach(seat -> addSeat(seat, passengerType));
 			return this;
 		}

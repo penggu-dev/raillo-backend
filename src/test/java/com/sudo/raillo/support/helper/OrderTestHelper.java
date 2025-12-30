@@ -243,7 +243,7 @@ public class OrderTestHelper {
 		 * 객차 유형과 개수로 좌석을 추가한다.
 		 */
 		public OrderBookingBuilder addSeatsByCarType(CarType carType, int count, PassengerType passengerType) {
-			List<Seat> seats = trainTestHelper.getSeats(trainScheduleResult.trainSchedule().getTrain(), carType, count);
+			List<Seat> seats = trainTestHelper.getAvailableSeats(trainScheduleResult.trainSchedule(), carType, count);
 			seats.forEach(seat -> addSeat(seat, passengerType));
 			return this;
 		}

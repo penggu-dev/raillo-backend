@@ -18,6 +18,11 @@ public interface TestSeatRepository extends JpaRepository<Seat, Long> {
 		"WHERE t.id = :trainId AND tc.carType = :carType")
 	List<Seat> findByTrainIdAndCarTypeWithTrainCarLimited(Long trainId, CarType carType, Pageable pageable);
 
+	@Query("SELECT s FROM Seat s JOIN FETCH s.trainCar tc JOIN FETCH tc.train t " +
+		"WHERE t.id = :trainId AND tc.carType = :carType " +
+		"AND s.id NOT IN (SELECT sb.seat.id FROM SeatBooking sb WHERE sb.trainSchedule.id = :trainScheduleId)")
+	List<Seat> findAvailableSeatsByTrainIdAndCarType(Long trainId, Long trainScheduleId, CarType carType, Pageable pageable);
+
 	@Query("SELECT s FROM Seat s JOIN FETCH s.trainCar tc JOIN FETCH tc.train t WHERE t.id = :trainId")
 	List<Seat> findByTrainIdWithTrainCar(Long trainId);
 }
