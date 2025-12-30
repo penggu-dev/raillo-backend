@@ -1,7 +1,6 @@
 package com.sudo.raillo.payment.application;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -13,11 +12,8 @@ import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.payment.application.dto.projection.PaymentProjection;
-import com.sudo.raillo.payment.application.dto.response.PaymentHistoryResponse;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import com.sudo.raillo.payment.exception.PaymentError;
@@ -54,28 +50,6 @@ public class PaymentService {
 		log.info("[결제 생성] paymentId={}, orderId={}, amount={}", savedPayment.getId(), order.getId(), amount);
 
 		return savedPayment;
-	}
-
-	/**
-	 * 결제 내역 조회
-	 * @param memberNo 회원번호
-	 * @return {@code List<PaymentHistoryResponse>}
-	 */
-	@Transactional(readOnly = true)
-	public List<PaymentHistoryResponse> getPaymentHistory(String memberNo) {
-		Member member = memberRepository.findByMemberNo(memberNo)
-			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
-
-		List<PaymentProjection> paymentProjections = paymentQueryRepository.findPaymentHistoryByMemberId(
-			member.getId());
-
-		return paymentProjections.stream()
-			.map(paymentProjection -> new PaymentHistoryResponse(
-				paymentProjection.getPaymentId(), paymentProjection.getPaymentKey(),
-				paymentProjection.getBookingCode(), paymentProjection.getAmount(),
-				paymentProjection.getPaymentMethod(), paymentProjection.getPaymentStatus(),
-				paymentProjection.getPaidAt(), paymentProjection.getCancelledAt(), paymentProjection.getRefundedAt()))
-			.toList();
 	}
 
 	/**
