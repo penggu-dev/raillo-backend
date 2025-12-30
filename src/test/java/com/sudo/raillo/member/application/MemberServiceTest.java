@@ -191,14 +191,8 @@ class MemberServiceTest {
 		String plainPwd = member.getPassword();
 		String encodedPwd = passwordEncoder.encode(plainPwd);
 
-		Member saveMember = Member.create(
-			member.getName(),
-			member.getPhoneNumber(),
-			encodedPwd,
-			member.getRole(),
-			member.getMemberDetail()
-		);
+		member.updatePassword(encodedPwd);
 
-		return memberRepository.save(saveMember);
+		return memberRepository.save(member);
 	}
 }

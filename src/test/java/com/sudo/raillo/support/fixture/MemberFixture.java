@@ -1,7 +1,6 @@
 package com.sudo.raillo.support.fixture;
 
 import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.member.domain.MemberDetail;
 import com.sudo.raillo.member.domain.Role;
 import java.time.LocalDate;
 import lombok.AccessLevel;
@@ -40,8 +39,7 @@ public class MemberFixture {
 	}
 
 	public Member build() {
-		MemberDetail memberDetail = MemberDetail.create(memberNo, email, birthDate, gender);
-		return Member.create(name, phoneNumber, password, role, memberDetail);
+		return Member.create(name, password, phoneNumber, memberNo, email, birthDate, gender);
 	}
 
 	public MemberFixture withMemberNo(String memberNo) {

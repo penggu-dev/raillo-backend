@@ -16,14 +16,11 @@ import com.sudo.raillo.member.application.dto.request.UpdateEmailRequest;
 import com.sudo.raillo.member.application.dto.request.UpdatePasswordRequest;
 import com.sudo.raillo.member.application.dto.request.UpdatePhoneNumberRequest;
 import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.member.domain.MemberDetail;
-import com.sudo.raillo.member.domain.Role;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRedisRepository;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import java.time.LocalDate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -70,23 +67,12 @@ class MemberUpdateServiceTest {
 		mailSender.setPort(greenMail.getSmtp().getPort());
 
 		member = MemberFixture.create();
-		String plainPwd = member.getPassword();
-		String encodedPwd = passwordEncoder.encode(plainPwd);
+		member.updatePassword(passwordEncoder.encode(member.getPassword()));
+		memberRepository.save(member);
 
-		Member saveMember = Member.create(
-			member.getName(),
-			member.getPhoneNumber(),
-			encodedPwd,
-			member.getRole(),
-			member.getMemberDetail()
-		);
-		memberRepository.save(saveMember);
-
-		MemberDetail otherMemberDetail = MemberDetail.create("202507300002", "test2@example.com",
-			LocalDate.of(2000, 2, 2), "W");
-		otherMember = Member.create("김구름", "01088889999", "testPwd", Role.MEMBER, otherMemberDetail);
+		otherMember = MemberFixture.createOther();
+		otherMember.updatePassword(passwordEncoder.encode(otherMember.getPassword()));
 		memberRepository.save(otherMember);
-
 	}
 
 	@AfterEach
@@ -355,8 +341,7 @@ class MemberUpdateServiceTest {
 	void updatePassword_fail_when_same_password() {
 		//given
 		String memberNo = member.getMemberDetail().getMemberNo();
-		String samePassword = member.getPassword();
-		UpdatePasswordRequest request = new UpdatePasswordRequest(samePassword);
+		UpdatePasswordRequest request = new UpdatePasswordRequest("testPassword");
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
