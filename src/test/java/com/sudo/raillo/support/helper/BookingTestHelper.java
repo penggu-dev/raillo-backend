@@ -3,7 +3,10 @@ package com.sudo.raillo.support.helper;
 import com.sudo.raillo.train.domain.Train;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +30,10 @@ public class BookingTestHelper {
 	private final TrainTestHelper trainTestHelper;
 	private final BookingRepository bookingRepository;
 	private final SeatBookingRepository seatBookingRepository;
+
+	@Lazy
+	@Autowired
+	private BookingTestHelper self;
 
 	/**
 	 * 기본 예약 생성 메서드
@@ -65,20 +72,57 @@ public class BookingTestHelper {
 	 * }</pre>
 	 */
 	public BookingBuilder createCustomBooking(Member member, TrainScheduleResult trainScheduleResult) {
-		return new BookingBuilder(member, trainScheduleResult);
+		return new BookingBuilder(self, member, trainScheduleResult);
+	}
+
+	public BookingResult persist(BookingBuilder builder) {
+		builder.validateRequired();
+		builder.setDefaultStops();
+
+		Booking booking = bookingRepository.save(
+			Booking.create(
+				builder.member,
+				builder.trainScheduleResult.trainSchedule(),
+				builder.departureScheduleStop,
+				builder.arrivalScheduleStop
+			)
+		);
+
+		List<SeatBooking> savedSeatBookings = saveSeatBookings(booking, builder);
+
+		return new BookingResult(booking, savedSeatBookings);
+	}
+
+	private List<SeatBooking> saveSeatBookings(Booking booking, BookingBuilder builder) {
+		if (builder.seatBookings.isEmpty()) {
+			return List.of();
+		}
+
+		List<SeatBooking> toSave = builder.seatBookings.stream()
+			.map(sb -> SeatBooking.create(
+				booking.getTrainSchedule(),
+				sb.getSeat(),
+				booking,
+				sb.getPassengerType()
+			))
+			.toList();
+
+		return seatBookingRepository.saveAll(toSave);
 	}
 
 	/**
 	 * Booking 생성용 Builder
 	 */
 	public class BookingBuilder {
+		private final BookingTestHelper helper;
 		private final List<SeatBooking> seatBookings = new ArrayList<>();
 		private final Member member;
 		private final TrainScheduleResult trainScheduleResult;
 		private ScheduleStop departureScheduleStop;
 		private ScheduleStop arrivalScheduleStop;
 
-		public BookingBuilder (Member member, TrainScheduleResult trainScheduleResult) {
+		public BookingBuilder(BookingTestHelper helper, Member member, TrainScheduleResult trainScheduleResult) {
+			this.helper = helper;
 			this.trainScheduleResult = trainScheduleResult;
 			this.member = member;
 		}
@@ -141,21 +185,13 @@ public class BookingTestHelper {
 		 * @param passengerType 승객 유형
 		 */
 		public BookingBuilder addSeatsByCarType(CarType carType, int count, PassengerType passengerType) {
-			// TODO train에서 예약 안된 좌석만 고르는 기능 추가
 			List<Seat> seats = trainTestHelper.getSeats(trainScheduleResult.trainSchedule().getTrain(), carType, count);
 			seats.forEach(seat -> addSeat(seat, passengerType));
 			return this;
 		}
 
-		@Transactional
 		public BookingResult build() {
-			validateRequired();
-			setDefaultStops();
-
-			Booking booking = saveBooking();
-			List<SeatBooking> savedSeatBookings = saveSeatBookings(booking);
-
-			return new BookingResult(booking, savedSeatBookings);
+			return helper.persist(this);
 		}
 
 		private void validateRequired() {
@@ -176,53 +212,26 @@ public class BookingTestHelper {
 			}
 		}
 
-		private Booking saveBooking() {
-			Booking booking = Booking.create(
-				member,
-				trainScheduleResult.trainSchedule(),
-				departureScheduleStop,
-				arrivalScheduleStop
-			);
-			return bookingRepository.save(booking);
-		}
-
-		private List<SeatBooking> saveSeatBookings(Booking booking) {
-			if (seatBookings.isEmpty()) {
-				return List.of();
-			}
-
-			List<SeatBooking> toSave = seatBookings.stream()
-				.map(sb -> SeatBooking.create(
-					trainScheduleResult.trainSchedule(),
-					sb.getSeat(),
-					booking,
-					sb.getPassengerType()
-				))
-				.toList();
-
-			return seatBookingRepository.saveAll(toSave);
-		}
-
 		private void validateSeat(Seat seat, Train train) {
-			if (seat.getTrainCar().getTrain().getId() != train.getId()) {
+			if (!Objects.equals(seat.getTrainCar().getTrain().getId(), train.getId())) {
 				throw new IllegalArgumentException("열차에 해당하지 않는 좌석입니다.");
 			}
 		}
-	}
 
-	private ScheduleStop getFirstStop(TrainScheduleResult trainScheduleResult) {
-		List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
-		if (stops.isEmpty()) {
-			throw new IllegalArgumentException("출발역을 찾을 수 없습니다.");
+		private ScheduleStop getFirstStop(TrainScheduleResult trainScheduleResult) {
+			List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
+			if (stops.isEmpty()) {
+				throw new IllegalArgumentException("출발역을 찾을 수 없습니다.");
+			}
+			return stops.get(0);
 		}
-		return stops.get(0);
-	}
 
-	private ScheduleStop getLastStop(TrainScheduleResult trainScheduleResult) {
-		List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
-		if (stops.isEmpty()) {
-			throw new IllegalArgumentException("도착역을 찾을 수 없습니다.");
+		private ScheduleStop getLastStop(TrainScheduleResult trainScheduleResult) {
+			List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
+			if (stops.isEmpty()) {
+				throw new IllegalArgumentException("도착역을 찾을 수 없습니다.");
+			}
+			return stops.get(stops.size() - 1);
 		}
-		return stops.get(stops.size() - 1);
 	}
 }

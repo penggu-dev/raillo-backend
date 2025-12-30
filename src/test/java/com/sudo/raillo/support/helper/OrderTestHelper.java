@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,10 @@ public class OrderTestHelper {
 	private final OrderRepository orderRepository;
 	private final OrderBookingRepository orderBookingRepository;
 	private final OrderSeatBookingRepository orderSeatBookingRepository;
+
+	@Lazy
+	@Autowired
+	private OrderTestHelper self;
 
 	/**
 	 * 기본 주문 생성 메서드
@@ -79,17 +85,65 @@ public class OrderTestHelper {
 	 * }</pre>
 	 */
 	public OrderBuilder createCustomOrder(Member member) {
-		return new OrderBuilder(member);
+		return new OrderBuilder(self, member);
+	}
+
+	public OrderResult persist(OrderBuilder builder) {
+		builder.validateRequired();
+
+		BigDecimal totalAmount = builder.calculateTotalAmount();
+		Order order = orderRepository.save(Order.create(builder.member, totalAmount));
+
+		List<OrderBooking> orderBookings = new ArrayList<>();
+		List<OrderSeatBooking> orderSeatBookings = new ArrayList<>();
+
+		for (OrderBookingBuilder bookingBuilder : builder.orderBookingBuilders) {
+			bookingBuilder.setDefaultStops();
+
+			OrderBooking orderBooking = orderBookingRepository.save(
+				OrderBooking.create(
+					order,
+					bookingBuilder.trainScheduleResult.trainSchedule(),
+					bookingBuilder.departureScheduleStop,
+					bookingBuilder.arrivalScheduleStop,
+					bookingBuilder.getTotalFare()
+				)
+			);
+			orderBookings.add(orderBooking);
+
+			List<OrderSeatBooking> seatBookings = saveOrderSeatBookings(orderBooking, bookingBuilder);
+			orderSeatBookings.addAll(seatBookings);
+		}
+
+		return new OrderResult(order, orderBookings, orderSeatBookings);
+	}
+
+	private List<OrderSeatBooking> saveOrderSeatBookings(OrderBooking orderBooking, OrderBookingBuilder builder) {
+		if (builder.seatWithPassengerTypes.isEmpty()) {
+			return List.of();
+		}
+
+		List<OrderSeatBooking> toSave = builder.seatWithPassengerTypes.stream()
+			.map(sp -> OrderSeatBooking.create(
+				orderBooking,
+				sp.seat().getId(),
+				sp.passengerType()
+			))
+			.toList();
+
+		return orderSeatBookingRepository.saveAll(toSave);
 	}
 
 	/**
 	 * Order 생성용 Builder
 	 */
 	public class OrderBuilder {
+		private final OrderTestHelper helper;
 		private final Member member;
 		private final List<OrderBookingBuilder> orderBookingBuilders = new ArrayList<>();
 
-		public OrderBuilder(Member member) {
+		public OrderBuilder(OrderTestHelper helper, Member member) {
+			this.helper = helper;
 			this.member = member;
 		}
 
@@ -105,25 +159,8 @@ public class OrderTestHelper {
 			return builder;
 		}
 
-		@Transactional
 		public OrderResult build() {
-			validateRequired();
-
-			BigDecimal totalAmount = calculateTotalAmount();
-			Order order = saveOrder(totalAmount);
-
-			List<OrderBooking> orderBookings = new ArrayList<>();
-			List<OrderSeatBooking> orderSeatBookings = new ArrayList<>();
-
-			for (OrderBookingBuilder bookingBuilder : orderBookingBuilders) {
-				OrderBooking orderBooking = bookingBuilder.saveOrderBooking(order);
-				orderBookings.add(orderBooking);
-
-				List<OrderSeatBooking> seatBookings = bookingBuilder.saveOrderSeatBookings(orderBooking);
-				orderSeatBookings.addAll(seatBookings);
-			}
-
-			return new OrderResult(order, orderBookings, orderSeatBookings);
+			return helper.persist(this);
 		}
 
 		private void validateRequired() {
@@ -139,11 +176,6 @@ public class OrderTestHelper {
 			return orderBookingBuilders.stream()
 				.map(OrderBookingBuilder::getTotalFare)
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
-		}
-
-		private Order saveOrder(BigDecimal totalAmount) {
-			Order order = Order.create(member, totalAmount);
-			return orderRepository.save(order);
 		}
 	}
 
@@ -211,8 +243,7 @@ public class OrderTestHelper {
 		 * 객차 유형과 개수로 좌석을 추가한다.
 		 */
 		public OrderBookingBuilder addSeatsByCarType(CarType carType, int count, PassengerType passengerType) {
-			List<Seat> seats = trainTestHelper.getSeats(
-				trainScheduleResult.trainSchedule().getTrain(), carType, count);
+			List<Seat> seats = trainTestHelper.getSeats(trainScheduleResult.trainSchedule().getTrain(), carType, count);
 			seats.forEach(seat -> addSeat(seat, passengerType));
 			return this;
 		}
@@ -226,6 +257,15 @@ public class OrderTestHelper {
 				return totalFare;
 			}
 			return calculateTotalFare();
+		}
+
+		private void setDefaultStops() {
+			if (departureScheduleStop == null) {
+				departureScheduleStop = getFirstStop(trainScheduleResult);
+			}
+			if (arrivalScheduleStop == null) {
+				arrivalScheduleStop = getLastStop(trainScheduleResult);
+			}
 		}
 
 		private BigDecimal calculateTotalFare() {
@@ -256,66 +296,28 @@ public class OrderTestHelper {
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 		}
 
-		private OrderBooking saveOrderBooking(Order order) {
-			setDefaultStops();
-
-			OrderBooking orderBooking = OrderBooking.create(
-				order,
-				trainScheduleResult.trainSchedule(),
-				departureScheduleStop,
-				arrivalScheduleStop,
-				getTotalFare()
-			);
-			return orderBookingRepository.save(orderBooking);
-		}
-
-		private List<OrderSeatBooking> saveOrderSeatBookings(OrderBooking orderBooking) {
-			if (seatWithPassengerTypes.isEmpty()) {
-				return List.of();
-			}
-
-			List<OrderSeatBooking> toSave = seatWithPassengerTypes.stream()
-				.map(sp -> OrderSeatBooking.create(
-					orderBooking,
-					sp.seat().getId(),
-					sp.passengerType()
-				))
-				.toList();
-
-			return orderSeatBookingRepository.saveAll(toSave);
-		}
-
-		private void setDefaultStops() {
-			if (departureScheduleStop == null) {
-				departureScheduleStop = getFirstStop(trainScheduleResult);
-			}
-			if (arrivalScheduleStop == null) {
-				arrivalScheduleStop = getLastStop(trainScheduleResult);
-			}
-		}
-
 		private void validateSeat(Seat seat, Train train) {
 			if (!seat.getTrainCar().getTrain().getId().equals(train.getId())) {
 				throw new IllegalArgumentException("열차에 해당하지 않는 좌석입니다.");
 			}
 		}
-	}
 
-	private ScheduleStop getFirstStop(TrainScheduleResult trainScheduleResult) {
-		List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
-		if (stops.isEmpty()) {
-			throw new IllegalArgumentException("출발역을 찾을 수 없습니다.");
+		private ScheduleStop getFirstStop(TrainScheduleResult trainScheduleResult) {
+			List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
+			if (stops.isEmpty()) {
+				throw new IllegalArgumentException("출발역을 찾을 수 없습니다.");
+			}
+			return stops.get(0);
 		}
-		return stops.get(0);
-	}
 
-	private ScheduleStop getLastStop(TrainScheduleResult trainScheduleResult) {
-		List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
-		if (stops.isEmpty()) {
-			throw new IllegalArgumentException("도착역을 찾을 수 없습니다.");
+		private ScheduleStop getLastStop(TrainScheduleResult trainScheduleResult) {
+			List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
+			if (stops.isEmpty()) {
+				throw new IllegalArgumentException("도착역을 찾을 수 없습니다.");
+			}
+			return stops.get(stops.size() - 1);
 		}
-		return stops.get(stops.size() - 1);
-	}
 
-	private record SeatWithPassengerType(Seat seat, PassengerType passengerType) {}
+		private record SeatWithPassengerType(Seat seat, PassengerType passengerType) {}
+	}
 }
