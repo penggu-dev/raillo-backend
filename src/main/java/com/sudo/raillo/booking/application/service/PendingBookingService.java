@@ -100,7 +100,10 @@ public class PendingBookingService {
 			return List.of();
 		}
 
-		// 2. ID 추출
+		// 2. 임시 예약 접근 권한 확인
+		bookingValidator.validatePendingBookingOwnership(pendingBookings, memberNo);
+
+		// 3. ID 추출
 		Set<Long> trainScheduleIds = pendingBookings.stream()
 			.map(PendingBooking::getTrainScheduleId)
 			.collect(Collectors.toSet());
@@ -114,15 +117,16 @@ public class PendingBookingService {
 			.map(PendingSeatBooking::seatId)
 			.collect(Collectors.toSet());
 
-		// 3. 필요 데이터 배치 조회
+		// 4. 필요 데이터 배치 조회
 		Map<Long, TrainScheduleInfo> trainScheduleMap = getTrainScheduleMap(trainScheduleIds);
 		Map<Long, StopInfo> scheduleStopMap = getScheduleStopMap(stopIds);
 		Map<Long, SeatInfo> seatMap = getSeatMap(seatIds);
 
-		// 4. 각 임시 예약의 필요한 정보를 가져올 수 있도록 매핑
+		// 5. 각 임시 예약의 필요한 정보를 가져올 수 있도록 매핑
 		return pendingBookings.stream()
 			.map(pendingBooking ->
-				pendingBookingMapper.convertToPendingBookingDetail(pendingBooking, trainScheduleMap, scheduleStopMap, seatMap)
+				pendingBookingMapper.convertToPendingBookingDetail(pendingBooking, trainScheduleMap, scheduleStopMap,
+					seatMap)
 			)
 			.toList();
 	}

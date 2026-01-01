@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.domain.Booking;
+import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -14,6 +15,9 @@ import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Component
 public class BookingValidator {
 
@@ -70,6 +74,21 @@ public class BookingValidator {
 		// 요청 승객 수와 선택한 좌석 수를 비교하여 좌석 수가 승객 수보다 많으면 오류 발생
 		if (passengerTypes.size() != seatIds.size()) {
 			throw new BusinessException(BookingError.BOOKING_CREATE_SEATS_INVALID);
+		}
+	}
+
+	/**
+	 * 임시 예약 접근 권한 확인
+	 */
+	public void validatePendingBookingOwnership(List<PendingBooking> pendingBookings, String memberNo) {
+		List<PendingBooking> invalidBookings = pendingBookings.stream()
+			.filter(booking -> !booking.getMemberNo().equals(memberNo))
+			.toList();
+
+		if (!invalidBookings.isEmpty()) {
+			log.warn("권한 없는 임시예약 접근 시도 - 요청회원:{}, 임시예약 ID:{}",
+				memberNo, invalidBookings.stream().map(PendingBooking::getId).toList());
+			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
 		}
 	}
 
