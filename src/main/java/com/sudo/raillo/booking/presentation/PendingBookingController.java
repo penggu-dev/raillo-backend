@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,6 +48,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	 * 임시예약 목록 조회 메서드
 	 * @return 회원의 임시 예약 목록 응답
 	 * */
+	@GetMapping
 	public SuccessResponse<List<PendingBookingDetail>> getPendingBookings(
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
