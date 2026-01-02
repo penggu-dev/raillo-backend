@@ -10,7 +10,6 @@ import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.ScheduleStop;
@@ -101,7 +100,7 @@ public class PendingBookingService {
 		}
 
 		// 2. 임시 예약 접근 권한 확인
-		bookingValidator.validatePendingBookingOwnership(pendingBookings, memberNo);
+		bookingValidator.validatePendingBookingOwner(pendingBookings, memberNo);
 
 		// 3. ID 추출
 		Set<Long> trainScheduleIds = pendingBookings.stream()
@@ -141,31 +140,11 @@ public class PendingBookingService {
 	public List<PendingBooking> getPendingBookings(List<String> pendingBookingIds) {
 		Map<String, PendingBooking> bookingsById = bookingRedisRepository.getPendingBookingsAsMap(pendingBookingIds);
 
-		validateAllPendingBookingsExist(pendingBookingIds, bookingsById);
+		bookingValidator.validateAllPendingBookingsExist(pendingBookingIds, bookingsById);
 
 		return pendingBookingIds.stream()
 			.map(bookingsById::get)
 			.toList();
-	}
-
-	public void validatePendingBookingOwner(PendingBooking pendingBooking, String memberNo) {
-		if (!pendingBooking.getMemberNo().equals(memberNo)) {
-			log.error("[임시 예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
-				pendingBooking.getMemberNo(), memberNo);
-			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
-		}
-	}
-
-	private void validateAllPendingBookingsExist(List<String> pendingBookingIds,
-		Map<String, PendingBooking> bookingsById) {
-		List<String> notFoundIds = pendingBookingIds.stream()
-			.filter(id -> !bookingsById.containsKey(id))
-			.toList();
-
-		if (!notFoundIds.isEmpty()) {
-			log.warn("[임시 예약 찾지 못함] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
-			throw new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
-		}
 	}
 
 	private List<PendingSeatBooking> createPendingSeatBookings(

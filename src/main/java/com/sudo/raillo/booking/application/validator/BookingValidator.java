@@ -1,6 +1,7 @@
 package com.sudo.raillo.booking.application.validator;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
@@ -78,17 +79,40 @@ public class BookingValidator {
 	}
 
 	/**
-	 * 임시 예약 접근 권한 확인
+	 * 여러 개의 임시 예약 접근 권한 확인
+	 * @param pendingBookings 임시 예약 리스트
+	 * @param memberNo 회원 번호
 	 */
-	public void validatePendingBookingOwnership(List<PendingBooking> pendingBookings, String memberNo) {
-		List<PendingBooking> invalidBookings = pendingBookings.stream()
-			.filter(booking -> !booking.getMemberNo().equals(memberNo))
+	public void validatePendingBookingOwner(List<PendingBooking> pendingBookings, String memberNo) {
+		pendingBookings.forEach(pendingBooking ->
+			validatePendingBookingOwner(pendingBooking, memberNo));
+	}
+
+	/**
+	 * 임시 예약 접근 권한 확인
+	 * @param pendingBooking 단일 임시 예약
+	 * @param memberNo 회원 번호
+	 */
+	public void validatePendingBookingOwner(PendingBooking pendingBooking, String memberNo) {
+		if (!pendingBooking.getMemberNo().equals(memberNo)) {
+			log.error("[임시 예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
+				pendingBooking.getMemberNo(), memberNo);
+			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
+		}
+	}
+
+	/**
+	 * 임시 예약 존재 여부 검증
+	 */
+	public void validateAllPendingBookingsExist(List<String> pendingBookingIds,
+		Map<String, PendingBooking> bookingsById) {
+		List<String> notFoundIds = pendingBookingIds.stream()
+			.filter(id -> !bookingsById.containsKey(id))
 			.toList();
 
-		if (!invalidBookings.isEmpty()) {
-			log.warn("권한 없는 임시예약 접근 시도 - 요청회원:{}, 임시예약 ID:{}",
-				memberNo, invalidBookings.stream().map(PendingBooking::getId).toList());
-			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
+		if (!notFoundIds.isEmpty()) {
+			log.warn("[임시 예약 찾지 못함] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
+			throw new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
 		}
 	}
 
