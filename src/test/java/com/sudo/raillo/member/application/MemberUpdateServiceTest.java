@@ -278,16 +278,16 @@ class MemberUpdateServiceTest {
 	@DisplayName("이미 본인과 같은 휴대폰 번호로 변경 요청 시 요청이 실패한다.")
 	void updatePhoneNumber_fail_when_same_phone_number() {
 		//given
-		String memberNo = otherMember.getMemberDetail().getMemberNo();
+		String memberNo = member.getMemberDetail().getMemberNo();
 		String samePhoneNumber = member.getPhoneNumber();
 
 		UpdatePhoneNumberRequest request = new UpdatePhoneNumberRequest(samePhoneNumber);
 
 		//when & then
-		assertThatExceptionOfType(BusinessException.class)
+		assertThatExceptionOfType(DomainException.class)
 			.isThrownBy(() -> memberUpdateService.updatePhoneNumber(request, memberNo))
 			.satisfies(exception ->
-				assertThat(exception.getErrorCode()).isEqualTo(MemberError.DUPLICATE_PHONE_NUMBER));
+				assertThat(exception.getErrorCode()).isEqualTo(MemberError.SAME_PHONE_NUMBER));
 	}
 
 	@Test
