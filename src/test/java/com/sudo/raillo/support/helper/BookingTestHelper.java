@@ -44,8 +44,8 @@ public class BookingTestHelper {
 	 * @param trainScheduleResult 열차 스케줄 및 정차역 정보
 	 * @return 생성된 예약과 좌석 예약 정보
 	 */
-	public BookingResult createBooking(Member member, TrainScheduleResult trainScheduleResult) {
-		return createCustomBooking(member, trainScheduleResult)
+	public BookingResult createDefault(Member member, TrainScheduleResult trainScheduleResult) {
+		return builder(member, trainScheduleResult)
 			.addSeatsByCarType(CarType.STANDARD, 1, PassengerType.ADULT)
 			.build();
 	}
@@ -58,20 +58,20 @@ public class BookingTestHelper {
 	 * <h4>사용 예시</h4>
 	 * <pre>{@code
 	 * // 중간역 구간 예약 + 특등석 2좌석
-	 * BookingWithSeats result = bookingTestHelper.createCustomBooking(member, schedule)
+	 * BookingWithSeats result = bookingTestHelper.builder(member, schedule)
 	 *     .setDepartureScheduleStop(departureScheduleStop) // 출발 scheduleStop
 	 *     .setArrivalScheduleStop(arrivalScheduleStop) // 도착 scheduleStop
 	 *     .addSeatsByCarType(CarType.STANDARD, 2, PassengerType.ADULT) // 일반석,어른 2개 좌석 예약
 	 *     .build();
 	 *
 	 * // 성인 + 어린이 혼합 예약
-	 * BookingWithSeats result = bookingTestHelper.createCustomBooking(member, schedule)
+	 * BookingWithSeats result = bookingTestHelper.builder(member, schedule)
 	 *     .addSeat(seat1, PassengerType.ADULT)
 	 *     .addSeat(seat2, PassengerType.CHILD)
 	 *     .build();
 	 * }</pre>
 	 */
-	public BookingBuilder createCustomBooking(Member member, TrainScheduleResult trainScheduleResult) {
+	public BookingBuilder builder(Member member, TrainScheduleResult trainScheduleResult) {
 		return new BookingBuilder(self, member, trainScheduleResult);
 	}
 
@@ -129,10 +129,7 @@ public class BookingTestHelper {
 
 		/**
 		 * 출발역을 역 이름으로 설정한다.
-		 *
 		 * <p>설정하지 않으면 스케줄의 첫 번째 정차역(출발역)이 사용된다.</p>
-		 *
-		 * @param departureScheduleStop 출발역 ScheduleStop
 		 */
 		public BookingBuilder setDepartureScheduleStop(ScheduleStop departureScheduleStop) {
 			this.departureScheduleStop = departureScheduleStop;
@@ -141,10 +138,7 @@ public class BookingTestHelper {
 
 		/**
 		 * 도착역을 역 이름으로 설정한다.
-		 *
 		 * <p>설정하지 않으면 스케줄의 마지막 정차역(도착역)이 사용된다.</p>
-		 *
-		 * @param arrivalScheduleStop 도착역 ScheduleStop
 		 */
 		public BookingBuilder setArrivalScheduleStop(ScheduleStop arrivalScheduleStop) {
 			this.arrivalScheduleStop = arrivalScheduleStop;
@@ -153,9 +147,6 @@ public class BookingTestHelper {
 
 		/**
 		 * 좌석을 직접 지정하여 추가한다.
-		 *
-		 * @param seat 예약할 좌석
-		 * @param passengerType 승객 유형
 		 */
 		public BookingBuilder addSeat(Seat seat, PassengerType passengerType) {
 			validateSeat(seat, trainScheduleResult.trainSchedule().getTrain());
@@ -166,9 +157,6 @@ public class BookingTestHelper {
 
 		/**
 		 * 좌석 리스트를 한꺼번에 추가한다.
-		 *
-		 * @param seats 예약할 좌석
-		 * @param passengerType 승객 유형
 		 */
 		public BookingBuilder addSeats(List<Seat> seats, PassengerType passengerType) {
 			seats.forEach(seat -> addSeat(seat, passengerType));
@@ -177,12 +165,7 @@ public class BookingTestHelper {
 
 		/**
 		 * 객차 유형과 개수로 좌석을 추가한다.
-		 *
-		 * <p>좌석을 직접 조회하지 않고 간편하게 추가할 수 있다.</p>
-		 *
-		 * @param carType 객차 유형 (STANDARD, FIRST_CLASS)
-		 * @param count 좌석 개수
-		 * @param passengerType 승객 유형
+		 * <p>해당 열차에 예약 안된 좌석만 가져오므로 중복 예약 충돌을 방지한다.</p>
 		 */
 		public BookingBuilder addSeatsByCarType(CarType carType, int count, PassengerType passengerType) {
 			List<Seat> seats = trainTestHelper.getAvailableSeats(trainScheduleResult.trainSchedule(), carType, count);

@@ -104,7 +104,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 80000);
 		trainScheduleTestHelper.createOrUpdateStationFare("대전", "부산", 30000, 48000);
 
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.builder()
 			.scheduleName("KTX 복합구간")
 			.operationDate(searchDate)
 			.train(train)
@@ -138,7 +138,7 @@ public class TrainSearchFacadeOverlapBookingTest {
 
 			int seatsToReserve = s.bookedSeatsPerSegment().get(i);
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, seatsToReserve);
-			bookingTestHelper.createCustomBooking(member, trainScheduleResult)
+			bookingTestHelper.builder(member, trainScheduleResult)
 				.setDepartureScheduleStop(departureStop)
 				.setArrivalScheduleStop(arrivalStop)
 				.addSeats(seats, PassengerType.ADULT)

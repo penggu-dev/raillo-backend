@@ -56,8 +56,8 @@ class CartServiceTest {
 		memberRepository.save(member);
 
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createSchedule(train);
-		booking = bookingTestHelper.createBooking(member, trainScheduleResult).booking();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		booking = bookingTestHelper.createDefault(member, trainScheduleResult).booking();
 	}
 
 	@Test

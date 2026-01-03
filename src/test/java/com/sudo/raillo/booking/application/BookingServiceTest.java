@@ -71,10 +71,10 @@ class BookingServiceTest {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createCustomKTX(3, 2);
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 3);
 
-		Order order = orderTestHelper.createCustomOrder(member)
+		Order order = orderTestHelper.builder(member)
 			.addOrderBooking(trainScheduleResult)
 				.addSeat(seats.get(0), PassengerType.ADULT)
 				.addSeat(seats.get(1), PassengerType.CHILD)
@@ -154,8 +154,8 @@ class BookingServiceTest {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createBooking(member, trainScheduleResult).booking();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		Booking booking = bookingTestHelper.createDefault(member, trainScheduleResult).booking();
 		String memberNo = member.getMemberDetail().getMemberNo();
 
 		// when
@@ -178,8 +178,8 @@ class BookingServiceTest {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createSchedule(train);
-		bookingTestHelper.createBooking(member, trainScheduleResult);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		bookingTestHelper.createDefault(member, trainScheduleResult);
 		String memberNo = member.getMemberDetail().getMemberNo();
 
 		// when & then
@@ -194,7 +194,7 @@ class BookingServiceTest {
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
 
-		TrainScheduleResult BusanToDongDaegu = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleResult BusanToDongDaegu = trainScheduleTestHelper.builder()
 			.scheduleName("커스텀 노선 - 부산에서 동대구")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -202,7 +202,7 @@ class BookingServiceTest {
 			.addStop("동대구", LocalTime.of(8, 0), null)
 			.build();
 
-		TrainScheduleResult DaejeonToSeoul = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleResult DaejeonToSeoul = trainScheduleTestHelper.builder()
 			.scheduleName("커스텀 노선 - 대전에서 서울")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -210,8 +210,8 @@ class BookingServiceTest {
 			.addStop("서울", LocalTime.of(12, 0), null)
 			.build();
 
-		Booking booking1 = bookingTestHelper.createBooking(member, BusanToDongDaegu).booking();
-		Booking booking2 = bookingTestHelper.createBooking(member, DaejeonToSeoul).booking();
+		Booking booking1 = bookingTestHelper.createDefault(member, BusanToDongDaegu).booking();
+		Booking booking2 = bookingTestHelper.createDefault(member, DaejeonToSeoul).booking();
 
 		// when
 		List<BookingDetail> result = bookingService.getBookings(member.getMemberDetail().getMemberNo());
@@ -248,8 +248,8 @@ class BookingServiceTest {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createBooking(member, trainScheduleResult).booking();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		Booking booking = bookingTestHelper.createDefault(member, trainScheduleResult).booking();
 		BookingDeleteRequest request = new BookingDeleteRequest(booking.getId());
 
 		// when
@@ -266,10 +266,10 @@ class BookingServiceTest {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		Booking booking = bookingTestHelper.createCustomBooking(member, trainScheduleResult)
+		Booking booking = bookingTestHelper.builder(member, trainScheduleResult)
 			.addSeat(seats.get(0), PassengerType.ADULT)
 			.addSeat(seats.get(1), PassengerType.ADULT)
 			.build()
@@ -292,10 +292,10 @@ class BookingServiceTest {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		Booking booking = bookingTestHelper.createCustomBooking(member, trainScheduleResult)
+		Booking booking = bookingTestHelper.builder(member, trainScheduleResult)
 			.addSeat(seats.get(0), PassengerType.ADULT)
 			.addSeat(seats.get(1), PassengerType.ADULT)
 			.build()

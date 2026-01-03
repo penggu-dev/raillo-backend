@@ -44,9 +44,9 @@ public class TrainScheduleTestHelper {
 	/**
 	 * 기본 스케줄 생성 메서드 서울 -> 부산 (출발: 5:00 -> 도착: 8:00) standardFare: 50,000원, firstClassFare: 100,000원
 	 */
-	public TrainScheduleResult createSchedule(Train train) {
+	public TrainScheduleResult createDefault(Train train) {
 		createOrUpdateStationFare("서울", "부산", 50000, 100000);
-		return createCustomSchedule()
+		return builder()
 			.scheduleName("KTX 001 경부선")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -70,7 +70,7 @@ public class TrainScheduleTestHelper {
 	 *
 	 * <h4>사용 예시</h4>
 	 * <pre>{@code
-	 * ScheduleWithStops result = trainScheduleTestHelper.createCustomSchedule()
+	 * ScheduleWithStops result = trainScheduleTestHelper.builder()
 	 *     .scheduleName("KTX 101 경부선")
 	 *     .operationDate(LocalDate.of(2025, 1, 1))
 	 *     .train(train)
@@ -82,7 +82,7 @@ public class TrainScheduleTestHelper {
 	 *
 	 * @return 열차 스케줄 빌더
 	 */
-	public TrainScheduleBuilder createCustomSchedule() {
+	public TrainScheduleBuilder builder() {
 		return new TrainScheduleBuilder(self);
 	}
 

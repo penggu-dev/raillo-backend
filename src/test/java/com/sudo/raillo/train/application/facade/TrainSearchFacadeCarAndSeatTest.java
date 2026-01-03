@@ -48,7 +48,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 	void getAvailableTrainCars() {
 		// given
 		Train train = trainTestHelper.createCustomKTX(3, 2);
-		TrainScheduleResult trainScheduleWithScheduleStopWithStops = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult trainScheduleWithScheduleStopWithStops = trainScheduleTestHelper.createDefault(train);
 
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
@@ -84,7 +84,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 	Collection<DynamicTest> getAvailableTrainCars_recommendationLogicScenarios() {
 		// given
 		Train train = trainTestHelper.createCustomKTX(6, 2);
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
 
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
@@ -207,7 +207,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 	void getTrainCarSeatDetail_delegatesToSeatQueryService() {
 		// given
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
 
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");

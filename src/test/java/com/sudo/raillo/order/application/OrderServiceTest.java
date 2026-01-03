@@ -123,7 +123,7 @@ class OrderServiceTest {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleResult result = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
 		PendingBooking pendingBooking = PendingBookingFixture.builder()
@@ -171,7 +171,7 @@ class OrderServiceTest {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleResult result = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
 		PendingBooking pendingBooking1 = PendingBookingFixture.builder()

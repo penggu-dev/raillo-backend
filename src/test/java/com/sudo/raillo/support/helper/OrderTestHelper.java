@@ -48,8 +48,8 @@ public class OrderTestHelper {
 	 * @param trainScheduleResult 열차 스케줄 및 정차역 정보
 	 * @return 생성된 주문 결과 (Order, OrderBookings, OrderSeatBookings)
 	 */
-	public OrderResult createOrder(Member member, TrainScheduleResult trainScheduleResult) {
-		return createCustomOrder(member)
+	public OrderResult createDefault(Member member, TrainScheduleResult trainScheduleResult) {
+		return builder(member)
 			.addOrderBooking(trainScheduleResult)
 				.addSeatsByCarType(CarType.STANDARD, 1, PassengerType.ADULT)
 				.and()
@@ -64,7 +64,7 @@ public class OrderTestHelper {
 	 * <h4>사용 예시</h4>
 	 * <pre>{@code
 	 * // 단일 OrderBooking 주문
-	 * OrderResult result = orderTestHelper.createCustomOrder(member)
+	 * OrderResult result = orderTestHelper.builder(member)
 	 *     .addOrderBooking(schedule)
 	 *         .setDepartureScheduleStop(departureStop)
 	 *         .setArrivalScheduleStop(arrivalStop)
@@ -74,7 +74,7 @@ public class OrderTestHelper {
 	 *     .build();
 	 *
 	 * // 여러 OrderBooking 주문 (왕복 등)
-	 * OrderResult result = orderTestHelper.createCustomOrder(member)
+	 * OrderResult result = orderTestHelper.builder(member)
 	 *     .addOrderBooking(schedule1)
 	 *         .addSeatsByCarType(CarType.STANDARD, 2, PassengerType.ADULT)
 	 *         .and()
@@ -84,7 +84,7 @@ public class OrderTestHelper {
 	 *     .build();
 	 * }</pre>
 	 */
-	public OrderBuilder createCustomOrder(Member member) {
+	public OrderBuilder builder(Member member) {
 		return new OrderBuilder(self, member);
 	}
 
@@ -241,6 +241,7 @@ public class OrderTestHelper {
 
 		/**
 		 * 객차 유형과 개수로 좌석을 추가한다.
+		 * <p>해당 열차에 예약 안된 좌석만 가져오므로 중복 예약 충돌을 방지한다.</p>
 		 */
 		public OrderBookingBuilder addSeatsByCarType(CarType carType, int count, PassengerType passengerType) {
 			List<Seat> seats = trainTestHelper.getAvailableSeats(trainScheduleResult.trainSchedule(), carType, count);

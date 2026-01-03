@@ -62,8 +62,8 @@ class TicketServiceTest {
 		Member member = MemberFixture.create();
 		memberRepository.save(member);
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createBooking(member, trainScheduleResult).booking();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		Booking booking = bookingTestHelper.createDefault(member, trainScheduleResult).booking();
 		this.booking = bookingRepository.save(booking);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 		seat1 = seats.get(0);

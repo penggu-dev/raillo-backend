@@ -117,7 +117,7 @@ public class TrainSearchFacadeSeatStatusTest {
 			scenario.standardCars, scenario.firstClassCars,
 			scenario.standardRows, scenario.firstClassRows);
 
-		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createCustomSchedule()
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.builder()
 			.scheduleName("KTX TEST")
 			.operationDate(searchDate)
 			.train(train)
@@ -131,7 +131,7 @@ public class TrainSearchFacadeSeatStatusTest {
 
 		if (scenario.bookedStandardSeats > 0) {
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, scenario.bookedStandardSeats);
-			bookingTestHelper.createCustomBooking(member, trainScheduleResult)
+			bookingTestHelper.builder(member, trainScheduleResult)
 				.setDepartureScheduleStop(departureStop)
 				.setArrivalScheduleStop(arrivalStop)
 				.addSeats(seats, PassengerType.ADULT)
@@ -139,7 +139,7 @@ public class TrainSearchFacadeSeatStatusTest {
 		}
 		if (scenario.bookedFirstClassSeats > 0) {
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, scenario.bookedFirstClassSeats);
-			bookingTestHelper.createCustomBooking(member, trainScheduleResult)
+			bookingTestHelper.builder(member, trainScheduleResult)
 				.setDepartureScheduleStop(departureStop)
 				.setArrivalScheduleStop(arrivalStop)
 				.addSeats(seats, PassengerType.ADULT)

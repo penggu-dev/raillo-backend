@@ -183,7 +183,7 @@ class TrainCalendarServiceTest {
 
 	private TrainScheduleResult createTrainSchedule(Train train, LocalDate operationDate,
                                                     String scheduleName, LocalTime departureTime, LocalTime arrivalTime) {
-		return trainScheduleTestHelper.createCustomSchedule()
+		return trainScheduleTestHelper.builder()
 			.scheduleName(scheduleName)
 			.operationDate(operationDate)
 			.train(train)

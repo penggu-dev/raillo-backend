@@ -56,7 +56,7 @@ class TrainSeatQueryServiceTest {
 	@BeforeEach
 	void setUp() {
 		train = trainTestHelper.createCustomKTX(1, 1);
-		trainScheduleResult = trainScheduleTestHelper.createCustomSchedule()
+		trainScheduleResult = trainScheduleTestHelper.builder()
 			.scheduleName("test-schedule")
 			.operationDate(LocalDate.now())
 			.train(train)
