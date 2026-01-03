@@ -1,6 +1,7 @@
 package com.sudo.raillo.member.presentation;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,30 +32,26 @@ public class MemberController implements MemberControllerDoc {
 
 	@PostMapping("/guest/register")
 	public SuccessResponse<GuestRegisterResponse> guestRegister(@RequestBody @Valid GuestRegisterRequest request) {
-
 		GuestRegisterResponse response = memberService.guestRegister(request);
 
 		return SuccessResponse.of(MemberSuccess.GUEST_REGISTER_SUCCESS, response);
 	}
 
 	@DeleteMapping("/members")
-	public SuccessResponse<?> memberDelete(HttpServletRequest request,
-		@AuthenticationPrincipal(expression = "username") String memberNo) {
-
+	public SuccessResponse<?> memberDelete(
+		HttpServletRequest request,
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
 		String accessToken = tokenExtractor.resolveToken(request);
-
-		memberService.memberDelete(accessToken, memberNo);
+		memberService.memberDelete(accessToken, userDetails.getUsername());
 
 		return SuccessResponse.of(MemberSuccess.MEMBER_DELETE_SUCCESS);
 	}
 
 	@GetMapping("/members/me")
-	public SuccessResponse<MemberInfoResponse> getMemberInfo(
-		@AuthenticationPrincipal(expression = "username") String memberNo) {
-
-		MemberInfoResponse response = memberService.getMemberInfo(memberNo);
+	public SuccessResponse<MemberInfoResponse> getMemberInfo(@AuthenticationPrincipal UserDetails userDetails) {
+		MemberInfoResponse response = memberService.getMemberInfo(userDetails.getUsername());
 
 		return SuccessResponse.of(MemberSuccess.MEMBER_INFO_SUCCESS, response);
 	}
-
 }

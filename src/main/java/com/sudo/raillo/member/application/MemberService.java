@@ -36,7 +36,6 @@ public class MemberService {
 	 * 비회원 등록
 	 * */
 	public GuestRegisterResponse guestRegister(GuestRegisterRequest request) {
-
 		// 중복 체크
 		List<Member> foundMembers = memberRepository.findByNameAndPhoneNumber(request.name(), request.phoneNumber());
 
@@ -59,7 +58,6 @@ public class MemberService {
 	 * 회원 삭제
 	 * */
 	public void memberDelete(String accessToken, String memberNo) {
-
 		Member currentMember = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 

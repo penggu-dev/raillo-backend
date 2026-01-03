@@ -1,7 +1,24 @@
 package com.sudo.raillo.member.application;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
+import com.icegreen.greenmail.configuration.GreenMailConfiguration;
+import com.icegreen.greenmail.junit5.GreenMailExtension;
+import com.icegreen.greenmail.util.GreenMailUtil;
+import com.icegreen.greenmail.util.ServerSetup;
+import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
+import com.sudo.raillo.auth.application.dto.response.TemporaryTokenResponse;
+import com.sudo.raillo.auth.exception.AuthError;
+import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
+import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.member.application.dto.response.VerifyMemberNoResponse;
+import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.member.exception.MemberError;
+import com.sudo.raillo.member.infrastructure.MemberRedisRepository;
+import com.sudo.raillo.member.infrastructure.MemberRepository;
+import com.sudo.raillo.support.annotation.ServiceTest;
+import com.sudo.raillo.support.fixture.MemberFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -9,26 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
-
-import com.icegreen.greenmail.configuration.GreenMailConfiguration;
-import com.icegreen.greenmail.junit5.GreenMailExtension;
-import com.icegreen.greenmail.util.GreenMailUtil;
-import com.icegreen.greenmail.util.ServerSetup;
-import com.sudo.raillo.auth.application.dto.request.VerifyCodeRequest;
-import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
-import com.sudo.raillo.auth.application.dto.response.TemporaryTokenResponse;
-import com.sudo.raillo.auth.exception.AuthError;
-import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
-import com.sudo.raillo.member.infrastructure.MemberRedisRepository;
-import com.sudo.raillo.member.application.dto.request.FindMemberNoRequest;
-import com.sudo.raillo.member.application.dto.request.FindPasswordRequest;
-import com.sudo.raillo.member.application.dto.response.VerifyMemberNoResponse;
-import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.member.exception.MemberError;
-import com.sudo.raillo.member.infrastructure.MemberRepository;
-import com.sudo.raillo.support.annotation.ServiceTest;
-import com.sudo.raillo.support.fixture.MemberFixture;
 
 @ServiceTest
 class MemberFindServiceTest {
@@ -77,10 +74,9 @@ class MemberFindServiceTest {
 		//given
 		String memberEmail = member.getMemberDetail().getEmail();
 		String memberNo = member.getMemberDetail().getMemberNo();
-		FindMemberNoRequest request = new FindMemberNoRequest(member.getName(), member.getPhoneNumber());
 
 		//when
-		SendCodeResponse response = memberFindService.requestFindMemberNo(request);
+		SendCodeResponse response = memberFindService.requestFindMemberNo(member.getName(), member.getPhoneNumber());
 
 		//then
 		assertThat(response).isNotNull();
@@ -100,11 +96,11 @@ class MemberFindServiceTest {
 	@DisplayName("존재하지 않는 회원의 정보로 회원 번호를 찾으면 요청에 실패한다.")
 	void requestFindMemberNo_fail() {
 		//given
-		FindMemberNoRequest request = new FindMemberNoRequest("존재하지않는이름", "01099998888");
+		String nonExistMemberName = "NonExistMemberName";
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberFindService.requestFindMemberNo(request))
+			.isThrownBy(() -> memberFindService.requestFindMemberNo(nonExistMemberName, member.getPhoneNumber()))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.USER_NOT_FOUND));
 	}
@@ -120,10 +116,8 @@ class MemberFindServiceTest {
 		memberRedisRepository.saveMemberNo(memberEmail, memberNo);
 		authRedisRepository.saveAuthCode(memberEmail, authCode);
 
-		VerifyCodeRequest request = new VerifyCodeRequest(memberEmail, authCode);
-
 		//when
-		VerifyMemberNoResponse response = memberFindService.verifyFindMemberNo(request);
+		VerifyMemberNoResponse response = memberFindService.verifyFindMemberNo(memberEmail, authCode);
 
 		//then
 		assertThat(response).isNotNull();
@@ -148,11 +142,9 @@ class MemberFindServiceTest {
 		memberRedisRepository.saveMemberNo(memberEmail, memberNo);
 		authRedisRepository.saveAuthCode(memberEmail, correctAuthCode);
 
-		VerifyCodeRequest request = new VerifyCodeRequest(memberEmail, wrongAuthCode);
-
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberFindService.verifyFindMemberNo(request))
+			.isThrownBy(() -> memberFindService.verifyFindMemberNo(memberEmail, wrongAuthCode))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(AuthError.INVALID_AUTH_CODE));
 	}
@@ -161,10 +153,11 @@ class MemberFindServiceTest {
 	@DisplayName("존재하는 회원 정보로 이메일 인증을 통한 비밀번호 찾기 요청에 성공한다.")
 	void requestFindPassword_success() {
 		//given
-		FindPasswordRequest request = new FindPasswordRequest(member.getName(), member.getMemberDetail().getMemberNo());
+		String name = member.getName();
+		String memberNo = member.getMemberDetail().getMemberNo();
 
 		//when
-		SendCodeResponse response = memberFindService.requestFindPassword(request);
+		SendCodeResponse response = memberFindService.requestFindPassword(name, memberNo);
 
 		//then
 		assertThat(response).isNotNull();
@@ -184,11 +177,10 @@ class MemberFindServiceTest {
 	void requestFindPassword_fail_when_wrong_member_no() {
 		//given
 		String wrongMemberNo = "202007070001";
-		FindPasswordRequest request = new FindPasswordRequest(member.getName(), wrongMemberNo);
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberFindService.requestFindPassword(request))
+			.isThrownBy(() -> memberFindService.requestFindPassword(member.getName(), wrongMemberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.USER_NOT_FOUND));
 	}
@@ -198,11 +190,10 @@ class MemberFindServiceTest {
 	void requestFindPassword_fail_when_miss_match_name() {
 		//given
 		String wrongName = "다른이름";
-		FindPasswordRequest request = new FindPasswordRequest(wrongName, member.getMemberDetail().getMemberNo());
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberFindService.requestFindPassword(request))
+			.isThrownBy(() -> memberFindService.requestFindPassword(wrongName, member.getMemberDetail().getMemberNo()))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.NAME_MISMATCH));
 	}
@@ -218,10 +209,8 @@ class MemberFindServiceTest {
 		memberRedisRepository.saveMemberNo(memberEmail, memberNo);
 		authRedisRepository.saveAuthCode(memberEmail, authCode);
 
-		VerifyCodeRequest request = new VerifyCodeRequest(memberEmail, authCode);
-
 		//when
-		TemporaryTokenResponse response = memberFindService.verifyFindPassword(request);
+		TemporaryTokenResponse response = memberFindService.verifyFindPassword(memberEmail, authCode);
 
 		//then
 		assertThat(response).isNotNull();
@@ -244,11 +233,9 @@ class MemberFindServiceTest {
 		memberRedisRepository.saveMemberNo(memberEmail, memberNo);
 		authRedisRepository.saveAuthCode(memberEmail, correctAuthCode);
 
-		VerifyCodeRequest request = new VerifyCodeRequest(memberEmail, wrongAuthCode);
-
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberFindService.verifyFindPassword(request))
+			.isThrownBy(() -> memberFindService.verifyFindPassword(memberEmail, wrongAuthCode))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(AuthError.INVALID_AUTH_CODE));
 	}

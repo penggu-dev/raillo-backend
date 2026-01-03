@@ -1,25 +1,24 @@
 package com.sudo.raillo.member.presentation;
 
+import com.sudo.raillo.auth.application.dto.request.SendCodeRequest;
+import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
+import com.sudo.raillo.auth.success.AuthSuccess;
+import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.member.application.MemberUpdateService;
+import com.sudo.raillo.member.application.dto.request.UpdateEmailRequest;
+import com.sudo.raillo.member.application.dto.request.UpdatePasswordRequest;
+import com.sudo.raillo.member.application.dto.request.UpdatePhoneNumberRequest;
+import com.sudo.raillo.member.docs.MemberUpdateControllerDoc;
+import com.sudo.raillo.member.success.MemberSuccess;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.sudo.raillo.global.success.SuccessResponse;
-import com.sudo.raillo.member.application.MemberUpdateService;
-import com.sudo.raillo.auth.application.dto.request.SendCodeRequest;
-import com.sudo.raillo.member.application.dto.request.UpdateEmailRequest;
-import com.sudo.raillo.member.application.dto.request.UpdatePasswordRequest;
-import com.sudo.raillo.member.application.dto.request.UpdatePhoneNumberRequest;
-import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
-import com.sudo.raillo.member.docs.MemberUpdateControllerDoc;
-import com.sudo.raillo.auth.success.AuthSuccess;
-import com.sudo.raillo.member.success.MemberSuccess;
-
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestController
@@ -29,39 +28,42 @@ public class MemberUpdateController implements MemberUpdateControllerDoc {
 	private final MemberUpdateService memberUpdateService;
 
 	@PostMapping("/auth/members/me/email-code")
-	public SuccessResponse<SendCodeResponse> requestUpdateEmail(@RequestBody @Valid SendCodeRequest request,
-		@AuthenticationPrincipal(expression = "username") String memberNo) {
-
-		SendCodeResponse response = memberUpdateService.requestUpdateEmail(request, memberNo);
+	public SuccessResponse<SendCodeResponse> requestUpdateEmail(
+		@RequestBody @Valid SendCodeRequest request,
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
+		SendCodeResponse response = memberUpdateService.requestUpdateEmail(request, userDetails.getUsername());
 
 		return SuccessResponse.of(AuthSuccess.SEND_CODE_SUCCESS, response);
 	}
 
 	@PutMapping("/auth/members/me/email-code")
-	public SuccessResponse<?> verifyUpdateEmail(@RequestBody @Valid UpdateEmailRequest request,
-		@AuthenticationPrincipal(expression = "username") String memberNo) {
-
-		memberUpdateService.verifyUpdateEmail(request, memberNo);
+	public SuccessResponse<?> verifyUpdateEmail(
+		@RequestBody @Valid UpdateEmailRequest request,
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
+		memberUpdateService.verifyUpdateEmail(request, userDetails.getUsername());
 
 		return SuccessResponse.of(MemberSuccess.MEMBER_EMAIL_UPDATE_SUCCESS);
 	}
 
 	@PutMapping("/api/v1/members/phone-number")
-	public SuccessResponse<?> updatePhoneNumber(@RequestBody @Valid UpdatePhoneNumberRequest request,
-		@AuthenticationPrincipal(expression = "username") String memberNo) {
-
-		memberUpdateService.updatePhoneNumber(request, memberNo);
+	public SuccessResponse<?> updatePhoneNumber(
+		@RequestBody @Valid UpdatePhoneNumberRequest request,
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
+		memberUpdateService.updatePhoneNumber(request, userDetails.getUsername());
 
 		return SuccessResponse.of(MemberSuccess.MEMBER_PHONENUMBER_UPDATE_SUCCESS);
 	}
 
 	@PutMapping("/api/v1/members/password")
-	public SuccessResponse<?> updatePassword(@RequestBody @Valid UpdatePasswordRequest request,
-		@AuthenticationPrincipal(expression = "username") String memberNo) {
-
-		memberUpdateService.updatePassword(request, memberNo);
+	public SuccessResponse<?> updatePassword(
+		@RequestBody @Valid UpdatePasswordRequest request,
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
+		memberUpdateService.updatePassword(request, userDetails.getUsername());
 
 		return SuccessResponse.of(MemberSuccess.MEMBER_PASSWORD_UPDATE_SUCCESS);
 	}
-
 }
