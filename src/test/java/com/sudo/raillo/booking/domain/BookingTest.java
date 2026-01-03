@@ -88,7 +88,7 @@ class BookingTest {
 
 	@Test
 	@DisplayName("이미 취소된 예약을 다시 취소하면 예외가 발생한다")
-	void CancelFail() {
+	void cancelFail() {
 		// given
 		Member member = MemberFixture.create();
 		Booking booking = BookingFixture.create(member);
