@@ -1,14 +1,7 @@
 package com.sudo.raillo.booking.application;
 
-import static com.sudo.raillo.support.helper.TrainScheduleTestHelper.*;
-import static org.assertj.core.api.Assertions.*;
-
-import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.booking.application.dto.request.CartCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
@@ -22,9 +15,15 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
+import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Train;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 class CartServiceTest {
@@ -52,13 +51,13 @@ class CartServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberNo = member.getMemberDetail().getMemberNo();
 		memberRepository.save(member);
 
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleWithStopStations scheduleWithStops = trainScheduleTestHelper.createSchedule(train);
-		booking = bookingTestHelper.createBooking(member, scheduleWithStops);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		booking = bookingTestHelper.createDefault(member, trainScheduleResult).booking();
 	}
 
 	@Test
@@ -79,7 +78,7 @@ class CartServiceTest {
 	@DisplayName("자신의 예약이 아니라면 예외가 발생한다")
 	void createCart_accessDenied_throwsException() {
 		// given
-		Member otherMember = MemberFixture.createOtherMember();
+		Member otherMember = MemberFixture.createOther();
 		String otherMemberNo = otherMember.getMemberDetail().getMemberNo();
 		memberRepository.save(otherMember);
 

@@ -1,8 +1,8 @@
 package com.sudo.raillo.support.helper;
 
-import com.sudo.raillo.support.fixture.SeatFixture;
-import com.sudo.raillo.support.fixture.TrainCarFixture;
-import com.sudo.raillo.support.fixture.TrainFixture;
+import com.sudo.raillo.support.fixture.train.SeatFixture;
+import com.sudo.raillo.support.fixture.train.TrainCarFixture;
+import com.sudo.raillo.support.fixture.train.TrainFixture;
 import com.sudo.raillo.support.repository.TestSeatRepository;
 import com.sudo.raillo.support.repository.TrainRepository;
 import com.sudo.raillo.train.config.TrainTemplateProperties.CarSpec;
@@ -12,6 +12,7 @@ import com.sudo.raillo.train.config.TrainTemplateProperties.TrainTemplate;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainCar;
+import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.domain.type.SeatType;
 import com.sudo.raillo.train.domain.type.TrainType;
@@ -124,11 +125,24 @@ public class TrainTestHelper {
 
 	/**
 	 * 좌석 조회 메서드
-	 * count만큼 carType에 해당하는 좌석 조회
+	 * count만큼 carType에 해당하는 좌석 조회 (예약 여부 무관)
 	 */
 	public List<Seat> getSeats(Train train, CarType carType, int count) {
 		Pageable limit = PageRequest.of(0, count);
 		return testSeatRepository.findByTrainIdAndCarTypeWithTrainCarLimited(train.getId(), carType, limit)
+			.stream()
+			.toList();
+	}
+
+	/**
+	 * 예약 가능한 좌석 조회 메서드
+	 * count만큼 carType에 해당하고, 해당 스케줄에 예약되지 않은 좌석만 조회
+	 */
+	public List<Seat> getAvailableSeats(TrainSchedule trainSchedule, CarType carType, int count) {
+		Pageable limit = PageRequest.of(0, count);
+		Long trainId = trainSchedule.getTrain().getId();
+		Long trainScheduleId = trainSchedule.getId();
+		return testSeatRepository.findAvailableSeatsByTrainIdAndCarType(trainId, trainScheduleId, carType, limit)
 			.stream()
 			.toList();
 	}

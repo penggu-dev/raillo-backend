@@ -62,7 +62,7 @@ class MemberFindServiceTest {
 		greenMail.start();
 		mailSender.setPort(greenMail.getSmtp().getPort());
 
-		member = MemberFixture.createStandardMember();
+		member = MemberFixture.create();
 		memberRepository.save(member);
 	}
 

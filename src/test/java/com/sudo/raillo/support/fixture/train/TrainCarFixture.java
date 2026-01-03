@@ -1,4 +1,4 @@
-package com.sudo.raillo.support.fixture;
+package com.sudo.raillo.support.fixture.train;
 
 import com.sudo.raillo.train.config.TrainTemplateProperties.CarSpec;
 import com.sudo.raillo.train.config.TrainTemplateProperties.SeatLayout;

@@ -27,7 +27,6 @@ import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
-import com.sudo.raillo.train.infrastructure.TrainCarRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,7 +43,7 @@ class TrainSearchFacadeTest {
 
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
-	
+
 	@DisplayName("금일로부터 한달간의 운행 스케줄 캘린더를 조회한다.")
 	@Test
 	void getOperationCalendar() {
@@ -384,7 +383,7 @@ class TrainSearchFacadeTest {
 
 	private void createTrainSchedule(Train train, LocalDate operationDate, String scheduleName,
 		LocalTime departureTime, LocalTime arrivalTime) {
-		trainScheduleTestHelper.createCustomSchedule()
+		trainScheduleTestHelper.builder()
 			.scheduleName(scheduleName)
 			.operationDate(operationDate)
 			.train(train)
@@ -399,7 +398,7 @@ class TrainSearchFacadeTest {
 	private void createTrainSchedule(Train train, LocalDate operationDate,
 		String scheduleName, LocalTime departureTime, LocalTime arrivalTime,
 		String departureStation, String arrivalStation) {
-		trainScheduleTestHelper.createCustomSchedule()
+		trainScheduleTestHelper.builder()
 			.scheduleName(scheduleName)
 			.operationDate(operationDate)
 			.train(train)

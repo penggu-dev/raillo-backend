@@ -4,63 +4,83 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.domain.MemberDetail;
 import com.sudo.raillo.member.domain.Role;
 import java.time.LocalDate;
-import lombok.Getter;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 
-@Getter
-public enum MemberFixture {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public class MemberFixture {
 
-	MEMBER(
-		"202507300001",
-		"test@example.com",
-		LocalDate.of(2000, 1, 1),
-		"M",
-		"member",
-		"010-1111-1111",
-		"testPassword",
-		Role.MEMBER
-	),
-	OTHER_MEMBER(
-		"202507300002",
-		"other@example.com",
-		LocalDate.of(2000, 1, 1),
-		"W",
-		"other",
-		"010-2222-2222",
-		"otherPassword",
-		Role.MEMBER
-	);
+	private String memberNo = "202507300001";
+	private String email = "test@example.com";
+	private LocalDate birthDate = LocalDate.of(2000, 1, 1);
+	private String gender = "M";
+	private String name = "member";
+	private String phoneNumber = "010-1111-1111";
+	private String password = "testPassword";
+	private Role role = Role.MEMBER;
 
-	private final String memberNo;
-	private final String email;
-	private final LocalDate birthDate;
-	private final String gender;
-	private final String name;
-	private final String phoneNumber;
-	private final String password;
-	private final Role role;
+	public static Member create() {
+		return builder().build();
+	}
 
-	MemberFixture(String memberNo, String email, LocalDate birthDate, String gender,
-		String name, String phoneNumber, String password, Role role) {
+	public static Member createOther() {
+		return builder()
+			.withMemberNo("202507300002")
+			.withEmail("other@example.com")
+			.withGender("W")
+			.withName("other")
+			.withPhoneNumber("010-2222-2222")
+			.withPassword("otherPassword")
+			.build();
+	}
+
+	// builder method
+	public static MemberFixture builder() {
+		return new MemberFixture();
+	}
+
+	public Member build() {
+		MemberDetail memberDetail = MemberDetail.create(memberNo, email, birthDate, gender);
+		return Member.create(name, phoneNumber, password, role, memberDetail);
+	}
+
+	public MemberFixture withMemberNo(String memberNo) {
 		this.memberNo = memberNo;
+		return this;
+	}
+
+	public MemberFixture withEmail(String email) {
 		this.email = email;
+		return this;
+	}
+
+	public MemberFixture withBirthDate(LocalDate birthDate) {
 		this.birthDate = birthDate;
+		return this;
+	}
+
+	public MemberFixture withGender(String gender) {
 		this.gender = gender;
+		return this;
+	}
+
+	public MemberFixture withName(String name) {
 		this.name = name;
+		return this;
+	}
+
+	public MemberFixture withPhoneNumber(String phoneNumber) {
 		this.phoneNumber = phoneNumber;
+		return this;
+	}
+
+	public MemberFixture withPassword(String password) {
 		this.password = password;
+		return this;
+	}
+
+	public MemberFixture withRole(Role role) {
 		this.role = role;
-	}
-
-	public static Member createStandardMember() {
-		MemberDetail memberDetail = MemberDetail.create(MEMBER.memberNo, MEMBER.email,
-			MEMBER.birthDate, MEMBER.gender);
-		return Member.create(MEMBER.name, MEMBER.phoneNumber, MEMBER.password, MEMBER.role, memberDetail);
-	}
-
-	public static Member createOtherMember() {
-		MemberDetail memberDetail = MemberDetail.create(OTHER_MEMBER.memberNo,
-			OTHER_MEMBER.email, OTHER_MEMBER.birthDate, OTHER_MEMBER.gender);
-		return Member.create(OTHER_MEMBER.name, OTHER_MEMBER.phoneNumber, OTHER_MEMBER.password, OTHER_MEMBER.role,
-			memberDetail);
+		return this;
 	}
 }

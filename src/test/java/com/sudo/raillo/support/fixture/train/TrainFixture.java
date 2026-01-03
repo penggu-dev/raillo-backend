@@ -1,4 +1,4 @@
-package com.sudo.raillo.support.fixture;
+package com.sudo.raillo.support.fixture.train;
 
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.TrainType;

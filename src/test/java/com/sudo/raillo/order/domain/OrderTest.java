@@ -19,7 +19,7 @@ class OrderTest {
 	@DisplayName("주문 생성 시 상태가 PENDING이고 주문 코드가 생성된다")
 	void create() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		BigDecimal totalAmount = BigDecimal.valueOf(10000);
 
 		// when
@@ -37,7 +37,7 @@ class OrderTest {
 	@DisplayName("총 주문 금액이 0으로 주문을 생성할 수 있다")
 	void invalidTotalAmountZero() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		BigDecimal totalAmount = BigDecimal.ZERO;
 
 		// when
@@ -53,7 +53,7 @@ class OrderTest {
 	@DisplayName("음수 금액으로 주문 생성 시 예외가 발생한다")
 	void invalidTotalAmountNegative() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		BigDecimal invalidAmount = BigDecimal.valueOf(-1000);
 
 		// when & then
@@ -66,7 +66,7 @@ class OrderTest {
 	@DisplayName("PENDING 상태의 주문을 결제 완료 처리하면 상태가 ORDERED로 변경된다")
 	void completePayment() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
@@ -80,7 +80,7 @@ class OrderTest {
 	@DisplayName("PENDING 상태가 아닌 주문을 결제 완료 처리하면 예외가 발생한다")
 	void completePaymentFail() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
@@ -96,7 +96,7 @@ class OrderTest {
 	@DisplayName("PENDING 상태의 주문을 만료 처리하면 상태가 EXPIRED로 변경되고 만료 시간이 설정된다")
 	void expired() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
@@ -111,7 +111,7 @@ class OrderTest {
 	@DisplayName("PENDING 상태가 아닌 주문을 만료 처리하면 예외가 발생한다")
 	void expiredFail() {
 		// given
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when

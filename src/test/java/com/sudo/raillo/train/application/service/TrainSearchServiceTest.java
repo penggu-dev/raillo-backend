@@ -22,10 +22,10 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
 
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.support.fixture.StationFareFixture;
-import com.sudo.raillo.support.fixture.StationFixture;
-import com.sudo.raillo.support.fixture.TrainFixture;
-import com.sudo.raillo.support.fixture.TrainScheduleFixture;
+import com.sudo.raillo.support.fixture.train.StationFareFixture;
+import com.sudo.raillo.support.fixture.train.StationFixture;
+import com.sudo.raillo.support.fixture.train.TrainFixture;
+import com.sudo.raillo.support.fixture.train.TrainScheduleFixture;
 import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;

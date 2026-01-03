@@ -1,20 +1,19 @@
 package com.sudo.raillo.train.application.service;
 
-import static org.assertj.core.api.Assertions.*;
-
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.support.annotation.ServiceTest;
+import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
 import com.sudo.raillo.train.domain.Train;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 class TrainCalendarServiceTest {
@@ -182,9 +181,9 @@ class TrainCalendarServiceTest {
 			.orElseThrow(() -> new AssertionError("날짜 " + date + "를 찾을 수 없습니다"));
 	}
 
-	private TrainScheduleTestHelper.TrainScheduleWithStopStations createTrainSchedule(Train train, LocalDate operationDate,
-		String scheduleName, LocalTime departureTime, LocalTime arrivalTime) {
-		return trainScheduleTestHelper.createCustomSchedule()
+	private TrainScheduleResult createTrainSchedule(Train train, LocalDate operationDate,
+                                                    String scheduleName, LocalTime departureTime, LocalTime arrivalTime) {
+		return trainScheduleTestHelper.builder()
 			.scheduleName(scheduleName)
 			.operationDate(operationDate)
 			.train(train)

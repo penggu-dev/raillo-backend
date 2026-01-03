@@ -15,6 +15,7 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
+import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
@@ -58,11 +59,11 @@ class TicketServiceTest {
 
 	@BeforeEach
 	void setup() {
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 		memberRepository.save(member);
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations schedule = trainScheduleTestHelper.createSchedule(train);
-		Booking booking = bookingTestHelper.createBooking(member, schedule);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		Booking booking = bookingTestHelper.createDefault(member, trainScheduleResult).booking();
 		this.booking = bookingRepository.save(booking);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 		seat1 = seats.get(0);
@@ -104,7 +105,7 @@ class TicketServiceTest {
 			.passengerType(passengerType2)
 			.build();
 		ticketRepository.save(ticket2);
-		Member member = MemberFixture.createStandardMember();
+		Member member = MemberFixture.create();
 
 		// when
 		List<TicketReadResponse> result = ticketService.getMyTickets(member.getMemberDetail().getMemberNo());

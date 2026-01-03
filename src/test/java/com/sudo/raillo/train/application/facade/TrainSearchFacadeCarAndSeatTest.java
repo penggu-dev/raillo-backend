@@ -1,18 +1,9 @@
 package com.sudo.raillo.train.application.facade;
 
-import static org.assertj.core.api.Assertions.*;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.function.Predicate;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.DynamicTest;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.support.annotation.ServiceTest;
+import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
@@ -25,8 +16,15 @@ import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainCar;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.infrastructure.TrainCarRepository;
-
+import java.util.Collection;
+import java.util.List;
+import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 @Slf4j
@@ -50,13 +48,13 @@ public class TrainSearchFacadeCarAndSeatTest {
 	void getAvailableTrainCars() {
 		// given
 		Train train = trainTestHelper.createCustomKTX(3, 2);
-		TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleWithStop = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult trainScheduleWithScheduleStopWithStops = trainScheduleTestHelper.createDefault(train);
 
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
 
 		TrainCarListRequest request = new TrainCarListRequest(
-			scheduleWithStop.trainSchedule().getId(),
+			trainScheduleWithScheduleStopWithStops.trainSchedule().getId(),
 			seoul.getId(),
 			busan.getId(),
 			2
@@ -86,7 +84,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 	Collection<DynamicTest> getAvailableTrainCars_recommendationLogicScenarios() {
 		// given
 		Train train = trainTestHelper.createCustomKTX(6, 2);
-		TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleWithStops = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
 
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
@@ -143,7 +141,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 				() -> {
 					// given
 					TrainCarListRequest request = new TrainCarListRequest(
-						scheduleWithStops.trainSchedule().getId(),
+						trainScheduleResult.trainSchedule().getId(),
 						seoul.getId(),
 						busan.getId(),
 						scenario.passengerCount
@@ -209,7 +207,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 	void getTrainCarSeatDetail_delegatesToSeatQueryService() {
 		// given
 		Train train = trainTestHelper.createKTX();
-		TrainScheduleTestHelper.TrainScheduleWithStopStations scheduleWithStops = trainScheduleTestHelper.createSchedule(train);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
 
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
@@ -218,7 +216,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 		TrainCar firstCar = trainCars.get(0);
 
 		TrainCarSeatDetailRequest request = new TrainCarSeatDetailRequest(
-			firstCar.getId(), scheduleWithStops.trainSchedule().getId(),
+			firstCar.getId(), trainScheduleResult.trainSchedule().getId(),
 			seoul.getId(), busan.getId()
 		);
 

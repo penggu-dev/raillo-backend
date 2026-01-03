@@ -218,7 +218,7 @@ public class TrainSearchFacadeValidationTest {
 	private void createTrainSchedule(Train train, LocalDate operationDate,
 		String scheduleName, LocalTime departureTime, LocalTime arrivalTime,
 		String departureStation, String arrivalStation) {
-		trainScheduleTestHelper.createCustomSchedule()
+		trainScheduleTestHelper.builder()
 			.scheduleName(scheduleName)
 			.operationDate(operationDate)
 			.train(train)

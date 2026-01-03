@@ -1,26 +1,14 @@
 package com.sudo.raillo.train.application.service;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
+import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
-import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
-import com.sudo.raillo.support.helper.TrainScheduleTestHelper.TrainScheduleWithStopStations;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.response.SeatDetail;
@@ -30,8 +18,14 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainCar;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.TrainCarRepository;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 class TrainSeatQueryServiceTest {
@@ -54,7 +48,7 @@ class TrainSeatQueryServiceTest {
 	@Autowired
 	private MemberRepository memberRepository;
 
-	private TrainScheduleWithStopStations scheduleWithStops;
+	private TrainScheduleResult trainScheduleResult;
 	private ScheduleStop departureStop;
 	private ScheduleStop arrivalStop;
 	private Train train;
@@ -62,7 +56,7 @@ class TrainSeatQueryServiceTest {
 	@BeforeEach
 	void setUp() {
 		train = trainTestHelper.createCustomKTX(1, 1);
-		scheduleWithStops = trainScheduleTestHelper.createCustomSchedule()
+		trainScheduleResult = trainScheduleTestHelper.builder()
 			.scheduleName("test-schedule")
 			.operationDate(LocalDate.now())
 			.train(train)
@@ -71,8 +65,8 @@ class TrainSeatQueryServiceTest {
 			.addStop("부산", LocalTime.of(12, 30), null)
 			.build();
 
-		departureStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleWithStops, "서울");
-		arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleWithStops, "부산");
+		departureStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "서울");
+		arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "부산");
 		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 10000);
 	}
 
@@ -81,7 +75,7 @@ class TrainSeatQueryServiceTest {
 	void getAvailableTrainCars() {
 		// when
 		List<TrainCarInfo> availableTrainCars = trainSeatQueryService.getAvailableTrainCars(
-			scheduleWithStops.trainSchedule().getId(),
+			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId()
 		);
@@ -108,7 +102,7 @@ class TrainSeatQueryServiceTest {
 	@DisplayName("예약된 좌석이 있으면 해당 좌석은 조회 되지 않는다")
 	void shouldExcludeBookedSeatsFromAvailableCount() {
 		/*// given
-		Member testMember = MemberFixture.createStandardMember();
+		Member testMember = MemberFixture.create();
 		memberRepository.save(testMember);
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
@@ -133,7 +127,7 @@ class TrainSeatQueryServiceTest {
 	@DisplayName("잔여 좌석이 없으면 조회 되지 않는다")
 	void shouldThrowExceptionWhenNoAvailableSeats() {
 		/*// given
-		Member testMember = MemberFixture.createStandardMember();
+		Member testMember = MemberFixture.create();
 		memberRepository.save(testMember);
 
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 2);
@@ -161,7 +155,7 @@ class TrainSeatQueryServiceTest {
 		TrainCar trainCar = trainCars.get(0);
 		TrainCarSeatDetailRequest request = new TrainCarSeatDetailRequest(
 			trainCar.getId(),
-			scheduleWithStops.trainSchedule().getId(),
+			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId()
 		);
@@ -190,7 +184,7 @@ class TrainSeatQueryServiceTest {
 	@DisplayName("예약된 좌석은 조회시 사용 불가능한 상태로 조회된다.")
 	void shouldBookedSeatsAsUnavailable() {
 		/*// given
-		Member testMember = MemberFixture.createStandardMember();
+		Member testMember = MemberFixture.create();
 		memberRepository.save(testMember);
 		List<Long> standardSeatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
 		PendingBookingCreateRequest standardRequest = getBookingCreateRequest(standardSeatIds);
@@ -218,7 +212,7 @@ class TrainSeatQueryServiceTest {
 			.toList();
 
 		return new PendingBookingCreateRequest(
-			scheduleWithStops.trainSchedule().getId(),
+			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),
 			passengerTypes,

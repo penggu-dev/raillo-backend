@@ -226,7 +226,7 @@ public class TrainSearchFacadeIntegrationScenarioTest {
 	 */
 	private void createTrainSchedule(Train train, LocalDate operationDate, String scheduleName,
 		LocalTime departureTime, LocalTime arrivalTime) {
-		trainScheduleTestHelper.createCustomSchedule()
+		trainScheduleTestHelper.builder()
 			.scheduleName(scheduleName)
 			.operationDate(operationDate)
 			.train(train)
