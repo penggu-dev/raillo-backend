@@ -12,6 +12,7 @@ import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
 import com.sudo.raillo.auth.exception.AuthError;
 import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.member.application.dto.request.UpdateEmailRequest;
 import com.sudo.raillo.member.application.dto.request.UpdatePasswordRequest;
 import com.sudo.raillo.member.application.dto.request.UpdatePhoneNumberRequest;
@@ -286,7 +287,7 @@ class MemberUpdateServiceTest {
 		assertThatExceptionOfType(BusinessException.class)
 			.isThrownBy(() -> memberUpdateService.updatePhoneNumber(request, memberNo))
 			.satisfies(exception ->
-				assertThat(exception.getErrorCode()).isEqualTo(MemberError.SAME_PHONE_NUMBER));
+				assertThat(exception.getErrorCode()).isEqualTo(MemberError.DUPLICATE_PHONE_NUMBER));
 	}
 
 	@Test
@@ -344,7 +345,7 @@ class MemberUpdateServiceTest {
 		UpdatePasswordRequest request = new UpdatePasswordRequest("testPassword");
 
 		//when & then
-		assertThatExceptionOfType(BusinessException.class)
+		assertThatExceptionOfType(DomainException.class)
 			.isThrownBy(() -> memberUpdateService.updatePassword(request, memberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.SAME_PASSWORD));

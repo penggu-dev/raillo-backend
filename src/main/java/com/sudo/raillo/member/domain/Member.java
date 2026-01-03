@@ -1,11 +1,8 @@
 package com.sudo.raillo.member.domain;
 
-import java.time.LocalDate;
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.SQLRestriction;
-
 import com.sudo.raillo.global.domain.BaseEntity;
-
+import com.sudo.raillo.global.exception.error.DomainException;
+import com.sudo.raillo.member.exception.MemberError;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -16,9 +13,12 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Getter
@@ -87,15 +87,36 @@ public class Member extends BaseEntity {
 		return member;
 	}
 
-	public void updatePhoneNumber(String phoneNumber) {
-		this.phoneNumber = phoneNumber;
+	public void updatePhoneNumber(String newPhoneNumber) {
+		validateNewPhoneNumber(newPhoneNumber);
+		this.phoneNumber = newPhoneNumber;
 	}
 
-	public void updatePassword(String password) {
-		this.password = password;
+	public void updatePassword(String newPassword) {
+		validateNewPassword(newPassword);
+		this.password = newPassword;
 	}
 
-	public void updateEmail(String email) {
-		this.memberDetail.updateEmail(email);
+	public void updateEmail(String newEmail) {
+		validateNewEmail(newEmail);
+		this.memberDetail.updateEmail(newEmail);
+	}
+
+	private void validateNewPhoneNumber(String newPhoneNumber) {
+		if (phoneNumber.equals(newPhoneNumber)) {
+			throw new DomainException(MemberError.SAME_PHONE_NUMBER);
+		}
+	}
+
+	private void validateNewPassword(String newPassword) {
+		if (password.equals(newPassword)) {
+			throw new DomainException(MemberError.SAME_PASSWORD);
+		}
+	}
+
+	private void validateNewEmail(String newEmail) {
+		if (memberDetail.getEmail().equals(newEmail)) {
+			throw new DomainException(MemberError.SAME_EMAIL);
+		}
 	}
 }
