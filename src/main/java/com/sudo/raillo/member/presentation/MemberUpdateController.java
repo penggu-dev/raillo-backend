@@ -32,7 +32,7 @@ public class MemberUpdateController implements MemberUpdateControllerDoc {
 		@RequestBody @Valid SendCodeRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
-		SendCodeResponse response = memberUpdateService.requestUpdateEmail(request, userDetails.getUsername());
+		SendCodeResponse response = memberUpdateService.requestUpdateEmail(request.email(), userDetails.getUsername());
 
 		return SuccessResponse.of(AuthSuccess.SEND_CODE_SUCCESS, response);
 	}
@@ -42,7 +42,7 @@ public class MemberUpdateController implements MemberUpdateControllerDoc {
 		@RequestBody @Valid UpdateEmailRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
-		memberUpdateService.verifyUpdateEmail(request, userDetails.getUsername());
+		memberUpdateService.verifyUpdateEmail(request.newEmail(), request.authCode(), userDetails.getUsername());
 
 		return SuccessResponse.of(MemberSuccess.MEMBER_EMAIL_UPDATE_SUCCESS);
 	}
@@ -52,7 +52,7 @@ public class MemberUpdateController implements MemberUpdateControllerDoc {
 		@RequestBody @Valid UpdatePhoneNumberRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
-		memberUpdateService.updatePhoneNumber(request, userDetails.getUsername());
+		memberUpdateService.updatePhoneNumber(request.newPhoneNumber(), userDetails.getUsername());
 
 		return SuccessResponse.of(MemberSuccess.MEMBER_PHONENUMBER_UPDATE_SUCCESS);
 	}
@@ -62,7 +62,7 @@ public class MemberUpdateController implements MemberUpdateControllerDoc {
 		@RequestBody @Valid UpdatePasswordRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
-		memberUpdateService.updatePassword(request, userDetails.getUsername());
+		memberUpdateService.updatePassword(request.newPassword(), userDetails.getUsername());
 
 		return SuccessResponse.of(MemberSuccess.MEMBER_PASSWORD_UPDATE_SUCCESS);
 	}

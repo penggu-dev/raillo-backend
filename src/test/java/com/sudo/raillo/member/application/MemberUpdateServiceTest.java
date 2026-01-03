@@ -7,15 +7,11 @@ import com.icegreen.greenmail.configuration.GreenMailConfiguration;
 import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.GreenMailUtil;
 import com.icegreen.greenmail.util.ServerSetup;
-import com.sudo.raillo.auth.application.dto.request.SendCodeRequest;
 import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
 import com.sudo.raillo.auth.exception.AuthError;
 import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.exception.error.DomainException;
-import com.sudo.raillo.member.application.dto.request.UpdateEmailRequest;
-import com.sudo.raillo.member.application.dto.request.UpdatePasswordRequest;
-import com.sudo.raillo.member.application.dto.request.UpdatePhoneNumberRequest;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRedisRepository;
@@ -87,10 +83,9 @@ class MemberUpdateServiceTest {
 		//given
 		String memberNo = member.getMemberDetail().getMemberNo();
 		String newEmail = "newEmail@example.com";
-		SendCodeRequest request = new SendCodeRequest(newEmail);
 
 		//when
-		SendCodeResponse response = memberUpdateService.requestUpdateEmail(request, memberNo);
+		SendCodeResponse response = memberUpdateService.requestUpdateEmail(newEmail, memberNo);
 
 		//then
 		assertThat(response).isNotNull();
@@ -117,11 +112,10 @@ class MemberUpdateServiceTest {
 		//given
 		String wrongMemberNo = "202007079999";
 		String newEmail = "newEmail@example.com";
-		SendCodeRequest request = new SendCodeRequest(newEmail);
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberUpdateService.requestUpdateEmail(request, wrongMemberNo))
+			.isThrownBy(() -> memberUpdateService.requestUpdateEmail(newEmail, wrongMemberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.USER_NOT_FOUND));
 	}
@@ -132,11 +126,10 @@ class MemberUpdateServiceTest {
 		//given
 		String memberNo = member.getMemberDetail().getMemberNo();
 		String sameEmail = member.getMemberDetail().getEmail();
-		SendCodeRequest request = new SendCodeRequest(sameEmail);
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberUpdateService.requestUpdateEmail(request, memberNo))
+			.isThrownBy(() -> memberUpdateService.requestUpdateEmail(sameEmail, memberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.SAME_EMAIL));
 	}
@@ -147,11 +140,10 @@ class MemberUpdateServiceTest {
 		//given
 		String memberNo = member.getMemberDetail().getMemberNo();
 		String duplicateEmail = otherMember.getMemberDetail().getEmail();
-		SendCodeRequest request = new SendCodeRequest(duplicateEmail);
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberUpdateService.requestUpdateEmail(request, memberNo))
+			.isThrownBy(() -> memberUpdateService.requestUpdateEmail(duplicateEmail, memberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.DUPLICATE_EMAIL));
 	}
@@ -162,14 +154,13 @@ class MemberUpdateServiceTest {
 		//given
 		String memberNo = member.getMemberDetail().getMemberNo();
 		String newEmail = "newEmail@example.com";
-		SendCodeRequest request = new SendCodeRequest(newEmail);
 
 		// 레디스에 이미 요청이 있는 것으로 가정 후 미리 저장
 		memberRedisRepository.handleUpdateEmailRequest(newEmail);
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberUpdateService.requestUpdateEmail(request, memberNo))
+			.isThrownBy(() -> memberUpdateService.requestUpdateEmail(newEmail, memberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.EMAIL_UPDATE_ALREADY_REQUESTED));
 	}
@@ -185,10 +176,8 @@ class MemberUpdateServiceTest {
 		authRedisRepository.saveAuthCode(newEmail, authCode);
 		memberRedisRepository.handleUpdateEmailRequest(newEmail);
 
-		UpdateEmailRequest request = new UpdateEmailRequest(newEmail, authCode);
-
 		//when
-		memberUpdateService.verifyUpdateEmail(request, memberNo);
+		memberUpdateService.verifyUpdateEmail(newEmail, authCode, memberNo);
 
 		//then
 		Member updatedMember = memberRepository.findByMemberNo(memberNo)
@@ -212,11 +201,9 @@ class MemberUpdateServiceTest {
 		String newEmail = "newEmail@example.com";
 		String authCode = "123456";
 
-		UpdateEmailRequest request = new UpdateEmailRequest(newEmail, authCode);
-
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberUpdateService.verifyUpdateEmail(request, wrongMemberNo))
+			.isThrownBy(() -> memberUpdateService.verifyUpdateEmail(newEmail, authCode, wrongMemberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.USER_NOT_FOUND));
 	}
@@ -232,11 +219,9 @@ class MemberUpdateServiceTest {
 
 		authRedisRepository.saveAuthCode(newEmail, correctAuthCode);
 
-		UpdateEmailRequest request = new UpdateEmailRequest(newEmail, wrongAuthCode);
-
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberUpdateService.verifyUpdateEmail(request, memberNo))
+			.isThrownBy(() -> memberUpdateService.verifyUpdateEmail(newEmail, wrongAuthCode, memberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(AuthError.INVALID_AUTH_CODE));
 	}
@@ -247,10 +232,9 @@ class MemberUpdateServiceTest {
 		//given
 		String memberNo = member.getMemberDetail().getMemberNo();
 		String newPhoneNumber = "01022222222";
-		UpdatePhoneNumberRequest request = new UpdatePhoneNumberRequest(newPhoneNumber);
 
 		//when
-		memberUpdateService.updatePhoneNumber(request, memberNo);
+		memberUpdateService.updatePhoneNumber(newPhoneNumber, memberNo);
 
 		//then
 		Member updatedMember = memberRepository.findByMemberNo(memberNo)
@@ -265,11 +249,9 @@ class MemberUpdateServiceTest {
 		String wrongMemberNo = "202007070001";
 		String newPhoneNumber = "01022222222";
 
-		UpdatePhoneNumberRequest request = new UpdatePhoneNumberRequest(newPhoneNumber);
-
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberUpdateService.updatePhoneNumber(request, wrongMemberNo))
+			.isThrownBy(() -> memberUpdateService.updatePhoneNumber(newPhoneNumber, wrongMemberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.USER_NOT_FOUND));
 	}
@@ -281,11 +263,9 @@ class MemberUpdateServiceTest {
 		String memberNo = member.getMemberDetail().getMemberNo();
 		String samePhoneNumber = member.getPhoneNumber();
 
-		UpdatePhoneNumberRequest request = new UpdatePhoneNumberRequest(samePhoneNumber);
-
 		//when & then
 		assertThatExceptionOfType(DomainException.class)
-			.isThrownBy(() -> memberUpdateService.updatePhoneNumber(request, memberNo))
+			.isThrownBy(() -> memberUpdateService.updatePhoneNumber(samePhoneNumber, memberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.SAME_PHONE_NUMBER));
 	}
@@ -296,11 +276,10 @@ class MemberUpdateServiceTest {
 		//given
 		String memberNo = member.getMemberDetail().getMemberNo();
 		String duplicatePhoneNumber = otherMember.getPhoneNumber();
-		UpdatePhoneNumberRequest request = new UpdatePhoneNumberRequest(duplicatePhoneNumber);
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberUpdateService.updatePhoneNumber(request, memberNo))
+			.isThrownBy(() -> memberUpdateService.updatePhoneNumber(duplicatePhoneNumber, memberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.DUPLICATE_PHONE_NUMBER));
 	}
@@ -311,10 +290,9 @@ class MemberUpdateServiceTest {
 		//given
 		String newPassword = "newPassword";
 		String memberNo = member.getMemberDetail().getMemberNo();
-		UpdatePasswordRequest request = new UpdatePasswordRequest(newPassword);
 
 		//when
-		memberUpdateService.updatePassword(request, memberNo);
+		memberUpdateService.updatePassword(newPassword, memberNo);
 
 		//then
 		Member updatedMember = memberRepository.findByMemberNo(memberNo)
@@ -328,11 +306,10 @@ class MemberUpdateServiceTest {
 		//given
 		String wrongMemberNo = "202507300009";
 		String newPassword = "newPassword";
-		UpdatePasswordRequest request = new UpdatePasswordRequest(newPassword);
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberUpdateService.updatePassword(request, wrongMemberNo))
+			.isThrownBy(() -> memberUpdateService.updatePassword(newPassword, wrongMemberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.USER_NOT_FOUND));
 	}
@@ -342,11 +319,11 @@ class MemberUpdateServiceTest {
 	void updatePassword_fail_when_same_password() {
 		//given
 		String memberNo = member.getMemberDetail().getMemberNo();
-		UpdatePasswordRequest request = new UpdatePasswordRequest("testPassword");
+		String samePassword = "testPassword";
 
 		//when & then
 		assertThatExceptionOfType(DomainException.class)
-			.isThrownBy(() -> memberUpdateService.updatePassword(request, memberNo))
+			.isThrownBy(() -> memberUpdateService.updatePassword(samePassword, memberNo))
 			.satisfies(exception ->
 				assertThat(exception.getErrorCode()).isEqualTo(MemberError.SAME_PASSWORD));
 	}
