@@ -71,7 +71,7 @@ public class MemberUpdateService {
 		Member member = getMember(memberNo);
 
 		// 다른 회원이 사용 중인 번호를 입력했을 경우 예외
-		if (memberRepository.existsByPhoneNumber(request.newPhoneNumber())) {
+		if (memberRepository.existsByPhoneNumberAndIdNot(request.newPhoneNumber(), member.getId())) {
 			throw new BusinessException(MemberError.DUPLICATE_PHONE_NUMBER);
 		}
 

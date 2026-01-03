@@ -278,7 +278,7 @@ class MemberUpdateServiceTest {
 	@DisplayName("이미 본인과 같은 휴대폰 번호로 변경 요청 시 요청이 실패한다.")
 	void updatePhoneNumber_fail_when_same_phone_number() {
 		//given
-		String memberNo = member.getMemberDetail().getMemberNo();
+		String memberNo = otherMember.getMemberDetail().getMemberNo();
 		String samePhoneNumber = member.getPhoneNumber();
 
 		UpdatePhoneNumberRequest request = new UpdatePhoneNumberRequest(samePhoneNumber);
