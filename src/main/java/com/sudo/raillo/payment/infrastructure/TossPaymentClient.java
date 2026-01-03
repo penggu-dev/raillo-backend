@@ -1,6 +1,5 @@
 package com.sudo.raillo.payment.infrastructure;
 
-import static com.sudo.raillo.payment.exception.PaymentError.*;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -18,6 +17,7 @@ import com.sudo.raillo.payment.application.dto.TossPaymentCancelResponse;
 import com.sudo.raillo.payment.application.dto.TossPaymentConfirmResponse;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
+import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 
 import lombok.RequiredArgsConstructor;
@@ -65,7 +65,7 @@ public class TossPaymentClient {
 		} catch (Exception e) {
 			log.error("[TOSS] 결제 승인 중 알 수 없는 예외 발생", e);
 			throw new BusinessException(
-				PAYMENT_SYSTEM_ERROR,
+				PaymentError.PAYMENT_SYSTEM_ERROR,
 				"결제 승인 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
 			);
 		}
@@ -113,7 +113,7 @@ public class TossPaymentClient {
 		} catch (Exception e) {
 			log.error("[TOSS] 결제 취소 중 알 수 없는 예외 발생", e);
 			throw new BusinessException(
-				PAYMENT_SYSTEM_ERROR,
+				PaymentError.PAYMENT_SYSTEM_ERROR,
 				"결제 취소 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
 			);
 		}
