@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import com.sudo.raillo.auth.application.AuthService;
-import com.sudo.raillo.auth.application.dto.request.LoginRequest;
 import com.sudo.raillo.auth.application.dto.response.TokenResponse;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.dto.request.GuestRegisterRequest;
@@ -86,8 +85,7 @@ class MemberServiceTest {
 		Member member = createMemberWithEncryptedPassword();
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		LoginRequest request = new LoginRequest(memberNo, "testPassword");
-		TokenResponse response = authService.login(request);
+		TokenResponse response = authService.login(memberNo, "testPassword");
 
 		String accessToken = response.accessToken();
 
@@ -107,8 +105,7 @@ class MemberServiceTest {
 		Member member = createMemberWithEncryptedPassword();
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		LoginRequest request = new LoginRequest(memberNo, "testPassword");
-		TokenResponse response = authService.login(request);
+		TokenResponse response = authService.login(memberNo, "testPassword");
 
 		String accessToken = response.accessToken();
 		String nonExistMemberNo = "202507309999";

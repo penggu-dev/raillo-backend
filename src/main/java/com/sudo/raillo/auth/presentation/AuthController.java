@@ -1,6 +1,7 @@
 package com.sudo.raillo.auth.presentation;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,34 +42,37 @@ public class AuthController implements AuthControllerDoc {
 
 	@PostMapping("/signup")
 	public SuccessResponse<SignUpResponse> signUp(@RequestBody @Valid SignUpRequest request) {
-
 		SignUpResponse response = authService.signUp(request);
 
 		return SuccessResponse.of(AuthSuccess.SIGN_UP_SUCCESS, response);
 	}
 
 	@PostMapping("/login")
-	public SuccessResponse<LoginResponse> login(@RequestBody @Valid LoginRequest request,
-		HttpServletResponse response) {
+	public SuccessResponse<LoginResponse> login(
+		@RequestBody @Valid LoginRequest request,
+		HttpServletResponse response
+	) {
+		TokenResponse tokenResponse = authService.login(request.memberNo(), request.password());
 
-		TokenResponse tokenResponse = authService.login(request);
-		LoginResponse loginResponse = new LoginResponse(tokenResponse.grantType(), tokenResponse.accessToken(),
-			tokenResponse.accessTokenExpiresIn());
+		LoginResponse loginResponse = new LoginResponse(
+			tokenResponse.grantType(),
+			tokenResponse.accessToken(),
+			tokenResponse.accessTokenExpiresIn()
+		);
 
-		cookieManager.setCookie(response, REFRESH_TOKEN_COOKIE_NAME, tokenResponse.refreshToken(),
-			REFRESH_TOKEN_MAX_AGE);
+		cookieManager.setCookie(response, REFRESH_TOKEN_COOKIE_NAME, tokenResponse.refreshToken(), REFRESH_TOKEN_MAX_AGE);
 
 		return SuccessResponse.of(AuthSuccess.LOGIN_SUCCESS, loginResponse);
 	}
 
 	@PostMapping("/logout")
-	public SuccessResponse<?> logout(HttpServletRequest request, HttpServletResponse response,
-		@AuthenticationPrincipal(expression = "username") String memberNo) {
-
+	public SuccessResponse<?> logout(
+		HttpServletRequest request, HttpServletResponse response,
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
 		String accessToken = tokenExtractor.resolveToken(request);
 
-		authService.logout(accessToken, memberNo);
-
+		authService.logout(accessToken, userDetails.getUsername());
 		cookieManager.removeCookie(response, REFRESH_TOKEN_COOKIE_NAME);
 
 		return SuccessResponse.of(AuthSuccess.LOGOUT_SUCCESS);
@@ -76,8 +80,8 @@ public class AuthController implements AuthControllerDoc {
 
 	@PostMapping("/reissue")
 	public SuccessResponse<ReissueTokenResponse> reissue(
-		@CookieValue(value = "refreshToken", required = false) String refreshToken) {
-
+		@CookieValue(value = "refreshToken", required = false) String refreshToken
+	) {
 		if (refreshToken == null || refreshToken.isEmpty()) {
 			throw new BusinessException(TokenError.INVALID_REFRESH_TOKEN);
 		}
@@ -86,5 +90,4 @@ public class AuthController implements AuthControllerDoc {
 
 		return SuccessResponse.of(AuthSuccess.REISSUE_TOKEN_SUCCESS, tokenResponse);
 	}
-
 }

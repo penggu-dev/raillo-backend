@@ -1,6 +1,7 @@
 package com.sudo.raillo.auth.presentation;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,9 +35,7 @@ public class EmailAuthController implements EmailAuthControllerDoc {
 	 * */
 	@PostMapping("/emails")
 	public SuccessResponse<SendCodeResponse> sendAuthCode(@RequestBody @Valid SendCodeRequest request) {
-
-		String email = request.email();
-		SendCodeResponse response = emailAuthService.sendAuthCode(email);
+		SendCodeResponse response = emailAuthService.sendAuthCode(request.email());
 
 		return SuccessResponse.of(AuthSuccess.SEND_CODE_SUCCESS, response);
 	}
@@ -46,11 +45,11 @@ public class EmailAuthController implements EmailAuthControllerDoc {
 	 * */
 	@PostMapping("/members/emails")
 	public SuccessResponse<SendCodeResponse> sendAuthCodeWithMember(
-		@AuthenticationPrincipal(expression = "username") String memberNo) {
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
+		log.info("[이메일 코드 인증 시도] memberNo={}", userDetails.getUsername());
 
-		log.info("memberNo: {}", memberNo);
-
-		String email = memberService.getMemberEmail(memberNo);
+		String email = memberService.getMemberEmail(userDetails.getUsername());
 		SendCodeResponse response = emailAuthService.sendAuthCode(email);
 
 		return SuccessResponse.of(AuthSuccess.SEND_CODE_SUCCESS, response);
@@ -61,14 +60,9 @@ public class EmailAuthController implements EmailAuthControllerDoc {
 	 * */
 	@PostMapping("/emails/verify")
 	public SuccessResponse<VerifyCodeResponse> verifyAuthCode(@RequestBody @Valid VerifyCodeRequest request) {
-
-		String email = request.email();
-		String authCode = request.authCode();
-
-		boolean isVerified = emailAuthService.verifyAuthCode(email, authCode);
+		boolean isVerified = emailAuthService.verifyAuthCode(request.email(), request.authCode());
 		VerifyCodeResponse response = new VerifyCodeResponse(isVerified);
 
 		return SuccessResponse.of(AuthSuccess.VERIFY_CODE_SUCCESS_FINISH, response);
 	}
-
 }

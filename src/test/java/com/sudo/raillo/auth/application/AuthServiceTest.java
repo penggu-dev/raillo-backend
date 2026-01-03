@@ -60,8 +60,13 @@ class AuthServiceTest {
 	@DisplayName("회원가입에 성공한다.")
 	void signUp_success() {
 		//given
-		SignUpRequest request = new SignUpRequest("김이름", "01012341234", "testPwd", "test@example.com", "1990-01-01",
-			"M");
+		SignUpRequest request = new SignUpRequest("김이름",
+			"01012341234",
+			"testPwd",
+			"test@example.com",
+			"1990-01-01",
+			"M"
+		);
 
 		//when
 		SignUpResponse response = authService.signUp(request);
@@ -87,8 +92,13 @@ class AuthServiceTest {
 		Member member = MemberFixture.create();
 		memberRepository.save(member);
 
-		SignUpRequest request = new SignUpRequest("김이름", "01012341234", "testPwd", "test@example.com", "1990-01-01",
-			"M");
+		SignUpRequest request = new SignUpRequest("김이름",
+			"01012341234",
+			"testPwd",
+			"test@example.com",
+			"1990-01-01",
+			"M"
+		);
 
 		//when & then
 		assertThatExceptionOfType(BusinessException.class)
@@ -107,7 +117,7 @@ class AuthServiceTest {
 		LoginRequest request = new LoginRequest(memberNo, "testPassword");
 
 		//when
-		TokenResponse response = authService.login(request);
+		TokenResponse response = authService.login(memberNo, "testPassword");
 
 		//then
 		assertThat(response.grantType()).isEqualTo("Bearer");
@@ -126,8 +136,7 @@ class AuthServiceTest {
 		Member member = createMemberWithEncryptedPassword();
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		LoginRequest request = new LoginRequest(memberNo, "testPassword");
-		TokenResponse response = authService.login(request);
+		TokenResponse response = authService.login(memberNo, "testPassword");
 
 		String accessToken = response.accessToken();
 
@@ -148,8 +157,7 @@ class AuthServiceTest {
 		Member member = createMemberWithEncryptedPassword();
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		LoginRequest request = new LoginRequest(memberNo, "testPassword");
-		TokenResponse response = authService.login(request);
+		TokenResponse response = authService.login(memberNo, "testPassword");
 
 		String accessToken = response.accessToken();
 		String logoutTokenKey = redisKeyGenerator.generateLogoutTokenKey(accessToken);
@@ -171,9 +179,8 @@ class AuthServiceTest {
 		Member member = createMemberWithEncryptedPassword();
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		LoginRequest request = new LoginRequest(memberNo, "testPassword");
-		TokenResponse tokenResponse = authService.login(request);
-		String refreshToken = tokenResponse.refreshToken();
+		TokenResponse response = authService.login(memberNo, "testPassword");
+		String refreshToken = response.refreshToken();
 
 		//when
 		ReissueTokenResponse reissueTokenResponse = authService.reissueAccessToken(refreshToken);
