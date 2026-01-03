@@ -1,38 +1,29 @@
 package com.sudo.raillo.payment.application;
 
+import java.math.BigDecimal;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.payment.application.dto.PaymentInfo;
-import com.sudo.raillo.payment.application.dto.projection.PaymentProjection;
-import com.sudo.raillo.payment.application.dto.request.PaymentProcessRequest;
-import com.sudo.raillo.payment.application.dto.response.PaymentCancelResponse;
-import com.sudo.raillo.payment.application.dto.response.PaymentHistoryResponse;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
-import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.infrastructure.PaymentQueryRepository;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.payment.util.PaymentKeyGenerator;
 import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -59,87 +50,6 @@ public class PaymentService {
 		log.info("[결제 생성] paymentId={}, orderId={}, amount={}", savedPayment.getId(), order.getId(), amount);
 
 		return savedPayment;
-	}
-
-	/**
-	 * 결제 내역 조회
-	 * @param memberNo 회원번호
-	 * @return {@code List<PaymentHistoryResponse>}
-	 */
-	@Transactional(readOnly = true)
-	public List<PaymentHistoryResponse> getPaymentHistory(String memberNo) {
-		Member member = memberRepository.findByMemberNo(memberNo)
-			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
-
-		List<PaymentProjection> paymentProjections = paymentQueryRepository.findPaymentHistoryByMemberId(
-			member.getId());
-
-		return paymentProjections.stream()
-			.map(paymentProjection -> new PaymentHistoryResponse(
-				paymentProjection.getPaymentId(), paymentProjection.getPaymentKey(),
-				paymentProjection.getBookingCode(), paymentProjection.getAmount(),
-				paymentProjection.getPaymentMethod(), paymentProjection.getPaymentStatus(),
-				paymentProjection.getPaidAt(), paymentProjection.getCancelledAt(), paymentProjection.getRefundedAt()))
-			.toList();
-	}
-
-	public PaymentCancelResponse cancelPayment(String memberNo, String paymentKey) {
-		Payment payment = findPaymentForCancel(memberNo, paymentKey);
-
-		// 결제 취소 처리
-		// payment.cancel("사용자 요청에 의한 취소");
-		//
-		// markBookingAsCancelled(payment.getBooking());
-		//
-		// log.info("결제 취소 완료: paymentKey={}, bookingId={}", paymentKey, payment.getBooking().getId());
-		//
-		// // 즉각 환불 처리 (임시)
-		// refundPayment(payment, payment.getBooking());
-
-		return PaymentCancelResponse.from(payment);
-	}
-
-	private Payment createAndSavePayment(PaymentProcessRequest request, String memberNo, Order order) {
-		// TODO : Member는 Facade 상위로 옮겨가는 게 나을 것 같음
-		Member member = memberRepository.findByMemberNo(memberNo)
-			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
-
-		String paymentKey = paymentKeyGenerator.generatePaymentKey(memberNo);
-		PaymentInfo paymentInfo = new PaymentInfo(request.getAmount(), request.getPaymentMethod(),
-			PaymentStatus.PENDING);
-		Payment payment = Payment.create(member, order, request.getAmount());
-
-		return paymentRepository.save(payment);
-	}
-
-	// TODO : 취소를 위한 결제 조회로 메서드명 변경 필요
-	private Payment findPaymentForCancel(String memberNo, String paymentKey) {
-		Member member = memberRepository.findByMemberNo(memberNo)
-			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
-
-		Payment payment = paymentRepository.findByPaymentKey(paymentKey)
-			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
-
-		validatePaymentCancellableCondition(member, payment);
-
-		return payment;
-	}
-
-	private void validatePaymentCancellableCondition(Member member, Payment payment) {
-		// 결제 소유자 확인
-		if (!payment.getMember().getId().equals(member.getId())) {
-			throw new BusinessException(PaymentError.PAYMENT_ACCESS_DENIED);
-		}
-
-		// 결제 취소 가능 여부 확인
-		if (!payment.canBeCancelled()) {
-			throw new BusinessException(PaymentError.PAYMENT_NOT_CANCELLABLE);
-		}
-
-		// 예약 취소 가능 여부 확인
-		//		if (!payment.getBooking().canBeCancelled()) {
-		//			throw new BusinessException(BookingError.BOOKING_DELETE_FAILED);
-		//		}
 	}
 
 	/**

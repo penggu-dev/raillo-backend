@@ -4,8 +4,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.Comment;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
@@ -142,12 +140,12 @@ public class Payment {
 	// 결제 가능 여부 확인
 	public boolean canBePaid() { return this.paymentStatus.isPayable(); }
 
-	// 취소 가능 여부 확인
+	// 취소 가능 여부 확인 (PENDING -> CANCELED)
 	public boolean canBeCancelled() {
 		return this.paymentStatus.isCancellable();
 	}
 
-	// 환불 가능 여부 확인
+	// 환불 가능 여부 확인 (PAID -> REFUNDABLE)
 	public boolean canBeRefunded() {
 		return this.paidAt != null && this.paymentStatus.isRefundable();
 	}

@@ -1,11 +1,7 @@
 package com.sudo.raillo.payment.presentation;
 
-import java.util.List;
-
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,13 +12,8 @@ import com.sudo.raillo.payment.application.PaymentFacade;
 import com.sudo.raillo.payment.application.PaymentService;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
-import com.sudo.raillo.payment.application.dto.request.PaymentProcessAccountRequest;
-import com.sudo.raillo.payment.application.dto.request.PaymentProcessCardRequest;
-import com.sudo.raillo.payment.application.dto.response.PaymentCancelResponse;
 import com.sudo.raillo.payment.application.dto.response.PaymentConfirmResponse;
-import com.sudo.raillo.payment.application.dto.response.PaymentHistoryResponse;
 import com.sudo.raillo.payment.application.dto.response.PaymentPrepareResponse;
-import com.sudo.raillo.payment.application.dto.response.PaymentProcessResponse;
 import com.sudo.raillo.payment.success.PaymentSuccess;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -60,27 +51,5 @@ public class PaymentController {
 		PaymentConfirmResponse response = paymentFacade.confirmPayment(request, memberNo);
 
 		return SuccessResponse.of(PaymentSuccess.PAYMENT_CONFIRM_SUCCESS, response);
-	}
-
-	@Operation(summary = "결제 취소", description = "완료된 결제를 취소 및 환불처리 합니다.")
-	@PostMapping("/{paymentKey}/cancel")
-	public SuccessResponse<PaymentCancelResponse> cancelPayment(
-		@PathVariable String paymentKey,
-		@AuthenticationPrincipal UserDetails userDetails) {
-		String memberNo = userDetails.getUsername();
-		PaymentCancelResponse response = paymentService.cancelPayment(memberNo, paymentKey);
-
-		return SuccessResponse.of(PaymentSuccess.PAYMENT_CANCEL_SUCCESS, response);
-	}
-
-	@Operation(summary = "결제 내역 조회", description = "사용자의 결제 내역을 조회합니다.")
-	@GetMapping
-	public SuccessResponse<List<PaymentHistoryResponse>> getPaymentHistory(
-		@AuthenticationPrincipal UserDetails userDetails) {
-
-		String memberNo = userDetails.getUsername();
-		List<PaymentHistoryResponse> response = paymentService.getPaymentHistory(memberNo);
-
-		return SuccessResponse.of(PaymentSuccess.PAYMENT_HISTORY_SUCCESS, response);
 	}
 }
