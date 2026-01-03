@@ -43,7 +43,7 @@ public class TossPaymentClient {
 	 *     <li>실패: 4xx, 5xx 에러</li>
 	 * </ul>
 	 */
-	public TossPaymentConfirmResponse confirmPayment(PaymentConfirmRequest request) throws BusinessException {
+	public TossPaymentConfirmResponse confirmPayment(PaymentConfirmRequest request) {
 		log.info("토스 결제 승인 요청: paymentKey={}, orderId={}, amount={}",
 			request.paymentKey(), request.orderId(), request.amount());
 
