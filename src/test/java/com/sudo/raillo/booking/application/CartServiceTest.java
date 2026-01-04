@@ -120,7 +120,7 @@ class CartServiceTest {
 
 		BookingDetail detail = cart.get(0);
 		assertThat(detail.bookingId()).isEqualTo(booking.getId());
-		assertThat(detail.seats()).isNotEmpty();
+		assertThat(detail.tickets()).isNotEmpty();
 	}
 
 	@Test

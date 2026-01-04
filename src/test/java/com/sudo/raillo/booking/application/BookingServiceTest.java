@@ -3,6 +3,7 @@ package com.sudo.raillo.booking.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.sudo.raillo.booking.application.dto.BookingTimeFilter;
 import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.BookingDetail;
 import com.sudo.raillo.booking.application.service.BookingService;
@@ -188,7 +189,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("멤버번호로 관련한 예약 목록 조회에 성공한다")
+	@DisplayName("멤버번호로 관련한 예매 목록 조회에 성공한다")
 	void memberNo_getBookings_success() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -214,7 +215,7 @@ class BookingServiceTest {
 		Booking booking2 = bookingTestHelper.createDefault(member, DaejeonToSeoul).booking();
 
 		// when
-		List<BookingDetail> result = bookingService.getBookings(member.getMemberDetail().getMemberNo());
+		List<BookingDetail> result = bookingService.getBookings(member.getMemberDetail().getMemberNo(), BookingTimeFilter.UPCOMING); // TODO : 테스트 변경 필요
 
 		// then
 		assertThat(result.size()).isEqualTo(2);

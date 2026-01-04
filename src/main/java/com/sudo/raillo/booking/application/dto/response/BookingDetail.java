@@ -1,9 +1,10 @@
 package com.sudo.raillo.booking.application.dto.response;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "예약 정보")
 public record BookingDetail(
@@ -36,7 +37,7 @@ public record BookingDetail(
 	LocalDate operationDate,
 
 	@Schema(description = "예약 좌석 정보")
-	List<SeatBookingDetail> seats
+	List<TicketDetail> tickets
 ) {
 
 	public static BookingDetail of(
@@ -49,7 +50,7 @@ public record BookingDetail(
 		LocalTime departureTime,
 		LocalTime arrivalTime,
 		LocalDate operationDate,
-		List<SeatBookingDetail> seats
+		List<TicketDetail> tickets
 	) {
 		return new BookingDetail(
 			bookingId,
@@ -61,7 +62,7 @@ public record BookingDetail(
 			departureTime,
 			arrivalTime,
 			operationDate,
-			seats
+			tickets
 		);
 	}
 }

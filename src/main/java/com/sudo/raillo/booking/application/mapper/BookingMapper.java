@@ -29,14 +29,15 @@ public class BookingMapper {
 			bookingInfo.departureTime(),
 			bookingInfo.arrivalTime(),
 			bookingInfo.operationDate(),
-			convertToSeatBookingDetail(bookingInfo.seats())
+			convertToTicketDetail(bookingInfo.tickets())
 		);
 	}
 
-	private List<SeatBookingDetail> convertToSeatBookingDetail(List<SeatBookingProjection> projection) {
+	private List<TicketDetail> convertToTicketDetail(List<TicketProjection> projection) {
 		return projection.stream()
-			.map(p -> SeatBookingDetail.of(
+			.map(p -> TicketDetail.of(
 				p.getSeatBookingId(),
+				"임시 승차권 번호",
 				p.getPassengerType(),
 				p.getCarNumber(),
 				p.getCarType(),
@@ -44,6 +45,4 @@ public class BookingMapper {
 			))
 			.toList();
 	}
-
-
 }
