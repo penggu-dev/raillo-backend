@@ -102,7 +102,7 @@ public class PendingBookingService {
 		// 2. 임시 예약 접근 권한 확인
 		bookingValidator.validatePendingBookingOwner(pendingBookings, memberNo);
 
-		// 3. ID 추출
+		// 3. ID 추출 (중복 제거 후 조회)
 		Set<Long> trainScheduleIds = pendingBookings.stream()
 			.map(PendingBooking::getTrainScheduleId)
 			.collect(Collectors.toSet());
