@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.core.userdetails.UserDetails;
 
 @Tag(name = "Authentication", description = "🔐 인증 API - 회원 로그인, 회원가입, 토큰 관리 API")
 public interface EmailAuthControllerDoc {
@@ -31,7 +32,7 @@ public interface EmailAuthControllerDoc {
 		@ApiResponse(responseCode = "200", description = "이메일 인증 코드 전송을 성공했습니다."),
 		@ApiResponse(responseCode = "400", description = "요청 본문이 유효하지 않습니다.", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<?> sendAuthCodeWithMember(String memberNo);
+	SuccessResponse<?> sendAuthCodeWithMember(UserDetails userDetails);
 
 	@Operation(method = "POST", summary = "이메일 인증 코드 검증", description = "인증된 사용자와 인증되지 않은 사용자 모두 이메일 인증 코드 검증 시 사용합니다.")
 	@ApiResponses(value = {

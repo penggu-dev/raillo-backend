@@ -33,16 +33,14 @@ public class MemberFindController implements MemberFindControllerDoc {
 	 * */
 	@PostMapping("/member-no")
 	public SuccessResponse<SendCodeResponse> requestFindMemberNo(@RequestBody @Valid FindMemberNoRequest request) {
-
-		SendCodeResponse response = memberFindService.requestFindMemberNo(request);
+		SendCodeResponse response = memberFindService.requestFindMemberNo(request.name(), request.phoneNumber());
 
 		return SuccessResponse.of(AuthSuccess.SEND_CODE_SUCCESS, response);
 	}
 
 	@PostMapping("/member-no/verify")
 	public SuccessResponse<VerifyMemberNoResponse> verifyFindMemberNo(@RequestBody @Valid VerifyCodeRequest request) {
-
-		VerifyMemberNoResponse response = memberFindService.verifyFindMemberNo(request);
+		VerifyMemberNoResponse response = memberFindService.verifyFindMemberNo(request.email(), request.authCode());
 
 		return SuccessResponse.of(AuthSuccess.VERIFY_CODE_SUCCESS, response);
 	}
@@ -52,16 +50,14 @@ public class MemberFindController implements MemberFindControllerDoc {
 	 * */
 	@PostMapping("/password")
 	public SuccessResponse<SendCodeResponse> requestFindPassword(@RequestBody @Valid FindPasswordRequest request) {
-
-		SendCodeResponse response = memberFindService.requestFindPassword(request);
+		SendCodeResponse response = memberFindService.requestFindPassword(request.name(), request.memberNo());
 
 		return SuccessResponse.of(AuthSuccess.SEND_CODE_SUCCESS, response);
 	}
 
 	@PostMapping("/password/verify")
 	public SuccessResponse<TemporaryTokenResponse> verifyFindPassword(@RequestBody @Valid VerifyCodeRequest request) {
-
-		TemporaryTokenResponse response = memberFindService.verifyFindPassword(request);
+		TemporaryTokenResponse response = memberFindService.verifyFindPassword(request.email(), request.authCode());
 
 		return SuccessResponse.of(AuthSuccess.VERIFY_CODE_SUCCESS, response);
 	}

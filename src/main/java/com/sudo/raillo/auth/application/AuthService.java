@@ -1,7 +1,6 @@
 package com.sudo.raillo.auth.application;
 
 import com.sudo.raillo.auth.application.dto.LogoutToken;
-import com.sudo.raillo.auth.application.dto.request.LoginRequest;
 import com.sudo.raillo.auth.application.dto.request.SignUpRequest;
 import com.sudo.raillo.auth.application.dto.response.ReissueTokenResponse;
 import com.sudo.raillo.auth.application.dto.response.SignUpResponse;
@@ -13,8 +12,6 @@ import com.sudo.raillo.auth.security.jwt.TokenGenerator;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberNoGenerator;
 import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.member.domain.MemberDetail;
-import com.sudo.raillo.member.domain.Role;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import java.time.Duration;
@@ -42,39 +39,39 @@ public class AuthService {
 
 	@Transactional
 	public SignUpResponse signUp(SignUpRequest request) {
-
 		if (memberRepository.existsByMemberDetailEmail(request.email())) {
 			throw new BusinessException(MemberError.DUPLICATE_EMAIL);
 		}
 
 		String memberNo = memberNoGenerator.generateMemberNo();
-		LocalDate birthDate = LocalDate.parse(request.birthDate(), DateTimeFormatter.ISO_LOCAL_DATE);
 
-		MemberDetail memberDetail = MemberDetail.create(memberNo, request.email(), birthDate, request.gender());
-		Member member = Member.create(request.name(), request.phoneNumber(), passwordEncoder.encode(request.password()),
-			Role.MEMBER, memberDetail);
-
+		Member member = Member.create(
+			request.name(),
+			passwordEncoder.encode(request.password()),
+			request.phoneNumber(),
+			memberNo,
+			request.email(),
+			LocalDate.parse(request.birthDate(), DateTimeFormatter.ISO_LOCAL_DATE),
+			request.gender()
+		);
 		memberRepository.save(member);
 
 		return new SignUpResponse(memberNo);
 	}
 
-	public TokenResponse login(LoginRequest request) {
-
-		UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-			request.memberNo(), request.password());
+	public TokenResponse login(String memberNo, String password) {
+		var authenticationToken = new UsernamePasswordAuthenticationToken(memberNo, password);
 
 		Authentication authentication = authenticationManager.authenticate(authenticationToken);
 		TokenResponse tokenResponse = tokenGenerator.generateTokenDTO(authentication);
 
 		// 레디스에 리프레시 토큰 저장
-		authRedisRepository.saveRefreshToken(request.memberNo(), tokenResponse.refreshToken());
+		authRedisRepository.saveRefreshToken(memberNo, tokenResponse.refreshToken());
 
 		return tokenResponse;
 	}
 
 	public void logout(String accessToken, String memberNo) {
-
 		// Redis 에서 해당 memberNo 로 저장된 RefreshToken 이 있는지 여부 확인 후, 존재할 경우 삭제
 		if (authRedisRepository.getRefreshToken(memberNo) != null) {
 			authRedisRepository.deleteRefreshToken(memberNo);
@@ -87,9 +84,7 @@ public class AuthService {
 	}
 
 	public ReissueTokenResponse reissueAccessToken(String refreshToken) {
-
 		String memberNo = tokenExtractor.getMemberNo(refreshToken);
-
 		String restoredRefreshToken = authRedisRepository.getRefreshToken(memberNo);
 
 		if (!refreshToken.equals(restoredRefreshToken)) {

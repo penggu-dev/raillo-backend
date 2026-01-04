@@ -22,7 +22,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	boolean existsByMemberDetailEmail(String email);
 
-	boolean existsByPhoneNumber(String phoneNumber);
+	boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
 
 	@Modifying
 	@Query(value = "delete from member where id in (:memberIds)", nativeQuery = true)

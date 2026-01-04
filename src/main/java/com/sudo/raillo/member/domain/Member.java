@@ -1,10 +1,8 @@
 package com.sudo.raillo.member.domain;
 
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.SQLRestriction;
-
 import com.sudo.raillo.global.domain.BaseEntity;
-
+import com.sudo.raillo.global.exception.error.DomainException;
+import com.sudo.raillo.member.exception.MemberError;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -15,15 +13,16 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @SQLDelete(sql = "UPDATE member SET is_deleted = true WHERE id = ?")
 @SQLRestriction("is_deleted = false")
 @Table(
@@ -42,10 +41,10 @@ public class Member extends BaseEntity {
 	private String name;
 
 	@Column(nullable = false)
-	private String phoneNumber;
+	private String password;
 
 	@Column(nullable = false)
-	private String password;
+	private String phoneNumber;
 
 	@Enumerated(EnumType.STRING)
 	private Role role;
@@ -56,31 +55,68 @@ public class Member extends BaseEntity {
 	@Column(name = "is_deleted", nullable = false)
 	private boolean isDeleted = false;
 
-	private Member(String name, String phoneNumber, String password, Role role, MemberDetail memberDetail) {
-		this.name = name;
-		this.phoneNumber = phoneNumber;
-		this.password = password;
-		this.role = role;
-		this.memberDetail = memberDetail;
-		this.isDeleted = false;
-	}
-
-	public static Member create(String name, String phoneNumber, String password, Role role,
-		MemberDetail memberDetail) {
-		return new Member(name, phoneNumber, password, role, memberDetail);
+	public static Member create(
+		String name,
+		String password,
+		String phoneNumber,
+		String memberNo,
+		String email,
+		LocalDate birthDate,
+		String gender
+	) {
+		Member member = new Member();
+		member.name = name;
+		member.password = password;
+		member.phoneNumber = phoneNumber;
+		member.role = Role.MEMBER;
+		member.memberDetail = MemberDetail.create(memberNo, email, birthDate, gender);
+		return member;
 	}
 
 	// 비회원 등록 정적 팩토리 메서드
-	public static Member guestCreate(String name, String phoneNumber, String password) {
-		return new Member(name, phoneNumber, password, Role.GUEST, null);
+	public static Member createGuest(
+		String name,
+		String password,
+		String phoneNumber
+	) {
+		Member member = new Member();
+		member.name = name;
+		member.password = password;
+		member.phoneNumber = phoneNumber;
+		member.role = Role.GUEST;
+		return member;
 	}
 
-	public void updatePhoneNumber(String phoneNumber) {
-		this.phoneNumber = phoneNumber;
+	public void updatePhoneNumber(String newPhoneNumber) {
+		validateNewPhoneNumber(newPhoneNumber);
+		this.phoneNumber = newPhoneNumber;
 	}
 
-	public void updatePassword(String password) {
-		this.password = password;
+	public void updatePassword(String newPassword) {
+		validateNewPassword(newPassword);
+		this.password = newPassword;
 	}
 
+	public void updateEmail(String newEmail) {
+		validateNewEmail(newEmail);
+		this.memberDetail.updateEmail(newEmail);
+	}
+
+	private void validateNewPhoneNumber(String newPhoneNumber) {
+		if (phoneNumber.equals(newPhoneNumber)) {
+			throw new DomainException(MemberError.SAME_PHONE_NUMBER);
+		}
+	}
+
+	private void validateNewPassword(String newPassword) {
+		if (password.equals(newPassword)) {
+			throw new DomainException(MemberError.SAME_PASSWORD);
+		}
+	}
+
+	private void validateNewEmail(String newEmail) {
+		if (memberDetail.getEmail().equals(newEmail)) {
+			throw new DomainException(MemberError.SAME_EMAIL);
+		}
+	}
 }
