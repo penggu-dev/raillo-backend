@@ -19,6 +19,7 @@ import com.sudo.raillo.booking.docs.PendingBookingControllerDoc;
 import com.sudo.raillo.booking.success.BookingSuccess;
 import com.sudo.raillo.global.success.SuccessResponse;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -36,7 +37,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	 */
 	@PostMapping
 	public SuccessResponse<PendingBookingCreateResponse> createPendingBooking(
-		@RequestBody PendingBookingCreateRequest request,
+		@RequestBody @Valid PendingBookingCreateRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
 		PendingBookingCreateResponse response = pendingBookingFacade
