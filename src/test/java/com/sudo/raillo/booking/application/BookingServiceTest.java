@@ -197,7 +197,7 @@ class BookingServiceTest {
 
 		TrainScheduleResult BusanToDongDaegu = trainScheduleTestHelper.builder()
 			.scheduleName("커스텀 노선 - 부산에서 동대구")
-			.operationDate(LocalDate.now())
+			.operationDate(LocalDate.now().plusDays(1))
 			.train(train)
 			.addStop("부산", null, LocalTime.of(5, 0))
 			.addStop("동대구", LocalTime.of(8, 0), null)
@@ -205,7 +205,7 @@ class BookingServiceTest {
 
 		TrainScheduleResult DaejeonToSeoul = trainScheduleTestHelper.builder()
 			.scheduleName("커스텀 노선 - 대전에서 서울")
-			.operationDate(LocalDate.now())
+			.operationDate(LocalDate.now().plusDays(1))
 			.train(train)
 			.addStop("대전", null, LocalTime.of(10, 0))
 			.addStop("서울", LocalTime.of(12, 0), null)
