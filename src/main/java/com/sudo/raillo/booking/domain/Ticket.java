@@ -60,16 +60,6 @@ public class Ticket extends BaseEntity {
 	@Comment("승객 유형")
 	private PassengerType passengerType;
 
-	@Comment("결제 위치 번호 (예: 온라인 (01), ~~역(02...))")
-	private String vendorCode;
-
-	@Comment("결제 날짜 (MMdd)")
-	private String purchaseDate;
-
-	@Comment("승차권 결제 순번 (10000~)")
-	private String purchaseSeq;
-
-	@Comment("결제 고유번호 (숫자 2자리)")
-	private String purchaseUid;
-
+	@Comment("승차권 번호")
+	private String ticketNumber;
 }
