@@ -201,7 +201,7 @@ class PendingBookingServiceTest {
 			.findFirst()
 			.orElseThrow();
 
-		assertThat(detail2.trainNumber()).isEqualTo(String.format("%03d", train.getTrainNumber()));
+		assertThat(detail2.trainNumber()).isEqualTo(String.format("%03d", otherTrain.getTrainNumber()));
 		assertThat(detail2.trainName()).isEqualTo(otherTrain.getTrainName());
 		assertThat(detail2.departureStationName()).isEqualTo("서울");
 		assertThat(detail2.arrivalStationName()).isEqualTo("대전");
