@@ -40,10 +40,6 @@ public class TicketFixture {
 			.seat(seat)
 			.ticketStatus(ticketStatus)
 			.passengerType(passengerType)
-			.vendorCode(vendorCode)
-			.purchaseDate(purchaseDate)
-			.purchaseSeq(purchaseSeq)
-			.purchaseUid(purchaseUid)
 			.build();
 	}
 

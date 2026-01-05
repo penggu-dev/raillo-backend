@@ -1,5 +1,8 @@
 package com.sudo.raillo.support.helper;
 
+import com.sudo.raillo.booking.domain.Ticket;
+import com.sudo.raillo.booking.domain.status.TicketStatus;
+import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.train.domain.Train;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +33,7 @@ public class BookingTestHelper {
 	private final TrainTestHelper trainTestHelper;
 	private final BookingRepository bookingRepository;
 	private final SeatBookingRepository seatBookingRepository;
+	private final TicketRepository  ticketRepository;
 
 	@Lazy
 	@Autowired
@@ -89,8 +93,9 @@ public class BookingTestHelper {
 		);
 
 		List<SeatBooking> savedSeatBookings = saveSeatBookings(booking, builder);
+		List<Ticket> savedTickets = savedTickets(booking, builder);
 
-		return new BookingResult(booking, savedSeatBookings);
+		return new BookingResult(booking, savedSeatBookings, savedTickets);
 	}
 
 	private List<SeatBooking> saveSeatBookings(Booking booking, BookingBuilder builder) {
@@ -108,6 +113,23 @@ public class BookingTestHelper {
 			.toList();
 
 		return seatBookingRepository.saveAll(toSave);
+	}
+
+	private List<Ticket> savedTickets(Booking booking, BookingBuilder builder) {
+		if (builder.seatBookings.isEmpty()) {
+			return List.of();
+		}
+
+		List<Ticket> tickets = builder.seatBookings.stream()
+			.map(sb -> Ticket.builder()
+				.booking(booking)
+				.seat(sb.getSeat())
+				.passengerType(sb.getPassengerType())
+				.ticketStatus(TicketStatus.ISSUED)
+				.build()
+			).toList();
+
+		return ticketRepository.saveAll(tickets);
 	}
 
 	/**
