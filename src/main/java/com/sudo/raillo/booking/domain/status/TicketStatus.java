@@ -8,8 +8,7 @@ import lombok.RequiredArgsConstructor;
 public enum TicketStatus {
 	ISSUED("발급완료"),
 	USED("사용완료"),
-	CANCELLED("취소"),
-	REFUNDED("환불완료");
+	CANCELLED("취소");
 
 	private final String description;
 }
