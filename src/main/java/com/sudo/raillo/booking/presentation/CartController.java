@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.booking.application.dto.request.CartCreateRequest;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.booking.application.service.CartService;
 import com.sudo.raillo.booking.docs.CartControllerDoc;
 import com.sudo.raillo.booking.success.CartSuccess;
@@ -39,12 +39,12 @@ public class CartController implements CartControllerDoc {
 	}
 
 	@GetMapping
-	public SuccessResponse<List<BookingDetail>> getCarts(
+	public SuccessResponse<List<BookingResponse>> getCarts(
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
 		String memberNo = userDetails.getUsername();
 
-		List<BookingDetail> response = cartService.getCarts(memberNo);
+		List<BookingResponse> response = cartService.getCarts(memberNo);
 		return SuccessResponse.of(CartSuccess.CART_LIST_SUCCESS, response);
 	}
 }

@@ -6,7 +6,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import com.sudo.raillo.booking.application.dto.BookingTimeFilter;
 import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
 import com.sudo.raillo.global.success.SuccessResponse;
 
@@ -44,7 +44,7 @@ public interface BookingControllerDoc {
 				+ "- 확정 예매 정보를 찾을 수 없음\n",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<BookingDetail> getBooking(Long bookingId, UserDetails userDetails);
+	SuccessResponse<BookingResponse> getBooking(Long bookingId, UserDetails userDetails);
 
 	@Operation(
 		method = "GET",
@@ -71,6 +71,6 @@ public interface BookingControllerDoc {
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))
 		)
 	})
-	SuccessResponse<List<BookingDetail>> getBookings(BookingTimeFilter status, UserDetails userDetails);
+	SuccessResponse<List<BookingResponse>> getBookings(BookingTimeFilter status, UserDetails userDetails);
 
 }

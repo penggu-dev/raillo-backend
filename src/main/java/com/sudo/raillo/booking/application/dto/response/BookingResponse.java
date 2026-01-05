@@ -7,7 +7,7 @@ import java.util.List;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "예약 정보")
-public record BookingDetail(
+public record BookingResponse(
 
 	@Schema(description = "예약 ID", example = "1")
 	Long bookingId,
@@ -40,7 +40,7 @@ public record BookingDetail(
 	List<TicketDetail> tickets
 ) {
 
-	public static BookingDetail of(
+	public static BookingResponse of(
 		Long bookingId,
 		String bookingCode,
 		String trainNumber,
@@ -52,7 +52,7 @@ public record BookingDetail(
 		LocalDate operationDate,
 		List<TicketDetail> tickets
 	) {
-		return new BookingDetail(
+		return new BookingResponse(
 			bookingId,
 			bookingCode,
 			trainNumber,

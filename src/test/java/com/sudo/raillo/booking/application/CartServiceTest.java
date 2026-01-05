@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.booking.application.dto.request.CartCreateRequest;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.booking.application.service.CartService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -113,12 +113,12 @@ class CartServiceTest {
 		cartService.createCart(memberNo, request);
 
 		// when
-		List<BookingDetail> cart = cartService.getCarts(memberNo);
+		List<BookingResponse> cart = cartService.getCarts(memberNo);
 
 		// then
 		assertThat(cart).hasSize(1);
 
-		BookingDetail detail = cart.get(0);
+		BookingResponse detail = cart.get(0);
 		assertThat(detail.bookingId()).isEqualTo(booking.getId());
 		assertThat(detail.tickets()).isNotEmpty();
 	}
@@ -127,7 +127,7 @@ class CartServiceTest {
 	@DisplayName("장바구니가 비어있다면 빈 응답을 반환한다")
 	void getCarts_empty_success() {
 		// when
-		List<BookingDetail> cart = cartService.getCarts(memberNo);
+		List<BookingResponse> cart = cartService.getCarts(memberNo);
 
 		// then
 		assertThat(cart).isEmpty();

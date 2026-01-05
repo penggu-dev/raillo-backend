@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.dto.BookingInfo;
 import com.sudo.raillo.booking.application.dto.BookingTimeFilter;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.booking.application.mapper.BookingMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Booking;
@@ -137,7 +137,7 @@ public class BookingService {
 	 * @return 예약
 	 */
 	@Transactional(readOnly = true)
-	public BookingDetail getBooking(String memberNo, Long bookingId) {
+	public BookingResponse getBooking(String memberNo, Long bookingId) {
 		Member member = getMember(memberNo);
 
 		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookings(
@@ -158,7 +158,7 @@ public class BookingService {
 	 * @return 승차권 목록
 	 */
 	@Transactional(readOnly = true)
-	public List<BookingDetail> getBookings(String memberNo, BookingTimeFilter timeFilter) {
+	public List<BookingResponse> getBookings(String memberNo, BookingTimeFilter timeFilter) {
 		Member member = getMember(memberNo);
 
 		// 예약 조회

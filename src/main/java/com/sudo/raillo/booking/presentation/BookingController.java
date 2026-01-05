@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.booking.application.dto.BookingTimeFilter;
 import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.docs.BookingControllerDoc;
 import com.sudo.raillo.booking.success.BookingSuccess;
@@ -44,13 +44,13 @@ public class BookingController implements BookingControllerDoc {
 	 * 승차권 상세 조회
 	 */
 	@GetMapping("/{bookingId}")
-	public SuccessResponse<BookingDetail> getBooking(
+	public SuccessResponse<BookingResponse> getBooking(
 		@PathVariable Long bookingId,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
 		String memberNo = userDetails.getUsername();
 
-		BookingDetail detail = bookingService.getBooking(memberNo, bookingId);
+		BookingResponse detail = bookingService.getBooking(memberNo, bookingId);
 		return SuccessResponse.of(BookingSuccess.BOOKING_DETAIL_SUCCESS, detail);
 	}
 
@@ -58,13 +58,13 @@ public class BookingController implements BookingControllerDoc {
 	 * 승차권 목록 조회
 	 */
 	@GetMapping
-	public SuccessResponse<List<BookingDetail>> getBookings(
+	public SuccessResponse<List<BookingResponse>> getBookings(
 		@RequestParam(required = false, defaultValue = "ALL") BookingTimeFilter status,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
 		String memberNo = userDetails.getUsername();
 
-		List<BookingDetail> response = bookingService.getBookings(memberNo, status);
+		List<BookingResponse> response = bookingService.getBookings(memberNo, status);
 		return SuccessResponse.of(BookingSuccess.BOOKING_LIST_SUCCESS, response);
 	}
 }

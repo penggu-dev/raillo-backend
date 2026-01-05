@@ -18,8 +18,8 @@ public class BookingMapper {
 			.toList();
 	}
 
-	public BookingDetail convertToBookingDetail(BookingInfo bookingInfo) {
-		return BookingDetail.of(
+	public BookingResponse convertToBookingDetail(BookingInfo bookingInfo) {
+		return BookingResponse.of(
 			bookingInfo.bookingId(),
 			bookingInfo.bookingCode(),
 			String.format("%03d", bookingInfo.trainNumber()),

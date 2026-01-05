@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.booking.application.dto.BookingTimeFilter;
 import com.sudo.raillo.booking.application.dto.request.BookingDeleteRequest;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
@@ -160,7 +160,7 @@ class BookingServiceTest {
 		String memberNo = member.getMemberDetail().getMemberNo();
 
 		// when
-		BookingDetail result = bookingService.getBooking(memberNo, booking.getId());
+		BookingResponse result = bookingService.getBooking(memberNo, booking.getId());
 
 		// then
 		assertThat(result.bookingId()).isEqualTo(booking.getId());
@@ -215,31 +215,31 @@ class BookingServiceTest {
 		Booking booking2 = bookingTestHelper.createDefault(member, DaejeonToSeoul).booking();
 
 		// when
-		List<BookingDetail> result = bookingService.getBookings(member.getMemberDetail().getMemberNo(), BookingTimeFilter.UPCOMING); // TODO : 테스트 변경 필요
+		List<BookingResponse> result = bookingService.getBookings(member.getMemberDetail().getMemberNo(), BookingTimeFilter.UPCOMING); // TODO : 테스트 변경 필요
 
 		// then
 		assertThat(result.size()).isEqualTo(2);
-		BookingDetail bookingDetail1 = result.get(0);
-		BookingDetail bookingDetail2 = result.get(1);
+		BookingResponse bookingResponse1 = result.get(0);
+		BookingResponse bookingResponse2 = result.get(1);
 
 		// 첫 번째 Booking 검증
-		assertThat(bookingDetail1.bookingId()).isEqualTo(booking1.getId());
-		assertThat(bookingDetail1.bookingCode()).isEqualTo(booking1.getBookingCode());
+		assertThat(bookingResponse1.bookingId()).isEqualTo(booking1.getId());
+		assertThat(bookingResponse1.bookingCode()).isEqualTo(booking1.getBookingCode());
 
-		assertThat(bookingDetail1.departureStationName())
+		assertThat(bookingResponse1.departureStationName())
 			.isEqualTo(BusanToDongDaegu.scheduleStops().get(0).getStation().getStationName());
 
-		assertThat(bookingDetail1.arrivalStationName())
+		assertThat(bookingResponse1.arrivalStationName())
 			.isEqualTo(BusanToDongDaegu.scheduleStops().get(1).getStation().getStationName());
 
 		// 두 번째 Booking 검증
-		assertThat(bookingDetail2.bookingId()).isEqualTo(booking2.getId());
-		assertThat(bookingDetail2.bookingCode()).isEqualTo(booking2.getBookingCode());
+		assertThat(bookingResponse2.bookingId()).isEqualTo(booking2.getId());
+		assertThat(bookingResponse2.bookingCode()).isEqualTo(booking2.getBookingCode());
 
-		assertThat(bookingDetail2.departureStationName())
+		assertThat(bookingResponse2.departureStationName())
 			.isEqualTo(DaejeonToSeoul.scheduleStops().get(0).getStation().getStationName());
 
-		assertThat(bookingDetail2.arrivalStationName())
+		assertThat(bookingResponse2.arrivalStationName())
 			.isEqualTo(DaejeonToSeoul.scheduleStops().get(1).getStation().getStationName());
 	}
 
