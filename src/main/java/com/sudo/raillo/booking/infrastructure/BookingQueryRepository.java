@@ -25,6 +25,7 @@ import com.sudo.raillo.booking.application.dto.projection.QBookingProjection;
 import com.sudo.raillo.booking.application.dto.projection.QTicketProjection;
 import com.sudo.raillo.booking.application.dto.projection.TicketProjection;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
+import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.train.domain.QScheduleStop;
 import com.sudo.raillo.train.domain.QStation;
 
@@ -37,20 +38,20 @@ public class BookingQueryRepository {
 	private final JPAQueryFactory queryFactory;
 
 	/**
-	 * 승차권 상세 조회 (단건 또는 특정 ID 목록)
+	 * 승차권 조회 (단건 또는 특정 ID 목록)
 	 */
-	public List<BookingInfo> findBookingDetail(Long memberId, List<Long> bookingIds) {
-		return findBookingDetail(memberId, bookingIds, BookingTimeFilter.ALL);
+	public List<BookingInfo> findBookings(Long memberId, List<Long> bookingIds) {
+		return findBookings(memberId, bookingIds, BookingTimeFilter.ALL);
 	}
 
 	/**
 	 * 승차권 목록 조회 (시간 필터 적용)
 	 */
-	public List<BookingInfo> findBookingDetail(Long memberId, BookingTimeFilter timeFilter) {
-		return findBookingDetail(memberId, List.of(), timeFilter);
+	public List<BookingInfo> findBookings(Long memberId, BookingTimeFilter timeFilter) {
+		return findBookings(memberId, List.of(), timeFilter);
 	}
 
-	public List<BookingInfo> findBookingDetail(Long memberId, List<Long> bookingIds, BookingTimeFilter timeFilter) {
+	public List<BookingInfo> findBookings(Long memberId, List<Long> bookingIds, BookingTimeFilter timeFilter) {
 		QScheduleStop departureStop = new QScheduleStop("departureStop");
 		QScheduleStop arrivalStop = new QScheduleStop("arrivalStop");
 		QStation departureStation = new QStation("departureStation");
@@ -104,11 +105,10 @@ public class BookingQueryRepository {
 			.from(ticket)
 			.leftJoin(ticket.seat, seat)
 			.leftJoin(seat.trainCar, trainCar)
-			.where(ticket.booking.id.in(
-				bookings.stream()
-					.map(BookingProjection::getBookingId)
-					.toList()
-			))
+			.where(
+				ticket.booking.id.in(bookings.stream().map(BookingProjection::getBookingId).toList()),
+				buildTicketStatusCondition(timeFilter)
+			)
 			.fetch()
 			.stream()
 			.collect(Collectors.groupingBy(TicketProjection::getBookingId));
@@ -120,7 +120,6 @@ public class BookingQueryRepository {
 
 	/**
 	 * 필터 조건 생성
-
 	 * <li>UPCOMING: BOOKED 상태 + 현재 시간 이후 출발 (승차권 조회)</li>
 	 * <li>HISTORY: BOOKED 또는 CANCELLED + 현재 시간 이전 출발 (구입 이력)</li>
 	 * <li>ALL: BOOKED 상태만 (시간 무관)</li>
@@ -148,6 +147,21 @@ public class BookingQueryRepository {
 				);
 			}
 			case ALL -> builder.and(booking.bookingStatus.eq(BookingStatus.BOOKED));
+		}
+
+		return builder;
+	}
+
+	/**
+	 * Ticket 상태 필터 조건 생성
+	 * - UPCOMING: 유효한 티켓만 (ISSUED만, 취소된 티켓은 포함 X)
+	 * - HISTORY, ALL: 전체 (필터 없음)
+	 */
+	private BooleanBuilder buildTicketStatusCondition(BookingTimeFilter timeFilter) {
+		BooleanBuilder builder = new BooleanBuilder();
+
+		if (timeFilter == BookingTimeFilter.UPCOMING) {
+			builder.and(ticket.ticketStatus.eq(TicketStatus.ISSUED));
 		}
 
 		return builder;

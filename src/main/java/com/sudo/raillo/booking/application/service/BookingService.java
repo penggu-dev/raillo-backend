@@ -140,7 +140,7 @@ public class BookingService {
 	public BookingDetail getBooking(String memberNo, Long bookingId) {
 		Member member = getMember(memberNo);
 
-		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookingDetail(
+		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookings(
 			member.getId(), List.of(bookingId));
 
 		if (bookingInfos.isEmpty()) {
@@ -162,7 +162,7 @@ public class BookingService {
 		Member member = getMember(memberNo);
 
 		// 예약 조회
-		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookingDetail(member.getId(), timeFilter);
+		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookings(member.getId(), timeFilter);
 		return bookingMapper.convertToBookingDetail(bookingInfos);
 	}
 
