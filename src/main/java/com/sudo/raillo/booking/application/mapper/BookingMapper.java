@@ -19,7 +19,7 @@ public class BookingMapper {
 	}
 
 	public BookingResponse convertToBookingDetail(BookingInfo bookingInfo) {
-		return BookingResponse.of(
+		return new BookingResponse(
 			bookingInfo.bookingId(),
 			bookingInfo.bookingCode(),
 			String.format("%03d", bookingInfo.trainNumber()),

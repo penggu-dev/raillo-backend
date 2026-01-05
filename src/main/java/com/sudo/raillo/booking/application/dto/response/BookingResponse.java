@@ -39,30 +39,4 @@ public record BookingResponse(
 	@Schema(description = "예약 좌석 정보")
 	List<TicketDetail> tickets
 ) {
-
-	public static BookingResponse of(
-		Long bookingId,
-		String bookingCode,
-		String trainNumber,
-		String trainName,
-		String departureStationName,
-		String arrivalStationName,
-		LocalTime departureTime,
-		LocalTime arrivalTime,
-		LocalDate operationDate,
-		List<TicketDetail> tickets
-	) {
-		return new BookingResponse(
-			bookingId,
-			bookingCode,
-			trainNumber,
-			trainName,
-			departureStationName,
-			arrivalStationName,
-			departureTime,
-			arrivalTime,
-			operationDate,
-			tickets
-		);
-	}
 }

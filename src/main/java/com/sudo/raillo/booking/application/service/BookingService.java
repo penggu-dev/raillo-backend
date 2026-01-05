@@ -255,5 +255,4 @@ public class BookingService {
 		return memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 	}
-
 }
