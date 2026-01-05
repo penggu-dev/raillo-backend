@@ -1,5 +1,6 @@
 package com.sudo.raillo.booking.application.dto.response;
 
+import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.train.domain.type.CarType;
 
@@ -13,6 +14,9 @@ public record TicketDetail(
 
 	@Schema(description = "승차권 번호")
 	String ticketNumber,
+
+	@Schema(description = "승차권 상태", example = "ISSUED")
+	TicketStatus status,
 
 	@Schema(description = "승객 유형", example = "ADULT")
 	PassengerType passengerType,
@@ -30,6 +34,7 @@ public record TicketDetail(
 	public static TicketDetail of(
 		Long ticketId,
 		String ticketNumber,
+		TicketStatus status,
 		PassengerType passengerType,
 		int carNumber,
 		CarType carType,
@@ -38,6 +43,7 @@ public record TicketDetail(
 		return new TicketDetail(
 			ticketId,
 			ticketNumber,
+			status,
 			passengerType,
 			carNumber,
 			carType,

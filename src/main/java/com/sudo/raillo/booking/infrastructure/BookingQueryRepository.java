@@ -97,6 +97,8 @@ public class BookingQueryRepository {
 			.select(new QTicketProjection(
 				ticket.id,
 				ticket.booking.id,
+				ticket.ticketNumber,
+				ticket.ticketStatus,
 				ticket.passengerType,
 				trainCar.carNumber,
 				trainCar.carType,

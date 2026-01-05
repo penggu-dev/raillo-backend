@@ -35,9 +35,10 @@ public class BookingMapper {
 
 	private List<TicketDetail> convertToTicketDetail(List<TicketProjection> projection) {
 		return projection.stream()
-			.map(p -> TicketDetail.of(
-				p.getSeatBookingId(),
-				"임시 승차권 번호",
+			.map(p -> new TicketDetail(
+				p.getTicketId(),
+				p.getTicketNumber(),
+				p.getTicketStatus(),
 				p.getPassengerType(),
 				p.getCarNumber(),
 				p.getCarType(),
