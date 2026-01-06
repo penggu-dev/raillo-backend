@@ -14,19 +14,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.dto.BookingTimeFilter;
 import com.sudo.raillo.booking.application.dto.response.BookingResponse;
+import com.sudo.raillo.booking.application.dto.response.TicketDetail;
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
+import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.infrastructure.BookingRepository;
-import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.helper.BookingResult;
 import com.sudo.raillo.support.helper.BookingTestHelper;
-import com.sudo.raillo.support.helper.OrderTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
@@ -113,6 +112,9 @@ class BookingServiceSearchFilterTest {
 		// then
 		assertThat(result).hasSize(1);
 		assertThat(result.get(0).operationDate()).isEqualTo(tomorrow);
+		assertThat(result.get(0).tickets())
+			.extracting(TicketDetail::status)
+			.containsOnly(TicketStatus.ISSUED);
 	}
 
 	@Test
@@ -131,6 +133,9 @@ class BookingServiceSearchFilterTest {
 		// then
 		assertThat(result).hasSize(1);
 		assertThat(result.get(0).operationDate()).isEqualTo(yesterday);
+		assertThat(result.get(0).tickets())
+			.extracting(TicketDetail::status)
+			.containsOnly(TicketStatus.ISSUED);
 	}
 
 	@Test
@@ -150,11 +155,28 @@ class BookingServiceSearchFilterTest {
 		assertThat(result).hasSize(2);
 	}
 
+	@Test
+	@DisplayName("HISTORY 필터로 CANCELLED 상태의 예매도 조회된다")
+	void historyFilter_getBookings_includesCancelledBookings() {
+		// given
+		Booking booking = bookingTestHelper.createDefault(member, pastSchedule).booking();
+		booking.cancel(); // 예매 취소
+		em.flush();
+
+		// when
+		List<BookingResponse> result = bookingService.getBookings(
+			member.getMemberDetail().getMemberNo(),
+			BookingTimeFilter.HISTORY
+		);
+
+		// then
+		assertThat(result).hasSize(1);
+	}
+
 	/**
 	 * TODO : 취소 관련은 추후 Service에서 개별 티켓 취소 로직 구현 및 해당 호출로 변경 필요 + em.flush() 제거, @Transactional 제거
 	 * - TickstStatus.isCancellable 호출 -> ticket.cancel 을 호출하는 것으로 테스트 변경 필요
 	 */
-
 	@Test
 	@DisplayName("UPCOMING 조회 시 CANCELLED 상태 티켓은 제외된다")
 	void upcomingFilter_getBookings_excludesCancelledTickets() {
@@ -180,24 +202,9 @@ class BookingServiceSearchFilterTest {
 		// then
 		assertThat(result).hasSize(1);
 		assertThat(result.get(0).tickets()).hasSize(1); // 취소된 티켓 제외
-	}
-	
-	@Test
-	@DisplayName("HISTORY 필터로 CANCELLED 상태의 예매도 조회된다")
-	void historyFilter_getBookings_includesCancelledBookings() {
-		// given
-		Booking booking = bookingTestHelper.createDefault(member, pastSchedule).booking();
-		booking.cancel(); // 예매 취소
-		em.flush();
-
-		// when
-		List<BookingResponse> result = bookingService.getBookings(
-			member.getMemberDetail().getMemberNo(),
-			BookingTimeFilter.HISTORY
-		);
-
-		// then
-		assertThat(result).hasSize(1);
+		assertThat(result.get(0).tickets())
+			.extracting(TicketDetail::status)
+			.containsExactly(TicketStatus.ISSUED);
 	}
 
 	@Test
@@ -225,5 +232,64 @@ class BookingServiceSearchFilterTest {
 		// then
 		assertThat(result).hasSize(1);
 		assertThat(result.get(0).tickets()).hasSize(2); // 취소된 티켓도 포함
+		assertThat(result.get(0).tickets())
+			.extracting(TicketDetail::status)
+			.containsExactlyInAnyOrder(TicketStatus.ISSUED, TicketStatus.CANCELLED);
+	}
+
+	@Test
+	@DisplayName("HISTORY 필터로 USED 상태의 티켓도 조회된다")
+	void historyFilter_getBookings_includesUsedTickets() {
+		// given
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
+
+		BookingResult bookingResult = bookingTestHelper.builder(member, pastSchedule)
+			.addSeat(seats.get(0), PassengerType.ADULT)
+			.build();
+
+		// 티켓 사용 처리
+		Ticket ticket = bookingResult.tickets().get(0);
+		ticket.use();
+		em.flush();
+
+		// when
+		List<BookingResponse> result = bookingService.getBookings(
+			member.getMemberDetail().getMemberNo(),
+			BookingTimeFilter.HISTORY
+		);
+
+		// then
+		assertThat(result).hasSize(1);
+		assertThat(result.get(0).tickets())
+			.extracting(TicketDetail::status)
+			.containsExactly(TicketStatus.USED);
+	}
+
+	@Test
+	@DisplayName("ALL 필터로 USED 상태의 티켓도 조회된다")
+	void allFilter_getBookings_includesUsedTickets() {
+		// given
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
+
+		BookingResult bookingResult = bookingTestHelper.builder(member, pastSchedule)
+			.addSeat(seats.get(0), PassengerType.ADULT)
+			.build();
+
+		// 티켓 사용 처리
+		Ticket ticket = bookingResult.tickets().get(0);
+		ticket.use();
+		em.flush();
+
+		// when
+		List<BookingResponse> result = bookingService.getBookings(
+			member.getMemberDetail().getMemberNo(),
+			BookingTimeFilter.ALL
+		);
+
+		// then
+		assertThat(result).hasSize(1);
+		assertThat(result.get(0).tickets())
+			.extracting(TicketDetail::status)
+			.containsExactly(TicketStatus.USED);
 	}
 }
