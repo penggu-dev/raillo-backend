@@ -169,6 +169,10 @@ public class PendingBookingService {
 	private Map<Long, TrainScheduleInfo> getTrainScheduleMap(Set<Long> trainScheduleIds) {
 		List<TrainSchedule> trainSchedules = trainScheduleRepository.findAllByIdWithTrain(trainScheduleIds);
 
+		if (trainSchedules.size() != trainScheduleIds.size()) {
+			throw new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND);
+		}
+
 		return trainSchedules.stream()
 			.collect(Collectors.toMap(
 				TrainSchedule::getId,
@@ -183,6 +187,10 @@ public class PendingBookingService {
 	private Map<Long, StopInfo> getScheduleStopMap(Set<Long> stopIds) {
 		List<ScheduleStop> scheduleStops = scheduleStopRepository.findAllByIdWithStation(stopIds);
 
+		if (scheduleStops.size() != stopIds.size()) {
+			throw new BusinessException(TrainErrorCode.STATION_NOT_FOUND);
+		}
+
 		return scheduleStops.stream()
 			.collect(Collectors.toMap(
 				ScheduleStop::getId,
@@ -196,6 +204,10 @@ public class PendingBookingService {
 
 	private Map<Long, SeatInfo> getSeatMap(Set<Long> seatIds) {
 		List<Seat> seats = seatRepository.findAllByIdWithTrainCar(seatIds);
+
+		if (seats.size() != seatIds.size()) {
+			throw new BusinessException(TrainErrorCode.SEAT_NOT_FOUND);
+		}
 
 		return seats.stream()
 			.collect(Collectors.toMap(
