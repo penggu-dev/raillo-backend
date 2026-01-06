@@ -80,10 +80,9 @@ class TicketServiceTest {
 			.addSeat(seats.get(0), PassengerType.ADULT)
 			.build();
 
-		Seat newSeat = trainTestHelper.getSeats(train, CarType.STANDARD, 2).get(1);
 
 		// when
-		ticketService.createTicket(bookingResult.booking(), newSeat, PassengerType.CHILD);
+		ticketService.createTicket(bookingResult.booking(), seats.get(0), PassengerType.CHILD);
 
 		// then
 		List<Ticket> result = ticketRepository.findAll();
