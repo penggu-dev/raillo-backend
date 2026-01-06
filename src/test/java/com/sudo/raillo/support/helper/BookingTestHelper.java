@@ -1,5 +1,8 @@
 package com.sudo.raillo.support.helper;
 
+import com.sudo.raillo.booking.domain.Ticket;
+import com.sudo.raillo.booking.domain.status.TicketStatus;
+import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.train.domain.Train;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +33,7 @@ public class BookingTestHelper {
 	private final TrainTestHelper trainTestHelper;
 	private final BookingRepository bookingRepository;
 	private final SeatBookingRepository seatBookingRepository;
+	private final TicketRepository  ticketRepository;
 
 	@Lazy
 	@Autowired
@@ -89,8 +93,11 @@ public class BookingTestHelper {
 		);
 
 		List<SeatBooking> savedSeatBookings = saveSeatBookings(booking, builder);
+		List<Ticket> savedTickets = builder.createTickets
+			? savedTickets(booking, builder)
+			: List.of();
 
-		return new BookingResult(booking, savedSeatBookings);
+		return new BookingResult(booking, savedSeatBookings, savedTickets);
 	}
 
 	private List<SeatBooking> saveSeatBookings(Booking booking, BookingBuilder builder) {
@@ -110,6 +117,23 @@ public class BookingTestHelper {
 		return seatBookingRepository.saveAll(toSave);
 	}
 
+	private List<Ticket> savedTickets(Booking booking, BookingBuilder builder) {
+		if (builder.seatBookings.isEmpty()) {
+			return List.of();
+		}
+
+		List<Ticket> tickets = builder.seatBookings.stream()
+			.map(sb -> Ticket.builder()
+				.booking(booking)
+				.seat(sb.getSeat())
+				.passengerType(sb.getPassengerType())
+				.ticketStatus(TicketStatus.ISSUED)
+				.build()
+			).toList();
+
+		return ticketRepository.saveAll(tickets);
+	}
+
 	/**
 	 * Booking 생성용 Builder
 	 */
@@ -120,11 +144,21 @@ public class BookingTestHelper {
 		private final TrainScheduleResult trainScheduleResult;
 		private ScheduleStop departureScheduleStop;
 		private ScheduleStop arrivalScheduleStop;
+		private boolean createTickets = true;
 
 		public BookingBuilder(BookingTestHelper helper, Member member, TrainScheduleResult trainScheduleResult) {
 			this.helper = helper;
 			this.trainScheduleResult = trainScheduleResult;
 			this.member = member;
+		}
+
+		/**
+		 * Ticket 생성을 건너뛴다.
+		 * <p>TicketService 테스트처럼 Ticket을 직접 생성 테스트해야 하는 경우 사용한다.</p>
+		 */
+		public BookingBuilder withoutTickets() {
+			this.createTickets = false;
+			return this;
 		}
 
 		/**

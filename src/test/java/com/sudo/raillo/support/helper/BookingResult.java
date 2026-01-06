@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
+import com.sudo.raillo.booking.domain.Ticket;
 
 /**
  * 예약과 좌석 예약 정보를 함께 담는 테스트용 결과 객체.
@@ -17,10 +18,12 @@ import com.sudo.raillo.booking.domain.SeatBooking;
  *
  * Booking booking = result.booking();
  * List<SeatBooking> seatBookings = result.seatBookings();
+ * List<Ticket> tickets = result.tickets();
  * }</pre>
  *
  * @param booking 생성된 예약
  * @param seatBookings 해당 예약의 좌석 예약 목록
+ * @param tickets 생성된 승차권 목록
  */
-public record BookingResult(Booking booking, List<SeatBooking> seatBookings) {
+public record BookingResult(Booking booking, List<SeatBooking> seatBookings, List<Ticket> tickets) {
 }

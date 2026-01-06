@@ -1,26 +1,31 @@
 package com.sudo.raillo.booking.infrastructure;
 
 import static com.sudo.raillo.booking.domain.QBooking.*;
-import static com.sudo.raillo.booking.domain.QSeatBooking.*;
+import static com.sudo.raillo.booking.domain.QTicket.*;
 import static com.sudo.raillo.train.domain.QSeat.*;
 import static com.sudo.raillo.train.domain.QTrain.*;
 import static com.sudo.raillo.train.domain.QTrainCar.*;
 import static com.sudo.raillo.train.domain.QTrainSchedule.*;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Repository;
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.sudo.raillo.booking.application.dto.BookingInfo;
-import com.sudo.raillo.booking.application.dto.projection.QBookingProjection;
-import com.sudo.raillo.booking.application.dto.projection.QSeatBookingProjection;
+import com.sudo.raillo.booking.application.dto.BookingTimeFilter;
 import com.sudo.raillo.booking.application.dto.projection.BookingProjection;
-import com.sudo.raillo.booking.application.dto.projection.SeatBookingProjection;
+import com.sudo.raillo.booking.application.dto.projection.QBookingProjection;
+import com.sudo.raillo.booking.application.dto.projection.QTicketProjection;
+import com.sudo.raillo.booking.application.dto.projection.TicketProjection;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
+import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.train.domain.QScheduleStop;
 import com.sudo.raillo.train.domain.QStation;
 
@@ -32,11 +37,21 @@ public class BookingQueryRepository {
 
 	private final JPAQueryFactory queryFactory;
 
-	public List<BookingInfo> findBookingDetail(Long memberId) {
-		return findBookingDetail(memberId, List.of());
+	/**
+	 * 승차권 조회 (단건 또는 특정 ID 목록)
+	 */
+	public List<BookingInfo> findBookings(Long memberId, List<Long> bookingIds) {
+		return findBookings(memberId, bookingIds, BookingTimeFilter.ALL);
 	}
 
-	public List<BookingInfo> findBookingDetail(Long memberId, List<Long> bookingIds) {
+	/**
+	 * 승차권 목록 조회 (시간 필터 적용)
+	 */
+	public List<BookingInfo> findBookings(Long memberId, BookingTimeFilter timeFilter) {
+		return findBookings(memberId, List.of(), timeFilter);
+	}
+
+	public List<BookingInfo> findBookings(Long memberId, List<Long> bookingIds, BookingTimeFilter timeFilter) {
 		QScheduleStop departureStop = new QScheduleStop("departureStop");
 		QScheduleStop arrivalStop = new QScheduleStop("arrivalStop");
 		QStation departureStation = new QStation("departureStation");
@@ -64,11 +79,12 @@ public class BookingQueryRepository {
 			.join(arrivalStop.station, arrivalStation)
 			.where(
 				booking.member.id.eq(memberId),
-				booking.bookingStatus.eq(BookingStatus.BOOKED),
 				arrivalStop.station.id.eq(arrivalStation.id),
 				departureStop.station.id.eq(departureStation.id),
-				departureStop.stopOrder.lt(arrivalStop.stopOrder)
+				departureStop.stopOrder.lt(arrivalStop.stopOrder),
+				buildFilterCondition(timeFilter, departureStop)
 			);
+
 		if (bookingIds != null && !bookingIds.isEmpty()) {
 			query.where(booking.id.in(bookingIds));
 		}
@@ -76,32 +92,80 @@ public class BookingQueryRepository {
 		// 예약 조회
 		List<BookingProjection> bookings = query.fetch();
 
-		// 예약 좌석 조회
-		Map<Long, List<SeatBookingProjection>> seats = queryFactory
-			.select(new QSeatBookingProjection(
-				seatBooking.id,
-				seatBooking.booking.id,
-				seatBooking.passengerType,
+		// Ticket 기반 좌석 정보 조회
+		Map<Long, List<TicketProjection>> tickets = queryFactory
+			.select(new QTicketProjection(
+				ticket.id,
+				ticket.booking.id,
+				ticket.ticketNumber,
+				ticket.ticketStatus,
+				ticket.passengerType,
 				trainCar.carNumber,
 				trainCar.carType,
 				seat.seatRow.stringValue().concat(seat.seatColumn)
 			))
-			.from(seatBooking)
-			.leftJoin(seatBooking.seat, seat)
+			.from(ticket)
+			.leftJoin(ticket.seat, seat)
 			.leftJoin(seat.trainCar, trainCar)
-			.where(seatBooking.booking.id.in(
-				bookings.stream()
-					.map(BookingProjection::getBookingId)
-					.toList()
-			))
+			.where(
+				ticket.booking.id.in(bookings.stream().map(BookingProjection::getBookingId).toList()),
+				buildTicketStatusCondition(timeFilter)
+			)
 			.fetch()
 			.stream()
-			.collect(Collectors.groupingBy(SeatBookingProjection::getBookingId));
+			.collect(Collectors.groupingBy(TicketProjection::getBookingId));
 
 		return bookings.stream()
-			.map(booking -> BookingInfo.of(
-				booking,
-				seats.get(booking.getBookingId())
-			)).toList();
+			.map(booking -> BookingInfo.of(booking, tickets.get(booking.getBookingId())))
+			.toList();
+	}
+
+	/**
+	 * 필터 조건 생성
+	 * <li>UPCOMING: BOOKED 상태 + 현재 시간 이후 출발 (승차권 조회)</li>
+	 * <li>HISTORY: BOOKED 또는 CANCELLED + 현재 시간 이전 출발 (구입 이력)</li>
+	 * <li>ALL: BOOKED 상태만 (시간 무관)</li>
+	 */
+	private BooleanBuilder buildFilterCondition(BookingTimeFilter timeFilter, QScheduleStop departureStop) {
+		BooleanBuilder builder = new BooleanBuilder();
+		LocalDate today = LocalDate.now();
+		LocalTime now = LocalTime.now();
+
+		switch (timeFilter) {
+			case UPCOMING -> {
+				builder.and(booking.bookingStatus.eq(BookingStatus.BOOKED));
+				builder.and(
+					trainSchedule.operationDate.gt(today)
+						.or(trainSchedule.operationDate.eq(today)
+							.and(departureStop.departureTime.gt(now)))
+				);
+			}
+			case HISTORY -> {
+				builder.and(booking.bookingStatus.in(BookingStatus.BOOKED, BookingStatus.CANCELLED));
+				builder.and(
+					trainSchedule.operationDate.lt(today)
+						.or(trainSchedule.operationDate.eq(today)
+							.and(departureStop.departureTime.loe(now)))
+				);
+			}
+			case ALL -> builder.and(booking.bookingStatus.eq(BookingStatus.BOOKED));
+		}
+
+		return builder;
+	}
+
+	/**
+	 * Ticket 상태 필터 조건 생성
+	 * - UPCOMING: 유효한 티켓만 (ISSUED만, 취소된 티켓은 포함 X)
+	 * - HISTORY, ALL: 전체 (필터 없음)
+	 */
+	private BooleanBuilder buildTicketStatusCondition(BookingTimeFilter timeFilter) {
+		BooleanBuilder builder = new BooleanBuilder();
+
+		if (timeFilter == BookingTimeFilter.UPCOMING) {
+			builder.and(ticket.ticketStatus.eq(TicketStatus.ISSUED));
+		}
+
+		return builder;
 	}
 }

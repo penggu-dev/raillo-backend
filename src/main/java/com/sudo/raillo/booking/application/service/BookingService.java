@@ -1,7 +1,17 @@
 package com.sudo.raillo.booking.application.service;
 
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.sudo.raillo.booking.application.dto.BookingInfo;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
+import com.sudo.raillo.booking.application.dto.BookingTimeFilter;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.booking.application.mapper.BookingMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Booking;
@@ -25,18 +35,9 @@ import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -95,7 +96,7 @@ public class BookingService {
 	}
 
 	/***
-	 * 새로운 좌석 예약 현황을 생성하고 예약하는 메서드
+	 * 새로운 좌석 예약 현황을 생성하고 예약하는 메서드 (redis 변경 전 좌석 락 참고용)
 	 * @param booking Booking Entity
 	 * @param seat Seat Entity
 	 * @return SeatBooking Entity
@@ -136,10 +137,10 @@ public class BookingService {
 	 * @return 예약
 	 */
 	@Transactional(readOnly = true)
-	public BookingDetail getBooking(String memberNo, Long bookingId) {
+	public BookingResponse getBooking(String memberNo, Long bookingId) {
 		Member member = getMember(memberNo);
 
-		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookingDetail(
+		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookings(
 			member.getId(), List.of(bookingId));
 
 		if (bookingInfos.isEmpty()) {
@@ -147,21 +148,22 @@ public class BookingService {
 		}
 
 		BookingInfo bookingInfo = bookingInfos.get(0);
-		return bookingMapper.convertToBookingDetail(bookingInfo);
+		return bookingMapper.convertToBookingResponse(bookingInfo);
 	}
 
 	/**
-	 * 예약 목록을 조회하는 메서드
+	 * 승차권 목록 조회 (bookingId로 단위)
 	 * @param memberNo 회원 번호
-	 * @return 예약 목록
+	 * @param timeFilter 시간 필터 (UPCOMING: 승차권 조회, HISTORY: 구입 이력, ALL: 전체)
+	 * @return 승차권 목록
 	 */
 	@Transactional(readOnly = true)
-	public List<BookingDetail> getBookings(String memberNo) {
+	public List<BookingResponse> getBookings(String memberNo, BookingTimeFilter timeFilter) {
 		Member member = getMember(memberNo);
 
 		// 예약 조회
-		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookingDetail(member.getId());
-		return bookingMapper.convertToBookingDetail(bookingInfos);
+		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookings(member.getId(), timeFilter);
+		return bookingMapper.convertToBookingResponse(bookingInfos);
 	}
 
 	/**
@@ -214,7 +216,7 @@ public class BookingService {
 		Map<Long, Seat> seatMap
 	) {
 		Seat seat = seatMap.get(orderSeatBooking.getSeatId());
-		if(seat == null) {
+		if (seat == null) {
 			throw new BusinessException(TrainErrorCode.SEAT_NOT_FOUND);
 		}
 
@@ -253,5 +255,4 @@ public class BookingService {
 		return memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 	}
-
 }

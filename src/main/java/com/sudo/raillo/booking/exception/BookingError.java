@@ -34,8 +34,10 @@ public enum BookingError implements ErrorCode {
 	// 예약 요청 Request 관련
 	INVALID_CAR_TYPE("좌석의 객차 타입은 동일해야 합니다.", HttpStatus.BAD_REQUEST, "B_016"),
 
-	// 예약 조회 관련
-	BOOKING_NOT_FOUND("예약 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_101"),
+	// 예매(승차권) 조회 관련
+	BOOKING_NOT_FOUND("예매 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_101"),
+	INVALID_BOOKING_TIME_FILTER("유효하지 않은 조회 필터입니다. 허용 값: upcoming, history, all", HttpStatus.BAD_REQUEST, "B_102"),
+
 
 	// 장바구니 관련
 	BOOKING_ACCESS_DENIED("본인의 예약만 장바구니에 등록할 수 있습니다.", HttpStatus.FORBIDDEN, "B_201"),

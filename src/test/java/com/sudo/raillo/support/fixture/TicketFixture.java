@@ -18,10 +18,6 @@ public class TicketFixture {
 	private Seat seat = SeatFixture.create(null, 1, "A", SeatType.WINDOW, "N", "Y");
 	private TicketStatus ticketStatus = TicketStatus.ISSUED;
 	private PassengerType passengerType = PassengerType.ADULT;
-	private String vendorCode = "01";
-	private String purchaseDate = "0101";
-	private String purchaseSeq = "10001";
-	private String purchaseUid = "01";
 
 	public static Ticket create(Booking booking) {
 		return builder()
@@ -40,10 +36,6 @@ public class TicketFixture {
 			.seat(seat)
 			.ticketStatus(ticketStatus)
 			.passengerType(passengerType)
-			.vendorCode(vendorCode)
-			.purchaseDate(purchaseDate)
-			.purchaseSeq(purchaseSeq)
-			.purchaseUid(purchaseUid)
 			.build();
 	}
 

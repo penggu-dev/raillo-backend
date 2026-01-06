@@ -1,8 +1,10 @@
 package com.sudo.raillo.booking.application.service;
 
 import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
@@ -16,6 +18,7 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.train.domain.Seat;
+
 import lombok.RequiredArgsConstructor;
 
 @Service

@@ -5,21 +5,21 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.application.dto.BookingInfo;
-import com.sudo.raillo.booking.application.dto.projection.SeatBookingProjection;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
-import com.sudo.raillo.booking.application.dto.response.SeatBookingDetail;
+import com.sudo.raillo.booking.application.dto.projection.TicketProjection;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
+import com.sudo.raillo.booking.application.dto.response.TicketDetail;
 
 @Component
 public class BookingMapper {
 
-	public List<BookingDetail> convertToBookingDetail(List<BookingInfo> bookingInfos) {
+	public List<BookingResponse> convertToBookingResponse(List<BookingInfo> bookingInfos) {
 		return bookingInfos.stream()
-			.map(this::convertToBookingDetail)
+			.map(this::convertToBookingResponse)
 			.toList();
 	}
 
-	public BookingDetail convertToBookingDetail(BookingInfo bookingInfo) {
-		return BookingDetail.of(
+	public BookingResponse convertToBookingResponse(BookingInfo bookingInfo) {
+		return new BookingResponse(
 			bookingInfo.bookingId(),
 			bookingInfo.bookingCode(),
 			String.format("%03d", bookingInfo.trainNumber()),
@@ -29,14 +29,16 @@ public class BookingMapper {
 			bookingInfo.departureTime(),
 			bookingInfo.arrivalTime(),
 			bookingInfo.operationDate(),
-			convertToSeatBookingDetail(bookingInfo.seats())
+			convertToTicketDetail(bookingInfo.tickets())
 		);
 	}
 
-	private List<SeatBookingDetail> convertToSeatBookingDetail(List<SeatBookingProjection> projection) {
+	private List<TicketDetail> convertToTicketDetail(List<TicketProjection> projection) {
 		return projection.stream()
-			.map(p -> SeatBookingDetail.of(
-				p.getSeatBookingId(),
+			.map(p -> new TicketDetail(
+				p.getTicketId(),
+				p.getTicketNumber(),
+				p.getTicketStatus(),
 				p.getPassengerType(),
 				p.getCarNumber(),
 				p.getCarType(),
@@ -44,6 +46,4 @@ public class BookingMapper {
 			))
 			.toList();
 	}
-
-
 }

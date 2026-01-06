@@ -6,9 +6,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.sudo.raillo.booking.application.dto.request.CartCreateRequest;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
+import com.sudo.raillo.global.success.SuccessResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -44,5 +44,5 @@ public interface CartControllerDoc {
 		@ApiResponse(responseCode = "404", description = "사용자 정보를 찾을 수 없습니다.",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<List<BookingDetail>> getCarts(@AuthenticationPrincipal UserDetails userDetails);
+	SuccessResponse<List<BookingResponse>> getCarts(@AuthenticationPrincipal UserDetails userDetails);
 }

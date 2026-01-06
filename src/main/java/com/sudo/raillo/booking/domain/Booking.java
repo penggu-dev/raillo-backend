@@ -1,13 +1,20 @@
 package com.sudo.raillo.booking.domain;
 
-import com.sudo.raillo.booking.util.BookingCodeGenerator;
+import java.time.LocalDateTime;
+
+import org.hibernate.annotations.Comment;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
 import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.booking.util.BookingCodeGenerator;
 import com.sudo.raillo.global.domain.BaseEntity;
 import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -18,13 +25,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Comment;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Getter

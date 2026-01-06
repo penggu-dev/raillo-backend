@@ -60,16 +60,22 @@ public class Ticket extends BaseEntity {
 	@Comment("승객 유형")
 	private PassengerType passengerType;
 
-	@Comment("결제 위치 번호 (예: 온라인 (01), ~~역(02...))")
-	private String vendorCode;
+	@Comment("승차권 번호")
+	private String ticketNumber;
 
-	@Comment("결제 날짜 (MMdd)")
-	private String purchaseDate;
+	public void cancel() {
+		this.ticketStatus = TicketStatus.CANCELLED;
+	}
 
-	@Comment("승차권 결제 순번 (10000~)")
-	private String purchaseSeq;
+	public void use() {
+		this.ticketStatus = TicketStatus.USED;
+	}
 
-	@Comment("결제 고유번호 (숫자 2자리)")
-	private String purchaseUid;
+	public boolean canBeCancelled() {
+		return this.ticketStatus.isCancellable();
+	}
 
+	public boolean canBeUsed() {
+		return this.ticketStatus.isUsable();
+	}
 }

@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
+import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.docs.TicketControllerDoc;
 import com.sudo.raillo.booking.success.TicketSuccess;
 import com.sudo.raillo.global.success.SuccessResponse;

@@ -1,16 +1,19 @@
 package com.sudo.raillo.booking.application.service;
 
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Service;
+
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor

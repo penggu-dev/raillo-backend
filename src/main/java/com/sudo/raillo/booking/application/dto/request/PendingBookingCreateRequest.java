@@ -1,11 +1,12 @@
 package com.sudo.raillo.booking.application.dto.request;
 
+import java.util.List;
+
 import com.sudo.raillo.booking.domain.type.PassengerType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import java.util.List;
 
 @Schema(description = "임시 예약 생성 요청 DTO")
 public record PendingBookingCreateRequest(

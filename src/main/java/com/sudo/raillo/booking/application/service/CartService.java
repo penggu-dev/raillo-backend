@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.dto.BookingInfo;
 import com.sudo.raillo.booking.application.dto.request.CartCreateRequest;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.booking.application.mapper.BookingMapper;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Cart;
@@ -61,7 +61,7 @@ public class CartService {
 	 * 장바구니에 등록한 예약 조회
 	 */
 	@Transactional(readOnly = true)
-	public List<BookingDetail> getCarts(String memberNo) {
+	public List<BookingResponse> getCarts(String memberNo) {
 		Member member = memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
 
@@ -74,9 +74,9 @@ public class CartService {
 		}
 
 		// 예약 조회
-		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookingDetail(
+		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookings(
 			member.getId(), bookingIds);
-		return bookingMapper.convertToBookingDetail(bookingInfos);
+		return bookingMapper.convertToBookingResponse(bookingInfos);
 	}
 
 	private void validateBookingAccess(Member member, Booking booking) {

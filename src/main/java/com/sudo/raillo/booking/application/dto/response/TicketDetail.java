@@ -1,15 +1,22 @@
 package com.sudo.raillo.booking.application.dto.response;
 
+import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.train.domain.type.CarType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "예약 좌석 정보")
-public record SeatBookingDetail(
+public record TicketDetail(
 
 	@Schema(description = "예약 좌석 ID", example = "1")
-	Long seatBookingId,
+	Long ticketId,
+
+	@Schema(description = "승차권 번호")
+	String ticketNumber,
+
+	@Schema(description = "승차권 상태", example = "ISSUED")
+	TicketStatus status,
 
 	@Schema(description = "승객 유형", example = "ADULT")
 	PassengerType passengerType,
@@ -24,15 +31,19 @@ public record SeatBookingDetail(
 	String seatNumber
 ) {
 
-	public static SeatBookingDetail of(
-		Long seatBookingId,
+	public static TicketDetail of(
+		Long ticketId,
+		String ticketNumber,
+		TicketStatus status,
 		PassengerType passengerType,
 		int carNumber,
 		CarType carType,
 		String seatNumber
 	) {
-		return new SeatBookingDetail(
-			seatBookingId,
+		return new TicketDetail(
+			ticketId,
+			ticketNumber,
+			status,
 			passengerType,
 			carNumber,
 			carType,

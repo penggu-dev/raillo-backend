@@ -1,10 +1,11 @@
 package com.sudo.raillo.booking.application.dto;
 
-import com.sudo.raillo.booking.application.dto.projection.BookingProjection;
-import com.sudo.raillo.booking.application.dto.projection.SeatBookingProjection;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+
+import com.sudo.raillo.booking.application.dto.projection.BookingProjection;
+import com.sudo.raillo.booking.application.dto.projection.TicketProjection;
 
 public record BookingInfo(
 	Long bookingId,
@@ -16,12 +17,12 @@ public record BookingInfo(
 	LocalTime departureTime,
 	LocalTime arrivalTime,
 	LocalDate operationDate,
-	List<SeatBookingProjection> seats
+	List<TicketProjection> tickets
 ) {
 
 	public static BookingInfo of(
 		BookingProjection projection,
-		List<SeatBookingProjection> seats
+		List<TicketProjection> tickets
 	) {
 		return new BookingInfo(
 			projection.getBookingId(),
@@ -33,7 +34,7 @@ public record BookingInfo(
 			projection.getDepartureTime(),
 			projection.getArrivalTime(),
 			projection.getOperationDate(),
-			seats
+			tickets
 		);
 	}
 }
