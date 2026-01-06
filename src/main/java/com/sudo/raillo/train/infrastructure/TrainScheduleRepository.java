@@ -8,6 +8,7 @@ import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.sudo.raillo.train.domain.TrainSchedule;
 
@@ -23,4 +24,7 @@ public interface TrainScheduleRepository extends JpaRepository<TrainSchedule, Lo
 		Collection<String> scheduleNames,
 		Collection<LocalDate> operationDate
 	);
+
+	@Query("SELECT ts FROM TrainSchedule ts JOIN FETCH ts.train WHERE ts.id IN :scheduleIds")
+	List<TrainSchedule> findAllByIdWithTrain(@Param("scheduleIds") Collection<Long> scheduleIds);
 }

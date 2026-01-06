@@ -1,9 +1,12 @@
 package com.sudo.raillo.booking.docs;
 
+import java.util.List;
+
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
+import com.sudo.raillo.booking.application.dto.response.PendingBookingDetail;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
 import com.sudo.raillo.global.success.SuccessResponse;
 
@@ -41,4 +44,13 @@ public interface PendingBookingControllerDoc {
 	})
 	SuccessResponse<PendingBookingCreateResponse> createPendingBooking(
 		PendingBookingCreateRequest request, UserDetails userDetails);
+
+	@Operation(method = "GET", summary = "임시 예약 목록 조회", description = "회원의 임시 예약 목록을 조회합니다.", security = {
+		@SecurityRequirement(name = "bearerAuth")})
+	@ApiResponses(value = {
+		@ApiResponse(responseCode = "200", description = "임시 예약 목록을 성공적으로 조회했습니다."),
+		@ApiResponse(responseCode = "403", description = "해당 임시 예약에 대한 접근 권한이 없습니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+	})
+	SuccessResponse<List<PendingBookingDetail>> getPendingBookings(UserDetails userDetails);
 }

@@ -3,7 +3,6 @@ package com.sudo.raillo.train.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
-import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
@@ -41,12 +40,6 @@ class TrainSeatQueryServiceTest {
 
 	@Autowired
 	private TrainCarRepository trainCarRepository;
-
-	@Autowired
-	private BookingFacade bookingFacade;
-
-	@Autowired
-	private MemberRepository memberRepository;
 
 	private TrainScheduleResult trainScheduleResult;
 	private ScheduleStop departureStop;
