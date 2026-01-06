@@ -18,7 +18,9 @@ import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
+import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
@@ -29,6 +31,7 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
+import com.sudo.raillo.train.exception.TrainErrorCode;
 
 @ServiceTest
 class PendingBookingServiceTest {
@@ -220,5 +223,83 @@ class PendingBookingServiceTest {
 
 		// then
 		assertThat(result).isEmpty();
+	}
+
+	@Test
+	@DisplayName("임시 예약의 열차 스케줄이 DB에 존재하지 않으면 예외가 발생한다")
+	void getPendingBookings_fail_trainScheduleNotFound() {
+		// given
+		Long notExistTrainScheduleId = 999L;
+
+		PendingBooking pendingBooking = PendingBookingFixture.builder()
+			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withTrainScheduleId(notExistTrainScheduleId)
+			.withDepartureStopId(trainScheduleResult.scheduleStops().get(0).getId())
+			.withArrivalStopId(trainScheduleResult.scheduleStops().get(1).getId())
+			.withPendingSeatBookings(
+				List.of(
+					new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)
+				)
+			)
+			.withTotalFare(BigDecimal.valueOf(50000))
+			.build();
+		bookingRedisRepository.savePendingBooking(pendingBooking);
+
+		// when & then
+		assertThatThrownBy(() -> pendingBookingService.getPendingBookings(testMember.getMemberDetail().getMemberNo()))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND.getMessage());
+	}
+
+	@Test
+	@DisplayName("임시 예약의 정차역이 DB에 존재하지 않으면 예외가 발생한다")
+	void getPendingBookings_fail_stationNotFound() {
+		// given
+		Long nonExistStopId = 999L;
+
+		PendingBooking pendingBooking = PendingBookingFixture.builder()
+			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
+			.withDepartureStopId(nonExistStopId)
+			.withArrivalStopId(trainScheduleResult.scheduleStops().get(1).getId())
+			.withPendingSeatBookings(
+				List.of(
+					new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)
+				)
+			)
+			.withTotalFare(BigDecimal.valueOf(50000))
+			.build();
+		bookingRedisRepository.savePendingBooking(pendingBooking);
+
+		// when & then
+		assertThatThrownBy(() -> pendingBookingService.getPendingBookings(testMember.getMemberDetail().getMemberNo()))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(TrainErrorCode.STATION_NOT_FOUND.getMessage());
+	}
+
+	@Test
+	@DisplayName("임시 예약의 예약 좌석이 DB에 존재하지 않으면 예외가 발생한다")
+	void getPendingBookings_fail_seatNotFound() {
+		// given
+		Long nonExistSeatId = 999L;
+
+		PendingBooking pendingBooking = PendingBookingFixture.builder()
+			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
+			.withDepartureStopId(trainScheduleResult.scheduleStops().get(0).getId())
+			.withArrivalStopId(trainScheduleResult.scheduleStops().get(1).getId())
+			.withPendingSeatBookings(
+				List.of(
+					new PendingSeatBooking(nonExistSeatId, PassengerType.ADULT)
+				)
+			)
+			.withTotalFare(BigDecimal.valueOf(50000))
+			.build();
+		bookingRedisRepository.savePendingBooking(pendingBooking);
+
+		// when & then
+		assertThatThrownBy(() -> pendingBookingService.getPendingBookings(testMember.getMemberDetail().getMemberNo()))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(BookingError.SEAT_NOT_FOUND.getMessage());
 	}
 }
