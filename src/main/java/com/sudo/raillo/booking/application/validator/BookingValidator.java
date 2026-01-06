@@ -14,6 +14,7 @@ import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
+import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 
 import lombok.extern.slf4j.Slf4j;
@@ -114,6 +115,24 @@ public class BookingValidator {
 			log.warn("[임시 예약 찾지 못함] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
 			throw new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
 		}
+	}
+
+	/**
+	 * 좌석 검증
+	 * 1. 좌석 존재 여부 검증
+	 * 2. 동일 객차 타입 검증
+	 */
+	public CarType validateSeatIdsAndGetSingleCarType(List<CarType> carTypes) {
+		if (carTypes.isEmpty()) {
+			log.warn("[좌석 조회 실패] 요청한 좌석 ID에 해당하는 좌석이 없음");
+			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
+		}
+
+		if (carTypes.size() != 1) {
+			log.warn("[객차 타입 불일치] 서로 다른 객차 타입이 섞여 있음: carTypes={}", carTypes);
+			throw new BusinessException(BookingError.INVALID_CAR_TYPE);
+		}
+		return carTypes.get(0);
 	}
 
 }
