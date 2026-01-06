@@ -34,7 +34,7 @@ public enum PaymentError implements ErrorCode {
 	// TOSS 에러
 	TOSS_PAYMENT_FAILED("토스 결제중 오류가 발생했습니다.", HttpStatus.BAD_REQUEST, "P_201"),
 	TOSS_SERVER_ERROR("토스 결제 서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.", HttpStatus.BAD_REQUEST, "P_202"),
-	PAYMENT_KEY_MISMATCH("결제 키가 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "P_016"),
+	PAYMENT_KEY_MISMATCH("결제 키가 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "P_0203"),
 
 	// 시스템 에러
 	PAYMENT_SYSTEM_ERROR("결제 시스템 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "P_999");
