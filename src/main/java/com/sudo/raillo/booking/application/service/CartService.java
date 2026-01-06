@@ -76,7 +76,7 @@ public class CartService {
 		// 예약 조회
 		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookings(
 			member.getId(), bookingIds);
-		return bookingMapper.convertToBookingDetail(bookingInfos);
+		return bookingMapper.convertToBookingResponse(bookingInfos);
 	}
 
 	private void validateBookingAccess(Member member, Booking booking) {

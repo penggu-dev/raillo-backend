@@ -148,7 +148,7 @@ public class BookingService {
 		}
 
 		BookingInfo bookingInfo = bookingInfos.get(0);
-		return bookingMapper.convertToBookingDetail(bookingInfo);
+		return bookingMapper.convertToBookingResponse(bookingInfo);
 	}
 
 	/**
@@ -163,7 +163,7 @@ public class BookingService {
 
 		// 예약 조회
 		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookings(member.getId(), timeFilter);
-		return bookingMapper.convertToBookingDetail(bookingInfos);
+		return bookingMapper.convertToBookingResponse(bookingInfos);
 	}
 
 	/**

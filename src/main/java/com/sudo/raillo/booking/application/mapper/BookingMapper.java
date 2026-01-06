@@ -5,20 +5,20 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.application.dto.BookingInfo;
-import com.sudo.raillo.booking.application.dto.projection.SeatBookingProjection;
-import com.sudo.raillo.booking.application.dto.response.BookingDetail;
-import com.sudo.raillo.booking.application.dto.response.SeatBookingDetail;
+import com.sudo.raillo.booking.application.dto.projection.TicketProjection;
+import com.sudo.raillo.booking.application.dto.response.BookingResponse;
+import com.sudo.raillo.booking.application.dto.response.TicketDetail;
 
 @Component
 public class BookingMapper {
 
-	public List<BookingDetail> convertToBookingDetail(List<BookingInfo> bookingInfos) {
+	public List<BookingResponse> convertToBookingResponse(List<BookingInfo> bookingInfos) {
 		return bookingInfos.stream()
-			.map(this::convertToBookingDetail)
+			.map(this::convertToBookingResponse)
 			.toList();
 	}
 
-	public BookingResponse convertToBookingDetail(BookingInfo bookingInfo) {
+	public BookingResponse convertToBookingResponse(BookingInfo bookingInfo) {
 		return new BookingResponse(
 			bookingInfo.bookingId(),
 			bookingInfo.bookingCode(),
