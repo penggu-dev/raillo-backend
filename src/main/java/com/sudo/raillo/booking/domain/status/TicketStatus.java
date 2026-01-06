@@ -19,4 +19,8 @@ public enum TicketStatus {
 	public boolean isCancellable() {
 		return this == ISSUED;
 	}
+
+	public boolean isUsable() {
+		return this == ISSUED;
+	}
 }

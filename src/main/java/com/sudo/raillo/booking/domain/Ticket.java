@@ -74,4 +74,8 @@ public class Ticket extends BaseEntity {
 	public boolean canBeCancelled() {
 		return this.ticketStatus.isCancellable();
 	}
+
+	public boolean canBeUsed() {
+		return this.ticketStatus.isUsable();
+	}
 }
