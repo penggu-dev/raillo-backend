@@ -147,6 +147,21 @@ public class PendingBookingService {
 			.toList();
 	}
 
+	/**
+	 * 임시 예약 다중 삭제 메서드
+	 * @param pendingBookingIds 삭제할 임시 예약 리스트
+	 */
+	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
+		Map<String, PendingBooking> pendingBookingMap = bookingRedisRepository.getPendingBookingsAsMap(pendingBookingIds);
+
+		if (!pendingBookingMap.isEmpty()) {
+			List<PendingBooking> pendingBookings = pendingBookingMap.values().stream().toList();
+			bookingValidator.validatePendingBookingOwner(pendingBookings, memberNo);
+		}
+
+		bookingRedisRepository.deletePendingBookings(pendingBookingIds, memberNo);
+	}
+
 	private List<PendingSeatBooking> createPendingSeatBookings(
 		List<PassengerType> passengerTypes,
 		List<Long> seatIds
