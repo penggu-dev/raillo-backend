@@ -101,9 +101,6 @@ public class SwaggerConfig {
 				.name("Bookings")
 				.description("🎫 예매 API - 예매 생성, 조회, 취소, 결제 API"),
 			new Tag()
-				.name("Carts")
-				.description("🛒 장바구니 API - 예약 등록, 조회 API"),
-			new Tag()
 				.name("Payments")
 				.description("💳 결제 API - 결제 처리, 환불, 결제 내역 API"),
 			new Tag()
