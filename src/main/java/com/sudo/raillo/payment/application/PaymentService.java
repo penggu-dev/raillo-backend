@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sudo.raillo.booking.application.facade.BookingFacade;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
@@ -37,7 +36,6 @@ public class PaymentService {
 	private final PaymentRepository paymentRepository;
 	private final PaymentQueryRepository paymentQueryRepository;
 	private final PaymentKeyGenerator paymentKeyGenerator;
-	private final BookingFacade bookingFacade;
 	private final TicketService ticketService;
 
 	/**
