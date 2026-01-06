@@ -11,4 +11,12 @@ public enum TicketStatus {
 	CANCELLED("취소");
 
 	private final String description;
+
+
+	/**
+	 * 취소 가능한 상태인지 확인
+	 */
+	public boolean isCancellable() {
+		return this == ISSUED;
+	}
 }

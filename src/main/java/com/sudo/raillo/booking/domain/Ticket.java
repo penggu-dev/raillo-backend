@@ -62,4 +62,12 @@ public class Ticket extends BaseEntity {
 
 	@Comment("승차권 번호")
 	private String ticketNumber;
+
+	public void cancel() {
+		this.ticketStatus = TicketStatus.CANCELLED;
+	}
+
+	public boolean canBeCancelled() {
+		return this.ticketStatus.isCancellable();
+	}
 }
