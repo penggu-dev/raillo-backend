@@ -93,7 +93,9 @@ public class BookingTestHelper {
 		);
 
 		List<SeatBooking> savedSeatBookings = saveSeatBookings(booking, builder);
-		List<Ticket> savedTickets = savedTickets(booking, builder);
+		List<Ticket> savedTickets = builder.createTickets
+			? savedTickets(booking, builder)
+			: List.of();
 
 		return new BookingResult(booking, savedSeatBookings, savedTickets);
 	}
@@ -142,11 +144,21 @@ public class BookingTestHelper {
 		private final TrainScheduleResult trainScheduleResult;
 		private ScheduleStop departureScheduleStop;
 		private ScheduleStop arrivalScheduleStop;
+		private boolean createTickets = true;
 
 		public BookingBuilder(BookingTestHelper helper, Member member, TrainScheduleResult trainScheduleResult) {
 			this.helper = helper;
 			this.trainScheduleResult = trainScheduleResult;
 			this.member = member;
+		}
+
+		/**
+		 * Ticket 생성을 건너뛴다.
+		 * <p>TicketService 테스트처럼 Ticket을 직접 생성 테스트해야 하는 경우 사용한다.</p>
+		 */
+		public BookingBuilder withoutTickets() {
+			this.createTickets = false;
+			return this;
 		}
 
 		/**
