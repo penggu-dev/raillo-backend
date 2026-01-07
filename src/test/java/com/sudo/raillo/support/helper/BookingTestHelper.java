@@ -1,29 +1,37 @@
 package com.sudo.raillo.support.helper;
 
+import com.sudo.raillo.booking.application.service.FareCalculationService;
+import com.sudo.raillo.booking.domain.Booking;
+import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
+import com.sudo.raillo.booking.domain.type.PassengerType;
+import com.sudo.raillo.booking.infrastructure.BookingRepository;
+import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
+import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.order.domain.Order;
+import com.sudo.raillo.order.domain.OrderBooking;
+import com.sudo.raillo.order.domain.OrderSeatBooking;
+import com.sudo.raillo.order.infrastructure.OrderRepository;
+import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
+import com.sudo.raillo.support.fixture.OrderFixture;
+import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
+import com.sudo.raillo.train.domain.type.CarType;
+import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.infrastructure.SeatRepository;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.sudo.raillo.booking.domain.Booking;
-import com.sudo.raillo.booking.domain.SeatBooking;
-import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.infrastructure.BookingRepository;
-import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
-import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.train.domain.ScheduleStop;
-import com.sudo.raillo.train.domain.Seat;
-import com.sudo.raillo.train.domain.type.CarType;
-
-import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
@@ -31,9 +39,14 @@ import lombok.RequiredArgsConstructor;
 public class BookingTestHelper {
 
 	private final TrainTestHelper trainTestHelper;
+	private final TrainScheduleTestHelper trainScheduleTestHelper;
+	private final FareCalculationService fareCalculationService;
+	private final OrderSeatBookingRepository orderSeatBookingRepository;
 	private final BookingRepository bookingRepository;
+	private final OrderRepository orderRepository;
 	private final SeatBookingRepository seatBookingRepository;
-	private final TicketRepository  ticketRepository;
+	private final SeatRepository seatRepository;
+	private final TicketRepository ticketRepository;
 
 	@Lazy
 	@Autowired
@@ -55,10 +68,28 @@ public class BookingTestHelper {
 	}
 
 	/**
+	 * OrderBooking 정보를 기반으로 예약을 생성한다.
+	 *
+	 * <p>전달받은 {@link OrderBooking}에 연관된 회원과 열차 스케줄 정보를 사용하여 예약을 구성한다.</p>
+	 */
+	public BookingResult createByOrderBooking(OrderBooking orderBooking) {
+		var trainScheduleResult = trainScheduleTestHelper.createDefault(orderBooking.getTrainSchedule().getTrain());
+		BookingBuilder builder = builder(orderBooking.getOrder().getMember(), trainScheduleResult);
+		List<OrderSeatBooking> orderSeatBookings = orderSeatBookingRepository.findByOrderBookingId(orderBooking.getId());
+
+		orderSeatBookings.forEach(osb -> {
+			Seat seat = seatRepository.findById(osb.getSeatId())
+				.orElseThrow(() -> new BusinessException(TrainErrorCode.SEAT_NOT_FOUND));
+			builder.addSeat(seat, osb.getPassengerType());
+		});
+		return builder.build();
+	}
+
+	/**
 	 * 커스텀 예약을 생성하기 위한 빌더를 반환한다.
 	 *
 	 * <p>복잡한 예약 구성이 필요할 때 사용한다. 출발역, 도착역, 좌석, 승객 유형 등을 자유롭게 설정할 수 있다.</p>
-	 *
+	 * <p>예약 기준으로 Order가 자동으로 생성된다.</p>
 	 * <h4>사용 예시</h4>
 	 * <pre>{@code
 	 * // 중간역 구간 예약 + 특등석 2좌석
@@ -83,9 +114,13 @@ public class BookingTestHelper {
 		builder.validateRequired();
 		builder.setDefaultStops();
 
+		builder.setOrder();
+		orderRepository.save(builder.order);
+
 		Booking booking = bookingRepository.save(
 			Booking.create(
 				builder.member,
+				builder.order,
 				builder.trainScheduleResult.trainSchedule(),
 				builder.departureScheduleStop,
 				builder.arrivalScheduleStop
@@ -142,6 +177,7 @@ public class BookingTestHelper {
 		private final List<SeatBooking> seatBookings = new ArrayList<>();
 		private final Member member;
 		private final TrainScheduleResult trainScheduleResult;
+		private Order order;
 		private ScheduleStop departureScheduleStop;
 		private ScheduleStop arrivalScheduleStop;
 		private boolean createTickets = true;
@@ -226,6 +262,22 @@ public class BookingTestHelper {
 			}
 			if (arrivalScheduleStop == null) {
 				arrivalScheduleStop = getLastStop(trainScheduleResult);
+			}
+		}
+
+		private void setOrder() {
+			if (order == null) {
+				BigDecimal totalAmount = fareCalculationService.calculateTotalFare(
+					departureScheduleStop.getStation().getId(),
+					arrivalScheduleStop.getStation().getId(),
+					seatBookings.stream().map(SeatBooking::getPassengerType).toList(),
+					seatBookings.get(0).getSeat().getTrainCar().getCarType()
+				);
+
+				order = OrderFixture.builder()
+					.withMember(member)
+					.withTotalAmount(totalAmount)
+					.build();
 			}
 		}
 

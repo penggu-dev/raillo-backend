@@ -281,6 +281,9 @@ class BookingServiceTest {
 			.addStop("서울", LocalTime.of(12, 0), null)
 			.build();
 
+		trainScheduleTestHelper.createOrUpdateStationFare("부산", "동대구", 5000, 10000);
+		trainScheduleTestHelper.createOrUpdateStationFare("대전", "서울", 5000, 10000);
+
 		Booking booking1 = bookingTestHelper.createDefault(member, BusanToDongDaegu).booking();
 		Booking booking2 = bookingTestHelper.createDefault(member, DaejeonToSeoul).booking();
 
