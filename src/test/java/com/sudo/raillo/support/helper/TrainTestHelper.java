@@ -50,7 +50,7 @@ public class TrainTestHelper {
 	/**
 	 * 테스트용 소형 열차 생성
 	 * 객차 총 2개 (standard 1개 + firstClass 1개)
-	 * 좌석 총 4개 (standard 24개 + firstClass 12개)
+	 * 좌석 총 36개 (standard 24개 + firstClass 12개)
 	 */
 	@Transactional
 	public Train createSmallTestTrain() {
