@@ -1,7 +1,6 @@
 package com.sudo.raillo.booking.application.service;
 
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
-import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
@@ -15,7 +14,6 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.train.domain.Seat;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,12 +55,6 @@ public class TicketService {
 		bookingValidator.validateTicketOwner(ticket, member);
 
 		return ticketQueryRepository.findReceiptByTicket(ticket);
-	}
-
-	@Transactional(readOnly = true)
-	public List<TicketReadResponse> getMyTickets(String memberNo) {
-		Member member = getMember(memberNo);
-		return ticketQueryRepository.findPaidTicketResponsesByMemberId(member.getId());
 	}
 
 	public void deleteTicketById(Long ticketId) {

@@ -2,13 +2,10 @@ package com.sudo.raillo.booking.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
 import com.sudo.raillo.booking.application.service.TicketService;
-import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -22,13 +19,9 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-
 import java.util.List;
-
 import lombok.extern.slf4j.Slf4j;
-
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,9 +32,6 @@ class TicketServiceTest {
 
 	@Autowired
 	private MemberRepository memberRepository;
-
-	@Autowired
-	private BookingRepository bookingRepository;
 
 	@Autowired
 	private TicketRepository ticketRepository;
@@ -80,7 +70,6 @@ class TicketServiceTest {
 			.addSeat(seats.get(0), PassengerType.ADULT)
 			.build();
 
-
 		// when
 		ticketService.createTicket(bookingResult.booking(), seats.get(0), PassengerType.CHILD);
 
@@ -88,23 +77,6 @@ class TicketServiceTest {
 		List<Ticket> result = ticketRepository.findAll();
 		assertThat(result).hasSize(1);
 		assertThat(result.get(0).getTicketStatus()).isEqualTo(TicketStatus.ISSUED);
-	}
-
-	@Test
-	@DisplayName("멤버번호로 가지고 있는 티켓 조회에 성공한다")
-	void memberNo_getMyTickets_success() {
-		// given
-		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
-		bookingTestHelper.builder(member, trainScheduleResult)
-			.addSeat(seats.get(0), PassengerType.CHILD)
-			.addSeat(seats.get(1), PassengerType.VETERAN)
-			.build();
-
-		// when
-		List<TicketReadResponse> result = ticketService.getMyTickets(member.getMemberDetail().getMemberNo());
-
-		// then
-		assertThat(result).hasSize(2);
 	}
 
 	@Test
