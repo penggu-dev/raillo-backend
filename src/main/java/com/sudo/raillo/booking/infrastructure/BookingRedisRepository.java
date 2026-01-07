@@ -1,6 +1,7 @@
 package com.sudo.raillo.booking.infrastructure;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +48,22 @@ public class BookingRedisRepository {
 	public void deletePendingBooking(String pendingBookingId) {
 		String key = redisKeyGenerator.generatePendingBookingKey(pendingBookingId);
 		customObjectRedisTemplate.delete(key);
+	}
+
+	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
+		List<String> pendingBookingKeys = pendingBookingIds.stream()
+			.map(redisKeyGenerator::generatePendingBookingKey)
+			.toList();
+
+		List<String> pendingBookingMemberKeys = pendingBookingIds.stream()
+			.map(id -> redisKeyGenerator.generatePendingBookingMemberKey(memberNo, id))
+			.toList();
+
+		List<String> allKeysToDelete = new ArrayList<>();
+		allKeysToDelete.addAll(pendingBookingKeys);
+		allKeysToDelete.addAll(pendingBookingMemberKeys);
+
+		customObjectRedisTemplate.delete(allKeysToDelete);
 	}
 
 	public Optional<PendingBooking> getPendingBooking(String pendingBookingId) {

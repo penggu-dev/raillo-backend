@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.PendingBookingDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
 import com.sudo.raillo.booking.application.dto.response.PendingBookingDetail;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
@@ -53,4 +54,13 @@ public interface PendingBookingControllerDoc {
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	SuccessResponse<List<PendingBookingDetail>> getPendingBookings(UserDetails userDetails);
+
+	@Operation(method = "DELETE", summary = "임시 예약 다중 삭제", description = "임시 예약을 다중 삭제합니다.", security = {
+		@SecurityRequirement(name = "bearerAuth")})
+	@ApiResponses(value = {
+		@ApiResponse(responseCode = "204", description = "예약이 성공적으로 삭제되었습니다."),
+		@ApiResponse(responseCode = "403", description = "해당 임시 예약에 대한 접근 권한이 없습니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+	})
+	SuccessResponse<?> deletePendingBookings(PendingBookingDeleteRequest request, UserDetails userDetails);
 }

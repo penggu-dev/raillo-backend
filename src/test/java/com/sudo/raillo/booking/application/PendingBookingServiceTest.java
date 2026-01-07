@@ -302,4 +302,139 @@ class PendingBookingServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(BookingError.SEAT_NOT_FOUND.getMessage());
 	}
+
+	@Test
+	@DisplayName("단일 임시 예약 삭제에 성공한다")
+	void deletePendingBookings_success_single() {
+		// given
+		PendingBooking pendingBooking = PendingBookingFixture.builder()
+			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.build();
+		bookingRedisRepository.savePendingBooking(pendingBooking);
+
+		// when
+		pendingBookingService.deletePendingBookings(
+			List.of(pendingBooking.getId()),
+			testMember.getMemberDetail().getMemberNo()
+		);
+
+		// then
+		List<PendingBookingDetail> result = pendingBookingService.getPendingBookings(
+			testMember.getMemberDetail().getMemberNo());
+		assertThat(result).isEmpty();
+	}
+
+	@Test
+	@DisplayName("다중 임시 예약 삭제에 성공한다")
+	void deletePendingBookings_success_multiple() {
+		// given
+		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
+			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.build();
+		bookingRedisRepository.savePendingBooking(pendingBooking1);
+
+		PendingBooking pendingBooking2 = PendingBookingFixture.builder()
+			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withPendingSeatBookings(
+				List.of(
+					new PendingSeatBooking(seats.get(1).getId(), PassengerType.ADULT),
+					new PendingSeatBooking(seats.get(2).getId(), PassengerType.CHILD)
+				)
+			)
+			.build();
+		bookingRedisRepository.savePendingBooking(pendingBooking2);
+
+		PendingBooking pendingBooking3 = PendingBookingFixture.builder()
+			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withPendingSeatBookings(
+				List.of(
+					new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)
+				)
+			)
+			.build();
+		bookingRedisRepository.savePendingBooking(pendingBooking3);
+
+		// when
+		pendingBookingService.deletePendingBookings(
+			List.of(pendingBooking1.getId(), pendingBooking2.getId(), pendingBooking3.getId()),
+			testMember.getMemberDetail().getMemberNo()
+		);
+
+		// then
+		List<PendingBookingDetail> result = pendingBookingService.getPendingBookings(
+			testMember.getMemberDetail().getMemberNo());
+		assertThat(result).isEmpty();
+	}
+
+	@Test
+	@DisplayName("일부 임시 예약만 삭제하면 나머지 예약은 유지된다")
+	void deletePendingBookings_success_partial() {
+		// given
+		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
+			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.build();
+		bookingRedisRepository.savePendingBooking(pendingBooking1);
+
+		PendingBooking pendingBooking2 = PendingBookingFixture.builder()
+			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withPendingSeatBookings(
+				List.of(
+					new PendingSeatBooking(seats.get(1).getId(), PassengerType.ADULT),
+					new PendingSeatBooking(seats.get(2).getId(), PassengerType.CHILD)
+				)
+			)
+			.build();
+		bookingRedisRepository.savePendingBooking(pendingBooking2);
+
+		// when
+		pendingBookingService.deletePendingBookings(
+			List.of(pendingBooking1.getId()), // 첫 번째 예약만 삭제
+			testMember.getMemberDetail().getMemberNo()
+		);
+
+		// then
+		List<PendingBookingDetail> result = pendingBookingService.getPendingBookings(
+			testMember.getMemberDetail().getMemberNo());
+		assertThat(result).hasSize(1);
+		assertThat(result.get(0).pendingBookingId()).isEqualTo(pendingBooking2.getId());
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 임시 예약 ID로 삭제해도 예외가 발생하지 않는다")
+	void deletePendingBookings_success_nonExistId() {
+		// given
+		List<String> nonExistIds = List.of(
+			"nonexist-9087-4aea-aca2-7ced03617c11",
+			"nonexist-af60-4b7b-a7b9-9c6cae9cad0a"
+		);
+
+		// when & then
+		assertThatCode(() ->
+			pendingBookingService.deletePendingBookings(
+				nonExistIds,
+				testMember.getMemberDetail().getMemberNo()
+			)
+		).doesNotThrowAnyException();
+	}
+
+	@Test
+	@DisplayName("권한이 없는 임시 예약을 삭제하려고 시도하면 예외가 발생한다")
+	void deletePendingBookings_fail_notOwner() {
+		// given
+		String ownerMemberNo = "owner_member_no";
+		String nonOwnerMemberNo = "non_owner_member_no";
+
+		PendingBooking pendingBooking = PendingBookingFixture.builder()
+			.withMemberNo(ownerMemberNo)
+			.build();
+		bookingRedisRepository.savePendingBooking(pendingBooking);
+
+		// when & then
+		assertThatThrownBy(() ->
+			pendingBookingService.deletePendingBookings(
+				List.of(pendingBooking.getId()),
+				nonOwnerMemberNo
+			)).isInstanceOf(BusinessException.class)
+			.hasMessage(BookingError.PENDING_BOOKING_ACCESS_DENIED.getMessage());
+	}
 }
