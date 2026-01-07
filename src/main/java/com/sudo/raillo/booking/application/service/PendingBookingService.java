@@ -21,6 +21,7 @@ import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -152,14 +153,17 @@ public class PendingBookingService {
 	 * @param pendingBookingIds 삭제할 임시 예약 리스트
 	 */
 	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
-		Map<String, PendingBooking> pendingBookingMap = bookingRedisRepository.getPendingBookingsAsMap(pendingBookingIds);
+		Map<String, PendingBooking> pendingBookingMap = bookingRedisRepository.getPendingBookingsAsMap(
+			pendingBookingIds);
 
-		if (!pendingBookingMap.isEmpty()) {
-			List<PendingBooking> pendingBookings = pendingBookingMap.values().stream().toList();
-			bookingValidator.validatePendingBookingOwner(pendingBookings, memberNo);
+		if (pendingBookingMap.isEmpty()) {
+			return;
 		}
 
-		bookingRedisRepository.deletePendingBookings(pendingBookingIds, memberNo);
+		List<PendingBooking> pendingBookings = pendingBookingMap.values().stream().toList();
+		bookingValidator.validatePendingBookingOwner(pendingBookings, memberNo);
+
+		bookingRedisRepository.deletePendingBookings(new ArrayList<>(pendingBookingMap.keySet()), memberNo);
 	}
 
 	private List<PendingSeatBooking> createPendingSeatBookings(
