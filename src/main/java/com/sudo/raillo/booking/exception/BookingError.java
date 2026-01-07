@@ -39,10 +39,6 @@ public enum BookingError implements ErrorCode {
 	INVALID_BOOKING_TIME_FILTER("유효하지 않은 조회 필터입니다. 허용 값: upcoming, history, all", HttpStatus.BAD_REQUEST, "B_102"),
 
 
-	// 장바구니 관련
-	BOOKING_ACCESS_DENIED("본인의 예약만 장바구니에 등록할 수 있습니다.", HttpStatus.FORBIDDEN, "B_201"),
-	BOOKING_ALREADY_EXISTED("이미 등록된 예약입니다.", HttpStatus.CONFLICT, "B_202"),
-
 	// PENDING_BOOKING 관련
 	PENDING_BOOKING_NOT_FOUND("임시 예약을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B301"),
 	PENDING_BOOKING_ACCESS_DENIED("해당 임시 예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "B302"),
