@@ -1,12 +1,8 @@
 package com.sudo.raillo.booking.application.service;
 
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
-import java.util.List;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
+import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
@@ -19,8 +15,10 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.train.domain.Seat;
-
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +28,7 @@ public class TicketService {
 	private final MemberRepository memberRepository;
 	private final TicketRepository ticketRepository;
 	private final TicketQueryRepository ticketQueryRepository;
+	private final BookingValidator bookingValidator;
 
 	/**
 	 * 티켓을 생성하는 메서드
@@ -54,8 +53,10 @@ public class TicketService {
 	@Transactional(readOnly = true)
 	public ReceiptResponse getReceipt(String memberNo, Long ticketId) {
 		Member member = getMember(memberNo);
-		ReceiptResponse response = new ReceiptResponse();
-		return null;
+		Ticket ticket = getTicket(ticketId);
+		bookingValidator.validateTicketOwner(ticket, member);
+
+		return ticketQueryRepository.findReceiptByTicket(ticket);
 	}
 
 	@Transactional(readOnly = true)

@@ -1,5 +1,7 @@
 package com.sudo.raillo.booking.application.validator;
 
+import com.sudo.raillo.booking.domain.Ticket;
+import com.sudo.raillo.member.domain.Member;
 import java.util.List;
 import java.util.Map;
 
@@ -135,4 +137,12 @@ public class BookingValidator {
 		return carTypes.get(0);
 	}
 
+	/**
+	 * Ticket 소유자 검증
+	 */
+	public void validateTicketOwner(Ticket ticket, Member member) {
+		if (!ticket.getBooking().getMember().getId().equals(member.getId())) {
+			throw new BusinessException(BookingError.TICKET_ACCESS_DENIED);
+		}
+	}
 }

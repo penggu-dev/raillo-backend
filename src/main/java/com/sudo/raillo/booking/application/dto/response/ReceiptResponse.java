@@ -1,10 +1,12 @@
 package com.sudo.raillo.booking.application.dto.response;
 
+import com.sudo.raillo.booking.application.dto.projection.ReceiptProjection;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.train.domain.type.CarType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Schema(description = "영수증 조회 응답 DTO")
@@ -14,7 +16,7 @@ public record ReceiptResponse(
 	String ticketNumber,
 
 	@Schema(description = "발행 일시", example = "2026-01-01")
-	LocalDate ticketCreatedAt,
+	LocalDateTime ticketCreatedAt,
 
 	@Schema(description = "열차 번호", example = "027")
 	String trainNumber,
@@ -47,7 +49,7 @@ public record ReceiptResponse(
 	PaymentMethod paymentMethod,
 
 	@Schema(description = "승인 일자", example = "2026-01-01")
-	LocalDate paidAt,
+	LocalDateTime paidAt,
 
 	@Schema(description = "승인 번호", example = "2026-01-01")
 	String paymentKey,
@@ -55,4 +57,24 @@ public record ReceiptResponse(
 	@Schema(description = "결제 금액", example = "50000")
 	BigDecimal amount
 ) {
+
+	public static ReceiptResponse from(ReceiptProjection projection) {
+		return new ReceiptResponse(
+			projection.getTicketNumber(),
+			projection.getTicketCreatedAt(),
+			projection.getTrainNumber(),
+			projection.getCarNumber(),
+			projection.getCarType(),
+			projection.getSeatNumber(),
+			projection.getOperationDate(),
+			projection.getDepartureStationName(),
+			projection.getArrivalStationName(),
+			projection.getDepartureTime(),
+			projection.getArrivalTime(),
+			projection.getPaymentMethod(),
+			projection.getPaidAt(),
+			projection.getPaymentKey(),
+			projection.getAmount()
+		);
+	}
 }
