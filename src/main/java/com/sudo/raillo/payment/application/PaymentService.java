@@ -1,7 +1,5 @@
 package com.sudo.raillo.payment.application;
 
-import java.math.BigDecimal;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,11 +26,11 @@ public class PaymentService {
 	/**
 	 * Payment 생성 (PENDING 상태)
 	 */
-	public Payment createPayment(Member member, Order order, BigDecimal amount) {
-		Payment payment = Payment.create(member, order, amount);
+	public Payment createPayment(Member member, Order order) {
+		Payment payment = Payment.create(member, order);
 		Payment savedPayment = paymentRepository.save(payment);
 
-		log.info("[결제 생성] paymentId={}, orderId={}, amount={}", savedPayment.getId(), order.getId(), amount);
+		log.info("[결제 생성] paymentId={}, orderId={}, amount={}", savedPayment.getId(), order.getId(), order.getTotalAmount());
 
 		return savedPayment;
 	}

@@ -92,12 +92,12 @@ public class Payment {
 	@Comment("결제 실패 사유")
 	private String failureMessage;
 
-	public static Payment create(Member member, Order order, BigDecimal amount) {
+	public static Payment create(Member member, Order order) {
 		Payment payment = new Payment();
 		payment.member = member;
 		payment.order = order;
 		payment.orderCode = order.getOrderCode();
-		payment.amount = amount;
+		payment.amount = order.getTotalAmount();
 		payment.paymentStatus = PaymentStatus.PENDING;
 		return payment;
 	}
