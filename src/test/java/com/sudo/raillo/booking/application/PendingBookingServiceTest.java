@@ -421,9 +421,12 @@ class PendingBookingServiceTest {
 	@DisplayName("권한이 없는 임시 예약을 삭제하려고 시도하면 예외가 발생한다")
 	void deletePendingBookings_fail_notOwner() {
 		// given
+		String ownerMemberNo = "owner_member_no";
 		String nonOwnerMemberNo = "non_owner_member_no";
 
-		PendingBooking pendingBooking = PendingBookingFixture.create();
+		PendingBooking pendingBooking = PendingBookingFixture.builder()
+			.withMemberNo(ownerMemberNo)
+			.build();
 		bookingRedisRepository.savePendingBooking(pendingBooking);
 
 		// when & then
