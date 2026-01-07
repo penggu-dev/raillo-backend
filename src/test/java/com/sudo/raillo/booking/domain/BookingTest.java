@@ -7,8 +7,10 @@ import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.support.fixture.BookingFixture;
 import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.fixture.OrderFixture;
 import com.sudo.raillo.support.fixture.train.ScheduleStopFixture;
 import com.sudo.raillo.support.fixture.train.StationFixture;
 import com.sudo.raillo.support.fixture.train.TrainScheduleFixture;
@@ -30,7 +32,7 @@ class BookingTest {
 		Member member = MemberFixture.create();
 		Station departureStation = StationFixture.create("서울");
 		Station arrivalStation = StationFixture.create("부산");
-
+		Order order = OrderFixture.create(member);
 		TrainSchedule trainSchedule = TrainScheduleFixture.create(
 			"KTX 001",
 			LocalDate.now(),
@@ -59,7 +61,7 @@ class BookingTest {
 		);
 
 		// when
-		Booking booking = Booking.create(member, trainSchedule, departureStop, arrivalStop);
+		Booking booking = Booking.create(member, order, trainSchedule, departureStop, arrivalStop);
 
 		// then
 		assertThat(booking.getBookingStatus()).isEqualTo(BookingStatus.BOOKED);
@@ -76,7 +78,8 @@ class BookingTest {
 	void cancel() {
 		// given
 		Member member = MemberFixture.create();
-		Booking booking = BookingFixture.create(member);
+		Order order = OrderFixture.create(member);
+		Booking booking = BookingFixture.create(member, order);
 
 		// when
 		booking.cancel();
@@ -91,7 +94,8 @@ class BookingTest {
 	void cancelFail() {
 		// given
 		Member member = MemberFixture.create();
-		Booking booking = BookingFixture.create(member);
+		Order order = OrderFixture.create(member);
+		Booking booking = BookingFixture.create(member, order);
 		booking.cancel();
 
 		// when & then

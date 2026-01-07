@@ -1,5 +1,6 @@
 package com.sudo.raillo.support.fixture;
 
+import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.support.fixture.train.ScheduleStopFixture;
 import com.sudo.raillo.support.fixture.train.StationFixture;
 import com.sudo.raillo.support.fixture.train.TrainFixture;
@@ -23,13 +24,15 @@ import lombok.NoArgsConstructor;
 public class BookingFixture {
 
 	private Member member;
+	private Order order;
 	private TrainSchedule trainSchedule = createDefaultTrainSchedule();
 	private ScheduleStop departureStop = createDefaultScheduleStop(0, null, LocalTime.of(9, 0), trainSchedule, "서울");
 	private ScheduleStop arrivalStop = createDefaultScheduleStop(1, LocalTime.of(12, 0), null, trainSchedule, "부산");
 
-	public static Booking create(Member member) {
+	public static Booking create(Member member, Order order) {
 		return builder()
 			.withMember(member)
+			.withOrder(order)
 			.build();
 	}
 
@@ -39,11 +42,16 @@ public class BookingFixture {
 	}
 
 	public Booking build() {
-		return Booking.create(member, trainSchedule, departureStop, arrivalStop);
+		return Booking.create(member, order, trainSchedule, departureStop, arrivalStop);
 	}
 
 	public BookingFixture withMember(Member member) {
 		this.member = member;
+		return this;
+	}
+
+	public BookingFixture withOrder(Order order) {
+		this.order = order;
 		return this;
 	}
 
