@@ -40,14 +40,7 @@ public class PaymentService {
 	 * @param payment {@link Payment} 객체
 	 */
 	private void refundPayment(Payment payment, Booking booking) {
-		// 해당 로직은 외부 엔드포인트가 존재하지 않고 추후 엔드포인트가 생긴다고 하더라도
-		// 신뢰할 수 있는 PG사에서 환불 완료된 결제에 대해서만 호출할 예정이기 때문에 검증 과정이 필요 없습니다.
-
-		// 즉각 환불 처리 로직 (임시)
-		if (payment.canBeRefunded()) {
-			payment.refund();
-		}
-
+		payment.refund();
 		log.info("환불 처리 완료: paymentKey={}", payment.getPaymentKey());
 	}
 

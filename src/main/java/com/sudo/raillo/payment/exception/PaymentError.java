@@ -22,6 +22,8 @@ public enum PaymentError implements ErrorCode {
 	PAYMENT_ALREADY_COMPLETED("이미 결제가 완료된 주문입니다.", HttpStatus.BAD_REQUEST, "P_006"),
 	PAYMENT_NOT_CANCELLABLE("취소할 수 없는 결제 상태입니다.", HttpStatus.BAD_REQUEST, "P_007"),
 	PAYMENT_NOT_APPROVABLE("승인할 수 없는 결제 상태입니다.", HttpStatus.BAD_REQUEST, "P_008"),
+	PAYMENT_NOT_REFUNDABLE("환불할 수 없는 결제 상태입니다.", HttpStatus.BAD_REQUEST, "P_013"),
+	PAYMENT_CANNOT_FAIL("실패 처리할 수 없는 결제 상태입니다.", HttpStatus.BAD_REQUEST, "P_014"),
 	PAYMENT_PROCESS_FAILED("결제 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "P_009"),
 
 	// 금액 관련 에러

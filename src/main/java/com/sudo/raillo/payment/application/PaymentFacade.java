@@ -103,11 +103,10 @@ public class PaymentFacade {
 		Order order = orderService.getOrderByOrderCode(request.orderId());
 		Payment payment = paymentService.getPaymentByOrder(order);
 
-		// 2. 요청 전 검증 (소유자, 금액, 상태)
+		// 2. 요청 전 검증 (소유자, 금액, 중복결제)
 		orderService.validateOrderOwner(order, member);
 		paymentValidator.validatePaymentOwner(payment, member);
 		paymentValidator.validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
-		paymentValidator.validatePaymentApprovable(payment);
 		paymentValidator.validateDuplicatePayment(order);
 
 		// 3. 클라이언트에서 받은 PaymentKey 저장 (토스 승인 요청 전 별도 트랜잭션에서 무조건 커밋)
