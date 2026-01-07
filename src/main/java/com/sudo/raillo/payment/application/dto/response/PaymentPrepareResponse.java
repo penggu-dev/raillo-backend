@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "결제 준비 응답 DTO")
 public record PaymentPrepareResponse(
 
-	@Schema(description = "주문 ID")
+	@Schema(description = "주문 ID, Order의 orderCode")
 	String orderId,
 
 	@Schema(description = "결제 금액", example = "50000")
