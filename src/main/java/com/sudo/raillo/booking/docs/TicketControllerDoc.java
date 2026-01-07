@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.security.core.userdetails.UserDetails;
 
+import com.sudo.raillo.booking.application.dto.request.ReceiptRequest;
+import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.booking.application.dto.response.TicketReadResponse;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
 import com.sudo.raillo.global.success.SuccessResponse;
@@ -30,4 +32,14 @@ public interface TicketControllerDoc {
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	SuccessResponse<List<TicketReadResponse>> getMyTickets(UserDetails userDetails);
+
+	@Operation(method = "GET", summary = "영수증 조회", description = "특정 티켓의 영수증 정보를 조회합니다.", security = {
+		@SecurityRequirement(name = "bearerAuth")
+	})
+	@ApiResponses(value = {
+		@ApiResponse(responseCode = "200", description = "영수증이 성공적으로 조회되었습니다."),
+		@ApiResponse(responseCode = "404", description = "티켓을 찾을 수 없습니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+	})
+	SuccessResponse<ReceiptResponse> getReceipt(ReceiptRequest request, UserDetails userDetails);
 }
