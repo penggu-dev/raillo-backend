@@ -44,7 +44,6 @@ public class PaymentService {
 		log.info("환불 처리 완료: paymentKey={}", payment.getPaymentKey());
 	}
 
-	// --------- Toss 리팩토링 이후 만든 메서드들 --------- //
 	@Transactional(readOnly = true)
 	public Payment getPaymentByOrder(Order order) {
 		return paymentRepository.findByOrder(order)
