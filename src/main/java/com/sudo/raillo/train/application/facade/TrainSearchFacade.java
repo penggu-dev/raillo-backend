@@ -215,7 +215,6 @@ public class TrainSearchFacade {
 			overlappingBookings, totalSeatsByCarType, passengerCount);
 
 		// 응답 생성
-		return responseMapper.toResponse(
-			trainInfo, sectionStatus, fare, passengerCount);
+		return responseMapper.toResponse(trainInfo, sectionStatus, fare, passengerCount);
 	}
 }
