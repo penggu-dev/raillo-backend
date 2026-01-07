@@ -16,9 +16,11 @@ import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
+import com.sudo.raillo.order.domain.Order;
+import com.sudo.raillo.order.domain.status.OrderStatus;
+import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentPrepareResponse;
-import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.PendingBookingFixture;
@@ -40,6 +42,9 @@ class PaymentFacadeTest {
 
 	@Autowired
 	private BookingRedisRepository bookingRedisRepository;
+
+	@Autowired
+	private OrderRepository orderRepository;
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -93,7 +98,9 @@ class PaymentFacadeTest {
 		PaymentPrepareResponse response = paymentFacade.preparePayment(request, memberNo);
 
 		// then
-		assertThat(response.orderId()).isNotNull();
+		Order order = orderRepository.findByOrderCode(response.orderId()).get();
+		assertThat(response.orderId()).isEqualTo(order.getOrderCode());
+		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
 		assertThat(response.amount()).isEqualByComparingTo(pendingBooking.getTotalFare());
 	}
 }
