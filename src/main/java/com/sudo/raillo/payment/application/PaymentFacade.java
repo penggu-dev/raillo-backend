@@ -20,6 +20,7 @@ import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentConfirmResponse;
 import com.sudo.raillo.payment.application.dto.response.PaymentPrepareResponse;
+import com.sudo.raillo.payment.application.validator.PaymentValidator;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.payment.exception.PaymentError;
@@ -42,6 +43,7 @@ public class PaymentFacade {
 	private final BookingService bookingService;
 	private final TossPaymentClient tossPaymentClient;
 	private final BookingValidator bookingValidator;
+	private final PaymentValidator paymentValidator;
 
 	/**
 	 * 결제 준비 처리
@@ -109,10 +111,10 @@ public class PaymentFacade {
 
 		// 2. 요청 전 검증 (소유자, 금액, 상태)
 		orderService.validateOrderOwner(order, member);
-		paymentService.validatePaymentOwner(payment, member);
-		validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
-		paymentService.validatePaymentApprovable(payment);
-		paymentService.validateDuplicatePayment(order);
+		paymentValidator.validatePaymentOwner(payment, member);
+		paymentValidator.validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
+		paymentValidator.validatePaymentApprovable(payment);
+		paymentValidator.validateDuplicatePayment(order);
 
 		// 3. 클라이언트에서 받은 PaymentKey 저장 (토스 승인 요청 전 별도 트랜잭션에서 무조건 커밋)
 		paymentService.updatePaymentKeyInNewTransaction(payment.getId(), request.paymentKey());
@@ -133,7 +135,7 @@ public class PaymentFacade {
 
 
 		// 5. 토스 응답 금액, paymentKey 재검증
-		validateTossResponse(tossResponse, request);
+		paymentValidator.validateTossResponseMatchesRequest(tossResponse, request);
 
 		// 6. PaymentMethod 매핑
 		PaymentMethod paymentMethod = mapToPaymentMethod(tossResponse.method());
@@ -150,57 +152,6 @@ public class PaymentFacade {
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
 
 		return PaymentConfirmResponse.from(payment);
-	}
-
-	/**
-	 * 금액 3중 검증
-	 * 1. 클라이언트 요청 금액 vs Order 금액
-	 * 2. Order 금액 vs Payment 금액
-	 * 3. 모두 일치해야 진행
-	 */
-	private void validateAmounts(BigDecimal requestAmount, BigDecimal orderAmount, BigDecimal paymentAmount) {
-		// 1. 요청 금액 vs Order 금액
-		if (requestAmount.compareTo(orderAmount) != 0) {
-			log.error("[금액 불일치] 요청 금액 != Order 금액: requestAmount={}, orderAmount={}", requestAmount, orderAmount);
-			throw new BusinessException(PaymentError.PAYMENT_AMOUNT_MISMATCH);
-		}
-
-		// 2. Order 금액 vs Payment 금액
-		if (orderAmount.compareTo(paymentAmount) != 0) {
-			log.error("[금액 불일치] Order 금액 != Payment 금액: orderAmount={}, paymentAmount={}", orderAmount, paymentAmount);
-			throw new BusinessException(PaymentError.PAYMENT_AMOUNT_MISMATCH);
-		}
-
-		log.debug("[금액 검증 통과] requestAmount={}, orderAmount={}, paymentAmount={}", requestAmount, orderAmount, paymentAmount);
-	}
-
-	/**
-	 * 토스 응답 검증
-	 * 1. 토스에서 응답한 금액과 요청 금액이 일치하는지 확인
-	 * 2. 토스에서 응답한 paymentKey와 요청 paymentKey가 일치하는지 확인
-	 */
-	private void validateTossResponse(TossPaymentConfirmResponse tossResponse, PaymentConfirmRequest request) {
-		BigDecimal tossAmount = BigDecimal.valueOf(tossResponse.totalAmount());
-		if (tossAmount.compareTo(request.amount()) != 0) {
-			log.error("[토스 응답 금액 불일치] tossAmount={}, requestAmount={}", tossAmount, request.amount());
-
-			throw new BusinessException(
-				PaymentError.PAYMENT_AMOUNT_MISMATCH,
-				String.format("토스 결제 금액이 요청 금액과 일치하지 않습니다. (토스: %s, 요청: %s)", tossAmount, request.amount())
-			);
-		}
-
-		if (!tossResponse.paymentKey().equals(request.paymentKey())) {
-			log.error("[토스 응답 paymentKey 불일치] tossPaymentKey={}, requestPaymentKey={}",
-				tossResponse.paymentKey(), request.paymentKey());
-
-			throw new BusinessException(
-				PaymentError.PAYMENT_KEY_MISMATCH,
-				String.format("토스 결제 키가 요청 키와 일치하지 않습니다. (토스: %s, 요청: %s)", tossResponse.paymentKey(), request.paymentKey())
-			);
-		}
-
-		log.debug("[토스 응답 검증 통과] paymentKey={}, amount={}", tossResponse.paymentKey(), tossAmount);
 	}
 
 	/**

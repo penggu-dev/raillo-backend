@@ -6,20 +6,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Booking;
-import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import com.sudo.raillo.payment.exception.PaymentError;
-import com.sudo.raillo.payment.infrastructure.PaymentQueryRepository;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
-import com.sudo.raillo.payment.util.PaymentKeyGenerator;
-import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,13 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional
 public class PaymentService {
 
-	private final BookingRepository bookingRepository;
-	private final SeatBookingQueryRepository seatBookingQueryRepository;
-	private final MemberRepository memberRepository;
 	private final PaymentRepository paymentRepository;
-	private final PaymentQueryRepository paymentQueryRepository;
-	private final PaymentKeyGenerator paymentKeyGenerator;
-	private final TicketService ticketService;
 
 	/**
 	 * Payment 생성 (PENDING 상태)
@@ -93,34 +80,5 @@ public class PaymentService {
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
 
 		payment.fail(failureCode, failureMessage);
-	}
-
-	public void validatePaymentOwner(Payment payment, Member member) {
-		if (!payment.getMember().getId().equals(member.getId())) {
-			log.error("[소유자 불일치] Payment의 소유자가 아님: paymentId={}, requestMemberId={}, paymentMemberId={}",
-				payment.getId(), member.getId(), payment.getMember().getId());
-			throw new BusinessException(PaymentError.PAYMENT_ACCESS_DENIED);
-		}
-	}
-
-	/**
-	 * Payment 상태 검증 (승인 가능한 상태인지)
-	 */
-	public void validatePaymentApprovable(Payment payment) {
-		if (!payment.canBePaid()) {
-			log.info("승인 불가능한 결제 상태: paymentId={}, status={}", payment.getId(), payment.getPaymentStatus());
-			throw new BusinessException(PaymentError.PAYMENT_NOT_APPROVABLE);
-		}
-	}
-
-	/**
-	 * 중복 결제 검증
-	 */
-	public void validateDuplicatePayment(Order order) {
-		boolean exists = paymentRepository.existsByOrderAndPaymentStatus(order, PaymentStatus.PAID);
-
-		if (exists) {
-			throw new BusinessException(PaymentError.PAYMENT_ALREADY_COMPLETED);
-		}
 	}
 }
