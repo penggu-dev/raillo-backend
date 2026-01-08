@@ -11,21 +11,26 @@ import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.order.exception.OrderError;
+import com.sudo.raillo.order.infrastructure.OrderBookingRepository;
+import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.OrderFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
+import com.sudo.raillo.support.helper.OrderResult;
 import com.sudo.raillo.support.helper.OrderTestHelper;
-import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
+import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
@@ -53,6 +58,12 @@ class BookingServiceTest {
 
 	@Autowired
 	private SeatBookingRepository seatBookingRepository;
+
+	@Autowired
+	private OrderBookingRepository orderBookingRepository;
+
+	@Autowired
+	private OrderSeatBookingRepository orderSeatBookingRepository;
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -150,6 +161,48 @@ class BookingServiceTest {
 	}
 
 	@Test
+	@DisplayName("주문 내역(OrderBooking)이 존재하지 않으면 예외가 발생한다")
+	void createBookingFromOrder_orderBookingNotFound_fail() {
+		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+
+		OrderResult orderResult = orderTestHelper.createDefault(member, trainScheduleResult);
+		Order order = orderResult.order();
+		order.completePayment();
+
+		// when
+		orderBookingRepository.deleteAll();
+
+		// then
+		assertThatThrownBy(() -> bookingService.createBookingFromOrder(order))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(OrderError.ORDER_BOOKING_NOT_FOUND.getMessage());
+	}
+
+	@Test
+	@DisplayName("주문 좌석 내역(OrderSeatBooking)이 존재하지 않으면 예외가 발생한다")
+	void createBookingFromOrder_orderSeatBookingNotFound_fail() {
+		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+
+		OrderResult orderResult = orderTestHelper.createDefault(member, trainScheduleResult);
+		Order order = orderResult.order();
+		order.completePayment();
+
+		// when
+		orderSeatBookingRepository.deleteAll();
+
+		// then
+		assertThatThrownBy(() -> bookingService.createBookingFromOrder(order))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(OrderError.ORDER_SEAT_BOOKING_NOT_FOUND.getMessage());
+	}
+
+	@Test
 	@DisplayName("멤버번호와 예약 ID로 특정 예약 조회에 성공한다")
 	void memberNoAndBookingId_getBooking_success() {
 		// given
@@ -186,6 +239,22 @@ class BookingServiceTest {
 		// when & then
 		assertThatThrownBy(() -> bookingService.getBooking(memberNo, 2L))
 			.isInstanceOf(BusinessException.class);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 회원으로 예약 조회 시 예외가 발생한다")
+	void getBooking_memberNotFound_fail() {
+		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		bookingTestHelper.createDefault(member, trainScheduleResult);
+		String wrongMemberNo = "wrongMemberNo";
+
+		// when & then
+		assertThatThrownBy(() -> bookingService.getBooking(wrongMemberNo, 1L))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(MemberError.USER_NOT_FOUND.getMessage());
 	}
 
 	@Test
@@ -244,6 +313,18 @@ class BookingServiceTest {
 	}
 
 	@Test
+	@DisplayName("존재하지 않는 회원으로 예약 목록 조회 시 예외가 발생한다")
+	void getBookings_memberNotFound_fail() {
+		// given
+		String wrongMemberNo = "wrongMemberNo";
+
+		// when & then
+		assertThatThrownBy(() -> bookingService.getBookings(wrongMemberNo, BookingTimeFilter.ALL))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(MemberError.USER_NOT_FOUND.getMessage());
+	}
+
+	@Test
 	@DisplayName("올바른 예약 삭제 요청 DTO로 예약 삭제에 성공한다")
 	void validRequestDto_deleteBooking_success() {
 		// given
@@ -285,6 +366,18 @@ class BookingServiceTest {
 		List<SeatBooking> result = seatBookingRepository.findAll();
 		assertThat(result.size()).isEqualTo(1);
 		assertThat(result.get(0).getPassengerType()).isEqualTo(PassengerType.ADULT);
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 좌석 예약 삭제 시 예외가 발생한다")
+	void deleteSeatBooking_notFound_fail() {
+		// given
+		Long wrongSeatBookingId = 9999L;
+
+		// when & then
+		assertThatThrownBy(() -> bookingService.deleteSeatBooking(wrongSeatBookingId))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(BookingError.SEAT_BOOKING_NOT_FOUND.getMessage());
 	}
 
 	@Test
