@@ -89,7 +89,7 @@ public class BookingService {
 		// 4. Booking, SeatBooking 생성
 		orderBookings.forEach(orderBooking -> {
 			List<OrderSeatBooking> relatedSeatBookings = seatBookingMap.get(orderBooking.getId());
-			createBooking(order.getMember(), orderBooking, relatedSeatBookings, seatMap);
+			createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
 		});
 
 		log.info("[주문에 대한 확정 예약 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());
@@ -118,9 +118,8 @@ public class BookingService {
 			bookingValidator.validateConflictWithExistingBookings(booking, existingBookings);
 
 			SeatBooking seatBooking = SeatBooking.create(
-				booking.getTrainSchedule(),
-				lockedSeat,
 				booking,
+				lockedSeat,
 				passengerType
 			);
 			return seatBookingRepository.save(seatBooking);
@@ -195,12 +194,14 @@ public class BookingService {
 	// private Method
 	private void createBooking(
 		Member member,
+		Order order,
 		OrderBooking orderBooking,
 		List<OrderSeatBooking> orderSeatBookings,
 		Map<Long, Seat> seatMap
 	) {
 		Booking booking = Booking.create(
 			member,
+			order,
 			orderBooking.getTrainSchedule(),
 			orderBooking.getDepartureStop(),
 			orderBooking.getArrivalStop()
@@ -221,9 +222,8 @@ public class BookingService {
 		}
 
 		SeatBooking seatBooking = SeatBooking.create(
-			booking.getTrainSchedule(),
-			seat,
 			booking,
+			seat,
 			orderSeatBooking.getPassengerType()
 		);
 		seatBookingRepository.save(seatBooking);

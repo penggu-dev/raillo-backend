@@ -94,6 +94,8 @@ class BookingServiceSearchFilterTest {
 			.addStop("서울", null, LocalTime.of(10, 0))
 			.addStop("부산", LocalTime.of(13, 0), null)
 			.build();
+
+		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 5000, 10000);
 	}
 
 	@Test

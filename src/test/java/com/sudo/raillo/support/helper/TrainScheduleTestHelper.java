@@ -70,7 +70,7 @@ public class TrainScheduleTestHelper {
 	 *
 	 * <h4>사용 예시</h4>
 	 * <pre>{@code
-	 * ScheduleWithStops result = trainScheduleTestHelper.builder()
+	 * TrainScheduleResult result = trainScheduleTestHelper.builder()
 	 *     .scheduleName("KTX 101 경부선")
 	 *     .operationDate(LocalDate.of(2025, 1, 1))
 	 *     .train(train)

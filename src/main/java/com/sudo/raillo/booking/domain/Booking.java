@@ -1,5 +1,6 @@
 package com.sudo.raillo.booking.domain;
 
+import com.sudo.raillo.order.domain.Order;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.Comment;
@@ -47,6 +48,11 @@ public class Booking extends BaseEntity {
 	private Member member;
 
 	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "order_id", nullable = false)
+	@Comment("주문 ID")
+	private Order order;
+
+	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "train_schedule_id", nullable = false)
 	@Comment("운행 일정 ID")
 	private TrainSchedule trainSchedule;
@@ -75,12 +81,14 @@ public class Booking extends BaseEntity {
 
 	public static Booking create(
 		Member member,
+		Order order,
 		TrainSchedule trainSchedule,
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop
 	) {
 		Booking booking = new Booking();
 		booking.member = member;
+		booking.order = order;
 		booking.trainSchedule = trainSchedule;
 		booking.departureStop = departureStop;
 		booking.arrivalStop = arrivalStop;
