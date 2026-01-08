@@ -140,16 +140,15 @@ public class BookingTestHelper {
 	}
 
 	private List<SeatBooking> saveSeatBookings(Booking booking, BookingBuilder builder) {
-		if (builder.seatBookings.isEmpty()) {
+		if (builder.seatWithPassengerTypes.isEmpty()) {
 			return List.of();
 		}
 
-		List<SeatBooking> toSave = builder.seatBookings.stream()
-			.map(sb -> SeatBooking.create(
-				booking.getTrainSchedule(),
-				sb.getSeat(),
+		List<SeatBooking> toSave = builder.seatWithPassengerTypes.stream()
+			.map(sp -> SeatBooking.create(
 				booking,
-				sb.getPassengerType()
+				sp.seat,
+				sp.passengerType
 			))
 			.toList();
 
@@ -157,15 +156,15 @@ public class BookingTestHelper {
 	}
 
 	private List<Ticket> savedTickets(Booking booking, BookingBuilder builder) {
-		if (builder.seatBookings.isEmpty()) {
+		if (builder.seatWithPassengerTypes.isEmpty()) {
 			return List.of();
 		}
 
-		List<Ticket> tickets = builder.seatBookings.stream()
-			.map(sb -> Ticket.builder()
+		List<Ticket> tickets = builder.seatWithPassengerTypes.stream()
+			.map(sp -> Ticket.builder()
 				.booking(booking)
-				.seat(sb.getSeat())
-				.passengerType(sb.getPassengerType())
+				.seat(sp.seat)
+				.passengerType(sp.passengerType)
 				.ticketStatus(TicketStatus.ISSUED)
 				.build()
 			).toList();
@@ -178,7 +177,7 @@ public class BookingTestHelper {
 	 */
 	public class BookingBuilder {
 		private final BookingTestHelper helper;
-		private final List<SeatBooking> seatBookings = new ArrayList<>();
+		private final List<SeatWithPassengerType> seatWithPassengerTypes = new ArrayList<>();
 		private final Member member;
 		private final TrainScheduleResult trainScheduleResult;
 		private Order order;
@@ -224,8 +223,7 @@ public class BookingTestHelper {
 		 */
 		public BookingBuilder addSeat(Seat seat, PassengerType passengerType) {
 			validateSeat(seat, trainScheduleResult.trainSchedule().getTrain());
-			SeatBooking seatBooking = SeatBooking.create(null, seat, null, passengerType);
-			seatBookings.add(seatBooking);
+			seatWithPassengerTypes.add(new SeatWithPassengerType(seat, passengerType));
 			return this;
 		}
 
@@ -252,7 +250,7 @@ public class BookingTestHelper {
 		}
 
 		private void validateRequired() {
-			if (seatBookings.isEmpty()) {
+			if (seatWithPassengerTypes.isEmpty()) {
 				throw new IllegalArgumentException("좌석 정보가 없으면 Order를 생성할 수 없습니다.");
 			}
 
@@ -290,8 +288,8 @@ public class BookingTestHelper {
 				BigDecimal totalAmount = fareCalculationService.calculateTotalFare(
 					departureScheduleStop.getStation().getId(),
 					arrivalScheduleStop.getStation().getId(),
-					seatBookings.stream().map(SeatBooking::getPassengerType).toList(),
-					seatBookings.get(0).getSeat().getTrainCar().getCarType()
+					seatWithPassengerTypes.stream().map(SeatWithPassengerType::passengerType).toList(),
+					seatWithPassengerTypes.get(0).seat.getTrainCar().getCarType()
 				);
 
 				order = OrderFixture.builder()
@@ -322,5 +320,7 @@ public class BookingTestHelper {
 			}
 			return stops.get(stops.size() - 1);
 		}
+
+		private record SeatWithPassengerType(Seat seat, PassengerType passengerType) {}
 	}
 }

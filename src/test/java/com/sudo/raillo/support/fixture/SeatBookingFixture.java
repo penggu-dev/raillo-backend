@@ -5,8 +5,6 @@ import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.support.fixture.train.SeatFixture;
 import com.sudo.raillo.train.domain.Seat;
-import com.sudo.raillo.train.domain.TrainSchedule;
-
 import com.sudo.raillo.train.domain.type.SeatType;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -15,14 +13,12 @@ import lombok.NoArgsConstructor;
 public class SeatBookingFixture {
 
 	private Booking booking;
-	private TrainSchedule trainSchedule;
 	private Seat seat = SeatFixture.create(null, 1, "A", SeatType.WINDOW, "N", "Y");
 	private PassengerType passengerType = PassengerType.ADULT;
 
 	public static SeatBooking create(Booking booking) {
 		return builder()
 			.withBooking(booking)
-			.withTrainSchedule(booking.getTrainSchedule())
 			.build();
 	}
 
@@ -32,16 +28,11 @@ public class SeatBookingFixture {
 	}
 
 	public SeatBooking build() {
-		return SeatBooking.create(trainSchedule, seat, booking, passengerType);
+		return SeatBooking.create(booking, seat, passengerType);
 	}
 
 	public SeatBookingFixture withBooking(Booking booking) {
 		this.booking = booking;
-		return this;
-	}
-
-	public SeatBookingFixture withTrainSchedule(TrainSchedule trainSchedule) {
-		this.trainSchedule = trainSchedule;
 		return this;
 	}
 

@@ -118,9 +118,8 @@ public class BookingService {
 			bookingValidator.validateConflictWithExistingBookings(booking, existingBookings);
 
 			SeatBooking seatBooking = SeatBooking.create(
-				booking.getTrainSchedule(),
-				lockedSeat,
 				booking,
+				lockedSeat,
 				passengerType
 			);
 			return seatBookingRepository.save(seatBooking);
@@ -223,9 +222,8 @@ public class BookingService {
 		}
 
 		SeatBooking seatBooking = SeatBooking.create(
-			booking.getTrainSchedule(),
-			seat,
 			booking,
+			seat,
 			orderSeatBooking.getPassengerType()
 		);
 		seatBookingRepository.save(seatBooking);

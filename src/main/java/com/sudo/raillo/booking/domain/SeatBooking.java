@@ -1,5 +1,6 @@
 package com.sudo.raillo.booking.domain;
 
+import com.sudo.raillo.train.domain.ScheduleStop;
 import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -48,7 +49,7 @@ public class SeatBooking extends BaseEntity {
 	private TrainSchedule trainSchedule;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "seat_id")
+	@JoinColumn(name = "seat_id", nullable = false)
 	@Comment("좌석 ID")
 	private Seat seat;
 
@@ -63,17 +64,28 @@ public class SeatBooking extends BaseEntity {
 	@Comment("승객 유형")
 	private PassengerType passengerType;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "departure_stop_id", nullable = false)
+	@Comment("출발 정류장 ID")
+	private ScheduleStop departureStop;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "arrival_stop_id", nullable = false)
+	@Comment("도착 정류장 ID")
+	private ScheduleStop arrivalStop;
+
 	public static SeatBooking create(
-		TrainSchedule trainSchedule,
-		Seat seat,
 		Booking booking,
+		Seat seat,
 		PassengerType passengerType
 	) {
 		SeatBooking seatBooking = new SeatBooking();
-		seatBooking.trainSchedule = trainSchedule;
-		seatBooking.seat = seat;
 		seatBooking.booking = booking;
+		seatBooking.seat = seat;
 		seatBooking.passengerType = passengerType;
+		seatBooking.trainSchedule = booking.getTrainSchedule();
+		seatBooking.departureStop = booking.getDepartureStop();
+		seatBooking.arrivalStop = booking.getArrivalStop();
 		return seatBooking;
 	}
 }
