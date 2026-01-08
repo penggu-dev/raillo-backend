@@ -262,6 +262,18 @@ public class BookingTestHelper {
 			if (trainScheduleResult == null) {
 				throw new IllegalArgumentException("schedule은 필수입니다.");
 			}
+
+			if (departureScheduleStop != null) {
+				if (!Objects.equals(departureScheduleStop.getTrainSchedule().getId(), trainScheduleResult.trainSchedule().getId())) {
+					throw new IllegalArgumentException("출발역 스케줄이 열차 스케줄과 일치하지 않습니다.");
+				}
+			}
+
+			if (arrivalScheduleStop != null) {
+				if (!Objects.equals(arrivalScheduleStop.getTrainSchedule().getId(), trainScheduleResult.trainSchedule().getId())) {
+					throw new IllegalArgumentException("도착역 스케줄이 열차 스케줄과 일치하지 않습니다.");
+				}
+			}
 		}
 
 		private void setDefaultStops() {
