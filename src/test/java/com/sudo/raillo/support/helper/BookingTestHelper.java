@@ -22,6 +22,7 @@ import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -39,7 +40,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingTestHelper {
 
 	private final TrainTestHelper trainTestHelper;
-	private final TrainScheduleTestHelper trainScheduleTestHelper;
 	private final FareCalculationService fareCalculationService;
 	private final OrderSeatBookingRepository orderSeatBookingRepository;
 	private final BookingRepository bookingRepository;
@@ -47,6 +47,7 @@ public class BookingTestHelper {
 	private final SeatBookingRepository seatBookingRepository;
 	private final SeatRepository seatRepository;
 	private final TicketRepository ticketRepository;
+	private final ScheduleStopRepository scheduleStopRepository;
 
 	@Lazy
 	@Autowired
@@ -73,7 +74,10 @@ public class BookingTestHelper {
 	 * <p>전달받은 {@link OrderBooking}에 연관된 회원과 열차 스케줄 정보를 사용하여 예약을 구성한다.</p>
 	 */
 	public BookingResult createByOrderBooking(OrderBooking orderBooking) {
-		var trainScheduleResult = trainScheduleTestHelper.createDefault(orderBooking.getTrainSchedule().getTrain());
+		TrainScheduleResult trainScheduleResult = new TrainScheduleResult(
+			orderBooking.getTrainSchedule(),
+			scheduleStopRepository.findByTrainScheduleIdOrderByStopOrderAsc(orderBooking.getTrainSchedule().getId())
+		);
 		BookingBuilder builder = builder(orderBooking.getOrder().getMember(), trainScheduleResult);
 		List<OrderSeatBooking> orderSeatBookings = orderSeatBookingRepository.findByOrderBookingId(orderBooking.getId());
 
