@@ -87,7 +87,8 @@ class PaymentTest {
 		// when & then
 		assertThatThrownBy(() -> payment.approve(PaymentMethod.CREDIT_CARD))
 			.isInstanceOf(DomainException.class)
-			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_APPROVABLE);
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_APPROVABLE)
+			.hasMessage(PaymentError.PAYMENT_NOT_APPROVABLE.getMessage());
 	}
 
 	@Test
@@ -142,7 +143,23 @@ class PaymentTest {
 		// when & then
 		assertThatThrownBy(() -> payment.refund())
 			.isInstanceOf(DomainException.class)
-			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_REFUNDABLE);
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_REFUNDABLE)
+			.hasMessage(PaymentError.PAYMENT_NOT_REFUNDABLE.getMessage());
+	}
+
+	@Test
+	@DisplayName("이미 환불된 결제를 다시 환불하면 예외가 발생한다")
+	void refund_alreadyRefunded_throwsException() {
+		// given
+		Payment payment = Payment.create(member, order);
+		payment.approve(PaymentMethod.CREDIT_CARD);
+		payment.refund();
+
+		// when & then
+		assertThatThrownBy(() -> payment.refund())
+			.isInstanceOf(DomainException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_REFUNDABLE)
+			.hasMessage(PaymentError.PAYMENT_NOT_REFUNDABLE.getMessage());
 	}
 
 	@Test
@@ -173,6 +190,7 @@ class PaymentTest {
 		// when & then
 		assertThatThrownBy(() -> payment.fail("ERROR_CODE", "에러 메시지"))
 			.isInstanceOf(DomainException.class)
-			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_CANNOT_FAIL);
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_CANNOT_FAIL)
+			.hasMessage(PaymentError.PAYMENT_CANNOT_FAIL.getMessage());
 	}
 }
