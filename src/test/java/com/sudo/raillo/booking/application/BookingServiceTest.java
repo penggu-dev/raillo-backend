@@ -238,7 +238,8 @@ class BookingServiceTest {
 
 		// when & then
 		assertThatThrownBy(() -> bookingService.getBooking(memberNo, 2L))
-			.isInstanceOf(BusinessException.class);
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(BookingError.BOOKING_NOT_FOUND.getMessage());
 	}
 
 	@Test
