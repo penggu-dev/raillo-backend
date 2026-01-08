@@ -248,6 +248,10 @@ public class BookingTestHelper {
 		}
 
 		private void validateRequired() {
+			if (seatBookings.isEmpty()) {
+				throw new IllegalArgumentException("좌석 정보가 없으면 Order를 생성할 수 없습니다.");
+			}
+
 			if (member == null) {
 				throw new IllegalArgumentException("member는 필수입니다.");
 			}
