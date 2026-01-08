@@ -36,16 +36,6 @@ public class PaymentValidator {
 	}
 
 	/**
-	 * Payment 상태 검증 (승인 가능한 상태인지)
-	 */
-	public void validatePaymentApprovable(Payment payment) {
-		if (!payment.canBePaid()) {
-			log.info("승인 불가능한 결제 상태: paymentId={}, status={}", payment.getId(), payment.getPaymentStatus());
-			throw new BusinessException(PaymentError.PAYMENT_NOT_APPROVABLE);
-		}
-	}
-
-	/**
 	 * 중복 결제 검증
 	 */
 	public void validateDuplicatePayment(Order order) {

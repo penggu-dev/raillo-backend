@@ -1,114 +1,147 @@
 package com.sudo.raillo.payment.application;
 
+import static org.assertj.core.api.Assertions.*;
+
+import java.math.BigDecimal;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.member.infrastructure.MemberRepository;
+import com.sudo.raillo.order.domain.Order;
+import com.sudo.raillo.order.infrastructure.OrderRepository;
+import com.sudo.raillo.payment.domain.Payment;
+import com.sudo.raillo.payment.domain.status.PaymentStatus;
+import com.sudo.raillo.payment.exception.PaymentError;
+import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
-import lombok.extern.slf4j.Slf4j;
+import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.fixture.OrderFixture;
 
 @ServiceTest
-@Slf4j
 class PaymentServiceTest {
 
-// 	@Autowired
-// 	private PaymentService paymentService;
-//
-// 	@Autowired
-// 	private MemberRepository memberRepository;
-//
-// 	@Autowired
-// 	private BookingRepository bookingRepository;
-//
-// 	@Autowired
-// 	private PaymentRepository paymentRepository;
-//
-// 	@Autowired
-// 	private TrainTestHelper trainTestHelper;
-//
-// 	@Autowired
-// 	private TrainScheduleTestHelper trainScheduleTestHelper;
-//
-// 	@Autowired
-// 	private BookingTestHelper bookingTestHelper;
-//
-// 	private Member member;
-//
-// 	private Booking booking;
-//
-// 	@BeforeEach
-// 	void beforeEach() {
-// 		member = MemberFixture.create();
-// 		memberRepository.save(member);
-//
-// 		Train train = trainTestHelper.createKTX();
-// 		TrainScheduleWithStopStations scheduleWithStops = trainScheduleTestHelper.createSchedule(train);
-// 		booking = bookingTestHelper.createPendingBooking(member, scheduleWithStops);
-// 	}
-//
-//
-// 	@Test
-// 	@DisplayName("금액이 일치하지 않으면 결제가 실패한다")
-// 	void processPayment_fail_whenAmountMismatch() {
-// 	}
-//
-// 	@Test
-// 	@DisplayName("다른 사용자의 예약으로는 결제할 수 없다")
-// 	void processPayment_fail_whenNotOwner() {
-// 	}
-//
-// 	@Test
-// 	@DisplayName("이미 결제된 예약은 중복 결제할 수 없다")
-// 	@Disabled
-// 	void processPayment_fail_whenAlreadyPaid() {
-// 	}
+	@Autowired
+	private PaymentService paymentService;
 
-// 	@Test
-// 	@DisplayName("다른 사용자의 결제는 취소할 수 없다")
-// 	void cancelPayment_fail_whenNotOwner() {
-// 	// given
-// 	Member other = MemberFixture.createOtherMember();
-// 	memberRepository.save(other);
-//
-// 	PaymentProcessCardRequest request = PaymentFixture.createCardPaymentRequest(
-// 		booking.getId(), booking.getTotalFare());
-// 	PaymentProcessResponse paymentResponse = paymentService
-// 		.processPaymentViaCard(member.getMemberDetail().getMemberNo(), request);
-//
-// 	// when & then
-// 	assertThatThrownBy(() -> paymentService.cancelPayment(
-// 		other.getMemberDetail().getMemberNo(), paymentResponse.paymentKey()))
-// 		.isInstanceOf(BusinessException.class)
-// 		.hasMessage(PaymentError.PAYMENT_ACCESS_DENIED.getMessage());
-// 	}
-//
-// 	@Test
-// 	@DisplayName("결제 내역 조회가 성공한다")
-// 	void getPaymentHistory_success() {
-// 		// given
-// 		// 카드 결제만 진행 (StationFare 중복 생성 문제 회피)
-// 		PaymentProcessCardRequest cardRequest = PaymentFixture.createCardPaymentRequest(
-// 			booking.getId(), booking.getTotalFare());
-// 		paymentService.processPaymentViaCard(member.getMemberDetail().getMemberNo(), cardRequest);
-//
-// 		// when
-// 		List<PaymentHistoryResponse> paymentHistory =
-// 			paymentService.getPaymentHistory(member.getMemberDetail().getMemberNo());
-//
-// 		// then
-// 		assertThat(paymentHistory).hasSize(1);
-//
-// 		PaymentHistoryResponse cardPayment = paymentHistory.get(0);
-// 		assertThat(cardPayment.paymentMethod()).isEqualTo(PaymentMethod.CARD);
-// 		assertThat(cardPayment.paymentStatus()).isEqualTo(PaymentStatus.PAID);
-// 		assertThat(cardPayment.amount()).isEqualByComparingTo(booking.getTotalFare());
-// 		assertThat(cardPayment.paymentKey()).isNotNull();
-// 		assertThat(cardPayment.bookingCode()).isNotNull();
-// 	}
-//
-// 	@Test
-// 	@DisplayName("존재하지 않는 회원의 결제 내역 조회 시 예외가 발생한다")
-// 	void getPaymentHistory_fail_whenMemberNotFound() {
-// 		// when & then
-// 		assertThatThrownBy(() -> paymentService.getPaymentHistory("nonexistent"))
-// 			.isInstanceOf(BusinessException.class)
-// 			.hasMessage("사용자를 찾을 수 없습니다.");
-// 	}
+	@Autowired
+	private MemberRepository memberRepository;
 
+	@Autowired
+	private OrderRepository orderRepository;
+
+	@Autowired
+	private PaymentRepository paymentRepository;
+
+	private Member member;
+	private Order order;
+
+	@BeforeEach
+	void setUp() {
+		member = memberRepository.save(MemberFixture.create());
+		order = orderRepository.save(
+			OrderFixture.builder()
+				.withMember(member)
+				.withTotalAmount(BigDecimal.valueOf(50000))
+				.build()
+		);
+	}
+
+	@Test
+	@DisplayName("Payment 생성 시 PENDING 상태로 저장된다")
+	void createPayment_success() {
+		// when
+		Payment payment = paymentService.createPayment(member, order);
+
+		// then
+		assertThat(payment.getId()).isNotNull();
+		assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+		assertThat(payment.getMember().getId()).isEqualTo(member.getId());
+		assertThat(payment.getOrder().getId()).isEqualTo(order.getId());
+		assertThat(payment.getAmount()).isEqualByComparingTo(order.getTotalAmount());
+		assertThat(payment.getOrderCode()).isEqualTo(order.getOrderCode());
+	}
+
+	@Test
+	@DisplayName("Order로 Payment를 조회할 수 있다")
+	void getPaymentByOrder_success() {
+		// given
+		Payment savedPayment = paymentService.createPayment(member, order);
+
+		// when
+		Payment foundPayment = paymentService.getPaymentByOrder(order);
+
+		// then
+		assertThat(foundPayment.getId()).isEqualTo(savedPayment.getId());
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 Order로 Payment 조회 시 예외가 발생한다")
+	void getPaymentByOrder_notFound_throwsException() {
+		// given
+		Order otherOrder = orderRepository.save(
+			OrderFixture.builder()
+				.withMember(member)
+				.withTotalAmount(BigDecimal.valueOf(10000))
+				.build()
+		);
+
+		// when & then
+		assertThatThrownBy(() -> paymentService.getPaymentByOrder(otherOrder))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_FOUND)
+			.hasMessage(PaymentError.PAYMENT_NOT_FOUND.getMessage());
+	}
+
+	@Test
+	@DisplayName("PaymentKey가 정상적으로 업데이트된다")
+	void updatePaymentKeyInNewTransaction_success() {
+		// given
+		Payment payment = paymentService.createPayment(member, order);
+		String paymentKey = "toss_payment_key_12345";
+
+		// when
+		paymentService.updatePaymentKeyInNewTransaction(payment.getId(), paymentKey);
+
+		// then
+		Payment updatedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
+		assertThat(updatedPayment.getPaymentKey()).isEqualTo(paymentKey);
+	}
+
+	@Test
+	@DisplayName("Payment 실패 처리가 정상적으로 수행된다")
+	void failPaymentInNewTransaction_success() {
+		// given
+		Payment payment = paymentService.createPayment(member, order);
+		String failureCode = "REJECT_CARD_PAYMENT";
+		String failureMessage = "카드 결제가 거절되었습니다.";
+
+		// when
+		paymentService.failPaymentInNewTransaction(payment.getId(), failureCode, failureMessage);
+
+		// then
+		Payment failedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
+		assertThat(failedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
+		assertThat(failedPayment.getFailureCode()).isEqualTo(failureCode);
+		assertThat(failedPayment.getFailureMessage()).isEqualTo(failureMessage);
+		assertThat(failedPayment.getFailedAt()).isNotNull();
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 Payment 실패 처리 시 예외가 발생한다")
+	void failPaymentInNewTransaction_notFound_throwsException() {
+		// given
+		Long nonExistentPaymentId = 9999L;
+
+		// when & then
+		assertThatThrownBy(() -> paymentService.failPaymentInNewTransaction(
+			nonExistentPaymentId, "ERROR_CODE", "에러 메시지"))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_FOUND)
+			.hasMessage(PaymentError.PAYMENT_NOT_FOUND.getMessage());
+	}
 }

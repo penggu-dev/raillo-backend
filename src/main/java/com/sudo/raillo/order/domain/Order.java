@@ -109,6 +109,4 @@ public class Order extends BaseEntity {
 			throw new DomainException(OrderError.ORDER_IS_EXPIRED);
 		}
 	}
-
-
 }

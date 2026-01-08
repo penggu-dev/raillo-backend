@@ -15,25 +15,4 @@ public enum PaymentStatus {
 
 	private final String displayName;
 	private final String description;
-
-	/**
-	 * 결제 가능한 상태인지 확인
-	 */
-	public boolean isPayable() {
-		return this == PENDING;
-	}
-
-	/**
-	 * 취소 가능한 상태인지 확인
-	 */
-	public boolean isCancellable() {
-		return this == PENDING;
-	}
-
-	/**
-	 * 환불 가능한 상태인지 확인
-	 */
-	public boolean isRefundable() {
-		return this == PAID;
-	}
 }

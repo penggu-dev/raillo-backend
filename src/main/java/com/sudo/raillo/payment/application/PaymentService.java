@@ -1,7 +1,5 @@
 package com.sudo.raillo.payment.application;
 
-import java.math.BigDecimal;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,11 +26,11 @@ public class PaymentService {
 	/**
 	 * Payment 생성 (PENDING 상태)
 	 */
-	public Payment createPayment(Member member, Order order, BigDecimal amount) {
-		Payment payment = Payment.create(member, order, amount);
+	public Payment createPayment(Member member, Order order) {
+		Payment payment = Payment.create(member, order);
 		Payment savedPayment = paymentRepository.save(payment);
 
-		log.info("[결제 생성] paymentId={}, orderId={}, amount={}", savedPayment.getId(), order.getId(), amount);
+		log.info("[결제 생성] paymentId={}, orderId={}, amount={}", savedPayment.getId(), order.getId(), order.getTotalAmount());
 
 		return savedPayment;
 	}
@@ -42,18 +40,10 @@ public class PaymentService {
 	 * @param payment {@link Payment} 객체
 	 */
 	private void refundPayment(Payment payment, Booking booking) {
-		// 해당 로직은 외부 엔드포인트가 존재하지 않고 추후 엔드포인트가 생긴다고 하더라도
-		// 신뢰할 수 있는 PG사에서 환불 완료된 결제에 대해서만 호출할 예정이기 때문에 검증 과정이 필요 없습니다.
-
-		// 즉각 환불 처리 로직 (임시)
-		if (payment.canBeRefunded()) {
-			payment.refund();
-		}
-
+		payment.refund();
 		log.info("환불 처리 완료: paymentKey={}", payment.getPaymentKey());
 	}
 
-	// --------- Toss 리팩토링 이후 만든 메서드들 --------- //
 	@Transactional(readOnly = true)
 	public Payment getPaymentByOrder(Order order) {
 		return paymentRepository.findByOrder(order)

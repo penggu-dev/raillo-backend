@@ -1,6 +1,5 @@
 package com.sudo.raillo.payment.application;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -64,22 +63,17 @@ public class PaymentFacade {
 			bookingValidator.validatePendingBookingOwner(pendingBooking, memberNo)
 		);
 
-		// 3. Order 생성
+		// 3. Order 생성 (totalAmount 계산 포함)
 		Order order = orderService.createOrder(memberNo, pendingBookings);
 
-		// 4. 총 금액 계산
-		BigDecimal totalAmount = pendingBookings.stream()
-			.map(PendingBooking::getTotalFare)
-			.reduce(BigDecimal.ZERO, BigDecimal::add);
-
-		// 5. Payment 생성 (PENDING)
-		Payment payment = paymentService.createPayment(member, order, totalAmount);
+		// 4. Payment 생성 (PENDING, totalAmount는 Order에서 가져옴)
+		Payment payment = paymentService.createPayment(member, order);
 
 		log.info("[결제 준비 완료] orderId={}, paymentId={}, amount={}, pendingBookingCount={}",
-			order.getOrderCode(), payment.getId(), totalAmount, pendingBookings.size());
+			order.getOrderCode(), payment.getId(), order.getTotalAmount(), pendingBookings.size());
 
-		// 6. orderId, amount 응답
-		return new PaymentPrepareResponse(order.getOrderCode(), totalAmount);
+		// 5. orderId, amount 응답
+		return new PaymentPrepareResponse(order.getOrderCode(), order.getTotalAmount());
 	}
 
 
@@ -109,11 +103,10 @@ public class PaymentFacade {
 		Order order = orderService.getOrderByOrderCode(request.orderId());
 		Payment payment = paymentService.getPaymentByOrder(order);
 
-		// 2. 요청 전 검증 (소유자, 금액, 상태)
+		// 2. 요청 전 검증 (소유자, 금액, 중복결제)
 		orderService.validateOrderOwner(order, member);
 		paymentValidator.validatePaymentOwner(payment, member);
 		paymentValidator.validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
-		paymentValidator.validatePaymentApprovable(payment);
 		paymentValidator.validateDuplicatePayment(order);
 
 		// 3. 클라이언트에서 받은 PaymentKey 저장 (토스 승인 요청 전 별도 트랜잭션에서 무조건 커밋)

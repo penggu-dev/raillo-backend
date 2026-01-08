@@ -5,10 +5,12 @@ import java.time.LocalDateTime;
 
 import org.hibernate.annotations.Comment;
 
+import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
+import com.sudo.raillo.payment.exception.PaymentError;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.ConstraintMode;
@@ -92,12 +94,12 @@ public class Payment {
 	@Comment("결제 실패 사유")
 	private String failureMessage;
 
-	public static Payment create(Member member, Order order, BigDecimal amount) {
+	public static Payment create(Member member, Order order) {
 		Payment payment = new Payment();
 		payment.member = member;
 		payment.order = order;
 		payment.orderCode = order.getOrderCode();
-		payment.amount = amount;
+		payment.amount = order.getTotalAmount();
 		payment.paymentStatus = PaymentStatus.PENDING;
 		return payment;
 	}
@@ -107,21 +109,21 @@ public class Payment {
 		this.paymentKey = paymentKey;
 	}
 
-	// 결제 승인 성공
-	public void approve( PaymentMethod paymentMethod) {
+	public void approve(PaymentMethod paymentMethod) {
+		validatePayable();
 		this.paymentMethod = paymentMethod;
 		this.paymentStatus = PaymentStatus.PAID;
 		this.paidAt = LocalDateTime.now();
 	}
 
-	// 결제 취소
 	public void cancel(String reason) {
+		validateCancellable();
 		this.paymentStatus = PaymentStatus.CANCELLED;
 		this.cancelledAt = LocalDateTime.now();
 	}
 
-	// 환불 처리
 	public void refund() {
+		validateRefundable();
 		this.paymentStatus = PaymentStatus.REFUNDED;
 		this.refundedAt = LocalDateTime.now();
 	}
@@ -132,22 +134,34 @@ public class Payment {
 	 * @param failureMessage 토스 PG사에서 받은 에러 메시지
 	 */
 	public void fail(String failureCode, String failureMessage) {
+		validateFailable();
 		this.paymentStatus = PaymentStatus.FAILED;
 		this.failureCode = failureCode;
 		this.failureMessage = failureMessage;
 		this.failedAt = LocalDateTime.now();
 	}
 
-	// 결제 가능 여부 확인
-	public boolean canBePaid() { return this.paymentStatus.isPayable(); }
-
-	// 취소 가능 여부 확인 (PENDING -> CANCELED)
-	public boolean canBeCancelled() {
-		return this.paymentStatus.isCancellable();
+	private void validatePayable() {
+		if (this.paymentStatus != PaymentStatus.PENDING) {
+			throw new DomainException(PaymentError.PAYMENT_NOT_APPROVABLE);
+		}
 	}
 
-	// 환불 가능 여부 확인 (PAID -> REFUNDABLE)
-	public boolean canBeRefunded() {
-		return this.paidAt != null && this.paymentStatus.isRefundable();
+	private void validateCancellable() {
+		if (this.paymentStatus != PaymentStatus.PENDING) {
+			throw new DomainException(PaymentError.PAYMENT_NOT_CANCELLABLE);
+		}
+	}
+
+	private void validateRefundable() {
+		if (this.paidAt == null || this.paymentStatus != PaymentStatus.PAID) {
+			throw new DomainException(PaymentError.PAYMENT_NOT_REFUNDABLE);
+		}
+	}
+
+	private void validateFailable() {
+		if (this.paymentStatus != PaymentStatus.PENDING) {
+			throw new DomainException(PaymentError.PAYMENT_CANNOT_FAIL);
+		}
 	}
 }
