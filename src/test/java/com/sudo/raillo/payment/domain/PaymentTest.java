@@ -116,7 +116,8 @@ class PaymentTest {
 		// when & then
 		assertThatThrownBy(() -> payment.cancel("취소 사유"))
 			.isInstanceOf(DomainException.class)
-			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_CANCELLABLE);
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_CANCELLABLE)
+			.hasMessage(PaymentError.PAYMENT_NOT_CANCELLABLE.getMessage());
 	}
 
 	@Test
