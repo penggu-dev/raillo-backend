@@ -15,6 +15,8 @@ import com.sudo.raillo.booking.application.dto.projection.QReceiptProjection;
 import com.sudo.raillo.booking.application.dto.projection.ReceiptProjection;
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.booking.domain.Ticket;
+import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.train.domain.QScheduleStop;
 import com.sudo.raillo.train.domain.QStation;
 import lombok.RequiredArgsConstructor;
@@ -67,6 +69,10 @@ public class TicketQueryRepository {
 			.join(arrivalStop.station, arrivalStation)
 			.where(ticket.id.eq(ticketEntity.getId()))
 			.fetchOne();
+
+		if (receiptProjection == null) {
+			throw new DomainException(BookingError.TICKET_NOT_FOUND);
+		}
 
 		return ReceiptResponse.from(receiptProjection);
 	}
