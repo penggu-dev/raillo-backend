@@ -93,14 +93,14 @@ public class BookingTestHelper {
 	 * <h4>사용 예시</h4>
 	 * <pre>{@code
 	 * // 중간역 구간 예약 + 특등석 2좌석
-	 * BookingWithSeats result = bookingTestHelper.builder(member, schedule)
+	 * BookingResult result = bookingTestHelper.builder(member, trainScheduleResult)
 	 *     .setDepartureScheduleStop(departureScheduleStop) // 출발 scheduleStop
 	 *     .setArrivalScheduleStop(arrivalScheduleStop) // 도착 scheduleStop
 	 *     .addSeatsByCarType(CarType.STANDARD, 2, PassengerType.ADULT) // 일반석,어른 2개 좌석 예약
 	 *     .build();
 	 *
 	 * // 성인 + 어린이 혼합 예약
-	 * BookingWithSeats result = bookingTestHelper.builder(member, schedule)
+	 * BookingResult result = bookingTestHelper.builder(member, trainScheduleResult)
 	 *     .addSeat(seat1, PassengerType.ADULT)
 	 *     .addSeat(seat2, PassengerType.CHILD)
 	 *     .build();
