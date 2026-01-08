@@ -1,16 +1,25 @@
 package com.sudo.raillo.booking.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
+import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
+import com.sudo.raillo.payment.domain.Payment;
+import com.sudo.raillo.payment.domain.type.PaymentMethod;
+import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.fixture.PaymentFixture;
 import com.sudo.raillo.support.helper.BookingResult;
 import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
@@ -35,6 +44,9 @@ class TicketServiceTest {
 
 	@Autowired
 	private TicketRepository ticketRepository;
+
+	@Autowired
+	private PaymentRepository paymentRepository;
 
 	@Autowired
 	private TicketService ticketService;
@@ -115,5 +127,80 @@ class TicketServiceTest {
 		// then
 		List<Ticket> remaining = ticketRepository.findAll();
 		assertThat(remaining).hasSize(0);
+	}
+
+	@Test
+	@DisplayName("영수증 조회에 성공한다")
+	void getReceipt_success() {
+		// given
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
+		BookingResult bookingResult = bookingTestHelper.builder(member, trainScheduleResult)
+			.addSeat(seats.get(0), PassengerType.ADULT)
+			.build();
+
+		Payment payment = PaymentFixture.create(member, bookingResult.booking().getOrder());
+		payment.updatePaymentKey("toss-payment-key");
+		payment.approve(PaymentMethod.CREDIT_CARD);
+		paymentRepository.save(payment);
+
+		Ticket ticket = bookingResult.tickets().get(0);
+
+		// when
+		ReceiptResponse response = ticketService.getReceipt(member.getMemberDetail().getMemberNo(), ticket.getId());
+
+		// then
+		assertThat(response).isNotNull();
+		assertThat(response.ticketNumber()).isEqualTo(ticket.getTicketNumber());
+		assertThat(response.trainNumber()).isEqualTo(String.format("%03d", train.getTrainNumber()));
+		assertThat(response.carNumber()).isEqualTo(seats.get(0).getTrainCar().getCarNumber());
+		assertThat(response.carType()).isEqualTo(CarType.STANDARD);
+		assertThat(response.seatNumber()).isEqualTo(seats.get(0).getSeatRow() + seats.get(0).getSeatColumn());
+		assertThat(response.operationDate()).isEqualTo(trainScheduleResult.trainSchedule().getOperationDate());
+		assertThat(response.paymentMethod()).isEqualTo(PaymentMethod.CREDIT_CARD);
+		assertThat(response.paymentKey()).isEqualTo("toss-payment-key");
+		assertThat(response.amount()).isNotNull();
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 회원으로 영수증 조회 시 실패한다")
+	void getReceipt_memberNotFound_fail() {
+		// given
+		String nonExistingMemberNo = "9999999999";
+		Long ticketId = 1L;
+
+		// when & then
+		assertThatThrownBy(() -> ticketService.getReceipt(nonExistingMemberNo, ticketId))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(MemberError.USER_NOT_FOUND.getMessage());
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 티켓으로 영수증 조회 시 실패한다")
+	void getReceipt_ticketNotFound_fail() {
+		// given
+		Long nonExistingTicketId = 999999L;
+
+		// when & then
+		assertThatThrownBy(() -> ticketService.getReceipt(member.getMemberDetail().getMemberNo(), nonExistingTicketId))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(BookingError.TICKET_NOT_FOUND.getMessage());
+	}
+
+	@Test
+	@DisplayName("다른 회원의 티켓 영수증 조회 시 실패한다")
+	void getReceipt_accessDenied_fail() {
+		// given
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
+		BookingResult bookingResult = bookingTestHelper.builder(member, trainScheduleResult)
+			.addSeat(seats.get(0), PassengerType.ADULT)
+			.build();
+		Ticket ticket = bookingResult.tickets().get(0);
+
+		Member otherMember = memberRepository.save(MemberFixture.createOther());
+
+		// when & then
+		assertThatThrownBy(() -> ticketService.getReceipt(otherMember.getMemberDetail().getMemberNo(), ticket.getId()))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(BookingError.TICKET_ACCESS_DENIED.getMessage());
 	}
 }
