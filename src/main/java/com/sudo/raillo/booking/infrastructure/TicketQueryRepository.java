@@ -15,9 +15,8 @@ import com.sudo.raillo.booking.application.dto.projection.QReceiptProjection;
 import com.sudo.raillo.booking.application.dto.projection.ReceiptProjection;
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.booking.domain.Ticket;
-import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.train.domain.QScheduleStop;
+import java.util.Optional;
 import com.sudo.raillo.train.domain.QStation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -31,7 +30,7 @@ public class TicketQueryRepository {
 	/**
 	 * 영수증 조회용 - Projection으로 필요한 데이터만 조회 (1개 쿼리)
 	 */
-	public ReceiptResponse findReceiptByTicket(Ticket ticketEntity) {
+	public Optional<ReceiptResponse> findReceiptByTicket(Ticket ticketEntity) {
 		QScheduleStop departureStop = new QScheduleStop("departureStop");
 		QScheduleStop arrivalStop = new QScheduleStop("arrivalStop");
 		QStation departureStation = new QStation("departureStation");
@@ -70,10 +69,7 @@ public class TicketQueryRepository {
 			.where(ticket.id.eq(ticketEntity.getId()))
 			.fetchOne();
 
-		if (receiptProjection == null) {
-			throw new DomainException(BookingError.TICKET_NOT_FOUND);
-		}
-
-		return ReceiptResponse.from(receiptProjection);
+		return Optional.ofNullable(receiptProjection)
+			.map(ReceiptResponse::from);
 	}
 }

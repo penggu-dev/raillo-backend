@@ -54,7 +54,8 @@ public class TicketService {
 		Ticket ticket = getTicket(ticketId);
 		bookingValidator.validateTicketOwner(ticket, member);
 
-		return ticketQueryRepository.findReceiptByTicket(ticket);
+		return ticketQueryRepository.findReceiptByTicket(ticket)
+			.orElseThrow(() -> new BusinessException(BookingError.RECEIPT_NOT_FOUND));
 	}
 
 	public void deleteTicketById(Long ticketId) {

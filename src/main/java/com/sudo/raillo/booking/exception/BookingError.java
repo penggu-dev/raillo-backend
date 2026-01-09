@@ -43,7 +43,10 @@ public enum BookingError implements ErrorCode {
 	// PENDING_BOOKING 관련
 	PENDING_BOOKING_NOT_FOUND("임시 예약을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B301"),
 	PENDING_BOOKING_ACCESS_DENIED("해당 임시 예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "B302"),
-	PENDING_BOOKING_IDS_REQUIRED("조회할 임시 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "B303");
+	PENDING_BOOKING_IDS_REQUIRED("조회할 임시 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "B303"),
+
+	// 영수증 관련
+	RECEIPT_NOT_FOUND("영수증 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B401");
 
 	private final String message;
 	private final HttpStatus status;
