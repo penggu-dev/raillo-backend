@@ -1,6 +1,7 @@
 package com.sudo.raillo.booking.application.dto.response;
 
 import com.sudo.raillo.booking.application.dto.projection.ReceiptProjection;
+import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.train.domain.type.CarType;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -45,6 +46,9 @@ public record ReceiptResponse(
 	@Schema(description = "도착 시간", example = "12:38")
 	LocalTime arrivalTime,
 
+	@Schema(description = "승객 유형", example = "ADULT")
+	PassengerType passengerType,
+
 	@Schema(description = "결제 수단", example = "CARD")
 	PaymentMethod paymentMethod,
 
@@ -71,6 +75,7 @@ public record ReceiptResponse(
 			projection.getArrivalStationName(),
 			projection.getDepartureTime(),
 			projection.getArrivalTime(),
+			projection.getPassengerType(),
 			projection.getPaymentMethod(),
 			projection.getPaidAt(),
 			projection.getPaymentKey(),

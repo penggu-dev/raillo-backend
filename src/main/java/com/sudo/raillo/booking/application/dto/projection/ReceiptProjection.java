@@ -1,6 +1,7 @@
 package com.sudo.raillo.booking.application.dto.projection;
 
 import com.querydsl.core.annotations.QueryProjection;
+import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.train.domain.type.CarType;
 import java.math.BigDecimal;
@@ -23,6 +24,7 @@ public class ReceiptProjection {
 	private final String arrivalStationName;
 	private final LocalTime departureTime;
 	private final LocalTime arrivalTime;
+	private final PassengerType passengerType;
 	private final PaymentMethod paymentMethod;
 	private final LocalDateTime paidAt;
 	private final String paymentKey;
@@ -41,6 +43,7 @@ public class ReceiptProjection {
 		String arrivalStationName,
 		LocalTime departureTime,
 		LocalTime arrivalTime,
+		PassengerType passengerType,
 		PaymentMethod paymentMethod,
 		LocalDateTime paidAt,
 		String paymentKey,
@@ -57,6 +60,7 @@ public class ReceiptProjection {
 		this.arrivalStationName = arrivalStationName;
 		this.departureTime = departureTime;
 		this.arrivalTime = arrivalTime;
+		this.passengerType = passengerType;
 		this.paymentMethod = paymentMethod;
 		this.paidAt = paidAt;
 		this.paymentKey = paymentKey;

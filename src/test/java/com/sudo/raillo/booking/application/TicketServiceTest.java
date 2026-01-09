@@ -159,6 +159,7 @@ class TicketServiceTest {
 		assertThat(response.paymentMethod()).isEqualTo(PaymentMethod.CREDIT_CARD);
 		assertThat(response.paymentKey()).isEqualTo("toss-payment-key");
 		assertThat(response.amount()).isNotNull();
+		assertThat(response.passengerType()).isEqualTo(PassengerType.ADULT);
 	}
 
 	@Test

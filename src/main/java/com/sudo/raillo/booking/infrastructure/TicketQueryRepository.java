@@ -16,8 +16,8 @@ import com.sudo.raillo.booking.application.dto.projection.ReceiptProjection;
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.train.domain.QScheduleStop;
-import java.util.Optional;
 import com.sudo.raillo.train.domain.QStation;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -49,6 +49,7 @@ public class TicketQueryRepository {
 				arrivalStation.stationName,
 				departureStop.departureTime,
 				arrivalStop.arrivalTime,
+				ticket.passengerType,
 				payment.paymentMethod,
 				payment.paidAt,
 				payment.paymentKey,
