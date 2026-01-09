@@ -1,6 +1,5 @@
 package com.sudo.raillo.booking.docs;
 
-import com.sudo.raillo.booking.application.dto.request.ReceiptRequest;
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
 import com.sudo.raillo.global.success.SuccessResponse;
@@ -24,5 +23,5 @@ public interface TicketControllerDoc {
 		@ApiResponse(responseCode = "404", description = "티켓을 찾을 수 없습니다.",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<ReceiptResponse> getReceipt(ReceiptRequest request, UserDetails userDetails);
+	SuccessResponse<ReceiptResponse> getReceipt(Long ticketId, UserDetails userDetails);
 }
