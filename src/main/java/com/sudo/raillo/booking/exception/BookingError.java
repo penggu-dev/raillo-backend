@@ -28,6 +28,7 @@ public enum BookingError implements ErrorCode {
 	BOOKING_EXPIRED("예약이 만료되었습니다.", HttpStatus.GONE, "B_017"),
 	SEAT_BOOKING_NOT_FOUND("좌석 예약 상태를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_018"),
 	TICKET_NOT_FOUND("티켓을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_019"),
+	TICKET_ACCESS_DENIED("해당 티켓에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "B_022"),
 	INVALID_TOTAL_FAIR("예약 총 금액은 0보다 크거나 같아야 합니다", HttpStatus.BAD_REQUEST, "B_020"),
 	BOOKING_ALREADY_CANCELLED("이미 취소된 좌석입니다", HttpStatus.BAD_REQUEST, "B_021"),
 
@@ -42,7 +43,10 @@ public enum BookingError implements ErrorCode {
 	// PENDING_BOOKING 관련
 	PENDING_BOOKING_NOT_FOUND("임시 예약을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B301"),
 	PENDING_BOOKING_ACCESS_DENIED("해당 임시 예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "B302"),
-	PENDING_BOOKING_IDS_REQUIRED("조회할 임시 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "B303");
+	PENDING_BOOKING_IDS_REQUIRED("조회할 임시 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "B303"),
+
+	// 영수증 관련
+	RECEIPT_NOT_FOUND("영수증 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B401");
 
 	private final String message;
 	private final HttpStatus status;
