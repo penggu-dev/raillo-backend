@@ -1,6 +1,8 @@
 package com.sudo.raillo.booking.application.service;
 
+import com.sudo.raillo.booking.application.dto.projection.ReceiptProjection;
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
+import com.sudo.raillo.booking.application.mapper.TicketMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
@@ -27,6 +29,7 @@ public class TicketService {
 	private final TicketRepository ticketRepository;
 	private final TicketQueryRepository ticketQueryRepository;
 	private final BookingValidator bookingValidator;
+	private final TicketMapper ticketMapper;
 
 	/**
 	 * 티켓을 생성하는 메서드
@@ -54,8 +57,10 @@ public class TicketService {
 		Ticket ticket = getTicket(ticketId);
 		bookingValidator.validateTicketOwner(ticket, member);
 
-		return ticketQueryRepository.findReceiptByTicket(ticket)
+		ReceiptProjection receiptProjection = ticketQueryRepository.findReceiptByTicket(ticket)
 			.orElseThrow(() -> new BusinessException(BookingError.RECEIPT_NOT_FOUND));
+
+		return ticketMapper.convertToReceiptResponse(receiptProjection);
 	}
 
 	public void deleteTicketById(Long ticketId) {

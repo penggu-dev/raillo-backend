@@ -1,6 +1,5 @@
 package com.sudo.raillo.booking.application.dto.response;
 
-import com.sudo.raillo.booking.application.dto.projection.ReceiptProjection;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.train.domain.type.CarType;
@@ -61,25 +60,4 @@ public record ReceiptResponse(
 	@Schema(description = "결제 금액", example = "50000")
 	BigDecimal amount
 ) {
-
-	public static ReceiptResponse from(ReceiptProjection projection) {
-		return new ReceiptResponse(
-			projection.getTicketNumber(),
-			projection.getTicketCreatedAt(),
-			projection.getTrainNumber(),
-			projection.getCarNumber(),
-			projection.getCarType(),
-			projection.getSeatNumber(),
-			projection.getOperationDate(),
-			projection.getDepartureStationName(),
-			projection.getArrivalStationName(),
-			projection.getDepartureTime(),
-			projection.getArrivalTime(),
-			projection.getPassengerType(),
-			projection.getPaymentMethod(),
-			projection.getPaidAt(),
-			projection.getPaymentKey(),
-			projection.getAmount()
-		);
-	}
 }

@@ -13,7 +13,6 @@ import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.sudo.raillo.booking.application.dto.projection.QReceiptProjection;
 import com.sudo.raillo.booking.application.dto.projection.ReceiptProjection;
-import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.train.domain.QScheduleStop;
 import com.sudo.raillo.train.domain.QStation;
@@ -30,7 +29,7 @@ public class TicketQueryRepository {
 	/**
 	 * 영수증 조회용 - Projection으로 필요한 데이터만 조회 (1개 쿼리)
 	 */
-	public Optional<ReceiptResponse> findReceiptByTicket(Ticket ticketEntity) {
+	public Optional<ReceiptProjection> findReceiptByTicket(Ticket ticketEntity) {
 		QScheduleStop departureStop = new QScheduleStop("departureStop");
 		QScheduleStop arrivalStop = new QScheduleStop("arrivalStop");
 		QStation departureStation = new QStation("departureStation");
@@ -70,7 +69,6 @@ public class TicketQueryRepository {
 			.where(ticket.id.eq(ticketEntity.getId()))
 			.fetchOne();
 
-		return Optional.ofNullable(receiptProjection)
-			.map(ReceiptResponse::from);
+		return Optional.ofNullable(receiptProjection);
 	}
 }
