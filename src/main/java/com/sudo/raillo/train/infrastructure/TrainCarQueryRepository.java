@@ -62,7 +62,7 @@ public class TrainCarQueryRepository {
 			.orderBy(trainCar.carNumber.asc())
 			.fetch();
 
-		// 2. 각 객차별 예약된 좌석 수 계산
+		// 2. 각 객차별 예매된 좌석 수 계산
 		Map<Long, Long> occupiedSeatsPerCar = queryFactory
 			.select(trainCar.id, seatBooking.count())
 			.from(seatBooking)

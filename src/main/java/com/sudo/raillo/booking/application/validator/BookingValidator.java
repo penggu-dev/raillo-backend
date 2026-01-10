@@ -53,7 +53,7 @@ public class BookingValidator {
 	}
 
 	/**
-	 * 기존 예약들과 충돌 검증 (락이 걸린 상태에서 수행)
+	 * 기존 예매들과 충돌 검증 (락이 걸린 상태에서 수행)
 	 */
 	public void validateConflictWithExistingBookings(
 		Booking newBooking,
@@ -82,8 +82,8 @@ public class BookingValidator {
 	}
 
 	/**
-	 * 여러 개의 임시 예약 접근 권한 확인
-	 * @param pendingBookings 임시 예약 리스트
+	 * 여러 개의 예약 접근 권한 확인
+	 * @param pendingBookings 예약 리스트
 	 * @param memberNo 회원 번호
 	 */
 	public void validatePendingBookingOwner(List<PendingBooking> pendingBookings, String memberNo) {
@@ -92,20 +92,20 @@ public class BookingValidator {
 	}
 
 	/**
-	 * 임시 예약 접근 권한 확인
-	 * @param pendingBooking 단일 임시 예약
+	 * 예약 접근 권한 확인
+	 * @param pendingBooking 단일 예약
 	 * @param memberNo 회원 번호
 	 */
 	public void validatePendingBookingOwner(PendingBooking pendingBooking, String memberNo) {
 		if (!pendingBooking.getMemberNo().equals(memberNo)) {
-			log.error("[임시 예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
+			log.error("[예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
 				pendingBooking.getMemberNo(), memberNo);
 			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
 		}
 	}
 
 	/**
-	 * 임시 예약 존재 여부 검증
+	 * 예약 존재 여부 검증
 	 */
 	public void validateAllPendingBookingsExist(List<String> pendingBookingIds,
 		Map<String, PendingBooking> bookingsById) {
@@ -114,7 +114,7 @@ public class BookingValidator {
 			.toList();
 
 		if (!notFoundIds.isEmpty()) {
-			log.warn("[임시 예약 찾지 못함] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
+			log.warn("[예약 찾지 못함] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
 			throw new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
 		}
 	}
@@ -138,7 +138,7 @@ public class BookingValidator {
 	}
 
 	/**
-	 * Ticket 소유자 검증
+	 * 승차권 소유자 검증
 	 */
 	public void validateTicketOwner(Ticket ticket, Member member) {
 		if (!ticket.getBooking().getMember().getId().equals(member.getId())) {

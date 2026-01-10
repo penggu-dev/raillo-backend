@@ -76,7 +76,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("회원 번호로 임시 예약 목록 조회에 성공한다")
+	@DisplayName("회원 번호로 예약 목록 조회에 성공한다")
 	void getPendingBookings_success() {
 		// given
 		// 같은 열차 스케줄의 좌석 1개 예약
@@ -117,7 +117,7 @@ class PendingBookingServiceTest {
 		// then
 		assertThat(result).hasSize(2);
 
-		// 첫 번째 임시 예약 검증
+		// 첫 번째 예약 검증
 		PendingBookingDetail detail1 = result.stream()
 			.filter(detail -> detail.pendingBookingId().equals(pendingBooking1.getId()))
 			.findFirst()
@@ -132,7 +132,7 @@ class PendingBookingServiceTest {
 		assertThat(detail1.seats()).hasSize(1);
 		assertThat(detail1.seats().get(0).passengerType()).isEqualTo(PassengerType.ADULT);
 
-		// 두 번째 임시 예약 검증
+		// 두 번째 예약 검증
 		PendingBookingDetail detail2 = result.stream()
 			.filter(detail -> detail.pendingBookingId().equals(pendingBooking2.getId()))
 			.findFirst()
@@ -145,7 +145,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("회원의 서로 다른 열차 스케줄의 임시 예약 정보를 조회해오는데 성공한다")
+	@DisplayName("회원의 서로 다른 열차 스케줄의 예약 정보를 조회해오는데 성공한다")
 	void getPendingBooking_success_differentSchedule() {
 		// given
 		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
@@ -162,7 +162,7 @@ class PendingBookingServiceTest {
 			.build();
 		bookingRedisRepository.savePendingBooking(pendingBooking1);
 
-		// 열차 스케줄이 다른 임시 예약
+		// 열차 스케줄이 다른 예약
 		PendingBooking pendingBooking2 = PendingBookingFixture.builder()
 			.withMemberNo(testMember.getMemberDetail().getMemberNo())
 			.withTrainScheduleId(otherTrainScheduleResult.trainSchedule().getId())
@@ -185,7 +185,7 @@ class PendingBookingServiceTest {
 		// then
 		assertThat(result).hasSize(2);
 
-		// 첫 번째 임시 예약 (서울 -> 부산)
+		// 첫 번째 예약 (서울 -> 부산)
 		PendingBookingDetail detail1 = result.stream()
 			.filter(detail -> detail.pendingBookingId().equals(pendingBooking1.getId()))
 			.findFirst()
@@ -198,7 +198,7 @@ class PendingBookingServiceTest {
 		assertThat(detail1.seats()).hasSize(1);
 		assertThat(detail1.seats().get(0).passengerType()).isEqualTo(PassengerType.ADULT);
 
-		// 두 번째 임시 예약 (서울 -> 대전)
+		// 두 번째 예약 (서울 -> 대전)
 		PendingBookingDetail detail2 = result.stream()
 			.filter(detail -> detail.pendingBookingId().equals(pendingBooking2.getId()))
 			.findFirst()
@@ -215,7 +215,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("임시 예약이 없는 경우 빈 리스트를 반환한다")
+	@DisplayName("예약이 없는 경우 빈 리스트를 반환한다")
 	void getPendingBookings_success_emptyList() {
 		// when
 		List<PendingBookingDetail> result = pendingBookingService.getPendingBookings(
@@ -226,7 +226,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("임시 예약의 열차 스케줄이 DB에 존재하지 않으면 예외가 발생한다")
+	@DisplayName("예약의 열차 스케줄이 DB에 존재하지 않으면 예외가 발생한다")
 	void getPendingBookings_fail_trainScheduleNotFound() {
 		// given
 		Long notExistTrainScheduleId = 999L;
@@ -252,7 +252,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("임시 예약의 정차역이 DB에 존재하지 않으면 예외가 발생한다")
+	@DisplayName("예약의 정차역이 DB에 존재하지 않으면 예외가 발생한다")
 	void getPendingBookings_fail_stationNotFound() {
 		// given
 		Long nonExistStopId = 999L;
@@ -278,7 +278,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("임시 예약의 예약 좌석이 DB에 존재하지 않으면 예외가 발생한다")
+	@DisplayName("예약 좌석이 DB에 존재하지 않으면 예외가 발생한다")
 	void getPendingBookings_fail_seatNotFound() {
 		// given
 		Long nonExistSeatId = 999L;
@@ -304,7 +304,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("단일 임시 예약 삭제에 성공한다")
+	@DisplayName("단일 예약 삭제에 성공한다")
 	void deletePendingBookings_success_single() {
 		// given
 		PendingBooking pendingBooking = PendingBookingFixture.builder()
@@ -325,7 +325,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("다중 임시 예약 삭제에 성공한다")
+	@DisplayName("다중 예약 삭제에 성공한다")
 	void deletePendingBookings_success_multiple() {
 		// given
 		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
@@ -367,7 +367,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("일부 임시 예약만 삭제하면 나머지 예약은 유지된다")
+	@DisplayName("일부 예약만 삭제하면 나머지 예약은 유지된다")
 	void deletePendingBookings_success_partial() {
 		// given
 		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
@@ -400,7 +400,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 임시 예약 ID로 삭제해도 예외가 발생하지 않는다")
+	@DisplayName("존재하지 않는 예약 ID로 삭제해도 예외가 발생하지 않는다")
 	void deletePendingBookings_success_nonExistId() {
 		// given
 		List<String> nonExistIds = List.of(
@@ -418,7 +418,7 @@ class PendingBookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("권한이 없는 임시 예약을 삭제하려고 시도하면 예외가 발생한다")
+	@DisplayName("권한이 없는 예약을 삭제하려고 시도하면 예외가 발생한다")
 	void deletePendingBookings_fail_notOwner() {
 		// given
 		String ownerMemberNo = "owner_member_no";

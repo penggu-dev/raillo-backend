@@ -57,7 +57,7 @@ public class BookingQueryRepository {
 		QStation departureStation = new QStation("departureStation");
 		QStation arrivalStation = new QStation("arrivalStation");
 
-		// 예약 조회 쿼리
+		// 예매 조회 쿼리
 		JPAQuery<BookingProjection> query = queryFactory
 			.select(new QBookingProjection(
 				booking.id,
@@ -89,7 +89,7 @@ public class BookingQueryRepository {
 			query.where(booking.id.in(bookingIds));
 		}
 
-		// 예약 조회
+		// 예매 조회
 		List<BookingProjection> bookings = query.fetch();
 
 		// Ticket 기반 좌석 정보 조회
@@ -156,7 +156,7 @@ public class BookingQueryRepository {
 
 	/**
 	 * Ticket 상태 필터 조건 생성
-	 * - UPCOMING: 유효한 티켓만 (ISSUED만, 취소된 티켓은 포함 X)
+	 * - UPCOMING: 유효한 승차권만 (ISSUED만, 취소된 승차권은 포함 X)
 	 * - HISTORY, ALL: 전체 (필터 없음)
 	 */
 	private BooleanBuilder buildTicketStatusCondition(BookingTimeFilter timeFilter) {

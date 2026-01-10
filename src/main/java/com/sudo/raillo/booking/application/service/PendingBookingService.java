@@ -48,9 +48,9 @@ public class PendingBookingService {
 	private final PendingBookingMapper pendingBookingMapper;
 
 	/**
-	 * 임시 예약을 생성하는 메서드
-	 * @param request 임시 예약 요청 DTO
-	 * @return 임시 예약
+	 * 예약을 생성하는 메서드
+	 * @param request 예약 요청 DTO
+	 * @return 예약
 	 * */
 	public PendingBooking createPendingBooking(
 		PendingBookingCreateRequest request,
@@ -87,9 +87,9 @@ public class PendingBookingService {
 	}
 
 	/**
-	 * 회원 번호로 임시 예약 목록 조회
+	 * 회원 번호로 예약 목록 조회
 	 * @param memberNo 회원 번호
-	 * @return 임시 예약 목록
+	 * @return 예약 목록
 	 */
 	@Transactional(readOnly = true)
 	public List<PendingBookingDetail> getPendingBookings(String memberNo) {
@@ -100,7 +100,7 @@ public class PendingBookingService {
 			return List.of();
 		}
 
-		// 2. 임시 예약 접근 권한 확인
+		// 2. 예약 접근 권한 확인
 		bookingValidator.validatePendingBookingOwner(pendingBookings, memberNo);
 
 		// 3. ID 추출 (중복 제거 후 조회)
@@ -122,7 +122,7 @@ public class PendingBookingService {
 		Map<Long, StopInfo> scheduleStopMap = getScheduleStopMap(stopIds);
 		Map<Long, SeatInfo> seatMap = getSeatMap(seatIds);
 
-		// 5. 각 임시 예약의 필요한 정보를 가져올 수 있도록 매핑
+		// 5. 각 예약의 필요한 정보를 가져올 수 있도록 매핑
 		return pendingBookings.stream()
 			.map(pendingBooking ->
 				pendingBookingMapper.convertToPendingBookingDetail(pendingBooking, trainScheduleMap, scheduleStopMap,
@@ -134,8 +134,8 @@ public class PendingBookingService {
 	/**
 	 * 여러 PendingBooking 한 번에 조회 및 검증
 	 * - 모든 예약이 Redis에 존재해야 함
-	 * @param pendingBookingIds 조회할 임시 예약 아이디 리스트
-	 * @return 임시 예약 목록
+	 * @param pendingBookingIds 조회할 예약 아이디 리스트
+	 * @return 예약 목록
 	 */
 	@Transactional(readOnly = true)
 	public List<PendingBooking> getPendingBookings(List<String> pendingBookingIds) {
@@ -149,8 +149,8 @@ public class PendingBookingService {
 	}
 
 	/**
-	 * 임시 예약 다중 삭제 메서드
-	 * @param pendingBookingIds 삭제할 임시 예약 리스트
+	 * 예약 다중 삭제 메서드
+	 * @param pendingBookingIds 삭제할 예약 리스트
 	 */
 	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
 		Map<String, PendingBooking> pendingBookingMap = bookingRedisRepository.getPendingBookingsAsMap(

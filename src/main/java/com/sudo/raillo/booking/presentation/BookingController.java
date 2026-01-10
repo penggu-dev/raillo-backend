@@ -30,9 +30,9 @@ public class BookingController implements BookingControllerDoc {
 	private final BookingService bookingService;
 
 	/***
-	 * 예약을 삭제하는 메서드
-	 * @param request 예약 삭제 요청 DTO
-	 * @return 예약 삭제 성공 응답
+	 * 예매를 삭제하는 메서드
+	 * @param request 예매 삭제 요청 DTO
+	 * @return 예매 삭제 성공 응답
 	 */
 	@DeleteMapping
 	public SuccessResponse<?> deleteBooking(@RequestBody BookingDeleteRequest request) {

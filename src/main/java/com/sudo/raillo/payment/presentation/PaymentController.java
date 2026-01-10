@@ -30,7 +30,7 @@ public class PaymentController {
 	private final PaymentService paymentService;
 	private final PaymentFacade paymentFacade;
 
-	@Operation(summary = "결제 준비", description = "Redis의 임시 예약(PendingBooking) 목록을 바탕으로 주문(Order)과 결제(Payment)를 생성합니다. "
+	@Operation(summary = "결제 준비", description = "Redis의 예약(PendingBooking) 목록을 바탕으로 주문(Order)과 결제(Payment)를 생성합니다. "
 		+ "토스페이먼츠 결제 위젯 초기화에 필요한 orderId와 amount를 반환합니다.")
 	@PostMapping("/prepare")
 	public SuccessResponse<PaymentPrepareResponse> preparePayment(

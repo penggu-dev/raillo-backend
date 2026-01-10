@@ -24,10 +24,10 @@ public interface BookingControllerDoc {
 	@Operation(
 		method = "DELETE",
 		summary = "예매 취소",
-		description = "예약 ID를 받아 해당 확정 예약을 취소합니다."
+		description = "예매 ID를 받아 해당 예매를 취소합니다."
 	)
 	@ApiResponses(value = {
-		@ApiResponse(responseCode = "204", description = "확정 예약이 성공적으로 취소되었습니다.")
+		@ApiResponse(responseCode = "204", description = "예매가 성공적으로 취소되었습니다.")
 	})
 	SuccessResponse<?> deleteBooking(BookingDeleteRequest request);
 
@@ -37,11 +37,11 @@ public interface BookingControllerDoc {
 		security = {@SecurityRequirement(name = "bearerAuth")}
 	)
 	@ApiResponses(value = {
-		@ApiResponse(responseCode = "200", description = "확정 승차권을 포함한 예매 상세 정보 조회에 성공했습니다."),
+		@ApiResponse(responseCode = "200", description = "승차권을 포함한 예매 상세 정보 조회에 성공했습니다."),
 		@ApiResponse(responseCode = "404",
-			description = "확정 승차권을 포함한 예매 상세 조회에 실패하였습니다:\n"
+			description = "승차권을 포함한 예매 상세 조회에 실패하였습니다:\n"
 				+ "- 사용자를 찾을 수 없음\n"
-				+ "- 확정 예매 정보를 찾을 수 없음\n",
+				+ "- 예매 정보를 찾을 수 없음\n",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	SuccessResponse<BookingResponse> getBooking(Long bookingId, UserDetails userDetails);

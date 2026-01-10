@@ -32,8 +32,8 @@ public class TicketService {
 	private final TicketMapper ticketMapper;
 
 	/**
-	 * 티켓을 생성하는 메서드
-	 * @param booking 예약 정보
+	 * 승차권을 생성하는 메서드
+	 * @param booking 예매 정보
 	 * @param passengerType 승객 유형
 	 */
 	public void createTicket(Booking booking, Seat seat, PassengerType passengerType) {
@@ -49,7 +49,7 @@ public class TicketService {
 	/**
 	 * 영수증을 조회하는 메서드
 	 * @param memberNo 회원 번호
-	 * @param ticketId 티켓 ID
+	 * @param ticketId 승차권 ID
 	 */
 	@Transactional(readOnly = true)
 	public ReceiptResponse getReceipt(String memberNo, Long ticketId) {

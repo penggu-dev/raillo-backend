@@ -73,7 +73,7 @@ class TicketServiceTest {
 
 	@Test
 	// @Disabled("Booking 생성 시 Ticket이 자동 생성되도록 변경됨(BookingTestHelper). createTicket()의 외부 호출 케이스 확인 후 테스트 수정 또는 삭제 필요")
-	@DisplayName("예약, 좌석, 승객 유형으로 티켓 생성에 성공한다")
+	@DisplayName("예약, 좌석, 승객 유형으로 승차권 생성에 성공한다")
 	void bookingAndSeatAndPassengerType_createTicket_success() {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
@@ -92,7 +92,7 @@ class TicketServiceTest {
 	}
 
 	@Test
-	@DisplayName("티켓 ID로 티켓 삭제에 성공한다")
+	@DisplayName("승차권 ID로 승차권 삭제에 성공한다")
 	void ticketId_deleteTicket_success() {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
@@ -112,7 +112,7 @@ class TicketServiceTest {
 	}
 
 	@Test
-	@DisplayName("예약 ID로 티켓 삭제에 성공한다")
+	@DisplayName("예매 ID로 승차권 삭제에 성공한다")
 	void bookingId_deleteTicket_success() {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
@@ -176,7 +176,7 @@ class TicketServiceTest {
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 티켓으로 영수증 조회 시 실패한다")
+	@DisplayName("존재하지 않는 승차권으로 영수증 조회 시 실패한다")
 	void getReceipt_ticketNotFound_fail() {
 		// given
 		Long nonExistingTicketId = 999999L;
@@ -188,7 +188,7 @@ class TicketServiceTest {
 	}
 
 	@Test
-	@DisplayName("다른 회원의 티켓 영수증 조회 시 실패한다")
+	@DisplayName("다른 회원의 영수증 조회 시 실패한다")
 	void getReceipt_accessDenied_fail() {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);

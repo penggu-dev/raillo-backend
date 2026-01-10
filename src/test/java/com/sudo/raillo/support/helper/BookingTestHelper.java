@@ -54,13 +54,13 @@ public class BookingTestHelper {
 	private BookingTestHelper self;
 
 	/**
-	 * 기본 예약 생성 메서드
+	 * 기본 예매 생성 메서드
 	 *
-	 * <p>출발역에서 도착역까지 성인 1명, 일반석 1좌석으로 예약을 생성한다.</p>
+	 * <p>출발역에서 도착역까지 성인 1명, 일반석 1좌석으로 예매를 생성한다.</p>
 	 *
-	 * @param member 예약할 회원
+	 * @param member 예매할 회원
 	 * @param trainScheduleResult 열차 스케줄 및 정차역 정보
-	 * @return 생성된 예약과 좌석 예약 정보
+	 * @return 생성된 예매과 예매 좌석 정보
 	 */
 	public BookingResult createDefault(Member member, TrainScheduleResult trainScheduleResult) {
 		return builder(member, trainScheduleResult)
@@ -69,9 +69,9 @@ public class BookingTestHelper {
 	}
 
 	/**
-	 * OrderBooking 정보를 기반으로 예약을 생성한다.
+	 * OrderBooking 정보를 기반으로 예매를 생성한다.
 	 *
-	 * <p>전달받은 {@link OrderBooking}에 연관된 회원과 열차 스케줄 정보를 사용하여 예약을 구성한다.</p>
+	 * <p>전달받은 {@link OrderBooking}에 연관된 회원과 열차 스케줄 정보를 사용하여 예매를 구성한다.</p>
 	 */
 	public BookingResult createByOrderBooking(OrderBooking orderBooking) {
 		TrainScheduleResult trainScheduleResult = new TrainScheduleResult(
@@ -90,20 +90,20 @@ public class BookingTestHelper {
 	}
 
 	/**
-	 * 커스텀 예약을 생성하기 위한 빌더를 반환한다.
+	 * 커스텀 예매를 생성하기 위한 빌더를 반환한다.
 	 *
-	 * <p>복잡한 예약 구성이 필요할 때 사용한다. 출발역, 도착역, 좌석, 승객 유형 등을 자유롭게 설정할 수 있다.</p>
-	 * <p>예약 기준으로 Order가 자동으로 생성된다.</p>
+	 * <p>복잡한 예매 구성이 필요할 때 사용한다. 출발역, 도착역, 좌석, 승객 유형 등을 자유롭게 설정할 수 있다.</p>
+	 * <p>예매 기준으로 Order가 자동으로 생성된다.</p>
 	 * <h4>사용 예시</h4>
 	 * <pre>{@code
-	 * // 중간역 구간 예약 + 특등석 2좌석
+	 * // 중간역 구간 예매 + 특등석 2좌석
 	 * BookingResult result = bookingTestHelper.builder(member, trainScheduleResult)
 	 *     .setDepartureScheduleStop(departureScheduleStop) // 출발 scheduleStop
 	 *     .setArrivalScheduleStop(arrivalScheduleStop) // 도착 scheduleStop
-	 *     .addSeatsByCarType(CarType.STANDARD, 2, PassengerType.ADULT) // 일반석,어른 2개 좌석 예약
+	 *     .addSeatsByCarType(CarType.STANDARD, 2, PassengerType.ADULT) // 일반석,어른 2개 좌석
 	 *     .build();
 	 *
-	 * // 성인 + 어린이 혼합 예약
+	 * // 성인 + 어린이 혼합 예매
 	 * BookingResult result = bookingTestHelper.builder(member, trainScheduleResult)
 	 *     .addSeat(seat1, PassengerType.ADULT)
 	 *     .addSeat(seat2, PassengerType.CHILD)
@@ -192,7 +192,7 @@ public class BookingTestHelper {
 		}
 
 		/**
-		 * Ticket 생성을 건너뛴다.
+		 * 승차권 생성을 건너뛴다.
 		 * <p>TicketService 테스트처럼 Ticket을 직접 생성 테스트해야 하는 경우 사용한다.</p>
 		 */
 		public BookingBuilder withoutTickets() {

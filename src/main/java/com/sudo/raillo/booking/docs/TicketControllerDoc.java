@@ -15,12 +15,12 @@ import org.springframework.security.core.userdetails.UserDetails;
 @Tag(name = "Tickets")
 public interface TicketControllerDoc {
 
-	@Operation(method = "GET", summary = "영수증 조회", description = "특정 티켓의 영수증 정보를 조회합니다.", security = {
+	@Operation(method = "GET", summary = "영수증 조회", description = "특정 승차권의 영수증 정보를 조회합니다.", security = {
 		@SecurityRequirement(name = "bearerAuth")
 	})
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "200", description = "영수증이 성공적으로 조회되었습니다."),
-		@ApiResponse(responseCode = "404", description = "티켓을 찾을 수 없습니다.",
+		@ApiResponse(responseCode = "404", description = "승차권을 찾을 수 없습니다.",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	SuccessResponse<ReceiptResponse> getReceipt(Long ticketId, UserDetails userDetails);

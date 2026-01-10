@@ -33,7 +33,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	private final PendingBookingService pendingBookingService;
 
 	/***
-	 * 임시예약을 생성하는 메서드
+	 * 예약을 생성하는 메서드
 	 * @param request 예약 생성 요청 DTO
 	 * @return 예약 생성 성공 응답
 	 */
@@ -48,8 +48,8 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	}
 
 	/**
-	 * 임시예약 목록 조회 메서드
-	 * @return 회원의 임시 예약 목록 응답
+	 * 예약 목록 조회 메서드
+	 * @return 회원의 예약 목록 응답
 	 * */
 	@GetMapping
 	public SuccessResponse<List<PendingBookingDetail>> getPendingBookings(
@@ -62,8 +62,8 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	}
 
 	/**
-	 * 임시예약 다중 삭제 메서드
-	 * @param request 임시 예약 삭제 요청 DTO
+	 * 예약 다중 삭제 메서드
+	 * @param request 예약 삭제 요청 DTO
 	 */
 	@DeleteMapping
 	public SuccessResponse<?> deletePendingBookings(

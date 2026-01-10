@@ -22,7 +22,7 @@ public record OperationCalendarItem(
 	@Schema(description = "휴일 여부 (Y/N)", example = "N")
 	String isHoliday,
 
-	@Schema(description = "예약 가능 여부 (Y/N), 해당 날짜에 KTX 운행 스케줄 존재 여부", example = "Y")
+	@Schema(description = "예매 가능 여부 (Y/N), 해당 날짜에 KTX 운행 스케줄 존재 여부", example = "Y")
 	String isBookingAvailable
 ) {
 
