@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 class BookingTest {
 
 	@Test
-	@DisplayName("예약 생성 시 상태가 BOOKED이고 예매 코드가 생성된다")
+	@DisplayName("예매 생성 시 상태가 BOOKED이고 예매 코드가 생성된다")
 	void create() {
 		// given
 		Member member = MemberFixture.create();
@@ -74,7 +74,7 @@ class BookingTest {
 	}
 
 	@Test
-	@DisplayName("예약 취소 시 상태가 CANCELLED로 변경되고 취소 시간이 설정된다")
+	@DisplayName("예매 취소 시 상태가 CANCELLED로 변경되고 취소 시간이 설정된다")
 	void cancel() {
 		// given
 		Member member = MemberFixture.create();
@@ -90,7 +90,7 @@ class BookingTest {
 	}
 
 	@Test
-	@DisplayName("이미 취소된 예약을 다시 취소하면 예외가 발생한다")
+	@DisplayName("이미 취소된 예매를 다시 취소하면 예외가 발생한다")
 	void cancelFail() {
 		// given
 		Member member = MemberFixture.create();

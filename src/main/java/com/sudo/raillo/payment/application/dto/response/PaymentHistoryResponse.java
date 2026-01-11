@@ -17,7 +17,7 @@ public record PaymentHistoryResponse(
 	@Schema(description = "결제 키", example = "PAY_1234567890ABCDEF")
 	String paymentKey,
 
-	@Schema(description = "예약 코드", example = "202312251230A1B2")
+	@Schema(description = "예매 코드", example = "202312251230A1B2")
 	String bookingCode,
 
 	@Schema(description = "결제 금액", example = "50000")

@@ -13,7 +13,7 @@ import jakarta.persistence.LockModeType;
 public interface SeatBookingRepository extends JpaRepository<SeatBooking, Long> {
 
 	/***
-	 * 스케줄 ID와 좌석 ID로 좌석 예약 상태를 조회하는 메서드
+	 * 스케줄 ID와 좌석 ID로 예매 좌석 상태를 조회하는 메서드
 	 * 비관적 락을 사용하여 해당 열차 스케줄과 좌석의 모든 예약을 조회
 	 * 동시성 제어를 위해 SeatBooking에 배타적 락을 걸어 다른 트랜잭션의 접근을 차단
 	 * @param trainScheduleId 열차 스케줄 ID

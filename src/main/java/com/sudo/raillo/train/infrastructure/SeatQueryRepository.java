@@ -26,9 +26,9 @@ public class SeatQueryRepository {
 	private final JPAQueryFactory queryFactory;
 
 	/**
-	 * 특정 객차의 모든 좌석 상세 정보 및 예약 상태 조회
-	 * - LEFT JOIN으로 예약 정보 연결 (예약 없는 좌석도 포함)
-	 * - stopOrder 기반으로 해당 구간에서의 예약 상태 판단
+	 * 특정 객차의 모든 좌석 상세 정보 및 예매 상태 조회
+	 * - LEFT JOIN으로 예매 정보 연결 (PendingBooking으로 예약된 좌석도 포함)
+	 * - stopOrder 기반으로 해당 구간에서의 예매 상태 판단
 	 * - 좌석별 방향성, 특별 메시지 등 부가 정보 포함
 	 */
 	public TrainCarSeatInfo findTrainCarSeatDetail(Long trainCarId, Long trainScheduleId, Long departureStationId,
@@ -49,7 +49,7 @@ public class SeatQueryRepository {
 		Integer seatRowCount = carInfo.get(trainCar.seatRowCount);
 		int middleRow = (seatRowCount != null) ? (seatRowCount + 1) / 2 : 8; // 중간 지점 계산
 
-		// 2. 객차 내 모든 좌석 상세 정보 조회 (예약 상태 포함)
+		// 2. 객차 내 모든 좌석 상세 정보 조회 (예매 상태 포함)
 		// stopOrder 기반 구간 겹침을 위한 ScheduleStop 조인
 		QScheduleStop bookedDepartureStop = new QScheduleStop("bookedDepartureStop");
 		QScheduleStop bookedArrivalStop = new QScheduleStop("bookedArrivalStop");
@@ -78,10 +78,10 @@ public class SeatQueryRepository {
 			.leftJoin(seatBooking).on(
 				seatBooking.seat.id.eq(seat.id)
 					.and(seatBooking.trainSchedule.id.eq(trainScheduleId))
-					.and(seatBooking.seat.isNotNull())  // 실제 좌석 예약
+					.and(seatBooking.seat.isNotNull())  // 실제 예매 좌석
 			)
 			.leftJoin(seatBooking.booking, booking)
-			// 기존 예약 정보 left join
+			// 기존 예매 정보 left join
 			.leftJoin(booking.departureStop, bookedDepartureStop)
 			.leftJoin(booking.arrivalStop, bookedArrivalStop)
 			// 검색 구간 정보 left join

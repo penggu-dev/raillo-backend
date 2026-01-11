@@ -6,10 +6,10 @@ import com.sudo.raillo.train.domain.type.CarType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "예약 좌석 정보")
+@Schema(description = "예매 좌석 정보")
 public record TicketDetail(
 
-	@Schema(description = "예약 좌석 ID", example = "1")
+	@Schema(description = "승차권 ID", example = "1")
 	Long ticketId,
 
 	@Schema(description = "승차권 번호")

@@ -40,7 +40,7 @@ public class SeatBooking extends BaseEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "seat_booking_id")
-	@Comment("예약 상태 ID")
+	@Comment("예매 좌석 ID")
 	private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
@@ -56,7 +56,7 @@ public class SeatBooking extends BaseEntity {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "booking_id", nullable = false)
 	@OnDelete(action = OnDeleteAction.CASCADE)
-	@Comment("예약 ID")
+	@Comment("예매 ID")
 	private Booking booking;
 
 	@Enumerated(EnumType.STRING)

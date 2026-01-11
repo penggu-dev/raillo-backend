@@ -121,7 +121,7 @@ public class BookingRedisRepository {
 				memberKeys.add(cursor.next());
 			}
 		} catch (Exception e) {
-			log.error("레디스 임시예약 조회 실패: memberNo={}, error={}", memberNo, e.getMessage());
+			log.error("레디스 예약 조회 실패: memberNo={}, error={}", memberNo, e.getMessage());
 			throw new RedisException(RedisError.SCAN_OPERATION_FAIL);
 		}
 

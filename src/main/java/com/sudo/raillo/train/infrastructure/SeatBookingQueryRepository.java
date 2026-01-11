@@ -29,8 +29,8 @@ public class SeatBookingQueryRepository {
 	private final JPAQueryFactory queryFactory;
 
 	/**
-	 * 여러 열차의 특정 구간에서 겹치는 예약 정보를 일괄 조회
-	 * - 요청한 출발역~도착역 구간과 겹치는 예약 찾기
+	 * 여러 열차의 특정 구간에서 겹치는 예매 정보를 일괄 조회
+	 * - 요청한 출발역~도착역 구간과 겹치는 예매 찾기
 	 */
 	public Map<Long, List<SeatBookingInfo>> findOverlappingBookingsBatch(List<Long> trainScheduleIds,
 		Long departureStationId, Long arrivalStationId) {
@@ -60,7 +60,7 @@ public class SeatBookingQueryRepository {
 			.from(seatBooking)
 			.join(seat).on(seat.id.eq(seatBooking.seat.id))            // 좌석 정보
 			.join(trainCar).on(trainCar.id.eq(seat.trainCar.id))           // 객차 정보 (객차 타입 판별 : 일반실/특실)
-			.join(seatBooking.booking, booking)                // 예약 정보 (seatBooking 에만 좌석 정보 존재)
+			.join(seatBooking.booking, booking)                // 예매 정보 (seatBooking 에만 좌석 정보 존재)
 			.join(booking.departureStop, bookedDepartureStop)           // 출발역
 			.join(booking.arrivalStop, bookedArrivalStop)               // 도착역
 			.join(bookedDepartureStop.station, bookedDepartureStation)
@@ -75,7 +75,7 @@ public class SeatBookingQueryRepository {
 			)
 			.where(
 				seatBooking.trainSchedule.id.in(trainScheduleIds),             // 해당 trainScheduleId 모두 조회
-				seatBooking.seat.isNotNull(),                                     // 실제 좌석 예약
+				seatBooking.seat.isNotNull(),                                     // 실제 예매 좌석
 				bookedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)         // 구간 겹침 조건
 					.and(bookedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
 			)
@@ -95,7 +95,7 @@ public class SeatBookingQueryRepository {
 	}
 
 	/**
-	 * 예약 ID로 해당 예약의 좌석 정보와 승객 타입을 조회 (PaymentService용)
+	 * 예매 ID로 해당 예매의 좌석 정보와 승객 타입을 조회 (PaymentService용)
 	 */
 	public List<SeatInfoProjection> findSeatInfoByBookingId(Long bookingId) {
 		return queryFactory

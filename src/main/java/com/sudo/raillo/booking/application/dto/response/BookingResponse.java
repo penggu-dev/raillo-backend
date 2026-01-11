@@ -6,13 +6,13 @@ import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "예약 정보")
+@Schema(description = "예매 정보")
 public record BookingResponse(
 
-	@Schema(description = "예약 ID", example = "1")
+	@Schema(description = "예매 ID", example = "1")
 	Long bookingId,
 
-	@Schema(description = "예약 코드", example = "202507110020301F8C")
+	@Schema(description = "예매 코드", example = "202507110020301F8C")
 	String bookingCode,
 
 	@Schema(description = "열차 번호", example = "027")
@@ -36,7 +36,7 @@ public record BookingResponse(
 	@Schema(description = "운행일", example = "2025-07-01")
 	LocalDate operationDate,
 
-	@Schema(description = "예약 좌석 정보")
+	@Schema(description = "승차권 목록")
 	List<TicketDetail> tickets
 ) {
 }

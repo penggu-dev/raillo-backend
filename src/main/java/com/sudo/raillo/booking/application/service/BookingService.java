@@ -56,7 +56,7 @@ public class BookingService {
 	private final BookingValidator bookingValidator;
 
 	/**
-	 * 주문으로부터 확정 예약을 생성
+	 * 주문으로부터 예매를 생성
 	 * @param order 주문
 	 * */
 	public void createBookingFromOrder(Order order) {
@@ -92,7 +92,7 @@ public class BookingService {
 			createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
 		});
 
-		log.info("[주문에 대한 확정 예약 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());
+		log.info("[주문에 대한 예매 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());
 	}
 
 	/***
@@ -130,10 +130,10 @@ public class BookingService {
 	}
 
 	/**
-	 * 예약을 조회하는 메서드
+	 * 예매를 조회하는 메서드
 	 * @param memberNo 회원 번호
-	 * @param bookingId 예약 ID
-	 * @return 예약
+	 * @param bookingId 예매 ID
+	 * @return 예매
 	 */
 	@Transactional(readOnly = true)
 	public BookingResponse getBooking(String memberNo, Long bookingId) {
@@ -160,22 +160,22 @@ public class BookingService {
 	public List<BookingResponse> getBookings(String memberNo, BookingTimeFilter timeFilter) {
 		Member member = getMember(memberNo);
 
-		// 예약 조회
+		// 예매 조회
 		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookings(member.getId(), timeFilter);
 		return bookingMapper.convertToBookingResponse(bookingInfos);
 	}
 
 	/**
-	 * 특정 확정 예약을 삭제하는 메서드
-	 * @param bookingId 삭제할 확정 예약의 ID
+	 * 특정 예매를 삭제하는 메서드
+	 * @param bookingId 삭제할 예매의 ID
 	 */
 	public void deleteBooking(Long bookingId) {
 		bookingRepository.deleteById(bookingId);
 	}
 
 	/**
-	 * 확정 예약과 연관된 확정 좌석 예약을 삭제하는 메서드
-	 * @param seatBookingId 삭제할 확정 좌석 예약의 ID
+	 * 예매와 연관된 좌석 예매를 삭제하는 메서드
+	 * @param seatBookingId 삭제할 좌석 예매의 ID
 	 */
 	public void deleteSeatBooking(Long seatBookingId) {
 		SeatBooking seatBooking = seatBookingRepository.findById(seatBookingId)
@@ -184,8 +184,8 @@ public class BookingService {
 	}
 
 	/**
-	 * 확정 예약과 연관된 좌석 예약을 모두 삭제하는 메서드
-	 * @param bookingId 연관된 확정 예약의 ID
+	 * 예매와 연관된 좌석 예매를 모두 삭제하는 메서드
+	 * @param bookingId 연관된 예매의 ID
 	 */
 	public void deleteSeatBookingByBookingId(Long bookingId) {
 		seatBookingRepository.deleteAllByBookingId(bookingId);

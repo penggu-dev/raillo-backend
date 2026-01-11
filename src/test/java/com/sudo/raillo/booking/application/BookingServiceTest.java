@@ -78,7 +78,7 @@ class BookingServiceTest {
 	private OrderTestHelper orderTestHelper;
 
 	@Test
-	@DisplayName("유효한 주문으로 확정 예약 생성에 성공한다")
+	@DisplayName("유효한 주문으로 예매 생성에 성공한다")
 	void createBookingFromOrder_success() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -134,7 +134,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("만료된 주문으로 예약 생성 시 예외가 발생한다")
+	@DisplayName("만료된 주문으로 예매 생성 시 예외가 발생한다")
 	void expiredOrder_createBookingFromOrder_throwException() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -148,7 +148,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("결제되지 않은 주문으로 예약 생성 시 예외가 발생한다")
+	@DisplayName("결제되지 않은 주문으로 예매 생성 시 예외가 발생한다")
 	void pendingOrder_createBookingFromOrder_throwException() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -203,7 +203,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("멤버번호와 예약 ID로 특정 예약 조회에 성공한다")
+	@DisplayName("멤버번호와 예매 ID로 특정 예매 조회에 성공한다")
 	void memberNoAndBookingId_getBooking_success() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -227,7 +227,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("올바른 멤버번호와 잘못된 예약 ID로 특정 예약 조회 시 예외를 반환한다")
+	@DisplayName("올바른 멤버번호와 잘못된 예매 ID로 특정 예매 조회 시 예외를 반환한다")
 	void memberNoAndInvalidBookingId_getBooking_throwException() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -243,7 +243,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 회원으로 예약 조회 시 예외가 발생한다")
+	@DisplayName("존재하지 않는 회원으로 예매 조회 시 예외가 발생한다")
 	void getBooking_memberNotFound_fail() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -317,7 +317,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 회원으로 예약 목록 조회 시 예외가 발생한다")
+	@DisplayName("존재하지 않는 회원으로 예매 목록 조회 시 예외가 발생한다")
 	void getBookings_memberNotFound_fail() {
 		// given
 		String wrongMemberNo = "wrongMemberNo";
@@ -329,7 +329,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("올바른 예약 삭제 요청 DTO로 예약 삭제에 성공한다")
+	@DisplayName("올바른 예매 삭제 요청 DTO로 예매 삭제에 성공한다")
 	void validRequestDto_deleteBooking_success() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -347,7 +347,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("좌석 예약 ID로 좌석 예약 삭제에 성공한다")
+	@DisplayName("좌석 예매 ID로 예매 좌석 삭제에 성공한다")
 	void seatBookingId_deleteSeatBooking_success() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -373,7 +373,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 좌석 예약 삭제 시 예외가 발생한다")
+	@DisplayName("존재하지 않는 예매 좌석 삭제 시 예외가 발생한다")
 	void deleteSeatBooking_notFound_fail() {
 		// given
 		Long wrongSeatBookingId = 9999L;
@@ -385,7 +385,7 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("예약 ID로 좌석 예약 삭제에 성공한다")
+	@DisplayName("예매 ID로 예매 좌석 삭제에 성공한다")
 	void bookingId_deleteSeatBooking_success() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());

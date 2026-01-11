@@ -51,7 +51,7 @@ public class SeatAvailabilityCalculator {
 	 */
 	public SeatCalculationResult calculateRemainingSeats(Map<CarType, Integer> totalSeats,
 		List<SeatBookingInfo> overlappingBookings) {
-		// 예약된 좌석 수 계산
+		// 예매된 좌석 수 계산
 		Map<CarType, Long> bookedSeats = overlappingBookings.stream()
 			.collect(Collectors.groupingBy(SeatBookingInfo::carType, Collectors.counting()));
 

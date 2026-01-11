@@ -38,7 +38,7 @@ public class Booking extends BaseEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "booking_id")
-	@Comment("예약 ID")
+	@Comment("예매 ID")
 	private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
@@ -69,7 +69,7 @@ public class Booking extends BaseEntity {
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	@Comment("예약 상태")
+	@Comment("예매 상태")
 	private BookingStatus bookingStatus;
 
 	@Column(nullable = false)
