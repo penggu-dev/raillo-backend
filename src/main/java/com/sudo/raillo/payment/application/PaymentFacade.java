@@ -2,6 +2,7 @@ package com.sudo.raillo.payment.application;
 
 import java.util.List;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,6 +10,9 @@ import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.global.event.application.OutboxEventPublisher;
+import com.sudo.raillo.global.event.application.dto.PaymentCompletedEvent;
+import com.sudo.raillo.global.event.domain.OutboxEvent;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberService;
 import com.sudo.raillo.member.domain.Member;
@@ -39,10 +43,11 @@ public class PaymentFacade {
 	private final OrderService orderService;
 	private final MemberService memberService;
 	private final PendingBookingService pendingBookingService;
-	private final BookingService bookingService;
 	private final TossPaymentClient tossPaymentClient;
 	private final BookingValidator bookingValidator;
 	private final PaymentValidator paymentValidator;
+	private final OutboxEventPublisher outboxEventPublisher;
+	private final ApplicationEventPublisher applicationEventPublisher;
 
 	/**
 	 * 결제 준비 처리
@@ -133,13 +138,22 @@ public class PaymentFacade {
 		// 6. PaymentMethod 매핑
 		PaymentMethod paymentMethod = mapToPaymentMethod(tossResponse.method());
 
-		// 7. Order 상태 변경 (PENDING -> ORDERED)
-		order.completePayment();
+		// 7. Order 상태 변경 및 Booking 생성 이벤트 발행
+		OutboxEvent event = outboxEventPublisher.publish(
+			"Payment",
+			payment.getId(),
+			new PaymentCompletedEvent(
+				order.getId(),
+				payment.getId(),
+				request.paymentKey(),
+				request.amount()
+			)
+		);
 
-		// 8. Booking & SeatBooking 생성 (BOOKED)
-		bookingService.createBookingFromOrder(order);
+		// 트랜잭션 커밋 후 즉시 처리 될 수 있도록 spring event 발행
+		applicationEventPublisher.publishEvent(event);
 
-		// 9. Payment 승인 처리 (PENDING -> PAID, paymentMethod, paidAt 저장)
+		// 8. Payment 승인 처리 (PENDING -> PAID, paymentMethod, paidAt 저장)
 		payment.approve(paymentMethod);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
