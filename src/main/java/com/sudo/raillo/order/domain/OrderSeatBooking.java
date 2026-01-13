@@ -12,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import java.math.BigDecimal;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -45,15 +46,21 @@ public class OrderSeatBooking extends BaseEntity {
 	@Comment("승객 유형")
 	private PassengerType passengerType;
 
+	@Column(nullable = false)
+	@Comment("좌석별 운임")
+	private BigDecimal fare;
+
 	public static OrderSeatBooking create(
 		OrderBooking orderBooking,
 		Long seatId,
-		PassengerType passengerType
+		PassengerType passengerType,
+		BigDecimal fare
 	) {
 		OrderSeatBooking orderSeatBooking = new OrderSeatBooking();
 		orderSeatBooking.orderBooking = orderBooking;
 		orderSeatBooking.seatId = seatId;
 		orderSeatBooking.passengerType = passengerType;
+		orderSeatBooking.fare = fare;
 		return orderSeatBooking;
 	}
 }
