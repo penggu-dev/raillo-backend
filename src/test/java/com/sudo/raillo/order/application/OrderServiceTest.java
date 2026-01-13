@@ -132,7 +132,6 @@ class OrderServiceTest {
 			.withDepartureStopId(result.scheduleStops().get(0).getId())
 			.withArrivalStopId(result.scheduleStops().get(1).getId())
 			.withPendingSeatBookings(List.of(new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)))
-			.withTotalFare(BigDecimal.valueOf(20000))
 			.build();
 
 		// when
@@ -146,7 +145,8 @@ class OrderServiceTest {
 		Order savedOrder = orders.get(0);
 		assertThat(savedOrder.getMember().getId()).isEqualTo(member.getId());
 		assertThat(savedOrder.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
-		assertThat(savedOrder.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(20000));
+		// 운임 계산: 성인(50000×1.0) = 50,000원
+		assertThat(savedOrder.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(50000));
 
 		// OrderBooking 검증
 		List<OrderBooking> orderBookings = orderBookingRepository.findAll();
@@ -180,7 +180,6 @@ class OrderServiceTest {
 			.withDepartureStopId(result.scheduleStops().get(0).getId())
 			.withArrivalStopId(result.scheduleStops().get(1).getId())
 			.withPendingSeatBookings(List.of(new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)))
-			.withTotalFare(BigDecimal.valueOf(20000))
 			.build();
 
 		PendingBooking pendingBooking2 = PendingBookingFixture.builder()
@@ -189,7 +188,6 @@ class OrderServiceTest {
 			.withDepartureStopId(result.scheduleStops().get(0).getId())
 			.withArrivalStopId(result.scheduleStops().get(1).getId())
 			.withPendingSeatBookings(List.of(new PendingSeatBooking(seats.get(1).getId(), PassengerType.SENIOR)))
-			.withTotalFare(BigDecimal.valueOf(30000))
 			.build();
 
 		List<PendingBooking> pendingBookings = List.of(pendingBooking1, pendingBooking2);
@@ -202,7 +200,8 @@ class OrderServiceTest {
 		assertThat(orders).hasSize(1);
 
 		Order savedOrder = orders.get(0);
-		assertThat(savedOrder.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(50000));
+		// 운임 계산: 성인(50000×1.0) + 경로(50000×0.7) = 85,000원
+		assertThat(savedOrder.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(85000));
 
 		List<OrderBooking> orderBookings = orderBookingRepository.findAll();
 		assertThat(orderBookings).hasSize(2);

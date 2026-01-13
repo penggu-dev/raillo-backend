@@ -133,7 +133,6 @@ class PaymentFacadeTest {
 				new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT),
 				new PendingSeatBooking(seatIds.get(1), PassengerType.CHILD)
 			))
-			.withTotalFare(BigDecimal.valueOf(30000))
 			.build();
 		bookingRedisRepository.savePendingBooking(pendingBooking1);
 
@@ -147,7 +146,6 @@ class PaymentFacadeTest {
 				new PendingSeatBooking(seatIds.get(2), PassengerType.ADULT),
 				new PendingSeatBooking(seatIds.get(3), PassengerType.SENIOR)
 			))
-			.withTotalFare(BigDecimal.valueOf(20000))
 			.build();
 		bookingRedisRepository.savePendingBooking(pendingBooking2);
 
@@ -159,10 +157,12 @@ class PaymentFacadeTest {
 		PaymentPrepareResponse response = paymentFacade.preparePayment(request, memberNo);
 
 		// then
+		// 실제 운임 계산: 성인(50000×1.0) + 어린이(50000×0.6) + 성인(50000×1.0) + 경로(50000×0.7) = 165,000원
+		BigDecimal expectedAmount = BigDecimal.valueOf(50000 + 30000 + 50000 + 35000);
 		Order order = orderRepository.findByOrderCode(response.orderId()).get();
 		assertThat(response.orderId()).isEqualTo(order.getOrderCode());
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
-		assertThat(response.amount()).isEqualByComparingTo(BigDecimal.valueOf(50000));
+		assertThat(response.amount()).isEqualByComparingTo(expectedAmount);
 	}
 
 	@Test
