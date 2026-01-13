@@ -1,5 +1,6 @@
 package com.sudo.raillo.booking.domain;
 
+import java.math.BigDecimal;
 import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -62,6 +63,10 @@ public class Ticket extends BaseEntity {
 
 	@Comment("승차권 번호")
 	private String ticketNumber;
+
+	@Column(nullable = false)
+	@Comment("운임")
+	private BigDecimal fare;
 
 	public void cancel() {
 		this.ticketStatus = TicketStatus.CANCELLED;
