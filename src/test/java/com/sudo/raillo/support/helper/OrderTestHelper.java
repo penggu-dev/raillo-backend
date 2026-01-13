@@ -123,12 +123,24 @@ public class OrderTestHelper {
 			return List.of();
 		}
 
+		Long departureStationId = builder.departureScheduleStop.getStation().getId();
+		Long arrivalStationId = builder.arrivalScheduleStop.getStation().getId();
+
 		List<OrderSeatBooking> toSave = builder.seatWithPassengerTypes.stream()
-			.map(sp -> OrderSeatBooking.create(
-				orderBooking,
-				sp.seat().getId(),
-				sp.passengerType()
-			))
+			.map(sp -> {
+				BigDecimal fare = fareCalculationService.calculateFare(
+					departureStationId,
+					arrivalStationId,
+					sp.passengerType(),
+					sp.seat().getTrainCar().getCarType()
+				);
+				return OrderSeatBooking.create(
+					orderBooking,
+					sp.seat().getId(),
+					sp.passengerType(),
+					fare
+				);
+			})
 			.toList();
 
 		return orderSeatBookingRepository.saveAll(toSave);
@@ -276,23 +288,13 @@ public class OrderTestHelper {
 
 			setDefaultStops();
 
-			Long departureStationId = departureScheduleStop.getStation().getId();
-			Long arrivalStationId = arrivalScheduleStop.getStation().getId();
-
-			// CarType별로 좌석을 그룹화
-			Map<CarType, List<PassengerType>> passengerTypesByCarType = seatWithPassengerTypes.stream()
-				.collect(Collectors.groupingBy(
-					sp -> sp.seat().getTrainCar().getCarType(),
-					Collectors.mapping(SeatWithPassengerType::passengerType, Collectors.toList())
-				));
-
 			// 각 CarType별로 운임 계산 후 합산
-			return passengerTypesByCarType.entrySet().stream()
-				.map(entry -> fareCalculationService.calculateTotalFare(
-					departureStationId,
-					arrivalStationId,
-					entry.getValue(),
-					entry.getKey()
+			return seatWithPassengerTypes.stream()
+				.map(sp -> fareCalculationService.calculateFare(
+					departureScheduleStop.getStation().getId(),
+					arrivalScheduleStop.getStation().getId(),
+					sp.passengerType,
+					sp.seat().getTrainCar().getCarType()
 				))
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 		}

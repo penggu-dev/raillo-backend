@@ -160,14 +160,25 @@ public class BookingTestHelper {
 			return List.of();
 		}
 
+		Long departureStationId = builder.departureScheduleStop.getStation().getId();
+		Long arrivalStationId = builder.arrivalScheduleStop.getStation().getId();
+
 		List<Ticket> tickets = builder.seatWithPassengerTypes.stream()
-			.map(sp -> Ticket.builder()
-				.booking(booking)
-				.seat(sp.seat)
-				.passengerType(sp.passengerType)
-				.ticketStatus(TicketStatus.ISSUED)
-				.build()
-			).toList();
+			.map(sp -> {
+				BigDecimal fare = fareCalculationService.calculateFare(
+					departureStationId,
+					arrivalStationId,
+					sp.passengerType,
+					sp.seat.getTrainCar().getCarType()
+				);
+				return Ticket.builder()
+					.booking(booking)
+					.seat(sp.seat)
+					.passengerType(sp.passengerType)
+					.fare(fare)
+					.ticketStatus(TicketStatus.ISSUED)
+					.build();
+			}).toList();
 
 		return ticketRepository.saveAll(tickets);
 	}
@@ -285,12 +296,14 @@ public class BookingTestHelper {
 
 		private void setOrder() {
 			if (order == null) {
-				BigDecimal totalAmount = fareCalculationService.calculateTotalFare(
-					departureScheduleStop.getStation().getId(),
-					arrivalScheduleStop.getStation().getId(),
-					seatWithPassengerTypes.stream().map(SeatWithPassengerType::passengerType).toList(),
-					seatWithPassengerTypes.get(0).seat.getTrainCar().getCarType()
-				);
+				BigDecimal totalAmount = seatWithPassengerTypes.stream()
+					.map(sp -> fareCalculationService.calculateFare(
+						departureScheduleStop.getStation().getId(),
+						arrivalScheduleStop.getStation().getId(),
+						sp.passengerType,
+						sp.seat().getTrainCar().getCarType()
+					))
+					.reduce(BigDecimal.ZERO, BigDecimal::add);
 
 				order = OrderFixture.builder()
 					.withMember(member)

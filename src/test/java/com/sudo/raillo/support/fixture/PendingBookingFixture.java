@@ -18,7 +18,7 @@ public class PendingBookingFixture {
 	private Long departureStopId = 1L;
 	private Long arrivalStopId = 2L;
 	private List<PendingSeatBooking> pendingSeatBookings = List.of(new PendingSeatBooking(1L, PassengerType.ADULT));
-	private BigDecimal totalFare = BigDecimal.valueOf(10000);
+	private BigDecimal totalFare = BigDecimal.ZERO;
 
 	public static PendingBooking create() {
 		return builder().build();

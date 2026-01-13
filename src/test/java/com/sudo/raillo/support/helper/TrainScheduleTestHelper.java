@@ -93,6 +93,9 @@ public class TrainScheduleTestHelper {
 		Station departure = getOrCreateStation(from);
 		Station arrival = getOrCreateStation(to);
 
+		stationFareRepository.findByDepartureStationIdAndArrivalStationId(departure.getId(), arrival.getId())
+			.ifPresent(stationFareRepository::delete);
+
 		StationFare fare = StationFareFixture.create(departure, arrival, standardFare, firstClassFare);
 		stationFareRepository.save(fare);
 	}
