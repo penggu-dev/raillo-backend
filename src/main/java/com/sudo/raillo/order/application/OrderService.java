@@ -1,31 +1,38 @@
 package com.sudo.raillo.order.application;
 
+import com.sudo.raillo.booking.application.service.FareCalculationService;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
+import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
+import com.sudo.raillo.order.application.dto.OrderBookingInfo;
+import com.sudo.raillo.order.application.dto.OrderSeatBookingInfo;
+import com.sudo.raillo.order.application.validator.OrderValidator;
+import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.order.domain.OrderBooking;
 import com.sudo.raillo.order.domain.OrderSeatBooking;
+import com.sudo.raillo.order.exception.OrderError;
 import com.sudo.raillo.order.infrastructure.OrderBookingRepository;
+import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
+import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 import java.math.BigDecimal;
 import java.util.List;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.order.exception.OrderError;
-import com.sudo.raillo.order.infrastructure.OrderRepository;
-
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -38,7 +45,10 @@ public class OrderService {
 	private final OrderSeatBookingRepository orderSeatBookingRepository;
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
+	private final SeatRepository seatRepository;
 	private final MemberRepository memberRepository;
+	private final FareCalculationService fareCalculationService;
+	private final OrderValidator orderValidator;
 
 	/**
 	 * OrderCode로 Order 조회
@@ -68,70 +78,162 @@ public class OrderService {
 	 * @return 생성된 Order
 	 */
 	public Order createOrder(String memberNo, List<PendingBooking> pendingBookings) {
-		validatePendingBookingsNotEmpty(pendingBookings);
+		orderValidator.validatePendingBookingsNotEmpty(pendingBookings);
+
 		Member member = getMember(memberNo);
-		BigDecimal totalAmount = calculateTotalAmount(pendingBookings);
+
+		// 1. 연관 엔티티 일괄 조회 (N+1 방지)
+		Map<Long, Seat> seatMap = getSeatMap(pendingBookings);
+		Map<Long, TrainSchedule> scheduleMap = getScheduleMap(pendingBookings);
+		Map<Long, ScheduleStop> stopMap = getStopMap(pendingBookings);
+
+		// 2. 운임 계산 정보 생성
+		List<OrderBookingInfo> orderBookingInfos = createOrderBookingInfos(pendingBookings, seatMap, stopMap);
+
+		// 3. 총 주문 금액 계산
+		BigDecimal totalAmount = orderBookingInfos.stream()
+			.map(OrderBookingInfo::totalFare)
+			.reduce(BigDecimal.ZERO, BigDecimal::add);
+
+		// 4. Order 생성 및 저장
 		Order order = Order.create(member, totalAmount);
-		Order savedOrder = orderRepository.save(order);
+		orderRepository.save(order);
 
-		pendingBookings.forEach(pendingBooking -> createOrderBooking(order, pendingBooking));
-		log.info("[주문 생성] orderId={}, memberNo={}, totalAmount={}", savedOrder.getId(), memberNo, totalAmount);
-
-		return savedOrder;
+		// 5. OrderBooking, OrderSeatBooking 생성
+		orderBookingInfos.forEach(info -> createOrderBooking(order, info, scheduleMap, stopMap));
+		log.info("[주문 생성] orderId={}, memberNo={}, totalAmount={}", order.getId(), memberNo, totalAmount);
+		return order;
 	}
 
-	private void createOrderBooking(Order order, PendingBooking pendingBooking) {
-		TrainSchedule trainSchedule = getTrainSchedule(pendingBooking.getTrainScheduleId());
-		ScheduleStop departureStop = getScheduleStop(pendingBooking.getDepartureStopId());
-		ScheduleStop arrivalStop = getScheduleStop(pendingBooking.getArrivalStopId());
-
+	private void createOrderBooking(
+		Order order,
+		OrderBookingInfo orderBookingInfo,
+		Map<Long, TrainSchedule> scheduleMap,
+		Map<Long, ScheduleStop> stopMap
+	) {
 		OrderBooking orderBooking = OrderBooking.create(
 			order,
-			trainSchedule,
-			departureStop,
-			arrivalStop,
-			pendingBooking.getTotalFare()
+			scheduleMap.get(orderBookingInfo.trainScheduleId()),
+			stopMap.get(orderBookingInfo.departureStopId()),
+			stopMap.get(orderBookingInfo.arrivalStopId()),
+			orderBookingInfo.totalFare()
 		);
 		orderBookingRepository.save(orderBooking);
-
-		pendingBooking.getPendingSeatBookings()
-			.forEach(seatBooking -> createOrderSeatBooking(orderBooking, seatBooking));
+		createOrderSeatBookings(orderBookingInfo, orderBooking);
 	}
 
-	private void createOrderSeatBooking(OrderBooking orderBooking, PendingSeatBooking pendingSeatBooking) {
-		OrderSeatBooking orderSeatBooking = OrderSeatBooking.create(
-			orderBooking,
-			pendingSeatBooking.seatId(),
-			pendingSeatBooking.passengerType()
-		);
-		orderSeatBookingRepository.save(orderSeatBooking);
+	private void createOrderSeatBookings(OrderBookingInfo orderBookingInfo, OrderBooking orderBooking) {
+		orderBookingInfo.seatInfos().stream()
+			.map(seatInfo -> OrderSeatBooking.create(
+				orderBooking,
+				seatInfo.seatId(),
+				seatInfo.passengerType(),
+				seatInfo.fare()
+			)).forEach(orderSeatBookingRepository::save);
 	}
 
-	private void validatePendingBookingsNotEmpty(List<PendingBooking> pendingBookings) {
-		if (pendingBookings == null || pendingBookings.isEmpty()) {
-			log.error("[주문 검증 실패] 빈 예약 리스트로 주문 시도");
-			throw new BusinessException(OrderError.EMPTY_PENDING_BOOKINGS);
+	private Map<Long, Seat> getSeatMap(List<PendingBooking> pendingBookings) {
+		List<Long> seatIds = pendingBookings.stream()
+			.flatMap(pb -> pb.getPendingSeatBookings().stream())
+			.map(PendingSeatBooking::seatId)
+			.toList();
+
+		List<Seat> seats = seatRepository.findAllByIdWithTrainCar(seatIds);
+
+		if (seats.size() != seatIds.size()) {
+			throw new BusinessException(TrainErrorCode.SEAT_NOT_FOUND);
 		}
+
+		return seats.stream().collect(Collectors.toMap(Seat::getId, seat -> seat));
 	}
 
-	private BigDecimal calculateTotalAmount(List<PendingBooking> pendingBookings) {
+	private Map<Long, TrainSchedule> getScheduleMap(List<PendingBooking> pendingBookings) {
+		Set<Long> scheduleIds = pendingBookings.stream()
+			.map(PendingBooking::getTrainScheduleId)
+			.collect(Collectors.toSet());
+
+		List<TrainSchedule> schedules = trainScheduleRepository.findAllByIdWithTrain(scheduleIds);
+
+		if (schedules.size() != scheduleIds.size()) {
+			throw new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_DETAIL_NOT_FOUND);
+		}
+
+		return schedules.stream().collect(Collectors.toMap(TrainSchedule::getId, s -> s));
+	}
+
+	private Map<Long, ScheduleStop> getStopMap(List<PendingBooking> pendingBookings) {
+		Set<Long> stopIds = pendingBookings.stream()
+			.flatMap(pb -> java.util.stream.Stream.of(pb.getDepartureStopId(), pb.getArrivalStopId()))
+			.collect(Collectors.toSet());
+
+		List<ScheduleStop> stops = scheduleStopRepository.findAllByIdWithStation(stopIds);
+
+		if (stops.size() != stopIds.size()) {
+			throw new BusinessException(TrainErrorCode.STATION_NOT_FOUND);
+		}
+
+		return stops.stream().collect(Collectors.toMap(ScheduleStop::getId, s -> s));
+	}
+
+	private List<OrderBookingInfo> createOrderBookingInfos(
+		List<PendingBooking> pendingBookings,
+		Map<Long, Seat> seatMap,
+		Map<Long, ScheduleStop> stopMap
+	) {
 		return pendingBookings.stream()
-			.map(PendingBooking::getTotalFare)
+			.map(booking -> createOrderBookingInfo(booking, seatMap, stopMap))
+			.toList();
+	}
+
+	private OrderBookingInfo createOrderBookingInfo(
+		PendingBooking pendingBooking,
+		Map<Long, Seat> seatMap,
+		Map<Long, ScheduleStop> stopMap
+	) {
+		ScheduleStop departureStop = stopMap.get(pendingBooking.getDepartureStopId());
+		ScheduleStop arrivalStop = stopMap.get(pendingBooking.getArrivalStopId());
+
+		List<OrderSeatBookingInfo> seatInfos = calculateSeatFares(
+			pendingBooking.getPendingSeatBookings(),
+			departureStop.getStation().getId(),
+			arrivalStop.getStation().getId(),
+			seatMap
+		);
+
+		BigDecimal totalFare = seatInfos.stream()
+			.map(OrderSeatBookingInfo::fare)
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
+
+		return new OrderBookingInfo(
+			pendingBooking.getTrainScheduleId(),
+			pendingBooking.getDepartureStopId(),
+			pendingBooking.getArrivalStopId(),
+			totalFare,
+			seatInfos
+		);
+	}
+
+	private List<OrderSeatBookingInfo> calculateSeatFares(
+		List<PendingSeatBooking> pendingSeatBookings,
+		Long departureStationId,
+		Long arrivalStationId,
+		Map<Long, Seat> seatMap
+	) {
+		return pendingSeatBookings.stream()
+			.map(seatBooking -> {
+				Seat seat = seatMap.get(seatBooking.seatId());
+				BigDecimal fare = fareCalculationService.calculateFare(
+					departureStationId,
+					arrivalStationId,
+					seatBooking.passengerType(),
+					seat.getTrainCar().getCarType()
+				);
+				return new OrderSeatBookingInfo(seatBooking.seatId(), seatBooking.passengerType(), fare);
+			}).toList();
 	}
 
 	private Member getMember(String memberNo) {
 		return memberRepository.findByMemberNo(memberNo)
 			.orElseThrow(() -> new BusinessException(MemberError.USER_NOT_FOUND));
-	}
-
-	private TrainSchedule getTrainSchedule(Long trainScheduleId) {
-		return trainScheduleRepository.findById(trainScheduleId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_DETAIL_NOT_FOUND));
-	}
-
-	private ScheduleStop getScheduleStop(Long scheduleStopId) {
-		return scheduleStopRepository.findById(scheduleStopId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
 	}
 }
