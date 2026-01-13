@@ -158,7 +158,7 @@ public class OrderService {
 			throw new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_DETAIL_NOT_FOUND);
 		}
 
-		return schedules.stream().collect(Collectors.toMap(TrainSchedule::getId, s -> s));
+		return schedules.stream().collect(Collectors.toMap(TrainSchedule::getId, schedule -> schedule));
 	}
 
 	private Map<Long, ScheduleStop> getStopMap(List<PendingBooking> pendingBookings) {
@@ -172,7 +172,7 @@ public class OrderService {
 			throw new BusinessException(TrainErrorCode.STATION_NOT_FOUND);
 		}
 
-		return stops.stream().collect(Collectors.toMap(ScheduleStop::getId, s -> s));
+		return stops.stream().collect(Collectors.toMap(ScheduleStop::getId, scheduleStop -> scheduleStop));
 	}
 
 	private List<OrderBookingInfo> createOrderBookingInfos(
