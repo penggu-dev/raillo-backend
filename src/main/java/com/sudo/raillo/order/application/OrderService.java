@@ -1,6 +1,6 @@
 package com.sudo.raillo.order.application;
 
-import com.sudo.raillo.booking.application.service.FareCalculationService;
+import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -47,7 +47,7 @@ public class OrderService {
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final SeatRepository seatRepository;
 	private final MemberRepository memberRepository;
-	private final FareCalculationService fareCalculationService;
+	private final FareCalculator fareCalculator;
 	private final OrderValidator orderValidator;
 
 	/**
@@ -222,7 +222,7 @@ public class OrderService {
 		return pendingSeatBookings.stream()
 			.map(seatBooking -> {
 				Seat seat = seatMap.get(seatBooking.seatId());
-				BigDecimal fare = fareCalculationService.calculateFare(
+				BigDecimal fare = fareCalculator.calculateFare(
 					departureStationId,
 					arrivalStationId,
 					seatBooking.passengerType(),

@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
-import com.sudo.raillo.booking.application.service.FareCalculationService;
+import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
@@ -25,8 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 public class PendingBookingFacade {
 
 	private final PendingBookingService pendingBookingService;
-	private final FareCalculationService fareCalculationService;
 	private final TrainSeatQueryService trainSeatQueryService;
+	private final FareCalculator fareCalculator;
 	private final BookingValidator bookingValidator;
 
 	public PendingBookingCreateResponse createPendingBooking(PendingBookingCreateRequest request, String memberNo) {
@@ -35,7 +35,7 @@ public class PendingBookingFacade {
 		CarType carType = bookingValidator.validateSeatIdsAndGetSingleCarType(carTypes);
 		log.debug("[좌석 검증 통과] seatIds={}", request.seatIds());
 
-		BigDecimal totalFare = fareCalculationService.calculateTotalFare(
+		BigDecimal totalFare = fareCalculator.calculateTotalFare(
 			request.departureStationId(),
 			request.arrivalStationId(),
 			request.passengerTypes(),

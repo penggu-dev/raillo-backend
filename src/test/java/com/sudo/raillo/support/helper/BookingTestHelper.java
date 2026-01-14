@@ -1,6 +1,6 @@
 package com.sudo.raillo.support.helper;
 
-import com.sudo.raillo.booking.application.service.FareCalculationService;
+import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
@@ -40,7 +40,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingTestHelper {
 
 	private final TrainTestHelper trainTestHelper;
-	private final FareCalculationService fareCalculationService;
 	private final OrderSeatBookingRepository orderSeatBookingRepository;
 	private final BookingRepository bookingRepository;
 	private final OrderRepository orderRepository;
@@ -48,6 +47,7 @@ public class BookingTestHelper {
 	private final SeatRepository seatRepository;
 	private final TicketRepository ticketRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
+	private final FareCalculator fareCalculator;
 
 	@Lazy
 	@Autowired
@@ -165,7 +165,7 @@ public class BookingTestHelper {
 
 		List<Ticket> tickets = builder.seatWithPassengerTypes.stream()
 			.map(sp -> {
-				BigDecimal fare = fareCalculationService.calculateFare(
+				BigDecimal fare = fareCalculator.calculateFare(
 					departureStationId,
 					arrivalStationId,
 					sp.passengerType,
@@ -297,7 +297,7 @@ public class BookingTestHelper {
 		private void setOrder() {
 			if (order == null) {
 				BigDecimal totalAmount = seatWithPassengerTypes.stream()
-					.map(sp -> fareCalculationService.calculateFare(
+					.map(sp -> fareCalculator.calculateFare(
 						departureScheduleStop.getStation().getId(),
 						arrivalScheduleStop.getStation().getId(),
 						sp.passengerType,

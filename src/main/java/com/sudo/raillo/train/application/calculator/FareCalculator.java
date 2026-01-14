@@ -1,4 +1,4 @@
-package com.sudo.raillo.booking.application.service;
+package com.sudo.raillo.train.application.calculator;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class FareCalculationService {
+public class FareCalculator {
 
 	private final StationFareRepository stationFareRepository;
 
