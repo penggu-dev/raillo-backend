@@ -28,6 +28,7 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
+import java.math.BigDecimal;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,7 +84,7 @@ class TicketServiceTest {
 			.build();
 
 		// when
-		ticketService.createTicket(bookingResult.booking(), seats.get(0), PassengerType.CHILD);
+		ticketService.createTicket(bookingResult.booking(), seats.get(0), PassengerType.CHILD, BigDecimal.ZERO);
 
 		// then
 		List<Ticket> result = ticketRepository.findAll();
@@ -158,7 +159,7 @@ class TicketServiceTest {
 		assertThat(response.operationDate()).isEqualTo(trainScheduleResult.trainSchedule().getOperationDate());
 		assertThat(response.paymentMethod()).isEqualTo(PaymentMethod.CREDIT_CARD);
 		assertThat(response.paymentKey()).isEqualTo("toss-payment-key");
-		assertThat(response.amount()).isNotNull();
+		assertThat(response.amount()).isEqualByComparingTo(BigDecimal.valueOf(50000));
 		assertThat(response.passengerType()).isEqualTo(PassengerType.ADULT);
 	}
 

@@ -1,6 +1,6 @@
 package com.sudo.raillo.support.helper;
 
-import com.sudo.raillo.booking.application.service.FareCalculationService;
+import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
@@ -16,8 +16,6 @@ import com.sudo.raillo.train.domain.type.CarType;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -30,10 +28,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class OrderTestHelper {
 
 	private final TrainTestHelper trainTestHelper;
-	private final FareCalculationService fareCalculationService;
 	private final OrderRepository orderRepository;
 	private final OrderBookingRepository orderBookingRepository;
 	private final OrderSeatBookingRepository orderSeatBookingRepository;
+	private final FareCalculator fareCalculator;
 
 	@Lazy
 	@Autowired
@@ -123,12 +121,24 @@ public class OrderTestHelper {
 			return List.of();
 		}
 
+		Long departureStationId = builder.departureScheduleStop.getStation().getId();
+		Long arrivalStationId = builder.arrivalScheduleStop.getStation().getId();
+
 		List<OrderSeatBooking> toSave = builder.seatWithPassengerTypes.stream()
-			.map(sp -> OrderSeatBooking.create(
-				orderBooking,
-				sp.seat().getId(),
-				sp.passengerType()
-			))
+			.map(sp -> {
+				BigDecimal fare = fareCalculator.calculateFare(
+					departureStationId,
+					arrivalStationId,
+					sp.passengerType(),
+					sp.seat().getTrainCar().getCarType()
+				);
+				return OrderSeatBooking.create(
+					orderBooking,
+					sp.seat().getId(),
+					sp.passengerType(),
+					fare
+				);
+			})
 			.toList();
 
 		return orderSeatBookingRepository.saveAll(toSave);
@@ -276,23 +286,13 @@ public class OrderTestHelper {
 
 			setDefaultStops();
 
-			Long departureStationId = departureScheduleStop.getStation().getId();
-			Long arrivalStationId = arrivalScheduleStop.getStation().getId();
-
-			// CarType별로 좌석을 그룹화
-			Map<CarType, List<PassengerType>> passengerTypesByCarType = seatWithPassengerTypes.stream()
-				.collect(Collectors.groupingBy(
-					sp -> sp.seat().getTrainCar().getCarType(),
-					Collectors.mapping(SeatWithPassengerType::passengerType, Collectors.toList())
-				));
-
 			// 각 CarType별로 운임 계산 후 합산
-			return passengerTypesByCarType.entrySet().stream()
-				.map(entry -> fareCalculationService.calculateTotalFare(
-					departureStationId,
-					arrivalStationId,
-					entry.getValue(),
-					entry.getKey()
+			return seatWithPassengerTypes.stream()
+				.map(sp -> fareCalculator.calculateFare(
+					departureScheduleStop.getStation().getId(),
+					arrivalScheduleStop.getStation().getId(),
+					sp.passengerType,
+					sp.seat().getTrainCar().getCarType()
 				))
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 		}

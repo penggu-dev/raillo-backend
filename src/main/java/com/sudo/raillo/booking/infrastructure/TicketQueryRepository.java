@@ -52,7 +52,7 @@ public class TicketQueryRepository {
 				payment.paymentMethod,
 				payment.paidAt,
 				payment.paymentKey,
-				payment.amount
+				ticket.fare
 			))
 			.from(ticket)
 			.join(ticket.booking, booking)

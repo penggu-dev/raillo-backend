@@ -1,9 +1,8 @@
-package com.sudo.raillo.booking.application;
+package com.sudo.raillo.train.application.calculator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sudo.raillo.booking.application.service.FareCalculationService;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.support.annotation.ServiceTest;
@@ -22,13 +21,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
-class FareCalculationServiceTest {
+class FareCalculatorTest {
 
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
 
 	@Autowired
-	private FareCalculationService fareCalculationService;
+	private FareCalculator fareCalculator;
 
 	@DisplayName("일반석 승객 유형별 할인율이 적용된 총 운임을 계산한다")
 	@ParameterizedTest(name = "{index}. {0} = {2}원")
@@ -49,7 +48,7 @@ class FareCalculationServiceTest {
 		);
 
 		// when
-		BigDecimal totalFare = fareCalculationService.calculateTotalFare(
+		BigDecimal totalFare = fareCalculator.calculateTotalFare(
 			seoul.getId(),
 			busan.getId(),
 			passengerTypes,
@@ -79,7 +78,7 @@ class FareCalculationServiceTest {
 		);
 
 		// when
-		BigDecimal totalFare = fareCalculationService.calculateTotalFare(
+		BigDecimal totalFare = fareCalculator.calculateTotalFare(
 			seoul.getId(),
 			busan.getId(),
 			passengerTypes,
@@ -99,7 +98,7 @@ class FareCalculationServiceTest {
 		List<PassengerType> passengerTypes = List.of(PassengerType.ADULT);
 
 		// when & then
-		assertThatThrownBy(() -> fareCalculationService.calculateTotalFare(
+		assertThatThrownBy(() -> fareCalculator.calculateTotalFare(
 			seoul.getId(),
 			daejeon.getId(),
 			passengerTypes,

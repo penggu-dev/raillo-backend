@@ -1,6 +1,6 @@
 package com.sudo.raillo.support.helper;
 
-import com.sudo.raillo.booking.application.service.FareCalculationService;
+import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
@@ -40,7 +40,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingTestHelper {
 
 	private final TrainTestHelper trainTestHelper;
-	private final FareCalculationService fareCalculationService;
 	private final OrderSeatBookingRepository orderSeatBookingRepository;
 	private final BookingRepository bookingRepository;
 	private final OrderRepository orderRepository;
@@ -48,6 +47,7 @@ public class BookingTestHelper {
 	private final SeatRepository seatRepository;
 	private final TicketRepository ticketRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
+	private final FareCalculator fareCalculator;
 
 	@Lazy
 	@Autowired
@@ -160,14 +160,25 @@ public class BookingTestHelper {
 			return List.of();
 		}
 
+		Long departureStationId = builder.departureScheduleStop.getStation().getId();
+		Long arrivalStationId = builder.arrivalScheduleStop.getStation().getId();
+
 		List<Ticket> tickets = builder.seatWithPassengerTypes.stream()
-			.map(sp -> Ticket.builder()
-				.booking(booking)
-				.seat(sp.seat)
-				.passengerType(sp.passengerType)
-				.ticketStatus(TicketStatus.ISSUED)
-				.build()
-			).toList();
+			.map(sp -> {
+				BigDecimal fare = fareCalculator.calculateFare(
+					departureStationId,
+					arrivalStationId,
+					sp.passengerType,
+					sp.seat.getTrainCar().getCarType()
+				);
+				return Ticket.builder()
+					.booking(booking)
+					.seat(sp.seat)
+					.passengerType(sp.passengerType)
+					.fare(fare)
+					.ticketStatus(TicketStatus.ISSUED)
+					.build();
+			}).toList();
 
 		return ticketRepository.saveAll(tickets);
 	}
@@ -285,12 +296,14 @@ public class BookingTestHelper {
 
 		private void setOrder() {
 			if (order == null) {
-				BigDecimal totalAmount = fareCalculationService.calculateTotalFare(
-					departureScheduleStop.getStation().getId(),
-					arrivalScheduleStop.getStation().getId(),
-					seatWithPassengerTypes.stream().map(SeatWithPassengerType::passengerType).toList(),
-					seatWithPassengerTypes.get(0).seat.getTrainCar().getCarType()
-				);
+				BigDecimal totalAmount = seatWithPassengerTypes.stream()
+					.map(sp -> fareCalculator.calculateFare(
+						departureScheduleStop.getStation().getId(),
+						arrivalScheduleStop.getStation().getId(),
+						sp.passengerType,
+						sp.seat().getTrainCar().getCarType()
+					))
+					.reduce(BigDecimal.ZERO, BigDecimal::add);
 
 				order = OrderFixture.builder()
 					.withMember(member)

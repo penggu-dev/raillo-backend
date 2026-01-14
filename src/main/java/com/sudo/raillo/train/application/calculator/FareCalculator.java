@@ -1,10 +1,4 @@
-package com.sudo.raillo.booking.application.service;
-
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-
-import org.springframework.stereotype.Service;
+package com.sudo.raillo.train.application.calculator;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -12,23 +6,26 @@ import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
-
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class FareCalculationService {
+public class FareCalculator {
 
 	private final StationFareRepository stationFareRepository;
 
 	private static final Map<PassengerType, BigDecimal> DISCOUNT_RATES = Map.of(
 		PassengerType.ADULT, BigDecimal.valueOf(1.0), // 정상가
-		PassengerType.CHILD, BigDecimal.valueOf(0.6), // 10~40% 할인
-		PassengerType.INFANT, BigDecimal.valueOf(0.25), // 좌석 지정 시 75% 할인, 좌석 지정 안하면 100% 할인
+		PassengerType.CHILD, BigDecimal.valueOf(0.6), // 40% 할인
+		PassengerType.INFANT, BigDecimal.valueOf(0.25), // 75% 할인
 		PassengerType.SENIOR, BigDecimal.valueOf(0.7), // 30% 할인
-		PassengerType.DISABLED_HEAVY, BigDecimal.valueOf(0.5), // 50% 할인 (보호자 1인 포함)
+		PassengerType.DISABLED_HEAVY, BigDecimal.valueOf(0.5), // 50% 할인
 		PassengerType.DISABLED_LIGHT, BigDecimal.valueOf(0.7), // 30% 할인
-		PassengerType.VETERAN, BigDecimal.valueOf(0.5) // 연 6회 무임, 6회 초과 시 50% 할인
+		PassengerType.VETERAN, BigDecimal.valueOf(0.5) // 50% 할인
 	);
 
 	/**
@@ -52,6 +49,25 @@ public class FareCalculationService {
 		return passengerTypes.stream()
 			.map(passengerType -> fare.multiply(DISCOUNT_RATES.get(passengerType)))
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
+	}
+
+	/**
+	 * 개별 좌석 운임을 계산하는 메서드
+	 * @param departureStationId 출발역 ID
+	 * @param arrivalStationId 도착역 ID
+	 * @param passengerType 승객 유형
+	 * @param carType 객차 타입
+	 * @return 할인이 적용된 개별 운임
+	 */
+	public BigDecimal calculateFare(
+		Long departureStationId,
+		Long arrivalStationId,
+		PassengerType passengerType,
+		CarType carType
+	) {
+		StationFare stationFare = findStationFare(departureStationId, arrivalStationId);
+		BigDecimal baseFare = getFareByCarType(stationFare, carType);
+		return baseFare.multiply(DISCOUNT_RATES.get(passengerType));
 	}
 
 	/**

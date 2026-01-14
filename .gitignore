@@ -41,6 +41,6 @@ out/
 ### VS Code ###
 .vscode/
 
-
-### Claude ###
+### AI docs ###
 CLAUDE.md
+GEMINI.md

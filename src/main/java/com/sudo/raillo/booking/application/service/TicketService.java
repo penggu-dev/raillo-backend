@@ -16,6 +16,7 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.train.domain.Seat;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,15 +33,18 @@ public class TicketService {
 	private final TicketMapper ticketMapper;
 
 	/**
-	 * 승차권을 생성하는 메서드
-	 * @param booking 예매 정보
+	 * 티켓을 생성하는 메서드
+	 * @param booking 예약 정보
+	 * @param seat 좌석 정보
 	 * @param passengerType 승객 유형
+	 * @param fare 운임
 	 */
-	public void createTicket(Booking booking, Seat seat, PassengerType passengerType) {
+	public void createTicket(Booking booking, Seat seat, PassengerType passengerType, BigDecimal fare) {
 		Ticket ticket = Ticket.builder()
 			.booking(booking)
 			.seat(seat)
 			.passengerType(passengerType)
+			.fare(fare)
 			.ticketStatus(TicketStatus.ISSUED)
 			.build();
 		ticketRepository.save(ticket);
