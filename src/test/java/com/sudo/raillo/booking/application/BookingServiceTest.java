@@ -9,11 +9,14 @@ import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
+import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.status.BookingStatus;
+import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
+import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.member.domain.Member;
@@ -64,6 +67,9 @@ class BookingServiceTest {
 
 	@Autowired
 	private OrderSeatBookingRepository orderSeatBookingRepository;
+
+	@Autowired
+	private TicketRepository ticketRepository;
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -131,6 +137,38 @@ class BookingServiceTest {
 
 		assertThat(booking1SeatBookings).hasSize(2); // orderBooking1에서 생성된 booking1은 seatBooking 2개
 		assertThat(booking2SeatBookings).hasSize(1); // orderBooking2에서 생성된 booking2는 seatBooking 1개
+
+		// Ticket 검증 - SeatBooking과 동일한 개수의 Ticket이 생성되어야 함
+		List<Ticket> savedTickets = ticketRepository.findAll();
+		assertThat(savedTickets).hasSize(3);
+
+		// 각 Ticket 검증
+		for (Ticket ticket : savedTickets) {
+			assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.ISSUED);
+			assertThat(ticket.getBooking()).isNotNull();
+			assertThat(ticket.getSeat()).isNotNull();
+			assertThat(ticket.getFare()).isNotNull();
+		}
+
+		// Booking별 Ticket 개수 검증
+		List<Ticket> booking1Tickets = savedTickets.stream()
+			.filter(ticket -> ticket.getBooking().getId().equals(booking1Id))
+			.toList();
+
+		List<Ticket> booking2Tickets = savedTickets.stream()
+			.filter(ticket -> ticket.getBooking().getId().equals(booking2Id))
+			.toList();
+
+		assertThat(booking1Tickets).hasSize(2); // orderBooking1에서 생성된 booking1은 ticket 2개
+		assertThat(booking2Tickets).hasSize(1); // orderBooking2에서 생성된 booking2는 ticket 1개
+
+		// PassengerType 검증
+		assertThat(booking1Tickets)
+			.extracting(Ticket::getPassengerType)
+			.containsExactlyInAnyOrder(PassengerType.ADULT, PassengerType.CHILD);
+		assertThat(booking2Tickets)
+			.extracting(Ticket::getPassengerType)
+			.containsExactly(PassengerType.ADULT);
 	}
 
 	@Test
