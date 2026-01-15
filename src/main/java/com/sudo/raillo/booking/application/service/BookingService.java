@@ -1,5 +1,7 @@
 package com.sudo.raillo.booking.application.service;
 
+import com.sudo.raillo.booking.domain.Ticket;
+import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -52,6 +54,7 @@ public class BookingService {
 	private final OrderSeatBookingRepository orderSeatBookingRepository;
 	private final SeatRepository seatRepository;
 	private final SeatBookingRepository seatBookingRepository;
+	private final TicketRepository ticketRepository;
 	private final BookingMapper bookingMapper;
 	private final BookingValidator bookingValidator;
 
@@ -227,6 +230,15 @@ public class BookingService {
 			orderSeatBooking.getPassengerType()
 		);
 		seatBookingRepository.save(seatBooking);
+
+		// SeatBooking 생성시 연관된 Ticket도 생성
+		Ticket ticket = Ticket.create(
+			booking,
+			seat,
+			orderSeatBooking.getPassengerType(),
+			orderSeatBooking.getFare()
+		);
+		ticketRepository.save(ticket);
 	}
 
 	private List<OrderBooking> getOrderBookings(Long orderId) {
