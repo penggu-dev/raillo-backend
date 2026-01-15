@@ -2,7 +2,9 @@ package com.sudo.raillo.booking.domain;
 
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.domain.BaseEntity;
+import com.sudo.raillo.global.exception.error.DomainException;
 import com.sudo.raillo.train.domain.Seat;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -78,18 +80,24 @@ public class Ticket extends BaseEntity {
 	}
 
 	public void cancel() {
+		validateIsCancellable();
 		this.ticketStatus = TicketStatus.CANCELLED;
 	}
 
 	public void use() {
+		validateIsUsable();
 		this.ticketStatus = TicketStatus.USED;
 	}
 
-	public boolean canBeCancelled() {
-		return this.ticketStatus.isCancellable();
+	private void validateIsCancellable() {
+		if (this.ticketStatus != TicketStatus.ISSUED) {
+			throw new DomainException(BookingError.TICKET_NOT_CANCELLABLE);
+		}
 	}
 
-	public boolean canBeUsed() {
-		return this.ticketStatus.isUsable();
+	private void validateIsUsable() {
+		if (this.ticketStatus != TicketStatus.ISSUED) {
+			throw new DomainException(BookingError.TICKET_NOT_USABLE);
+		}
 	}
 }
