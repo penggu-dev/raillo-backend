@@ -6,7 +6,6 @@ import com.sudo.raillo.booking.application.mapper.TicketMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
-import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.TicketQueryRepository;
@@ -40,13 +39,7 @@ public class TicketService {
 	 * @param fare 운임
 	 */
 	public void createTicket(Booking booking, Seat seat, PassengerType passengerType, BigDecimal fare) {
-		Ticket ticket = Ticket.builder()
-			.booking(booking)
-			.seat(seat)
-			.passengerType(passengerType)
-			.fare(fare)
-			.ticketStatus(TicketStatus.ISSUED)
-			.build();
+		Ticket ticket = Ticket.create(booking, seat, passengerType, fare);
 		ticketRepository.save(ticket);
 	}
 

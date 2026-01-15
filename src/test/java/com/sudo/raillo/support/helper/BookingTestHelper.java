@@ -1,10 +1,8 @@
 package com.sudo.raillo.support.helper;
 
-import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
-import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
@@ -17,6 +15,7 @@ import com.sudo.raillo.order.domain.OrderSeatBooking;
 import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.support.fixture.OrderFixture;
+import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
@@ -171,13 +170,7 @@ public class BookingTestHelper {
 					sp.passengerType,
 					sp.seat.getTrainCar().getCarType()
 				);
-				return Ticket.builder()
-					.booking(booking)
-					.seat(sp.seat)
-					.passengerType(sp.passengerType)
-					.fare(fare)
-					.ticketStatus(TicketStatus.ISSUED)
-					.build();
+				return Ticket.create(booking, sp.seat, sp.passengerType, fare);
 			}).toList();
 
 		return ticketRepository.saveAll(tickets);

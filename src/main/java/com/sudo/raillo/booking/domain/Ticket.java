@@ -1,15 +1,9 @@
 package com.sudo.raillo.booking.domain;
 
-import java.math.BigDecimal;
-import org.hibernate.annotations.Comment;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
-
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.domain.BaseEntity;
 import com.sudo.raillo.train.domain.Seat;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,16 +14,16 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import java.math.BigDecimal;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Comment;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Getter
-@Builder
-@AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Ticket extends BaseEntity {
 
@@ -40,26 +34,26 @@ public class Ticket extends BaseEntity {
 	private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "seat_id")
-	@OnDelete(action = OnDeleteAction.SET_NULL)
-	@Comment("좌석 ID")
-	private Seat seat;
-
-	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "booking_id", nullable = false)
 	@OnDelete(action = OnDeleteAction.CASCADE)
 	@Comment("예매 ID")
 	private Booking booking;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	@Comment("승차권 상태")
-	private TicketStatus ticketStatus;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "seat_id")
+	@OnDelete(action = OnDeleteAction.SET_NULL)
+	@Comment("좌석 ID")
+	private Seat seat;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
 	@Comment("승객 유형")
 	private PassengerType passengerType;
+
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
+	@Comment("승차권 상태")
+	private TicketStatus ticketStatus;
 
 	@Comment("승차권 번호")
 	private String ticketNumber;
@@ -67,6 +61,21 @@ public class Ticket extends BaseEntity {
 	@Column(nullable = false)
 	@Comment("운임")
 	private BigDecimal fare;
+
+	public static Ticket create(
+		Booking booking,
+		Seat seat,
+		PassengerType passengerType,
+		BigDecimal fare
+	) {
+		Ticket ticket = new Ticket();
+		ticket.booking = booking;
+		ticket.seat = seat;
+		ticket.passengerType = passengerType;
+		ticket.ticketStatus = TicketStatus.ISSUED;
+		ticket.fare = fare;
+		return ticket;
+	}
 
 	public void cancel() {
 		this.ticketStatus = TicketStatus.CANCELLED;
