@@ -1,5 +1,8 @@
 package com.sudo.raillo.booking.application.service;
 
+import com.sudo.raillo.booking.domain.Ticket;
+import com.sudo.raillo.booking.domain.status.TicketStatus;
+import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -54,12 +57,14 @@ public class BookingService {
 	private final SeatBookingRepository seatBookingRepository;
 	private final BookingMapper bookingMapper;
 	private final BookingValidator bookingValidator;
+	private final TicketRepository ticketRepository;
 
 	/**
 	 * 주문으로부터 예매를 생성
 	 * @param order 주문
-	 * */
-	public void createBookingFromOrder(Order order) {
+	 * @return 생성된 Booking 목록
+	 */
+	public List<Booking> createBookingFromOrder(Order order) {
 		// 1. 도메인 규칙 검증
 		order.validateCompleted();
 
@@ -87,12 +92,17 @@ public class BookingService {
 			.collect(Collectors.toMap(Seat::getId, Function.identity()));
 
 		// 4. Booking, SeatBooking 생성
-		orderBookings.forEach(orderBooking -> {
-			List<OrderSeatBooking> relatedSeatBookings = seatBookingMap.get(orderBooking.getId());
-			createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
-		});
+		List<Booking> bookings = orderBookings.stream()
+			.map(orderBooking -> {
+				List<OrderSeatBooking> relatedSeatBookings = seatBookingMap.get(orderBooking.getId());
+				return createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
+			})
+			.toList();
 
-		log.info("[주문에 대한 예매 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());
+		log.info("[주문에 대한 예매 생성 완료]: orderId={}, memberNo={}, bookingCount={}",
+			order.getId(), order.getMember().getId(), bookings.size());
+
+		return bookings;
 	}
 
 	/***
@@ -192,7 +202,7 @@ public class BookingService {
 	}
 
 	// private Method
-	private void createBooking(
+	private Booking createBooking(
 		Member member,
 		Order order,
 		OrderBooking orderBooking,
@@ -209,6 +219,8 @@ public class BookingService {
 		bookingRepository.save(booking);
 
 		orderSeatBookings.forEach(orderSeatBooking -> createSeatBooking(booking, orderSeatBooking, seatMap));
+
+		return booking;
 	}
 
 	private void createSeatBooking(
@@ -227,6 +239,15 @@ public class BookingService {
 			orderSeatBooking.getPassengerType()
 		);
 		seatBookingRepository.save(seatBooking);
+
+		Ticket ticket = Ticket.builder()
+			.booking(booking)
+			.seat(seat)
+			.passengerType(orderSeatBooking.getPassengerType())
+			.fare(orderSeatBooking.getFare())
+			.ticketStatus(TicketStatus.ISSUED)
+			.build();
+		ticketRepository.save(ticket);
 	}
 
 	private List<OrderBooking> getOrderBookings(Long orderId) {

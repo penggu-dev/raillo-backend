@@ -60,6 +60,15 @@ public class OrderService {
 	}
 
 	/**
+	 * Order ID로 Order 조회
+	 */
+	@Transactional(readOnly = true)
+	public Order getOrderById(Long orderId) {
+		return orderRepository.findById(orderId)
+			.orElseThrow(() -> new BusinessException(OrderError.ORDER_NOT_FOUND));
+	}
+
+	/**
 	 * 주문 소유자 검증
 	 */
 	@Transactional(readOnly = true)

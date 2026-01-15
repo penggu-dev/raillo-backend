@@ -9,6 +9,7 @@ import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.booking.infrastructure.TicketQueryRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -18,9 +19,11 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.train.domain.Seat;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -29,6 +32,7 @@ public class TicketService {
 	private final MemberRepository memberRepository;
 	private final TicketRepository ticketRepository;
 	private final TicketQueryRepository ticketQueryRepository;
+	private final SeatBookingRepository seatBookingRepository;
 	private final BookingValidator bookingValidator;
 	private final TicketMapper ticketMapper;
 

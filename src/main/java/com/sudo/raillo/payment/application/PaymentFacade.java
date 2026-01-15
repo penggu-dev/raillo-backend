@@ -1,20 +1,16 @@
 package com.sudo.raillo.payment.application;
 
-import java.util.List;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.global.event.application.EventPublisher;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberService;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.application.OrderService;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.application.dto.TossPaymentConfirmResponse;
+import com.sudo.raillo.payment.application.dto.event.PaymentCompletedEvent;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentConfirmResponse;
@@ -25,9 +21,11 @@ import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.TossPaymentClient;
-
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -39,10 +37,10 @@ public class PaymentFacade {
 	private final OrderService orderService;
 	private final MemberService memberService;
 	private final PendingBookingService pendingBookingService;
-	private final BookingService bookingService;
 	private final TossPaymentClient tossPaymentClient;
 	private final BookingValidator bookingValidator;
 	private final PaymentValidator paymentValidator;
+	private final EventPublisher eventPublisher;
 
 	/**
 	 * 결제 준비 처리
@@ -91,8 +89,8 @@ public class PaymentFacade {
 	 * 7. 토스 응답 검증 (금액, paymentKey 일치 확인)
 	 * 8. PaymentMethod 매핑
 	 * 9. Order 상태 변경 (PENDING → ORDERED)
-	 * 10. Booking & SeatBooking 생성 (BOOKED)
-	 * 11. Payment 승인 처리 (PENDING → PAID, paymentMethod 저장)
+	 * 10. Payment 승인 처리 (PENDING → PAID, paymentMethod 저장)
+	 * 11. PaymentCompletedEvent 발행 (Booking 생성은 이벤트 핸들러에서 비동기 처리)
 	 */
 	public PaymentConfirmResponse confirmPayment(PaymentConfirmRequest request, String memberNo) {
 		log.info("결제 승인 시작: orderId={}, paymentKey={}, amount={}",
@@ -136,14 +134,17 @@ public class PaymentFacade {
 		// 7. Order 상태 변경 (PENDING -> ORDERED)
 		order.completePayment();
 
-		// 8. Booking & SeatBooking 생성 (BOOKED)
-		bookingService.createBookingFromOrder(order);
-
-		// 9. Payment 승인 처리 (PENDING -> PAID, paymentMethod, paidAt 저장)
+		// 8. Payment 승인 처리 (PENDING -> PAID, paymentMethod, paidAt 저장)
 		payment.approve(paymentMethod);
 
-		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
+		// 9. PaymentCompletedEvent 발행 (Booking 생성은 이벤트 핸들러에서 비동기 처리)
+		eventPublisher.publish(
+			"Payment",
+			payment.getId(),
+			new PaymentCompletedEvent(order.getId())
+		);
 
+		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
 		return PaymentConfirmResponse.from(payment);
 	}
 
