@@ -22,10 +22,8 @@ public class TicketCodeGenerator {
 
 	/**
 	 * 승차권 번호를 생성하는 메서드
-	 * 형식: 출발역ID+도착역ID(4자리) - MMdd(4자리) - 예약순서(6자리) - 티켓순서(2자리) = 16자리
+	 * 형식: 출발역ID+도착역ID(4자리) - MMdd(4자리) - 예약순번(6자리) - 티켓순서(2자리) = 16자리
 	 * 예시: 0218-0116-000001-01
-	 *
-	 * @return 생성된 승차권 번호
 	 */
 	public String generate(Long departureStationId, Long arrivalStationId, int ticketIndex) {
 		String stationPart = String.format("%02d", departureStationId % 100)
