@@ -84,7 +84,7 @@ class BookingServiceTest {
 	private OrderTestHelper orderTestHelper;
 
 	@Test
-	@DisplayName("유효한 주문으로 예매 생성에 성공한다")
+	@DisplayName("유효한 주문으로 예매, 좌석예매, 승차권이 생성된다")
 	void createBookingFromOrder_success() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -111,7 +111,7 @@ class BookingServiceTest {
 		List<Booking> bookings = bookingRepository.findAll();
 		assertThat(bookings).hasSize(2);
 
-		// 각 Booking 검증
+		// Booking 검증
 		for (Booking booking : bookings) {
 			assertThat(booking.getMember().getId()).isEqualTo(member.getId());
 			assertThat(booking.getBookingStatus()).isEqualTo(BookingStatus.BOOKED);
@@ -138,7 +138,7 @@ class BookingServiceTest {
 		assertThat(booking1SeatBookings).hasSize(2); // orderBooking1에서 생성된 booking1은 seatBooking 2개
 		assertThat(booking2SeatBookings).hasSize(1); // orderBooking2에서 생성된 booking2는 seatBooking 1개
 
-		// Ticket 검증 - SeatBooking과 동일한 개수의 Ticket이 생성되어야 함
+		// Ticket 검증
 		List<Ticket> savedTickets = ticketRepository.findAll();
 		assertThat(savedTickets).hasSize(3);
 
@@ -148,7 +148,16 @@ class BookingServiceTest {
 			assertThat(ticket.getBooking()).isNotNull();
 			assertThat(ticket.getSeat()).isNotNull();
 			assertThat(ticket.getFare()).isNotNull();
+			assertThat(ticket.getTicketNumber()).matches("\\d{4}-\\d{4}-\\d{6}-\\d{2}");
 		}
+
+		// TicketNumber sequence 검증 (같은 구간에서 1, 2, 3 순서로 증가)
+		List<String> sequences = savedTickets.stream()
+			.map(Ticket::getTicketNumber)
+			.map(ticketNumber -> ticketNumber.split("-")[2])
+			.sorted()
+			.toList();
+		assertThat(sequences).containsExactly("000001", "000002", "000003");
 
 		// Booking별 Ticket 개수 검증
 		List<Ticket> booking1Tickets = savedTickets.stream()
