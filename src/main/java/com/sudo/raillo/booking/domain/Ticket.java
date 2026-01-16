@@ -68,6 +68,7 @@ public class Ticket extends BaseEntity {
 		Booking booking,
 		Seat seat,
 		PassengerType passengerType,
+		String ticketNumber,
 		BigDecimal fare
 	) {
 		Ticket ticket = new Ticket();
@@ -75,6 +76,7 @@ public class Ticket extends BaseEntity {
 		ticket.seat = seat;
 		ticket.passengerType = passengerType;
 		ticket.ticketStatus = TicketStatus.ISSUED;
+		ticket.ticketNumber = ticketNumber;
 		ticket.fare = fare;
 		return ticket;
 	}

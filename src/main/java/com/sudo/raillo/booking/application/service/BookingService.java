@@ -2,11 +2,13 @@ package com.sudo.raillo.booking.application.service;
 
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
+import com.sudo.raillo.booking.util.TicketCodeGenerator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import java.util.stream.IntStream;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +59,7 @@ public class BookingService {
 	private final TicketRepository ticketRepository;
 	private final BookingMapper bookingMapper;
 	private final BookingValidator bookingValidator;
+	private final TicketCodeGenerator ticketCodeGenerator;
 
 	/**
 	 * 주문으로부터 예매를 생성
@@ -211,13 +214,15 @@ public class BookingService {
 		);
 		bookingRepository.save(booking);
 
-		orderSeatBookings.forEach(orderSeatBooking -> createSeatBooking(booking, orderSeatBooking, seatMap));
+		IntStream.range(0, orderSeatBookings.size())
+			.forEach(i -> createSeatBooking(booking, orderSeatBookings.get(i), seatMap, i + 1));
 	}
 
 	private void createSeatBooking(
 		Booking booking,
 		OrderSeatBooking orderSeatBooking,
-		Map<Long, Seat> seatMap
+		Map<Long, Seat> seatMap,
+		int ticketIndex
 	) {
 		Seat seat = seatMap.get(orderSeatBooking.getSeatId());
 		if (seat == null) {
@@ -232,12 +237,7 @@ public class BookingService {
 		seatBookingRepository.save(seatBooking);
 
 		// SeatBooking 생성시 연관된 Ticket도 생성
-		Ticket ticket = Ticket.create(
-			booking,
-			seat,
-			orderSeatBooking.getPassengerType(),
-			orderSeatBooking.getFare()
-		);
+		Ticket ticket = createTicket(booking, orderSeatBooking, ticketIndex, seat);
 		ticketRepository.save(ticket);
 	}
 
@@ -257,6 +257,22 @@ public class BookingService {
 		}
 
 		return orderSeatBookings;
+	}
+
+	private Ticket createTicket(Booking booking, OrderSeatBooking orderSeatBooking, int ticketIndex, Seat seat) {
+		String ticketCode = ticketCodeGenerator.generate(
+			booking.getDepartureStop().getStation().getId(),
+			booking.getArrivalStop().getStation().getId(),
+			ticketIndex
+		);
+
+		return Ticket.create(
+			booking,
+			seat,
+			orderSeatBooking.getPassengerType(),
+			ticketCode,
+			orderSeatBooking.getFare()
+		);
 	}
 
 	private List<Seat> getSeats(List<Long> seatIds) {

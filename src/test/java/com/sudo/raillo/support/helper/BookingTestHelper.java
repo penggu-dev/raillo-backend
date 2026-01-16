@@ -7,6 +7,7 @@ import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
+import com.sudo.raillo.booking.util.TicketCodeGenerator;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
@@ -27,6 +28,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -47,6 +49,7 @@ public class BookingTestHelper {
 	private final TicketRepository ticketRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final FareCalculator fareCalculator;
+	private final TicketCodeGenerator ticketCodeGenerator;
 
 	@Lazy
 	@Autowired
@@ -162,15 +165,18 @@ public class BookingTestHelper {
 		Long departureStationId = builder.departureScheduleStop.getStation().getId();
 		Long arrivalStationId = builder.arrivalScheduleStop.getStation().getId();
 
-		List<Ticket> tickets = builder.seatWithPassengerTypes.stream()
-			.map(sp -> {
+		List<SeatWithPassengerType> seatWithPassengerTypes = builder.seatWithPassengerTypes;
+		List<Ticket> tickets = IntStream.range(0, seatWithPassengerTypes.size())
+			.mapToObj(i -> {
+				SeatWithPassengerType sp = seatWithPassengerTypes.get(i);
 				BigDecimal fare = fareCalculator.calculateFare(
 					departureStationId,
 					arrivalStationId,
 					sp.passengerType,
 					sp.seat.getTrainCar().getCarType()
 				);
-				return Ticket.create(booking, sp.seat, sp.passengerType, fare);
+				String ticketCode = ticketCodeGenerator.generate(departureStationId, arrivalStationId, i + 1);
+				return Ticket.create(booking, sp.seat, sp.passengerType, ticketCode, fare);
 			}).toList();
 
 		return ticketRepository.saveAll(tickets);
@@ -327,6 +333,7 @@ public class BookingTestHelper {
 			return stops.get(stops.size() - 1);
 		}
 
-		private record SeatWithPassengerType(Seat seat, PassengerType passengerType) {}
 	}
+
+	private record SeatWithPassengerType(Seat seat, PassengerType passengerType) {}
 }

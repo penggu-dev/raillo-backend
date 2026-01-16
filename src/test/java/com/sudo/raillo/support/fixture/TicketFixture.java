@@ -17,6 +17,7 @@ public class TicketFixture {
 	private Seat seat = SeatFixture.create(null, 1, "A", SeatType.WINDOW, "N", "Y");
 	private PassengerType passengerType = PassengerType.ADULT;
 	private BigDecimal fare = BigDecimal.ZERO;
+	private String ticketCode = "0218-0116-000001-01";
 
 	public static Ticket create(Booking booking) {
 		return builder()
@@ -30,7 +31,7 @@ public class TicketFixture {
 	}
 
 	public Ticket build() {
-		return Ticket.create(booking, seat, passengerType, fare);
+		return Ticket.create(booking, seat, passengerType, ticketCode, fare);
 	}
 
 	public TicketFixture withBooking(Booking booking) {
@@ -45,6 +46,11 @@ public class TicketFixture {
 
 	public TicketFixture withPassengerType(PassengerType passengerType) {
 		this.passengerType = passengerType;
+		return this;
+	}
+
+	public TicketFixture withTicketCode(String ticketCode) {
+		this.ticketCode = ticketCode;
 		return this;
 	}
 
