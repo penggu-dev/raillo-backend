@@ -148,16 +148,8 @@ class BookingServiceTest {
 			assertThat(ticket.getBooking()).isNotNull();
 			assertThat(ticket.getSeat()).isNotNull();
 			assertThat(ticket.getFare()).isNotNull();
-			assertThat(ticket.getTicketNumber()).matches("\\d{4}-\\d{4}-\\d{6}-\\d{2}");
+			assertThat(ticket.getTicketNumber()).matches("\\d{4}-\\d{7}-\\d{2}");
 		}
-
-		// TicketNumber sequence 검증 (같은 구간에서 1, 2, 3 순서로 증가)
-		List<String> sequences = savedTickets.stream()
-			.map(Ticket::getTicketNumber)
-			.map(ticketNumber -> ticketNumber.split("-")[2])
-			.sorted()
-			.toList();
-		assertThat(sequences).containsExactly("000001", "000002", "000003");
 
 		// Booking별 Ticket 개수 검증
 		List<Ticket> booking1Tickets = savedTickets.stream()

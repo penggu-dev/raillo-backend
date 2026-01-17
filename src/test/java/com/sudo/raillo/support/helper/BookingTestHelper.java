@@ -7,7 +7,7 @@ import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
-import com.sudo.raillo.booking.util.TicketCodeGenerator;
+import com.sudo.raillo.booking.util.TicketNumberGenerator;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
@@ -49,7 +49,7 @@ public class BookingTestHelper {
 	private final TicketRepository ticketRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final FareCalculator fareCalculator;
-	private final TicketCodeGenerator ticketCodeGenerator;
+	private final TicketNumberGenerator ticketNumberGenerator;
 
 	@Lazy
 	@Autowired
@@ -166,6 +166,7 @@ public class BookingTestHelper {
 		Long arrivalStationId = builder.arrivalScheduleStop.getStation().getId();
 
 		List<SeatWithPassengerType> seatWithPassengerTypes = builder.seatWithPassengerTypes;
+		String reservationCode = ticketNumberGenerator.generateReservationCode();
 		List<Ticket> tickets = IntStream.range(0, seatWithPassengerTypes.size())
 			.mapToObj(i -> {
 				SeatWithPassengerType sp = seatWithPassengerTypes.get(i);
@@ -175,8 +176,8 @@ public class BookingTestHelper {
 					sp.passengerType,
 					sp.seat.getTrainCar().getCarType()
 				);
-				String ticketCode = ticketCodeGenerator.generate(departureStationId, arrivalStationId, i + 1);
-				return Ticket.create(booking, sp.seat, sp.passengerType, ticketCode, fare);
+				String ticketNumber = ticketNumberGenerator.generateTicketNumber(reservationCode, i + 1);
+				return Ticket.create(booking, sp.seat, sp.passengerType, ticketNumber, fare);
 			}).toList();
 
 		return ticketRepository.saveAll(tickets);
