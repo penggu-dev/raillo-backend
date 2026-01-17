@@ -217,7 +217,7 @@ public class BookingService {
 		String reservationCode = ticketNumberGenerator.generateReservationCode();
 
 		IntStream.range(0, orderSeatBookings.size())
-			.forEach(i -> createSeatBooking(booking, orderSeatBookings.get(i), seatMap, reservationCode, i));
+			.forEach(i -> createSeatBooking(booking, orderSeatBookings.get(i), seatMap, reservationCode, i + 1));
 	}
 
 	private void createSeatBooking(
