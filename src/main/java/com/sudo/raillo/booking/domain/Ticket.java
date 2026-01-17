@@ -58,10 +58,11 @@ public class Ticket extends BaseEntity {
 	private TicketStatus ticketStatus;
 
 	@Comment("승차권 번호")
+	@Column(nullable = false, unique = true)
 	private String ticketNumber;
 
-	@Column(nullable = false)
 	@Comment("운임")
+	@Column(nullable = false)
 	private BigDecimal fare;
 
 	public static Ticket create(
