@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.domain.Ticket;
-import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
@@ -70,26 +69,6 @@ class TicketServiceTest {
 		member = memberRepository.save(MemberFixture.create());
 		train = trainTestHelper.createKTX();
 		trainScheduleResult = trainScheduleTestHelper.createDefault(train);
-	}
-
-	@Test
-	// @Disabled("Booking 생성 시 Ticket이 자동 생성되도록 변경됨(BookingTestHelper). createTicket()의 외부 호출 케이스 확인 후 테스트 수정 또는 삭제 필요")
-	@DisplayName("예약, 좌석, 승객 유형으로 승차권 생성에 성공한다")
-	void bookingAndSeatAndPassengerType_createTicket_success() {
-		// given
-		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
-		BookingResult bookingResult = bookingTestHelper.builder(member, trainScheduleResult)
-			.withoutTickets()  // Ticket 없이 Booking만 생성
-			.addSeat(seats.get(0), PassengerType.ADULT)
-			.build();
-
-		// when
-		ticketService.createTicket(bookingResult.booking(), seats.get(0), PassengerType.CHILD, BigDecimal.ZERO);
-
-		// then
-		List<Ticket> result = ticketRepository.findAll();
-		assertThat(result).hasSize(1);
-		assertThat(result.get(0).getTicketStatus()).isEqualTo(TicketStatus.ISSUED);
 	}
 
 	@Test

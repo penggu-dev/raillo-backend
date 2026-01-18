@@ -4,10 +4,7 @@ import com.sudo.raillo.booking.application.dto.projection.ReceiptProjection;
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.booking.application.mapper.TicketMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
-import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Ticket;
-import com.sudo.raillo.booking.domain.status.TicketStatus;
-import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.TicketQueryRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
@@ -15,8 +12,6 @@ import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
-import com.sudo.raillo.train.domain.Seat;
-import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,24 +26,6 @@ public class TicketService {
 	private final TicketQueryRepository ticketQueryRepository;
 	private final BookingValidator bookingValidator;
 	private final TicketMapper ticketMapper;
-
-	/**
-	 * 티켓을 생성하는 메서드
-	 * @param booking 예약 정보
-	 * @param seat 좌석 정보
-	 * @param passengerType 승객 유형
-	 * @param fare 운임
-	 */
-	public void createTicket(Booking booking, Seat seat, PassengerType passengerType, BigDecimal fare) {
-		Ticket ticket = Ticket.builder()
-			.booking(booking)
-			.seat(seat)
-			.passengerType(passengerType)
-			.fare(fare)
-			.ticketStatus(TicketStatus.ISSUED)
-			.build();
-		ticketRepository.save(ticket);
-	}
 
 	/**
 	 * 영수증을 조회하는 메서드
