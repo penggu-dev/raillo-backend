@@ -1,15 +1,10 @@
 package com.sudo.raillo.booking.domain;
 
-import com.sudo.raillo.train.domain.ScheduleStop;
-import org.hibernate.annotations.Comment;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
-
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.domain.BaseEntity;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.TrainSchedule;
-
+import com.sudo.raillo.train.domain.type.CarType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,6 +21,9 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Comment;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Getter
@@ -64,15 +62,27 @@ public class SeatBooking extends BaseEntity {
 	@Comment("승객 유형")
 	private PassengerType passengerType;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "departure_stop_id", nullable = false)
-	@Comment("출발 정류장 ID")
-	private ScheduleStop departureStop;
+	// 역정규화 필드 - 쿼리 성능 최적화용
+	@Enumerated(EnumType.STRING)
+	@Column(name = "car_type", nullable = false)
+	@Comment("객차 타입")
+	private CarType carType;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "arrival_stop_id", nullable = false)
-	@Comment("도착 정류장 ID")
-	private ScheduleStop arrivalStop;
+	@Column(name = "departure_station_id", nullable = false)
+	@Comment("출발역 ID")
+	private Long departureStationId;
+
+	@Column(name = "arrival_station_id", nullable = false)
+	@Comment("도착역 ID")
+	private Long arrivalStationId;
+
+	@Column(name = "departure_stop_order", nullable = false)
+	@Comment("출발 정차 순서")
+	private int departureStopOrder;
+
+	@Column(name = "arrival_stop_order", nullable = false)
+	@Comment("도착 정차 순서")
+	private int arrivalStopOrder;
 
 	public static SeatBooking create(
 		Booking booking,
@@ -84,8 +94,12 @@ public class SeatBooking extends BaseEntity {
 		seatBooking.seat = seat;
 		seatBooking.passengerType = passengerType;
 		seatBooking.trainSchedule = booking.getTrainSchedule();
-		seatBooking.departureStop = booking.getDepartureStop();
-		seatBooking.arrivalStop = booking.getArrivalStop();
+		// 역정규화 필드 설정
+		seatBooking.carType = seat.getTrainCar().getCarType();
+		seatBooking.departureStationId = booking.getDepartureStop().getStation().getId();
+		seatBooking.arrivalStationId = booking.getArrivalStop().getStation().getId();
+		seatBooking.departureStopOrder = booking.getDepartureStop().getStopOrder();
+		seatBooking.arrivalStopOrder = booking.getArrivalStop().getStopOrder();
 		return seatBooking;
 	}
 }
