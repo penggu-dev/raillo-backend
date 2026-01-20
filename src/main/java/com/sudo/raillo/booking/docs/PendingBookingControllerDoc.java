@@ -19,7 +19,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-@Tag(name = "Bookings")
+@Tag(name = "PendingBookings")
 public interface PendingBookingControllerDoc {
 
 	@Operation(method = "POST", summary = "예약 생성", description = "정보를 받아 예약을 생성합니다.", security = {
