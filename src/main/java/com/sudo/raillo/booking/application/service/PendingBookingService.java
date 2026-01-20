@@ -4,7 +4,7 @@ import com.sudo.raillo.booking.application.dto.SeatInfo;
 import com.sudo.raillo.booking.application.dto.StopInfo;
 import com.sudo.raillo.booking.application.dto.TrainScheduleInfo;
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingDetail;
+import com.sudo.raillo.booking.application.dto.response.PendingBookingDetailResponse;
 import com.sudo.raillo.booking.application.mapper.PendingBookingMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
@@ -92,7 +92,7 @@ public class PendingBookingService {
 	 * @return 예약 목록
 	 */
 	@Transactional(readOnly = true)
-	public List<PendingBookingDetail> getPendingBookings(String memberNo) {
+	public List<PendingBookingDetailResponse> getPendingBookings(String memberNo) {
 		// 1. Redis에서 PendingBooking 목록 조회
 		List<PendingBooking> pendingBookings = bookingRedisRepository.getPendingBookings(memberNo);
 

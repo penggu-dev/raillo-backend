@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.PendingBookingDeleteRequest;
 import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingDetail;
+import com.sudo.raillo.booking.application.dto.response.PendingBookingDetailResponse;
 import com.sudo.raillo.booking.application.facade.PendingBookingFacade;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.docs.PendingBookingControllerDoc;
@@ -52,7 +52,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	 * @return 회원의 예약 목록 응답
 	 * */
 	@GetMapping
-	public SuccessResponse<List<PendingBookingDetail>> getPendingBookings(
+	public SuccessResponse<List<PendingBookingDetailResponse>> getPendingBookings(
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
 		String memberNo = userDetails.getUsername();
