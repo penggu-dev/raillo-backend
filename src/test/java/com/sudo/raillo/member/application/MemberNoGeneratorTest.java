@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import com.sudo.raillo.member.util.MemberNoGenerator;
 import com.sudo.raillo.support.annotation.ServiceTest;
 
 @ServiceTest

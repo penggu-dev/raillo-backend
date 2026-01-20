@@ -10,7 +10,7 @@ import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 import com.sudo.raillo.auth.security.jwt.TokenExtractor;
 import com.sudo.raillo.auth.security.jwt.TokenGenerator;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.member.application.MemberNoGenerator;
+import com.sudo.raillo.member.util.MemberNoGenerator;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
