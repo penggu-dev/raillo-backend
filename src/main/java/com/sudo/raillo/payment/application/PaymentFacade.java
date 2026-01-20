@@ -14,7 +14,7 @@ import com.sudo.raillo.member.application.MemberService;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.application.OrderService;
 import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.payment.application.dto.TossPaymentConfirmResponse;
+import com.sudo.raillo.payment.application.dto.response.TossPaymentConfirmResponse;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentConfirmResponse;
