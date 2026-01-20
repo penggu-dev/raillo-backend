@@ -6,7 +6,7 @@ import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
-import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
+import com.sudo.raillo.train.application.dto.response.OperationCalendarItemResponse;
 import com.sudo.raillo.train.domain.Train;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -35,7 +35,7 @@ class TrainCalendarServiceTest {
 		LocalDate endDate = today.plusMonths(1);
 
 		// when
-		List<OperationCalendarItem> calendar = trainCalendarService.getOperationCalendar();
+		List<OperationCalendarItemResponse> calendar = trainCalendarService.getOperationCalendar();
 
 		// then
 		assertThat(calendar).hasSizeGreaterThanOrEqualTo(28).hasSizeLessThanOrEqualTo(32);
@@ -56,12 +56,12 @@ class TrainCalendarServiceTest {
 		createTrainSchedule(train, dayAfter, "KTX 002", LocalTime.of(14, 0), LocalTime.of(17, 0));
 
 		// when
-		List<OperationCalendarItem> calendar = trainCalendarService.getOperationCalendar();
+		List<OperationCalendarItemResponse> calendar = trainCalendarService.getOperationCalendar();
 
 		// then
-		OperationCalendarItem todayItem = findByDate(calendar, today);
-		OperationCalendarItem tomorrowItem = findByDate(calendar, tomorrow);
-		OperationCalendarItem dayAfterItem = findByDate(calendar, dayAfter);
+		OperationCalendarItemResponse todayItem = findByDate(calendar, today);
+		OperationCalendarItemResponse tomorrowItem = findByDate(calendar, tomorrow);
+		OperationCalendarItemResponse dayAfterItem = findByDate(calendar, dayAfter);
 
 		assertThat(todayItem.isBookingAvailable()).isEqualTo("Y");
 		assertThat(tomorrowItem.isBookingAvailable()).isEqualTo("N");
@@ -72,7 +72,7 @@ class TrainCalendarServiceTest {
 	@DisplayName("캘린더의 모든 날짜는 공휴일 여부 정보를 가진다")
 	void shouldHaveHolidayStatusForAllDates() {
 		// given & when
-		List<OperationCalendarItem> calendar = trainCalendarService.getOperationCalendar();
+		List<OperationCalendarItemResponse> calendar = trainCalendarService.getOperationCalendar();
 
 		// then
 		assertThat(calendar).isNotEmpty();
@@ -86,7 +86,7 @@ class TrainCalendarServiceTest {
 	@DisplayName("공휴일이 아닌 평일은 'N'으로 표시된다")
 	void shouldMarkRegularDays() {
 		// given & when
-		List<OperationCalendarItem> calendar = trainCalendarService.getOperationCalendar();
+		List<OperationCalendarItemResponse> calendar = trainCalendarService.getOperationCalendar();
 
 		// then
 		long regularDaysCount = calendar.stream()
@@ -110,10 +110,10 @@ class TrainCalendarServiceTest {
 		createTrainSchedule(train, newYear, "KTX 001", LocalTime.of(10, 0), LocalTime.of(13, 0));
 
 		// when
-		List<OperationCalendarItem> calendar = trainCalendarService.getOperationCalendar();
+		List<OperationCalendarItemResponse> calendar = trainCalendarService.getOperationCalendar();
 
 		// then
-		OperationCalendarItem newYearItem = findByDate(calendar, newYear);
+		OperationCalendarItemResponse newYearItem = findByDate(calendar, newYear);
 		assertThat(newYearItem.isHoliday()).isEqualTo("Y");
 		assertThat(newYearItem.isBookingAvailable()).isEqualTo("Y");
 	}
@@ -122,7 +122,7 @@ class TrainCalendarServiceTest {
 	@DisplayName("운행하는 날이 없어도 캘린더는 정상적으로 조회된다")
 	void shouldHandleEmptySchedule() {
 		// given & when
-		List<OperationCalendarItem> calendar = trainCalendarService.getOperationCalendar();
+		List<OperationCalendarItemResponse> calendar = trainCalendarService.getOperationCalendar();
 
 		// then
 		assertThat(calendar).isNotEmpty();
@@ -142,12 +142,12 @@ class TrainCalendarServiceTest {
 		}
 
 		// when
-		List<OperationCalendarItem> calendar = trainCalendarService.getOperationCalendar();
+		List<OperationCalendarItemResponse> calendar = trainCalendarService.getOperationCalendar();
 
 		// then
 		for (int i = 0; i < 5; i++) {
 			LocalDate date = today.plusDays(i);
-			OperationCalendarItem item = findByDate(calendar, date);
+			OperationCalendarItemResponse item = findByDate(calendar, date);
 			assertThat(item.isBookingAvailable()).as("%s는 운행", date).isEqualTo("Y");
 		}
 	}
@@ -164,7 +164,7 @@ class TrainCalendarServiceTest {
 		createTrainSchedule(train, today.plusDays(7), "KTX 003", LocalTime.of(9, 0), LocalTime.of(12, 0));
 
 		// when
-		List<OperationCalendarItem> calendar = trainCalendarService.getOperationCalendar();
+		List<OperationCalendarItemResponse> calendar = trainCalendarService.getOperationCalendar();
 
 		// then
 		long operatingDaysCount = calendar.stream()
@@ -174,7 +174,7 @@ class TrainCalendarServiceTest {
 		assertThat(operatingDaysCount).isEqualTo(3);
 	}
 
-	private OperationCalendarItem findByDate(List<OperationCalendarItem> calendar, LocalDate date) {
+	private OperationCalendarItemResponse findByDate(List<OperationCalendarItemResponse> calendar, LocalDate date) {
 		return calendar.stream()
 			.filter(item -> item.operationDate().equals(date))
 			.findFirst()

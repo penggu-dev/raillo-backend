@@ -8,7 +8,7 @@ import com.sudo.raillo.train.domain.type.BusinessDayType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-public record OperationCalendarItem(
+public record OperationCalendarItemResponse(
 
 	@Schema(description = "운행 날짜", example = "2025-06-20")
 	LocalDate operationDate,
@@ -26,8 +26,8 @@ public record OperationCalendarItem(
 	String isBookingAvailable
 ) {
 
-	public static OperationCalendarItem create(LocalDate operationDate, boolean isHoliday, boolean hasSchedule) {
-		return new OperationCalendarItem(
+	public static OperationCalendarItemResponse create(LocalDate operationDate, boolean isHoliday, boolean hasSchedule) {
+		return new OperationCalendarItemResponse(
 			operationDate,
 			operationDate.getDayOfWeek(),
 			BusinessDayType.fromDate(operationDate, isHoliday),

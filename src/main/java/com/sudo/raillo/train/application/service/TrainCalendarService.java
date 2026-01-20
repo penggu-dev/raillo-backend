@@ -1,6 +1,6 @@
 package com.sudo.raillo.train.application.service;
 
-import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
+import com.sudo.raillo.train.application.dto.response.OperationCalendarItemResponse;
 import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
 import java.time.LocalDate;
 import java.util.List;
@@ -26,7 +26,7 @@ public class TrainCalendarService {
 	 * 운행 캘린더 조회
 	 * @return List<OperationCalendarItem>
 	 */
-	public List<OperationCalendarItem> getOperationCalendar() {
+	public List<OperationCalendarItemResponse> getOperationCalendar() {
 		LocalDate startDate = LocalDate.now();
 		LocalDate endDate = startDate.plusMonths(1);
 
@@ -34,11 +34,11 @@ public class TrainCalendarService {
 		Set<LocalDate> datesWithSchedule = trainScheduleQueryRepository.findDatesWithActiveSchedules(startDate,
 			endDate);
 
-		List<OperationCalendarItem> calendar = startDate.datesUntil(endDate.plusDays(1))
+		List<OperationCalendarItemResponse> calendar = startDate.datesUntil(endDate.plusDays(1))
 			.map(date -> {
 				boolean isHoliday = isHoliday(date);
 				boolean hasSchedule = datesWithSchedule.contains(date);
-				return OperationCalendarItem.create(date, isHoliday, hasSchedule);
+				return OperationCalendarItemResponse.create(date, isHoliday, hasSchedule);
 			})
 			.toList();
 

@@ -22,7 +22,7 @@ import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
-import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
+import com.sudo.raillo.train.application.dto.response.OperationCalendarItemResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
 import com.sudo.raillo.train.domain.Station;
@@ -61,7 +61,7 @@ class TrainSearchFacadeTest {
 		createTrainSchedule(train1, nextWeek, "KTX 005", LocalTime.of(10, 0), LocalTime.of(13, 0));
 
 		// when
-		List<OperationCalendarItem> operationCalendar = trainSearchFacade.getOperationCalendar();
+		List<OperationCalendarItemResponse> operationCalendar = trainSearchFacade.getOperationCalendar();
 
 		// then
 		// 1. 캘린더가 한 달치 날짜를 포함하는지 확인 (약 30일)
