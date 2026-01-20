@@ -121,7 +121,7 @@ public class TrainSearchFacade {
 			availableCars.size(), recommendedCarNumber,
 			scheduleInfo.trainClassificationCode(), scheduleInfo.trainNumber());
 
-		return TrainCarListResponse.of(
+		return new TrainCarListResponse(
 			request.trainScheduleId(),
 			recommendedCarNumber,
 			availableCars.size(),

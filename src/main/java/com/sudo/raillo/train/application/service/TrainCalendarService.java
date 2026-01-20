@@ -38,7 +38,7 @@ public class TrainCalendarService {
 			.map(date -> {
 				boolean isHoliday = isHoliday(date);
 				boolean hasSchedule = datesWithSchedule.contains(date);
-				return OperationCalendarItemResponse.create(date, isHoliday, hasSchedule);
+				return OperationCalendarItemResponse.of(date, isHoliday, hasSchedule);
 			})
 			.toList();
 

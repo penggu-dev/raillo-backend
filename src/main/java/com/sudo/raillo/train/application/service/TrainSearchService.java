@@ -78,7 +78,7 @@ public class TrainSearchService {
 		TrainSchedule trainSchedule = trainScheduleRepository.findById(trainScheduleId)
 			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_DETAIL_NOT_FOUND));
 
-		return TrainScheduleBasicInfo.of(
+		return new TrainScheduleBasicInfo(
 			trainSchedule.getId(),
 			trainSchedule.getTrain().getTrainType().getDescription(),
 			String.format("%03d", trainSchedule.getTrain().getTrainNumber()),

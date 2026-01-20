@@ -23,20 +23,4 @@ public record PendingSeatBookingDetail(
 	@Schema(description = "좌석 번호 (행 + 열)", example = "1D")
 	String seatNumber
 ) {
-
-	public static PendingSeatBookingDetail of(
-		Long seatId,
-		PassengerType passengerType,
-		int carNumber,
-		CarType carType,
-		String seatNumber
-	) {
-		return new PendingSeatBookingDetail(
-			seatId,
-			passengerType,
-			carNumber,
-			carType,
-			seatNumber
-		);
-	}
 }

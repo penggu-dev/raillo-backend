@@ -31,7 +31,7 @@ public class PendingBookingMapper {
 			seatMap
 		);
 
-		return PendingBookingDetailResponse.of(
+		return new PendingBookingDetailResponse(
 			pendingBooking.getId(),
 			trainScheduleInfo.trainNumber(),
 			trainScheduleInfo.trainName(),
@@ -51,7 +51,7 @@ public class PendingBookingMapper {
 		return pendingSeatBookings.stream()
 			.map(pendingSeatBooking -> {
 				SeatInfo seatInfo = seatMap.get(pendingSeatBooking.seatId());
-				return PendingSeatBookingDetail.of(
+				return new PendingSeatBookingDetail(
 					pendingSeatBooking.seatId(),
 					pendingSeatBooking.passengerType(),
 					seatInfo.carNumber(),

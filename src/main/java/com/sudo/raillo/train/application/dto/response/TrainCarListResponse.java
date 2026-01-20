@@ -28,10 +28,4 @@ public record TrainCarListResponse(
 	@Schema(description = "좌석 선택 가능한 객차 정보 목록")
 	List<TrainCarInfo> carInfos
 ) {
-	public static TrainCarListResponse of(Long trainScheduleId, String recommendedCarNumber, int totalCarCount,
-		String trainClassificationCode, String trainNumber,
-		List<TrainCarInfo> carInfos) {
-		return new TrainCarListResponse(trainScheduleId, recommendedCarNumber, totalCarCount,
-			trainClassificationCode, trainNumber, carInfos);
-	}
 }

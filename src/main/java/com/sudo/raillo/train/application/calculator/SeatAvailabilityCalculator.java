@@ -36,7 +36,7 @@ public class SeatAvailabilityCalculator {
 		boolean canReserveStandard = seatResult.standardRemaining() >= requestedPassengerCount;
 		boolean canReserveFirstClass = seatResult.firstClassRemaining() >= requestedPassengerCount;
 
-		return SectionSeatStatus.of(
+		return new SectionSeatStatus(
 			seatResult.standardRemaining(),
 			totalSeats.getOrDefault(CarType.STANDARD, 0),
 			seatResult.firstClassRemaining(),

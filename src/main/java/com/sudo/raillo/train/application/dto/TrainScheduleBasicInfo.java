@@ -18,8 +18,4 @@ public record TrainScheduleBasicInfo(
 	@Schema(description = "열차명", example = "KTX")
 	String trainName
 ) {
-	public static TrainScheduleBasicInfo of(Long scheduleId, String trainClassificationCode,
-		String trainNumber, String trainName) {
-		return new TrainScheduleBasicInfo(scheduleId, trainClassificationCode, trainNumber, trainName);
-	}
 }

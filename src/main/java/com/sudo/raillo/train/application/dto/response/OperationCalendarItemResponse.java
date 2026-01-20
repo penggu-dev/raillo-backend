@@ -26,7 +26,11 @@ public record OperationCalendarItemResponse(
 	String isBookingAvailable
 ) {
 
-	public static OperationCalendarItemResponse create(LocalDate operationDate, boolean isHoliday, boolean hasSchedule) {
+	public static OperationCalendarItemResponse of(
+		LocalDate operationDate,
+		boolean isHoliday,
+		boolean hasSchedule
+	) {
 		return new OperationCalendarItemResponse(
 			operationDate,
 			operationDate.getDayOfWeek(),

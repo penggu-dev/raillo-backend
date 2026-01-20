@@ -36,28 +36,4 @@ public record PendingBookingDetailResponse(
 	@Schema(description = "예약 좌석 정보")
 	List<PendingSeatBookingDetail> seats
 ) {
-
-	public static PendingBookingDetailResponse of(
-		String pendingBookingId,
-		String trainNumber,
-		String trainName,
-		String departureStationName,
-		String arrivalStationName,
-		LocalTime departureTime,
-		LocalTime arrivalTime,
-		LocalDate operationDate,
-		List<PendingSeatBookingDetail> seats
-	) {
-		return new PendingBookingDetailResponse(
-			pendingBookingId,
-			trainNumber,
-			trainName,
-			departureStationName,
-			arrivalStationName,
-			departureTime,
-			arrivalTime,
-			operationDate,
-			seats
-		);
-	}
 }
