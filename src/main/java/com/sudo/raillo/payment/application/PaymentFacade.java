@@ -14,7 +14,6 @@ import com.sudo.raillo.member.application.MemberService;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.application.OrderService;
 import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentConfirmResponse;
@@ -25,6 +24,7 @@ import com.sudo.raillo.payment.domain.type.PaymentMethod;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.TossPaymentClient;
+import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,32 +47,22 @@ public class PaymentFacade {
 	/**
 	 * 결제 준비 처리
 	 *
-	 * 1. PendingBooking 조회 (BookingService)
-	 * 2. Member 조회 및 소유자 검증
+	 * 1. PendingBooking 조회 (BookingService - 모든 Id 존재 확인, 소유자 검증)
+	 * 2. Member 조회
 	 * 3. Order 생성 (PENDING) - OrderBooking, OrderSeatBooking도 함께 생성
 	 * 4. Payment 생성 (PENDING)
 	 * 5. orderId, amount 응답
 	 */
 	public PaymentPrepareResponse preparePayment(PaymentPrepareRequest request, String memberNo) {
-		// 1. PendingBooking 목록 조회 및 검증 (존재하지 않으면 예외 발생)
-		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(request.pendingBookingIds());
+		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(request.pendingBookingIds(), memberNo);
 
-		// 2. Member 조회 및 모든 PendingBooking 소유자 검증
 		Member member = memberService.getMemberByMemberNo(memberNo);
-		pendingBookings.forEach(pendingBooking ->
-			bookingValidator.validatePendingBookingOwner(pendingBooking, memberNo)
-		);
-
-		// 3. Order 생성 (totalAmount 계산 포함)
 		Order order = orderService.createOrder(memberNo, pendingBookings);
-
-		// 4. Payment 생성 (PENDING, totalAmount는 Order에서 가져옴)
 		Payment payment = paymentService.createPayment(member, order);
 
 		log.info("[결제 준비 완료] orderId={}, paymentId={}, amount={}, pendingBookingCount={}",
 			order.getOrderCode(), payment.getId(), order.getTotalAmount(), pendingBookings.size());
 
-		// 5. orderId, amount 응답
 		return new PaymentPrepareResponse(order.getOrderCode(), order.getTotalAmount());
 	}
 
