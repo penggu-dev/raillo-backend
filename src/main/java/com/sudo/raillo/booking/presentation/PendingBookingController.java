@@ -44,7 +44,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	) {
 		PendingBookingCreateResponse response = pendingBookingFacade
 			.createPendingBooking(request, userDetails.getUsername());
-		return SuccessResponse.of(BookingSuccess.BOOKING_CREATE_SUCCESS, response);
+		return SuccessResponse.of(BookingSuccess.PENDING_BOOKING_CREATE_SUCCESS, response);
 	}
 
 	/**
@@ -58,7 +58,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 		String memberNo = userDetails.getUsername();
 
 		List<PendingBookingDetail> response = pendingBookingService.getPendingBookings(memberNo);
-		return SuccessResponse.of(BookingSuccess.BOOKING_LIST_SUCCESS, response);
+		return SuccessResponse.of(BookingSuccess.PENDING_BOOKING_LIST_SUCCESS, response);
 	}
 
 	/**
@@ -73,7 +73,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 		String memberNo = userDetails.getUsername();
 
 		pendingBookingService.deletePendingBookings(request.pendingBookingIds(), memberNo);
-		return SuccessResponse.of(BookingSuccess.BOOKING_DELETE_SUCCESS);
+		return SuccessResponse.of(BookingSuccess.PENDING_BOOKING_DELETE_SUCCESS);
 	}
 
 }

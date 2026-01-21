@@ -1,4 +1,4 @@
-package com.sudo.raillo.member.application;
+package com.sudo.raillo.member.util;
 
 import java.time.Instant;
 import java.time.LocalDate;

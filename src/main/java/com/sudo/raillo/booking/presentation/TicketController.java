@@ -3,7 +3,7 @@ package com.sudo.raillo.booking.presentation;
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.docs.TicketControllerDoc;
-import com.sudo.raillo.booking.success.TicketSuccess;
+import com.sudo.raillo.booking.success.BookingSuccess;
 import com.sudo.raillo.global.success.SuccessResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +27,6 @@ public class TicketController implements TicketControllerDoc {
 	) {
 		String memberNo = userDetails.getUsername();
 		ReceiptResponse response = ticketService.getReceipt(memberNo, ticketId);
-		return SuccessResponse.of(TicketSuccess.RECEIPT_SUCCESS, response);
+		return SuccessResponse.of(BookingSuccess.RECEIPT_SUCCESS, response);
 	}
 }
