@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.payment.application.dto.response.TossPaymentConfirmResponse;
+import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;

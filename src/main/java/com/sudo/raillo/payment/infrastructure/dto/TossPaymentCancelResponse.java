@@ -1,8 +1,6 @@
-package com.sudo.raillo.payment.application.dto.response;
+package com.sudo.raillo.payment.infrastructure.dto;
 
 import java.util.List;
-
-import com.sudo.raillo.payment.application.dto.TossCancelDetail;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

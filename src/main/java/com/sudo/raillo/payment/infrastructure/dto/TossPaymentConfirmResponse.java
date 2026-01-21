@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.application.dto.response;
+package com.sudo.raillo.payment.infrastructure.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
