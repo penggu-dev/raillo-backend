@@ -57,7 +57,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	) {
 		String memberNo = userDetails.getUsername();
 
-		List<PendingBookingDetail> response = pendingBookingService.getPendingBookings(memberNo);
+		List<PendingBookingDetailResponse> response = pendingBookingService.getPendingBookings(memberNo);
 		return SuccessResponse.of(BookingSuccess.PENDING_BOOKING_LIST_SUCCESS, response);
 	}
 
