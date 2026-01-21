@@ -91,8 +91,7 @@ class PendingBookingFareTest {
 			.getPendingBooking(response.pendingBookingId()).orElseThrow();
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
 
-		assertThat(pendingBooking.getTotalFare())
-			.isEqualByComparingTo(BigDecimal.valueOf(stationFare.getStandardFare()));
+		assertThat(pendingBooking.getTotalFare()).isEqualByComparingTo(stationFare.getStandardFare());
 	}
 
 	@Test
@@ -120,8 +119,8 @@ class PendingBookingFareTest {
 			.getPendingBooking(response.pendingBookingId()).orElseThrow();
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
 
-		assertThat(pendingBooking.getTotalFare()).isEqualByComparingTo(
-			BigDecimal.valueOf(stationFare.getStandardFare()).multiply(BigDecimal.valueOf(0.6)));
+		assertThat(pendingBooking.getTotalFare())
+			.isEqualByComparingTo(stationFare.getStandardFare().multiply(BigDecimal.valueOf(0.6)));
 	}
 
 	@Test
@@ -149,8 +148,7 @@ class PendingBookingFareTest {
 			.getPendingBooking(response.pendingBookingId()).orElseThrow();
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
 
-		assertThat(pendingBooking.getTotalFare())
-			.isEqualByComparingTo(BigDecimal.valueOf(stationFare.getFirstClassFare()));
+		assertThat(pendingBooking.getTotalFare()).isEqualByComparingTo(stationFare.getFirstClassFare());
 	}
 
 	@Test
@@ -179,7 +177,7 @@ class PendingBookingFareTest {
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
 
 		assertThat(pendingBooking.getTotalFare())
-			.isEqualByComparingTo(BigDecimal.valueOf(stationFare.getStandardFare()).multiply(BigDecimal.valueOf(2)));
+			.isEqualByComparingTo(stationFare.getStandardFare().multiply(BigDecimal.valueOf(2)));
 	}
 
 	@Test
@@ -207,8 +205,8 @@ class PendingBookingFareTest {
 			.getPendingBooking(response.pendingBookingId()).orElseThrow();
 
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal adultFare = BigDecimal.valueOf(stationFare.getStandardFare());
-		BigDecimal childFare = BigDecimal.valueOf(stationFare.getStandardFare()).multiply(BigDecimal.valueOf(0.6));
+		BigDecimal adultFare = stationFare.getStandardFare();
+		BigDecimal childFare = stationFare.getStandardFare().multiply(BigDecimal.valueOf(0.6));
 
 		assertThat(pendingBooking.getTotalFare()).isEqualByComparingTo(adultFare.add(childFare));
 	}

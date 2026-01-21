@@ -96,7 +96,7 @@ class OrderFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal expectedFare = BigDecimal.valueOf(stationFare.getStandardFare());
+		BigDecimal expectedFare = stationFare.getStandardFare();
 
 		// order 검증
 		assertThat(order.getTotalAmount()).isEqualByComparingTo(expectedFare);
@@ -132,7 +132,7 @@ class OrderFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal expectedFare = BigDecimal.valueOf(stationFare.getStandardFare()).multiply(BigDecimal.valueOf(0.6));
+		BigDecimal expectedFare = stationFare.getStandardFare().multiply(BigDecimal.valueOf(0.6));
 
 		// order 검증
 		assertThat(order.getTotalAmount()).isEqualByComparingTo(expectedFare);
@@ -168,7 +168,7 @@ class OrderFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal expectedFare = BigDecimal.valueOf(stationFare.getFirstClassFare());
+		BigDecimal expectedFare = stationFare.getFirstClassFare();
 
 		// order 검증
 		assertThat(order.getTotalAmount()).isEqualByComparingTo(expectedFare);
@@ -205,7 +205,7 @@ class OrderFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal unitFare = BigDecimal.valueOf(stationFare.getStandardFare());
+		BigDecimal unitFare = stationFare.getStandardFare();
 		BigDecimal expectedFare = unitFare.multiply(BigDecimal.valueOf(2));
 
 		// order 검증
@@ -243,7 +243,7 @@ class OrderFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal adultFare = BigDecimal.valueOf(stationFare.getStandardFare());
+		BigDecimal adultFare = stationFare.getStandardFare();
 		BigDecimal childFare = adultFare.multiply(BigDecimal.valueOf(0.6));
 		BigDecimal expectedFare = adultFare.add(childFare);
 
@@ -301,8 +301,8 @@ class OrderFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal standardFare = BigDecimal.valueOf(stationFare.getStandardFare());
-		BigDecimal firstClassFare = BigDecimal.valueOf(stationFare.getFirstClassFare());
+		BigDecimal standardFare = stationFare.getStandardFare();
+		BigDecimal firstClassFare = stationFare.getFirstClassFare();
 		BigDecimal expectedFare = standardFare.add(firstClassFare);
 
 		// order 검증
@@ -391,13 +391,13 @@ class OrderFareTest {
 		// then
 		// 요금 계산: 스케줄 1 (서울->부산, 일반석)
 		StationFare stationFare1 = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal fare1Adult = BigDecimal.valueOf(stationFare1.getStandardFare());
+		BigDecimal fare1Adult = stationFare1.getStandardFare();
 		BigDecimal fare1Child = fare1Adult.multiply(BigDecimal.valueOf(0.6));
 		BigDecimal booking1TotalFare = fare1Adult.add(fare1Child);
 
 		// 요금 계산: 스케줄 2 (서울->대전, 특실)
 		StationFare stationFare2 = getStationFare(schedule2Departure.getStation().getId(), schedule2Arrival.getStation().getId());
-		BigDecimal fare2Adult = BigDecimal.valueOf(stationFare2.getFirstClassFare());
+		BigDecimal fare2Adult = stationFare2.getFirstClassFare();
 		BigDecimal fare2Senior = fare2Adult.multiply(BigDecimal.valueOf(0.7));
 		BigDecimal fare2Child = fare2Adult.multiply(BigDecimal.valueOf(0.6));
 		BigDecimal booking2TotalFare = fare2Adult.add(fare2Senior).add(fare2Child);

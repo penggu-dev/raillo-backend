@@ -84,8 +84,8 @@ public class FareCalculator {
 	 */
 	private static BigDecimal getFareByCarType(StationFare stationFare, CarType carType) {
 		return switch (carType) {
-			case STANDARD -> BigDecimal.valueOf(stationFare.getStandardFare());
-			case FIRST_CLASS -> BigDecimal.valueOf(stationFare.getFirstClassFare());
+			case STANDARD -> stationFare.getStandardFare();
+			case FIRST_CLASS -> stationFare.getFirstClassFare();
 		};
 	}
 }

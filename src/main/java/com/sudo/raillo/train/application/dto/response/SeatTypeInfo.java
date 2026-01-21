@@ -3,6 +3,7 @@ package com.sudo.raillo.train.application.dto.response;
 import com.sudo.raillo.train.domain.type.SeatAvailabilityStatus;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.math.BigDecimal;
 
 @Schema(description = "좌석 유형별 정보")
 public record SeatTypeInfo(
@@ -14,7 +15,7 @@ public record SeatTypeInfo(
 	int totalSeats,
 
 	@Schema(description = "요금", example = "14100")
-	int fare,
+	BigDecimal fare,
 
 	@Schema(description = "좌석 상태", example = "AVAILABLE")
 	SeatAvailabilityStatus status,
@@ -29,13 +30,14 @@ public record SeatTypeInfo(
 	String description
 ) {
 
-	public static SeatTypeInfo create(int availableSeats,
+	public static SeatTypeInfo create(
+		int availableSeats,
 		int totalSeats,
-		int fare,
+		BigDecimal fare,
 		int passengerCount,
 		String seatTypeName,
-		boolean canReserve) {
-
+		boolean canReserve
+	) {
 		SeatAvailabilityStatus status = determineSeatStatus(availableSeats, passengerCount, totalSeats);
 
 		String displayText = createDisplayText(status, seatTypeName);

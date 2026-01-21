@@ -2,6 +2,7 @@ package com.sudo.raillo.train.application.mapper;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
 
 import org.junit.jupiter.api.DisplayName;
@@ -20,8 +21,8 @@ class TrainSearchResponseMapperTest {
 	@Autowired
 	private TrainSearchResponseMapper mapper;
 
-	private static final int STANDARD_FARE = 50000;
-	private static final int FIRST_CLASS_FARE = 80000;
+	private static final BigDecimal STANDARD_FARE = BigDecimal.valueOf(50000);
+	private static final BigDecimal FIRST_CLASS_FARE = BigDecimal.valueOf(80000);
 
 	@Test
 	@DisplayName("일반실과 특실 모두 예약 가능한 경우 기본 응답을 올바르게 생성한다")

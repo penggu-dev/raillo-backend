@@ -3,14 +3,15 @@ package com.sudo.raillo.support.fixture.train;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.StationFare;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 
 public class StationFareFixture {
 
 	public static StationFare create(
 			Station departureStation,
 			Station arrivalStation,
-			int standardFare,
-			int firstClassFare
+			BigDecimal standardFare,
+			BigDecimal firstClassFare
 	) {
 		try {
 			var constructor = StationFare.class.getDeclaredConstructor();

@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import java.math.BigDecimal;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -32,7 +33,7 @@ public class StationFare {
 	@JoinColumn(name = "arrival_station_id")
 	private Station arrivalStation;
 
-	private int standardFare;
+	private BigDecimal standardFare;
 
-	private int firstClassFare;
+	private BigDecimal firstClassFare;
 }

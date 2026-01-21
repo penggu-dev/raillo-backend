@@ -90,7 +90,7 @@ class TicketFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal expectedFare = BigDecimal.valueOf(stationFare.getStandardFare());
+		BigDecimal expectedFare = stationFare.getStandardFare();
 
 		List<Ticket> tickets = ticketRepository.findAll();
 		assertThat(tickets).hasSize(1);
@@ -117,8 +117,7 @@ class TicketFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal expectedFare = BigDecimal.valueOf(stationFare.getStandardFare())
-			.multiply(BigDecimal.valueOf(0.6));
+		BigDecimal expectedFare = stationFare.getStandardFare().multiply(BigDecimal.valueOf(0.6));
 
 		List<Ticket> tickets = ticketRepository.findAll();
 		assertThat(tickets).hasSize(1);
@@ -145,7 +144,7 @@ class TicketFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal expectedFare = BigDecimal.valueOf(stationFare.getFirstClassFare());
+		BigDecimal expectedFare = stationFare.getFirstClassFare();
 
 		List<Ticket> tickets = ticketRepository.findAll();
 		assertThat(tickets).hasSize(1);
@@ -173,7 +172,7 @@ class TicketFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal expectedFare = BigDecimal.valueOf(stationFare.getStandardFare());
+		BigDecimal expectedFare = stationFare.getStandardFare();
 
 		List<Ticket> tickets = ticketRepository.findAll();
 		assertThat(tickets).hasSize(2);
@@ -202,7 +201,7 @@ class TicketFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal adultFare = BigDecimal.valueOf(stationFare.getStandardFare());
+		BigDecimal adultFare = stationFare.getStandardFare();
 		BigDecimal childFare = adultFare.multiply(BigDecimal.valueOf(0.6));
 
 		List<Ticket> tickets = ticketRepository.findAll();
@@ -227,7 +226,7 @@ class TicketFareTest {
 		Order order = orderResult.order();
 
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal adultFare = BigDecimal.valueOf(stationFare.getStandardFare());
+		BigDecimal adultFare = stationFare.getStandardFare();
 		BigDecimal childFare = adultFare.multiply(BigDecimal.valueOf(0.6));
 		BigDecimal expectedTotal = adultFare.add(childFare);
 
@@ -270,8 +269,8 @@ class TicketFareTest {
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal standardFare = BigDecimal.valueOf(stationFare.getStandardFare());
-		BigDecimal firstClassFare = BigDecimal.valueOf(stationFare.getFirstClassFare());
+		BigDecimal standardFare = stationFare.getStandardFare();
+		BigDecimal firstClassFare = stationFare.getFirstClassFare();
 
 		List<Ticket> tickets = ticketRepository.findAll();
 		assertThat(tickets).hasSize(2);
@@ -323,12 +322,12 @@ class TicketFareTest {
 		// then
 		// 요금 계산: 스케줄 1 (서울->부산, 일반석)
 		StationFare stationFare1 = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
-		BigDecimal fare1Adult = BigDecimal.valueOf(stationFare1.getStandardFare());
+		BigDecimal fare1Adult = stationFare1.getStandardFare();
 		BigDecimal fare1Child = fare1Adult.multiply(BigDecimal.valueOf(0.6));
 
 		// 요금 계산: 스케줄 2 (서울->대전, 특실)
 		StationFare stationFare2 = getStationFare(schedule2Departure.getStation().getId(), schedule2Arrival.getStation().getId());
-		BigDecimal fare2Adult = BigDecimal.valueOf(stationFare2.getFirstClassFare());
+		BigDecimal fare2Adult = stationFare2.getFirstClassFare();
 		BigDecimal fare2Senior = fare2Adult.multiply(BigDecimal.valueOf(0.7));
 		BigDecimal fare2Child = fare2Adult.multiply(BigDecimal.valueOf(0.6));
 
