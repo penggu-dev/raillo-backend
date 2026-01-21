@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.BDDMockito.*;
 
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -120,7 +121,12 @@ class TrainSearchServiceTest {
 
 		Station departureStation = StationFixture.create("서울");
 		Station arrivalStation = StationFixture.create("부산");
-		StationFare fare = StationFareFixture.create(departureStation, arrivalStation, 50000, 80000);
+		StationFare fare = StationFareFixture.create(
+			departureStation,
+			arrivalStation,
+			BigDecimal.valueOf(50000),
+			BigDecimal.valueOf(80000)
+		);
 
 		given(stationFareRepository.findByDepartureStationIdAndArrivalStationId(
 			departureStationId, arrivalStationId
@@ -131,8 +137,8 @@ class TrainSearchServiceTest {
 
 		// then
 		assertThat(result).isNotNull();
-		assertThat(result.getStandardFare()).isEqualTo(50000);
-		assertThat(result.getFirstClassFare()).isEqualTo(80000);
+		assertThat(result.getStandardFare()).isEqualByComparingTo(BigDecimal.valueOf(50000));
+		assertThat(result.getFirstClassFare()).isEqualByComparingTo(BigDecimal.valueOf(80000));
 
 		verify(stationFareRepository).findByDepartureStationIdAndArrivalStationId(
 			departureStationId, arrivalStationId

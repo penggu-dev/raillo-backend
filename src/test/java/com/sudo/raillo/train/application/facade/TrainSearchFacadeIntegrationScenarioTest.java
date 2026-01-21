@@ -2,6 +2,7 @@ package com.sudo.raillo.train.application.facade;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -113,8 +114,8 @@ public class TrainSearchFacadeIntegrationScenarioTest {
 		// 좌석 정보 검증
 		assertThat(searchResult.standardSeat()).isNotNull();
 		assertThat(searchResult.firstClassSeat()).isNotNull();
-		assertThat(searchResult.standardSeat().fare()).isEqualTo(50000); // 일반실 요금
-		assertThat(searchResult.firstClassSeat().fare()).isEqualTo(100000); // 특실 요금
+		assertThat(searchResult.standardSeat().fare()).isEqualByComparingTo(BigDecimal.valueOf(50000)); // 일반실 요금
+		assertThat(searchResult.firstClassSeat().fare()).isEqualByComparingTo(BigDecimal.valueOf(100000)); // 특실 요금
 		assertThat(searchResult.standardSeat().remainingSeats()).isGreaterThanOrEqualTo(0);
 		assertThat(searchResult.firstClassSeat().remainingSeats()).isGreaterThanOrEqualTo(0);
 		assertThat(searchResult.standardSeat().canReserve()).isNotNull();
