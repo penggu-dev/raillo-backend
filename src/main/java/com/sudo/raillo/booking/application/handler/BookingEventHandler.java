@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
@@ -24,7 +23,7 @@ public class BookingEventHandler {
 	private final BookingRepository bookingRepository;
 
 	@EventListener(classes = PaymentCompletedEvent.class)
-	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	@Transactional
 	public void handlePaymentCompleted(PaymentCompletedEvent event) {
 		// 멱등성 검증: 이미 처리된 이벤트인지 확인
 		if (bookingRepository.existsByOrderId(event.orderId())) {

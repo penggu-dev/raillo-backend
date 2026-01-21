@@ -33,6 +33,10 @@ public interface EventRepository extends JpaRepository<Event, Long> {
 	Optional<Event> findByIdWithLock(Long id);
 
 	@Modifying
-	@Query("UPDATE Event e SET e.status = 'RETRY' WHERE e.id IN :ids")
-	void updateStatusToRetry(@Param("ids") List<Long> ids);
+	@Query("UPDATE Event e SET e.status = 'RETRY', e.retryCount = e.retryCount + 1 WHERE e.id IN :ids")
+	void updateStatusToRetryAndIncrementCount(@Param("ids") List<Long> ids);
+
+	@Modifying
+	@Query("UPDATE Event e SET e.status = 'FAILED' WHERE e.id IN :ids")
+	void updateStatusToFailed(@Param("ids") List<Long> ids);
 }

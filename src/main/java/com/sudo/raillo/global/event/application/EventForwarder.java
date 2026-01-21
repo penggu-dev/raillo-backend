@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class EventForwarder {
 
-	private static final int BATCH_SIZE = 100;
+	private static final int BATCH_SIZE = 10;
 
 	private final ExecutorService eventExecutor;
 	private final EventRepository eventRepository;
@@ -30,7 +30,7 @@ public class EventForwarder {
 			.map(Event::getId)
 			.toList();
 
-		eventRepository.updateStatusToRetry(eventIds);
+		eventRepository.updateStatusToRetryAndIncrementCount(eventIds);
 
 		eventIds.forEach(eventId ->
 			eventExecutor.execute(() -> eventProcessor.process(eventId)));

@@ -29,32 +29,30 @@ public class EventProcessor {
 		Event event = eventRepository.findByIdWithLock(eventId)
 			.orElseThrow(() -> new BusinessException(EventError.EVENT_NOT_FOUND));
 
-		// 2. 상태 확인 (이미 완료된 경우 스킵)
-		if (event.getStatus() == EventStatus.COMPLETED) {
-			log.info("[이벤트 이미 처리됨] eventId={}, status={}", eventId, event.getStatus());
+		// 2. 상태 확인 (이미 완료되었거나 실패한 경우 스킵)
+		if (event.getStatus() == EventStatus.COMPLETED || event.getStatus() == EventStatus.FAILED) {
+			log.info("[이벤트 처리 스킵] eventId={}, status={}", eventId, event.getStatus());
 			return;
 		}
 
-		// 3. 핸들러 실행
-		try {
-			Object domainEvent = deserialize(event);
-			applicationEventPublisher.publishEvent(domainEvent);
-		} catch (Exception e) {
-			log.error("[핸들러 실행 실패] eventId={}, error={}", eventId, e.getMessage(), e);
-			event.fail();
-			return;
-		}
+		// 3. 핸들러 실행 + 완료 처리 (같은 트랜잭션에서 처리)
+		Object domainEvent = deserialize(event);
+		applicationEventPublisher.publishEvent(domainEvent);
 
-		// 4. 완료 처리
+		// 4. 완료 처리 (핸들러 성공 시에만 도달)
 		event.complete();
 		log.debug("[이벤트 처리 완료] eventId={}", eventId);
 	}
 
-	private Object deserialize(Event event) throws JsonProcessingException {
+	private Object deserialize(Event event) {
 		Class<?> eventClass = eventTypeMapper.getEventClass(event.getEventType());
 		if (eventClass == null) {
 			throw new BusinessException(EventError.UNKNOWN_EVENT);
 		}
-		return objectMapper.readValue(event.getPayload(), eventClass);
+		try {
+			return objectMapper.readValue(event.getPayload(), eventClass);
+		} catch (JsonProcessingException e) {
+			throw new BusinessException(EventError.EVENT_JSON_DESERIALIZATION_FAIL);
+		}
 	}
 }

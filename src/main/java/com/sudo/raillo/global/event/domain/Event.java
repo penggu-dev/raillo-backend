@@ -71,24 +71,9 @@ public class Event extends BaseEntity {
 		this.completedAt = LocalDateTime.now();
 	}
 
-	public void fail() {
-		validateRetryable();
-		this.retryCount++;
-
-		if (this.retryCount >= 3) {
-			this.status = EventStatus.FAILED;
-		}
-	}
-
 	private void validateCompletable() {
-		if(this.status != EventStatus.PROGRESS) {
+		if (this.status != EventStatus.PROGRESS && this.status != EventStatus.RETRY) {
 			throw new DomainException(EventError.EVENT_NOT_COMPLETABLE);
-		}
-	}
-
-	private void validateRetryable() {
-		if (this.status != EventStatus.RETRY) {
-			throw new DomainException(EventError.EVENT_NOT_RETRYABLE);
 		}
 	}
 }
