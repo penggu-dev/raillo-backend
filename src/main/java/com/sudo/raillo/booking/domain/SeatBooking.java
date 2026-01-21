@@ -30,7 +30,10 @@ import org.hibernate.annotations.OnDeleteAction;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
 	name = "seat_booking",
-	indexes = {@Index(name = "idx_seat_booking_seat", columnList = "train_schedule_id, seat_id")},
+	indexes = {
+		@Index(name = "idx_seat_booking_seat", columnList = "train_schedule_id, seat_id"),
+		@Index(name = "idx_seat_booking_schedule_search", columnList = "train_schedule_id, arrival_stop_order, departure_stop_order")
+	},
 	uniqueConstraints = {@UniqueConstraint(columnNames = {"train_schedule_id", "seat_id", "booking_id"})}
 )
 public class SeatBooking extends BaseEntity {
