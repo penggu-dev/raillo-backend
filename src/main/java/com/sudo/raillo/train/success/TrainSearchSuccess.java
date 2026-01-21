@@ -1,4 +1,4 @@
-package com.sudo.raillo.train.application.dto.response;
+package com.sudo.raillo.train.success;
 
 import org.springframework.http.HttpStatus;
 

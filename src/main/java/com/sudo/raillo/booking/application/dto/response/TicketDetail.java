@@ -30,24 +30,4 @@ public record TicketDetail(
 	@Schema(description = "좌석 번호 (행 + 열)", example = "1D")
 	String seatNumber
 ) {
-
-	public static TicketDetail of(
-		Long ticketId,
-		String ticketNumber,
-		TicketStatus status,
-		PassengerType passengerType,
-		int carNumber,
-		CarType carType,
-		String seatNumber
-	) {
-		return new TicketDetail(
-			ticketId,
-			ticketNumber,
-			status,
-			passengerType,
-			carNumber,
-			carType,
-			seatNumber
-		);
-	}
 }

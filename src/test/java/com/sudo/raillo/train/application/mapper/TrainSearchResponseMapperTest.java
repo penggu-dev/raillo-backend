@@ -29,7 +29,7 @@ class TrainSearchResponseMapperTest {
 	void createBasicResponse() {
 		// given
 		TrainBasicInfo trainInfo = createTrainBasicInfo(1L, 100, "KTX");
-		SectionSeatStatus sectionStatus = SectionSeatStatus.of(
+		SectionSeatStatus sectionStatus = new SectionSeatStatus(
 			75, 80, 22, 24, true, true
 		);
 		StationFare fare = createStationFare();
@@ -54,7 +54,7 @@ class TrainSearchResponseMapperTest {
 	void onlyStandardReservable() {
 		// given
 		TrainBasicInfo trainInfo = createTrainBasicInfo(2L, 200, "KTX");
-		SectionSeatStatus sectionStatus = SectionSeatStatus.of(
+		SectionSeatStatus sectionStatus = new SectionSeatStatus(
 			50, 80, 2, 24, true, false
 		);
 		StationFare fare = createStationFare();
@@ -74,7 +74,7 @@ class TrainSearchResponseMapperTest {
 	void onlyFirstClassReservable() {
 		// given
 		TrainBasicInfo trainInfo = createTrainBasicInfo(3L, 300, "KTX");
-		SectionSeatStatus sectionStatus = SectionSeatStatus.of(
+		SectionSeatStatus sectionStatus = new SectionSeatStatus(
 			2, 80,      // 일반실: 잔여 2석 / 총 80석
 			20, 24,     // 특실: 잔여 20석 / 총 24석
 			false,      // 일반실 예약 불가

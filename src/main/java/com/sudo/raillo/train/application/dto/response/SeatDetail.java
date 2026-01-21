@@ -28,21 +28,4 @@ public record SeatDetail(
 	@Schema(description = "비고 메시지(4인 동반석 등)", example = "KTX 4인동반석 역방향 좌석 입니다. 맞은편 좌석에 다른 승객이 승차할 수 있습니다.")
 	String remarks
 ) {
-	public static SeatDetail of(
-		Long seatId,
-		String seatNumber,
-		boolean isAvailable,
-		SeatDirection seatDirection,
-		SeatType seatType,
-		String specialMessage
-	) {
-		return new SeatDetail(
-			seatId,
-			seatNumber,
-			isAvailable,
-			seatDirection,
-			seatType,
-			specialMessage
-		);
-	}
 }

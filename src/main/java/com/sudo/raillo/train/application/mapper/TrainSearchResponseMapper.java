@@ -29,7 +29,7 @@ public class TrainSearchResponseMapper {
 		int passengerCount) {
 
 		// 1. 좌석 타입별 정보 생성 (일반실 / 특실)
-		SeatTypeInfo standardSeatInfo = SeatTypeInfo.create(
+		SeatTypeInfo standardSeatInfo = SeatTypeInfo.of(
 			sectionStatus.standardRemaining(),
 			sectionStatus.standardTotal(),
 			fare.getStandardFare(),
@@ -38,7 +38,7 @@ public class TrainSearchResponseMapper {
 			sectionStatus.canReserveStandard()
 		);
 
-		SeatTypeInfo firstClassSeatInfo = SeatTypeInfo.create(
+		SeatTypeInfo firstClassSeatInfo = SeatTypeInfo.of(
 			sectionStatus.firstClassRemaining(),
 			sectionStatus.firstClassTotal(),
 			fare.getFirstClassFare(),

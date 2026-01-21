@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.sudo.raillo.booking.application.dto.response.PendingBookingDetail;
+import com.sudo.raillo.booking.application.dto.response.PendingBookingDetailResponse;
 import com.sudo.raillo.booking.application.dto.response.PendingSeatBookingDetail;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.domain.PendingBooking;
@@ -111,14 +111,14 @@ class PendingBookingServiceTest {
 		bookingRedisRepository.savePendingBooking(pendingBooking2);
 
 		// when
-		List<PendingBookingDetail> result = pendingBookingService.getPendingBookings(
+		List<PendingBookingDetailResponse> result = pendingBookingService.getPendingBookings(
 			testMember.getMemberDetail().getMemberNo());
 
 		// then
 		assertThat(result).hasSize(2);
 
 		// 첫 번째 예약 검증
-		PendingBookingDetail detail1 = result.stream()
+		PendingBookingDetailResponse detail1 = result.stream()
 			.filter(detail -> detail.pendingBookingId().equals(pendingBooking1.getId()))
 			.findFirst()
 			.orElseThrow();
@@ -133,7 +133,7 @@ class PendingBookingServiceTest {
 		assertThat(detail1.seats().get(0).passengerType()).isEqualTo(PassengerType.ADULT);
 
 		// 두 번째 예약 검증
-		PendingBookingDetail detail2 = result.stream()
+		PendingBookingDetailResponse detail2 = result.stream()
 			.filter(detail -> detail.pendingBookingId().equals(pendingBooking2.getId()))
 			.findFirst()
 			.orElseThrow();
@@ -179,14 +179,14 @@ class PendingBookingServiceTest {
 		bookingRedisRepository.savePendingBooking(pendingBooking2);
 
 		// when
-		List<PendingBookingDetail> result = pendingBookingService.getPendingBookings(
+		List<PendingBookingDetailResponse> result = pendingBookingService.getPendingBookings(
 			testMember.getMemberDetail().getMemberNo());
 
 		// then
 		assertThat(result).hasSize(2);
 
 		// 첫 번째 예약 (서울 -> 부산)
-		PendingBookingDetail detail1 = result.stream()
+		PendingBookingDetailResponse detail1 = result.stream()
 			.filter(detail -> detail.pendingBookingId().equals(pendingBooking1.getId()))
 			.findFirst()
 			.orElseThrow();
@@ -199,7 +199,7 @@ class PendingBookingServiceTest {
 		assertThat(detail1.seats().get(0).passengerType()).isEqualTo(PassengerType.ADULT);
 
 		// 두 번째 예약 (서울 -> 대전)
-		PendingBookingDetail detail2 = result.stream()
+		PendingBookingDetailResponse detail2 = result.stream()
 			.filter(detail -> detail.pendingBookingId().equals(pendingBooking2.getId()))
 			.findFirst()
 			.orElseThrow();
@@ -218,7 +218,7 @@ class PendingBookingServiceTest {
 	@DisplayName("예약이 없는 경우 빈 리스트를 반환한다")
 	void getPendingBookings_success_emptyList() {
 		// when
-		List<PendingBookingDetail> result = pendingBookingService.getPendingBookings(
+		List<PendingBookingDetailResponse> result = pendingBookingService.getPendingBookings(
 			testMember.getMemberDetail().getMemberNo());
 
 		// then
@@ -319,7 +319,7 @@ class PendingBookingServiceTest {
 		);
 
 		// then
-		List<PendingBookingDetail> result = pendingBookingService.getPendingBookings(
+		List<PendingBookingDetailResponse> result = pendingBookingService.getPendingBookings(
 			testMember.getMemberDetail().getMemberNo());
 		assertThat(result).isEmpty();
 	}
@@ -361,7 +361,7 @@ class PendingBookingServiceTest {
 		);
 
 		// then
-		List<PendingBookingDetail> result = pendingBookingService.getPendingBookings(
+		List<PendingBookingDetailResponse> result = pendingBookingService.getPendingBookings(
 			testMember.getMemberDetail().getMemberNo());
 		assertThat(result).isEmpty();
 	}
@@ -393,7 +393,7 @@ class PendingBookingServiceTest {
 		);
 
 		// then
-		List<PendingBookingDetail> result = pendingBookingService.getPendingBookings(
+		List<PendingBookingDetailResponse> result = pendingBookingService.getPendingBookings(
 			testMember.getMemberDetail().getMemberNo());
 		assertThat(result).hasSize(1);
 		assertThat(result.get(0).pendingBookingId()).isEqualTo(pendingBooking2.getId());

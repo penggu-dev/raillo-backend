@@ -33,19 +33,4 @@ public record SectionSeatStatus(
 	boolean canReserveFirstClass
 
 ) {
-	/**
-	 * 정적 팩토리 메서드
-	 */
-	public static SectionSeatStatus of(
-		int standardRemaining, int standardTotal,
-		int firstClassRemaining, int firstClassTotal,
-		boolean canReserveStandard, boolean canReserveFirstClass) {
-
-		return new SectionSeatStatus(
-			standardRemaining, standardTotal,
-			firstClassRemaining, firstClassTotal,
-			canReserveStandard, canReserveFirstClass
-		);
-	}
-
 }

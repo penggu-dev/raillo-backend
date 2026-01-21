@@ -12,18 +12,16 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.global.success.SuccessResponse;
 import com.sudo.raillo.train.application.facade.TrainSearchFacade;
-import com.sudo.raillo.train.application.service.TrainSearchService;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
-import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
+import com.sudo.raillo.train.application.dto.response.OperationCalendarItemResponse;
 import com.sudo.raillo.train.application.dto.response.TrainCarListResponse;
 import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
-import com.sudo.raillo.train.application.dto.response.TrainSearchSuccess;
+import com.sudo.raillo.train.success.TrainSearchSuccess;
 import com.sudo.raillo.train.docs.TrainSearchControllerDoc;
 
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -37,16 +35,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TrainSearchController implements TrainSearchControllerDoc {
 
-	private final TrainSearchService trainSearchService;
 	private final TrainSearchFacade trainSearchFacade;
 
 	/**
 	 * 운행 캘린더 조회
 	 */
 	@GetMapping("/calendar")
-	public SuccessResponse<List<OperationCalendarItem>> getOperationCalendar() {
+	public SuccessResponse<List<OperationCalendarItemResponse>> getOperationCalendar() {
 		log.info("운행 캘린더 조회");
-		List<OperationCalendarItem> calendar = trainSearchFacade.getOperationCalendar();
+		List<OperationCalendarItemResponse> calendar = trainSearchFacade.getOperationCalendar();
 		log.info("운행 캘린더 조회: {} 건", calendar.size());
 
 		return SuccessResponse.of(TrainSearchSuccess.OPERATION_CALENDAR_SUCCESS, calendar);

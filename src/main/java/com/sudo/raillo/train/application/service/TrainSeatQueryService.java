@@ -65,7 +65,7 @@ public class TrainSeatQueryService {
 		log.info("열차 객차 좌석 상세 조회 완료: 객차={}, 전체좌석={}, 잔여좌석={}",
 			carSeatInfo.carNumber(), carSeatInfo.totalSeats(), carSeatInfo.remainingSeats());
 
-		return TrainCarSeatDetailResponse.of(
+		return new TrainCarSeatDetailResponse(
 			carSeatInfo.carNumber(),
 			carSeatInfo.carType(),
 			carSeatInfo.totalSeats(),
@@ -89,7 +89,7 @@ public class TrainSeatQueryService {
 	 * SeatProjection -> SeatDetail 변환
 	 */
 	private SeatDetail convertToSeatDetail(SeatProjection seatProjection) {
-		return SeatDetail.of(
+		return new SeatDetail(
 			seatProjection.getSeatId(),
 			seatProjection.getSeatNumber(),
 			seatProjection.isAvailable(),

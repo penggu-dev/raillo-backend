@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import com.sudo.raillo.booking.application.dto.SeatInfo;
 import com.sudo.raillo.booking.application.dto.StopInfo;
 import com.sudo.raillo.booking.application.dto.TrainScheduleInfo;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingDetail;
+import com.sudo.raillo.booking.application.dto.response.PendingBookingDetailResponse;
 import com.sudo.raillo.booking.application.dto.response.PendingSeatBookingDetail;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
@@ -16,7 +16,7 @@ import com.sudo.raillo.booking.domain.PendingSeatBooking;
 @Component
 public class PendingBookingMapper {
 
-	public PendingBookingDetail convertToPendingBookingDetail(
+	public PendingBookingDetailResponse convertToPendingBookingDetail(
 		PendingBooking pendingBooking,
 		Map<Long, TrainScheduleInfo> trainScheduleMap,
 		Map<Long, StopInfo> scheduleStopMap,
@@ -31,7 +31,7 @@ public class PendingBookingMapper {
 			seatMap
 		);
 
-		return PendingBookingDetail.of(
+		return new PendingBookingDetailResponse(
 			pendingBooking.getId(),
 			trainScheduleInfo.trainNumber(),
 			trainScheduleInfo.trainName(),
@@ -51,7 +51,7 @@ public class PendingBookingMapper {
 		return pendingSeatBookings.stream()
 			.map(pendingSeatBooking -> {
 				SeatInfo seatInfo = seatMap.get(pendingSeatBooking.seatId());
-				return PendingSeatBookingDetail.of(
+				return new PendingSeatBookingDetail(
 					pendingSeatBooking.seatId(),
 					pendingSeatBooking.passengerType(),
 					seatInfo.carNumber(),

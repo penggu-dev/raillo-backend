@@ -21,7 +21,7 @@ import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
-import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
+import com.sudo.raillo.train.application.dto.response.OperationCalendarItemResponse;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
 import com.sudo.raillo.train.application.dto.response.TrainCarListResponse;
 import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse;
@@ -63,7 +63,7 @@ public class TrainSearchFacade {
 	 * 운행 캘린더 조회
 	 * 금일로부터 한달간의 운행 스케줄 캘린더를 조회
 	 */
-	public List<OperationCalendarItem> getOperationCalendar() {
+	public List<OperationCalendarItemResponse> getOperationCalendar() {
 		return trainCalendarService.getOperationCalendar();
 	}
 
@@ -121,7 +121,7 @@ public class TrainSearchFacade {
 			availableCars.size(), recommendedCarNumber,
 			scheduleInfo.trainClassificationCode(), scheduleInfo.trainNumber());
 
-		return TrainCarListResponse.of(
+		return new TrainCarListResponse(
 			request.trainScheduleId(),
 			recommendedCarNumber,
 			availableCars.size(),

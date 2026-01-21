@@ -29,22 +29,4 @@ public record TrainCarSeatDetailResponse(
 	@Schema(description = "좌석 상세 정보 목록")
 	List<SeatDetail> seatList
 ) {
-
-	public static TrainCarSeatDetailResponse of(
-		String carNumber,
-		CarType carType,
-		int totalSeatCount,
-		int remainingSeatCount,
-		int layoutType,
-		List<SeatDetail> seatList
-	) {
-		return new TrainCarSeatDetailResponse(
-			carNumber,
-			carType,
-			totalSeatCount,
-			remainingSeatCount,
-			layoutType,
-			seatList
-		);
-	}
 }

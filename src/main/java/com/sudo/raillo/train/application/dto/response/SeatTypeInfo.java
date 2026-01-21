@@ -30,7 +30,7 @@ public record SeatTypeInfo(
 	String description
 ) {
 
-	public static SeatTypeInfo create(
+	public static SeatTypeInfo of(
 		int availableSeats,
 		int totalSeats,
 		BigDecimal fare,

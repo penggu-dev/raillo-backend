@@ -9,7 +9,7 @@ import com.sudo.raillo.global.success.SuccessResponse;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
-import com.sudo.raillo.train.application.dto.response.OperationCalendarItem;
+import com.sudo.raillo.train.application.dto.response.OperationCalendarItemResponse;
 import com.sudo.raillo.train.application.dto.response.TrainCarListResponse;
 import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
@@ -41,7 +41,7 @@ public interface TrainSearchControllerDoc {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class))
 		)
 	})
-	SuccessResponse<List<OperationCalendarItem>> getOperationCalendar();
+	SuccessResponse<List<OperationCalendarItemResponse>> getOperationCalendar();
 
 	@Operation(
 		method = "POST",
