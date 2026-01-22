@@ -89,6 +89,41 @@ class SeatHoldRepositoryTest {
 			assertThat(result.isConflictWithHold()).isTrue();
 			assertThat(result.conflictSection()).isEqualTo("2-3");
 		}
+
+		@Test
+		@DisplayName("다양한 구간 길이에서 겹치는 구간은 Hold에 실패한다")
+		void various_section_lengths_conflict_test() {
+			// 1. 장거리 먼저 Hold (0-5)
+			SeatHoldResult result1 = seatHoldRepository.tryHold(
+				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_0", 0, 5
+			);
+			assertThat(result1.success()).isTrue();
+
+			// 2. 단거리 시도 - 겹침 (0-2)
+			SeatHoldResult result2 = seatHoldRepository.tryHold(
+				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_1", 0, 2
+			);
+			assertThat(result2.success()).isFalse();
+			assertThat(result2.isConflictWithHold()).isTrue();
+
+			// 3. 단거리 시도 - 겹침 (3-4)
+			SeatHoldResult result3 = seatHoldRepository.tryHold(
+				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_2", 3, 4
+			);
+			assertThat(result3.success()).isFalse();
+
+			// 4. 독립 구간 - 성공 (5-10)
+			SeatHoldResult result4 = seatHoldRepository.tryHold(
+				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_3", 5, 10
+			);
+			assertThat(result4.success()).isTrue();
+
+			// 5. 단거리 시도 - 겹침 (7-8)
+			SeatHoldResult result5 = seatHoldRepository.tryHold(
+				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_4", 7, 8
+			);
+			assertThat(result5.success()).isFalse();
+		}
 	}
 
 	@Nested
