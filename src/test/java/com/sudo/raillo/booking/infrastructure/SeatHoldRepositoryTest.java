@@ -18,7 +18,7 @@ import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.support.annotation.RedisTest;
 
 @RedisTest
-@DisplayName("SeatHoldRepository - Lua 스크립트 동작 검증")
+@DisplayName("SeatHoldRepository 테스트")
 class SeatHoldRepositoryTest {
 
 	@Autowired
@@ -28,11 +28,11 @@ class SeatHoldRepositoryTest {
 	private static final Long SEAT_ID = 12L;
 
 	@Nested
-	@DisplayName("단일 좌석 Hold 테스트")
+	@DisplayName("단일 좌석 Hold")
 	class SingleSeatHoldTest {
 
 		@Test
-		@DisplayName("충돌 없는 구간에 Hold 성공")
+		@DisplayName("충돌이 없는 구간은 Hold에 성공한다")
 		void hold_success_when_no_conflict() {
 			// given
 			String pendingBookingId = "pending_001";
@@ -51,7 +51,7 @@ class SeatHoldRepositoryTest {
 		}
 
 		@Test
-		@DisplayName("겹치지 않는 구간은 서로 Hold 가능")
+		@DisplayName("겹치지 않는 구간은 서로 Hold가 가능하다")
 		void hold_success_when_non_overlapping_sections() {
 			// given
 			String pendingBookingId1 = "pending_001";
@@ -70,7 +70,7 @@ class SeatHoldRepositoryTest {
 		}
 
 		@Test
-		@DisplayName("기존 Hold와 겹치는 구간은 충돌 발생")
+		@DisplayName("기존 Hold와 겹치는 구간은 충돌이 발생한다")
 		void hold_fail_when_conflict_with_existing_hold() {
 			// given
 			String pendingBookingId1 = "pending_001";
@@ -92,11 +92,11 @@ class SeatHoldRepositoryTest {
 	}
 
 	@Nested
-	@DisplayName("Sold 충돌 테스트")
+	@DisplayName("Sold 충돌")
 	class SoldConflictTest {
 
 		@Test
-		@DisplayName("Sold 구간과 겹치면 충돌 발생")
+		@DisplayName("Sold 구간과 겹치면 충돌이 발생한다")
 		void hold_fail_when_conflict_with_sold() {
 			// given
 			String pendingBookingId1 = "pending_001";
@@ -119,11 +119,11 @@ class SeatHoldRepositoryTest {
 	}
 
 	@Nested
-	@DisplayName("다중 좌석 Hold 테스트")
+	@DisplayName("다중 좌석 Hold")
 	class MultipleSeatHoldTest {
 
 		@Test
-		@DisplayName("여러 좌석 동시 Hold 성공")
+		@DisplayName("여러 좌석 동시 Hold에 성공한다")
 		void hold_multiple_seats_success() {
 			// given
 			String pendingBookingId = "pending_001";
@@ -138,7 +138,7 @@ class SeatHoldRepositoryTest {
 		}
 
 		@Test
-		@DisplayName("여러 좌석 중 하나라도 충돌 시 전체 롤백")
+		@DisplayName("여러 좌석 중 하나라도 충돌 시 전체 롤백된다")
 		void hold_multiple_seats_rollback_on_conflict() {
 			// given
 			String pendingBookingId1 = "pending_001";
@@ -148,16 +148,12 @@ class SeatHoldRepositoryTest {
 			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 2L, pendingBookingId1, 0, 3);
 
 			// when - 좌석 1, 2, 3 동시 Hold 시도 (2번에서 충돌)
-			assertThatThrownBy(() ->
-				seatHoldRepository.tryHoldSeats(
-					TRAIN_SCHEDULE_ID, List.of(1L, 2L, 3L), pendingBookingId2, 0, 3
-				)
+			assertThatThrownBy(() -> seatHoldRepository.tryHoldSeats(
+				TRAIN_SCHEDULE_ID, List.of(1L, 2L, 3L), pendingBookingId2, 0, 3)
 			)
 				.isInstanceOf(BusinessException.class)
-				.satisfies(e -> {
-					BusinessException be = (BusinessException) e;
-					assertThat(be.getErrorCode()).isEqualTo(BookingError.SEAT_CONFLICT_WITH_HOLD);
-				});
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_HOLD)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_HOLD.getMessage());
 
 			// then - 좌석 1번도 롤백되어 Hold 가능해야 함
 			SeatHoldResult result = seatHoldRepository.tryHold(
@@ -168,11 +164,11 @@ class SeatHoldRepositoryTest {
 	}
 
 	@Nested
-	@DisplayName("Confirm & Release 테스트")
+	@DisplayName("Confirm & Release")
 	class ConfirmAndReleaseTest {
 
 		@Test
-		@DisplayName("Hold 확정 성공")
+		@DisplayName("Hold 확정에 성공한다")
 		void confirm_hold_success() {
 			// given
 			String pendingBookingId = "pending_001";
@@ -185,21 +181,17 @@ class SeatHoldRepositoryTest {
 		}
 
 		@Test
-		@DisplayName("존재하지 않는 Hold 확정 시 예외")
+		@DisplayName("존재하지 않는 Hold 확정 시 예외가 발생한다")
 		void confirm_fail_when_hold_not_exists() {
 			// when & then
-			assertThatThrownBy(() ->
-				seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, "non_existent")
-			)
+			assertThatThrownBy(() -> seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, "non_existent"))
 				.isInstanceOf(BusinessException.class)
-				.satisfies(e -> {
-					BusinessException be = (BusinessException) e;
-					assertThat(be.getErrorCode()).isEqualTo(BookingError.SEAT_HOLD_NOT_FOUND);
-				});
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_HOLD_NOT_FOUND)
+				.hasMessage(BookingError.SEAT_HOLD_NOT_FOUND.getMessage());
 		}
 
 		@Test
-		@DisplayName("Hold 해제 후 같은 구간 다시 Hold 가능")
+		@DisplayName("Hold 해제 후 같은 구간을 다시 Hold 할 수 있다")
 		void release_then_hold_again_success() {
 			// given
 			String pendingBookingId1 = "pending_001";
@@ -207,10 +199,10 @@ class SeatHoldRepositoryTest {
 
 			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 3);
 
-			// when - 해제
+			// when
 			seatHoldRepository.releaseHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1);
 
-			// then - 같은 구간 다시 Hold 가능
+			// then
 			SeatHoldResult result = seatHoldRepository.tryHold(
 				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 0, 3
 			);
@@ -223,12 +215,16 @@ class SeatHoldRepositoryTest {
 	class ConcurrencyTest {
 
 		@Test
-		@DisplayName("100명이 동시에 같은 좌석 같은 구간 Hold 시도 - 1명만 성공")
+		@DisplayName("100명이 동시에 같은 좌석 같은 구간 Hold 시도 시 1명만 성공한다")
 		void concurrent_hold_same_seat_same_section() throws InterruptedException {
 			// given
 			int numberOfThreads = 100;
 			ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreads);
-			CountDownLatch latch = new CountDownLatch(numberOfThreads);
+
+			CountDownLatch readyLatch = new CountDownLatch(numberOfThreads); // 준비 완료
+			CountDownLatch startLatch = new CountDownLatch(1);              // 동시 시작
+			CountDownLatch doneLatch = new CountDownLatch(numberOfThreads); // 종료 대기
+
 			AtomicInteger successCount = new AtomicInteger(0);
 			AtomicInteger failCount = new AtomicInteger(0);
 
@@ -237,36 +233,53 @@ class SeatHoldRepositoryTest {
 				final int index = i;
 				executorService.submit(() -> {
 					try {
+						// 스레드 준비 완료 알림
+						readyLatch.countDown();
+
+						// 모든 스레드가 여기서 대기, 동시에 출발
+						startLatch.await();
+
 						SeatHoldResult result = seatHoldRepository.tryHold(
-							TRAIN_SCHEDULE_ID, SEAT_ID, "pending_" + index, 0, 3
+							TRAIN_SCHEDULE_ID,
+							SEAT_ID,
+							"pending_" + index,
+							0,
+							3
 						);
+
 						if (result.success()) {
 							successCount.incrementAndGet();
 						} else {
 							failCount.incrementAndGet();
 						}
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
 					} finally {
-						latch.countDown();
+						doneLatch.countDown();
 					}
 				});
 			}
 
-			latch.await();
+
+			readyLatch.await(); 		// 모든 스레드가 준비될 때까지 대기
+			startLatch.countDown(); 	// 동시에 시작
+			doneLatch.await(); 			// 모든 작업 완료 대기
 			executorService.shutdown();
 
 			// then
 			assertThat(successCount.get()).isEqualTo(1);
-			assertThat(failCount.get()).isEqualTo(99);
+			assertThat(failCount.get()).isEqualTo(numberOfThreads - 1);
 		}
 
 		@Test
-		@DisplayName("100명이 동시에 같은 좌석 다른 구간 Hold 시도 - 겹치지 않으면 모두 성공")
+		@DisplayName("10명이 동시에 같은 좌석 다른 구간 Hold 시도 시 겹치지 않으면 모두 성공한다")
 		void concurrent_hold_same_seat_different_sections() throws InterruptedException {
-			// given - 구간이 안 겹치도록 설정
-			// 사용자 0: 0-1, 사용자 1: 1-2, 사용자 2: 2-3, ...
+			// given
 			int numberOfThreads = 10;
 			ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreads);
-			CountDownLatch latch = new CountDownLatch(numberOfThreads);
+			CountDownLatch readyLatch = new CountDownLatch(numberOfThreads);
+			CountDownLatch startLatch = new CountDownLatch(1);
+			CountDownLatch doneLatch = new CountDownLatch(numberOfThreads);
 			AtomicInteger successCount = new AtomicInteger(0);
 
 			// when
@@ -274,23 +287,30 @@ class SeatHoldRepositoryTest {
 				final int index = i;
 				executorService.submit(() -> {
 					try {
+						readyLatch.countDown();
+						startLatch.await();
+
 						SeatHoldResult result = seatHoldRepository.tryHold(
 							TRAIN_SCHEDULE_ID, SEAT_ID, "pending_" + index,
-							index, index + 1  // 각자 다른 단일 구간
+							index, index + 1
 						);
 						if (result.success()) {
 							successCount.incrementAndGet();
 						}
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
 					} finally {
-						latch.countDown();
+						doneLatch.countDown();
 					}
 				});
 			}
 
-			latch.await();
+			readyLatch.await();
+			startLatch.countDown();
+			doneLatch.await();
 			executorService.shutdown();
 
-			// then - 구간이 안 겹치므로 모두 성공
+			// then
 			assertThat(successCount.get()).isEqualTo(numberOfThreads);
 		}
 	}
