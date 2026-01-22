@@ -16,6 +16,8 @@ import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.application.service.TrainSeatQueryService;
+import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
 
 import lombok.RequiredArgsConstructor;
@@ -35,14 +37,24 @@ public class PendingBookingFacade {
 
 	/**
 	 * 예약 생성
-	 * 좌석 검증 → 운임 계산 → 좌석 Hold → PendingBooking 저장
+	 * 조회 → 검증 → 운임 계산 → 좌석 Hold → PendingBooking 저장
 	 */
 	public PendingBookingCreateResponse createPendingBooking(PendingBookingCreateRequest request, String memberNo) {
-		// 모든 좌석의 객차타입이 일치하는지 검증
+		// 1. 조회
+		TrainSchedule trainSchedule = pendingBookingService.getTrainSchedule(request.trainScheduleId());
+		ScheduleStop departureStop = pendingBookingService.getStopStation(trainSchedule, request.departureStationId());
+		ScheduleStop arrivalStop = pendingBookingService.getStopStation(trainSchedule, request.arrivalStationId());
+
+		// 2. 검증
+		bookingValidator.validateTrainOperating(trainSchedule);
+		bookingValidator.validateSameSchedule(departureStop, arrivalStop);
+		bookingValidator.validateStopSequence(departureStop, arrivalStop);
+		bookingValidator.validatePassengerSeatCount(request.passengerTypes(), request.seatIds());
+
 		List<CarType> carTypes = trainSeatQueryService.getCarTypes(request.seatIds());
 		CarType carType = bookingValidator.validateSeatIdsAndGetSingleCarType(carTypes);
-		log.debug("[좌석 검증 통과] seatIds={}", request.seatIds());
 
+		// 3. 운임 계산
 		BigDecimal totalFare = fareCalculator.calculateTotalFare(
 			request.departureStationId(),
 			request.arrivalStationId(),
@@ -50,18 +62,24 @@ public class PendingBookingFacade {
 			carType
 		);
 
+		// 4. 좌석 Hold
 		String pendingBookingId = UUID.randomUUID().toString();
 		seatHoldService.holdSeats(
 			pendingBookingId,
 			request.trainScheduleId(),
-			request.departureStationId(),
-			request.arrivalStationId(),
+			departureStop.getId(),
+			arrivalStop.getId(),
 			request.seatIds()
 		);
 
+		// 5. 저장
 		PendingBooking pendingBooking = pendingBookingService.createPendingBooking(
 			pendingBookingId,
-			request,
+			trainSchedule,
+			departureStop,
+			arrivalStop,
+			request.passengerTypes(),
+			request.seatIds(),
 			memberNo,
 			totalFare
 		);
