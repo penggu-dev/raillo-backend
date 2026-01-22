@@ -62,7 +62,7 @@ public class PendingBookingFacade {
 			carType
 		);
 
-		// 4. 좌석 Hold
+		// 4. 좌석 Hold & 5. 저장 (Hold 이후 실패 시 보상 로직)
 		String pendingBookingId = UUID.randomUUID().toString();
 		seatHoldService.holdSeats(
 			pendingBookingId,
@@ -72,19 +72,24 @@ public class PendingBookingFacade {
 			request.seatIds()
 		);
 
-		// 5. 저장
-		PendingBooking pendingBooking = pendingBookingService.createPendingBooking(
-			pendingBookingId,
-			trainSchedule,
-			departureStop,
-			arrivalStop,
-			request.passengerTypes(),
-			request.seatIds(),
-			memberNo,
-			totalFare
-		);
+		try {
+			PendingBooking pendingBooking = pendingBookingService.createPendingBooking(
+				pendingBookingId,
+				trainSchedule,
+				departureStop,
+				arrivalStop,
+				request.passengerTypes(),
+				request.seatIds(),
+				memberNo,
+				totalFare
+			);
 
-		return new PendingBookingCreateResponse(pendingBooking.getId());
+			return new PendingBookingCreateResponse(pendingBooking.getId());
+		} catch (Exception e) {
+			log.error("[PendingBooking 저장 실패 - Hold 롤백] pendingBookingId={}, error={}", pendingBookingId, e.getMessage());
+			seatHoldService.releaseSeats(pendingBookingId, request.trainScheduleId(), request.seatIds());
+			throw e;
+		}
 	}
 
 	/**
