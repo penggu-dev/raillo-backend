@@ -225,7 +225,6 @@ class PaymentFacadeTest {
 	@DisplayName("존재하지 않는 회원번호로 결제 준비 시 USER_NOT_FOUND 예외가 발생한다")
 	void preparePayment_memberNotFound_throwsException() {
 		// given
-		String memberNo = member.getMemberDetail().getMemberNo();
 		String nonExistentMemberNo = "9999999999";
 
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
@@ -239,7 +238,7 @@ class PaymentFacadeTest {
 
 		// 실제 회원번호로 PendingBooking 생성
 		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(memberNo)
+			.withMemberNo(nonExistentMemberNo)
 			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 			.withDepartureStopId(departureStop.getId())
 			.withArrivalStopId(arrivalStop.getId())

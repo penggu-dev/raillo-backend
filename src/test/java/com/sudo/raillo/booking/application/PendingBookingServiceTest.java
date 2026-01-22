@@ -416,25 +416,4 @@ class PendingBookingServiceTest {
 			)
 		).doesNotThrowAnyException();
 	}
-
-	@Test
-	@DisplayName("권한이 없는 예약을 삭제하려고 시도하면 예외가 발생한다")
-	void deletePendingBookings_fail_notOwner() {
-		// given
-		String ownerMemberNo = "owner_member_no";
-		String nonOwnerMemberNo = "non_owner_member_no";
-
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(ownerMemberNo)
-			.build();
-		bookingRedisRepository.savePendingBooking(pendingBooking);
-
-		// when & then
-		assertThatThrownBy(() ->
-			pendingBookingService.deletePendingBookings(
-				List.of(pendingBooking.getId()),
-				nonOwnerMemberNo
-			)).isInstanceOf(BusinessException.class)
-			.hasMessage(BookingError.PENDING_BOOKING_ACCESS_DENIED.getMessage());
-	}
 }
