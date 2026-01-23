@@ -44,3 +44,8 @@ out/
 ### AI docs ###
 CLAUDE.md
 GEMINI.md
+
+### K6 Test ###
+package.json
+package-lock.json
+node_modules
