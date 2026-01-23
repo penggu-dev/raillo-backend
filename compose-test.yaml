@@ -1,0 +1,169 @@
+services:
+  raillo-server:
+    image: amazoncorretto:17-alpine-jdk
+    container_name: raillo-server
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./build/libs:/app/libs
+    entrypoint: [
+      "java",
+      "-XX:MaxRAMPercentage=75.0",
+      "-Dspring.profiles.active=dev",
+      "-jar",
+      "/app/libs/raillo-0.0.1-SNAPSHOT.jar"
+    ]
+    env_file:
+      - .env
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/raillo
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=secret
+      - SPRING_DATA_REDIS_HOST=redis
+    depends_on:
+      - mysql
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0' # application server cpu 코어 수
+          memory: 1G # application server 메모리 용량
+
+  mysql:
+    image: 'chanwon2/raillo-test-db:latest'
+    environment:
+      - 'MYSQL_DATABASE=raillo'
+      - 'MYSQL_PASSWORD=secret'
+      - 'MYSQL_ROOT_PASSWORD=secret'
+      - 'MYSQL_USER=sa'
+    ports:
+      - '3306:3306'
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0' # mysql cpu 코어 수
+          memory: 1G # mysql 메모리 용량
+
+  redis:
+    image: 'redis:alpine'
+    ports:
+      - '6379:6379'
+    command: >
+      redis-server
+      --maxmemory 512mb
+    # Redis 메모리 용량
+
+  mysqld-exporter:
+    image: prom/mysqld-exporter
+    container_name: mysqld-exporter
+    ports:
+      - "9104:9104"
+    depends_on:
+      - mysql
+    user: root
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "[client]
+        user=sa
+        password=secret
+        host=mysql
+        port=3306" > /.my.cnf
+        /bin/mysqld_exporter \
+          --config.my-cnf=/.my.cnf \
+          --no-collect.slave_status
+
+  redis-exporter:
+    image: oliver006/redis_exporter
+    container_name: redis-exporter
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    ports:
+      - "9121:9121"
+    depends_on:
+      - redis
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    user: root
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "
+        global:
+          scrape_interval: 1s
+        scrape_configs:
+          - job_name: 'raillo-server'
+            metrics_path: '/actuator/prometheus'
+            static_configs:
+              - targets: ['raillo-server:8080']
+        
+          - job_name: 'redis-exporter'
+            static_configs:
+              - targets: ['redis-exporter:9121']
+
+          - job_name: 'mysqld-exporter'
+            static_configs:
+              - targets: ['mysqld-exporter:9104']
+        " > /etc/prometheus/prometheus.yml && \
+        /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --web.enable-lifecycle
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    depends_on:
+      - prometheus
+    user: root
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        mkdir -p /etc/grafana/provisioning/dashboards
+        mkdir -p /var/lib/grafana/dashboards
+        
+        echo 'apiVersion: 1
+        datasources:
+          - name: Prometheus
+            type: prometheus
+            uid: prometheus
+            access: proxy
+            url: http://prometheus:9090
+            isDefault: true' > /etc/grafana/provisioning/datasources/datasource.yml
+        
+        echo 'apiVersion: 1
+        providers:
+          - name: "default"
+            orgId: 1
+            folder: ""
+            type: file
+            disableDeletion: false
+            updateIntervalSeconds: 10
+            options:
+              path: /var/lib/grafana/dashboards' > /etc/grafana/provisioning/dashboards/dashboard.yml
+        
+        echo "Downloading Dashboards..."
+        wget -O /var/lib/grafana/dashboards/springboot.json https://grafana.com/api/dashboards/11378/revisions/latest/download
+        wget -O /var/lib/grafana/dashboards/redis.json https://grafana.com/api/dashboards/11835/revisions/latest/download
+        wget -O /var/lib/grafana/dashboards/mysql.json https://grafana.com/api/dashboards/7362/revisions/latest/download
+        
+        for file in /var/lib/grafana/dashboards/*.json; do
+          sed -i 's/\$${DS_PROMETHEUS}/prometheus/g' "$$file"
+          sed -i 's/"datasource":\s*"Prometheus"/"datasource": "prometheus"/g' "$$file"
+          sed -i 's/"uid":\s*"\$${DS_PROMETHEUS}"/"uid": "prometheus"/g' "$$file"
+        done
+        
+        /run.sh
