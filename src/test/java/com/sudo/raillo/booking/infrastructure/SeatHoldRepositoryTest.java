@@ -268,11 +268,8 @@ class SeatHoldRepositoryTest {
 				final int index = i;
 				executorService.submit(() -> {
 					try {
-						// 스레드 준비 완료 알림
-						readyLatch.countDown();
-
-						// 모든 스레드가 여기서 대기, 동시에 출발
-						startLatch.await();
+						readyLatch.countDown();		// 스레드 준비 완료 알림
+						startLatch.await();			// 모든 스레드가 여기서 대기, 동시에 출발
 
 						SeatHoldResult result = seatHoldRepository.tryHold(
 							TRAIN_SCHEDULE_ID,
@@ -294,8 +291,7 @@ class SeatHoldRepositoryTest {
 					}
 				});
 			}
-
-
+			
 			readyLatch.await(); 		// 모든 스레드가 준비될 때까지 대기
 			startLatch.countDown(); 	// 동시에 시작
 			doneLatch.await(); 			// 모든 작업 완료 대기

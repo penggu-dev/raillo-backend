@@ -128,6 +128,7 @@ public class PendingBookingService {
 	 * @param memberNo 멤버 번호
 	 * @return 예약 목록
 	 */
+	@Transactional(readOnly = true)
 	public List<PendingBooking> getPendingBookings(List<String> pendingBookingIds, String memberNo) {
 		Map<String, PendingBooking> bookingsById = bookingRedisRepository.getPendingBookingsAsMap(pendingBookingIds);
 
@@ -153,16 +154,6 @@ public class PendingBookingService {
 		return IntStream.range(0, seatIds.size())
 			.mapToObj(i -> new PendingSeatBooking(seatIds.get(i), passengerTypes.get(i)))
 			.toList();
-	}
-
-	public ScheduleStop getStopStation(TrainSchedule trainSchedule, Long stationId) {
-		return scheduleStopRepository.findByTrainScheduleIdAndStationId(trainSchedule.getId(), stationId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
-	}
-
-	public TrainSchedule getTrainSchedule(Long trainScheduleId) {
-		return trainScheduleRepository.findById(trainScheduleId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
 	}
 
 	private Map<Long, TrainScheduleInfo> getTrainScheduleMap(Set<Long> trainScheduleIds) {

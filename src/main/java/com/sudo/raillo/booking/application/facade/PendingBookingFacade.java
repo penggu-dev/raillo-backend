@@ -16,6 +16,7 @@ import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.util.PendingBookingIdGenerator;
 import com.sudo.raillo.train.application.calculator.FareCalculator;
+import com.sudo.raillo.train.application.service.TrainScheduleService;
 import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
@@ -36,6 +37,7 @@ public class PendingBookingFacade {
 	private final FareCalculator fareCalculator;
 	private final BookingValidator bookingValidator;
 	private final PendingBookingIdGenerator pendingBookingIdGenerator;
+	private final TrainScheduleService trainScheduleService;
 
 	/**
 	 * 예약 생성
@@ -43,9 +45,9 @@ public class PendingBookingFacade {
 	 */
 	public PendingBookingCreateResponse createPendingBooking(PendingBookingCreateRequest request, String memberNo) {
 		// 1. 조회
-		TrainSchedule trainSchedule = pendingBookingService.getTrainSchedule(request.trainScheduleId());
-		ScheduleStop departureStop = pendingBookingService.getStopStation(trainSchedule, request.departureStationId());
-		ScheduleStop arrivalStop = pendingBookingService.getStopStation(trainSchedule, request.arrivalStationId());
+		TrainSchedule trainSchedule = trainScheduleService.getTrainSchedule(request.trainScheduleId());
+		ScheduleStop departureStop = trainScheduleService.getStopStation(trainSchedule, request.departureStationId());
+		ScheduleStop arrivalStop = trainScheduleService.getStopStation(trainSchedule, request.arrivalStationId());
 
 		// 2. 검증
 		bookingValidator.validateTrainOperating(trainSchedule);

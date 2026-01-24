@@ -36,8 +36,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TrainSearchService {
 
-	private static final int SEAT_BUFFER_THRESHOLD = 20; // 여유석 판단 기준
-
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final TrainScheduleQueryRepository trainScheduleQueryRepository;
 	private final StationFareRepository stationFareRepository;
@@ -100,15 +98,5 @@ public class TrainSearchService {
 		List<Long> trainScheduleIds, Long departureStationId, Long arrivalStationId) {
 		return seatBookingQueryRepository.findOverlappingBookingsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId);
-	}
-
-	// ============================================
-	// Service Layer 전용 내부 Records
-	// ============================================
-
-	public record SeatCalculationResult(
-		int standardRemaining, int standardTotal,
-		int firstClassRemaining, int firstClassTotal
-	) {
 	}
 }
