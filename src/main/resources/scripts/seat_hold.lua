@@ -38,10 +38,21 @@ local holdIds = redis.call("SMEMBERS", holdsKey)
 for _, holdId in ipairs(holdIds) do
     -- 자기 자신은 제외 (재시도 케이스 대응)
     if holdId ~= pendingBookingId then
-        local holdKey = string.gsub(newHoldKey, pendingBookingId, holdId)
-        for _, s in ipairs(sections) do
-            if redis.call("SISMEMBER", holdKey, s) == 1 then
-                return {0, "CONFLICT_WITH_HOLD", s}
+        -- string.gsub은 패턴 매칭을 사용하므로 특수문자('-' 등)가 포함된 ID 처리 시 오류 발생 가능
+        -- 따라서 문자열 길이를 기반으로 prefix를 추출하여 단순 결합 방식으로 변경
+        local prefixLen = string.len(newHoldKey) - string.len(pendingBookingId)
+        local prefix = string.sub(newHoldKey, 1, prefixLen)
+        local otherHoldKey = prefix .. holdId
+
+        -- 만료된 Hold 키 정리 (Lazy Cleanup)
+        if redis.call("EXISTS", otherHoldKey) == 0 then
+            redis.call("SREM", holdsKey, holdId)
+        else
+            -- 유효한 Hold 키인 경우 충돌 검사
+            for _, s in ipairs(sections) do
+                if redis.call("SISMEMBER", otherHoldKey, s) == 1 then
+                    return {0, "CONFLICT_WITH_HOLD", s}
+                end
             end
         end
     end
