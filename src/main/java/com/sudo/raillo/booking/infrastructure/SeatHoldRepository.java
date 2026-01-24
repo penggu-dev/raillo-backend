@@ -48,12 +48,14 @@ public class SeatHoldRepository {
 	/**
 	 * 좌석 임시 점유 시도
 	 *
+	 * <p>Lua 스크립트로 충돌 검사 + Hold 생성을 원자적으로 처리</p>
+	 *
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @param seatId 좌석 ID
 	 * @param pendingBookingId 예약 ID (Hold 키 식별자)
 	 * @param departureStopOrder 출발역 stopOrder
 	 * @param arrivalStopOrder 도착역 stopOrder
-	 * @return SeatHoldResult 점유 결과
+	 * @return SeatHoldResult 점유 결과 (성공/실패 + 충돌 정보)
 	 */
 	public SeatHoldResult tryHold(
 		Long trainScheduleId,
@@ -64,6 +66,7 @@ public class SeatHoldRepository {
 	) {
 		String soldKey = seatHoldKeyGenerator.generateSoldKey(trainScheduleId, seatId);
 		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
+		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
 		List<String> sections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
 
 		log.debug("[좌석 Hold 시도] trainScheduleId={}, seatId={}, pendingBookingId={}, sections={}",
@@ -71,17 +74,19 @@ public class SeatHoldRepository {
 
 		try {
 			// Lua 스크립트 실행
-			// KEYS: [soldKey, holdKey]
-			// ARGV: [ttl, section1, section2, ...]
-			Object[] args = buildHoldArgs(sections);
+			// - KEYS: [soldKey, holdKey, holdsKey] - Redis 키들
+			// - ARGV: [ttl, pendingBookingId, section1, section2, ...] - 인자들
+			// - 반환: List<Object> (Lua table이 Java List로 변환됨)
+			Object[] args = buildHoldArgs(pendingBookingId, sections);
 
-			@SuppressWarnings("unchecked")
+			@SuppressWarnings("unchecked")  // DefaultRedisScript<List>의 raw type 때문에 필요
 			List<Object> result = customStringRedisTemplate.execute(
 				seatHoldScript,
-				List.of(soldKey, holdKey),
+				List.of(soldKey, holdKey, holdsKey),
 				args
 			);
 
+			// Lua 결과 파싱 (타입 캐스팅 + 예외 처리 포함)
 			SeatHoldResult holdResult = SeatHoldResult.fromLuaResult(result);
 
 			if (holdResult.success()) {
@@ -104,12 +109,15 @@ public class SeatHoldRepository {
 	/**
 	 * 여러 좌석 동시 임시 점유 시도
 	 *
+	 * <p>모든 좌석에 대해 순차적으로 Hold를 시도하고,
+	 * 하나라도 실패하면 이미 성공한 좌석들을 롤백함</p>
+	 *
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @param seatIds 좌석 ID 목록
 	 * @param pendingBookingId 예약 ID
 	 * @param departureStopOrder 출발역 stopOrder
 	 * @param arrivalStopOrder 도착역 stopOrder
-	 * @throws BusinessException 하나라도 충돌 시 예외 발생, 이미 점유된 좌석은 롤백
+	 * @throws BusinessException 하나라도 충돌 시 예외 발생 (SEAT_CONFLICT_WITH_SOLD 또는 SEAT_CONFLICT_WITH_HOLD)
 	 */
 	public void tryHoldSeats(
 		Long trainScheduleId,
@@ -121,7 +129,7 @@ public class SeatHoldRepository {
 		log.info("[다중 좌석 Hold 시도] trainScheduleId={}, seatIds={}, pendingBookingId={}",
 			trainScheduleId, seatIds, pendingBookingId);
 
-		// 이미 성공한 좌석들 (롤백용)
+		// 롤백을 위해 성공한 좌석 추적
 		List<Long> successfulSeats = new ArrayList<>();
 
 		try {
@@ -132,7 +140,7 @@ public class SeatHoldRepository {
 				);
 
 				if (!result.success()) {
-					// 실패 시 이미 점유한 좌석들 롤백
+					// 실패 시 이미 점유한 좌석들 롤백 후 예외 발생
 					rollbackHolds(trainScheduleId, successfulSeats, pendingBookingId);
 					throwConflictException(result);
 				}
@@ -146,7 +154,7 @@ public class SeatHoldRepository {
 		} catch (BusinessException e) {
 			throw e;
 		} catch (Exception e) {
-			// 예상치 못한 오류 시 롤백
+			// 예상치 못한 오류 시에도 롤백
 			rollbackHolds(trainScheduleId, successfulSeats, pendingBookingId);
 			log.error("[다중 좌석 Hold 오류] trainScheduleId={}, error={}", trainScheduleId, e.getMessage(), e);
 			throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
@@ -154,12 +162,19 @@ public class SeatHoldRepository {
 	}
 
 	/**
-	 * 좌석 확정 (Hold → Sold)
-	 * 결제 완료 시 호출
+	 * 좌석 확정 (Hold → Sold 전환)
+	 *
+	 * <p>결제 완료 시 호출하여 임시 점유를 확정 예약으로 전환</p>
+	 *
+	 * @param trainScheduleId 열차 스케줄 ID
+	 * @param seatId 좌석 ID
+	 * @param pendingBookingId 예약 ID
+	 * @throws BusinessException Hold가 없으면 SEAT_HOLD_NOT_FOUND 예외
 	 */
 	public void confirmHold(Long trainScheduleId, Long seatId, String pendingBookingId) {
 		String soldKey = seatHoldKeyGenerator.generateSoldKey(trainScheduleId, seatId);
 		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
+		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
 
 		log.debug("[좌석 확정 시도] trainScheduleId={}, seatId={}, pendingBookingId={}",
 			trainScheduleId, seatId, pendingBookingId);
@@ -168,7 +183,8 @@ public class SeatHoldRepository {
 			@SuppressWarnings("unchecked")
 			List<Object> result = customStringRedisTemplate.execute(
 				seatConfirmScript,
-				List.of(soldKey, holdKey)
+				List.of(soldKey, holdKey, holdsKey),
+				pendingBookingId
 			);
 
 			SeatHoldResult confirmResult = SeatHoldResult.fromLuaResult(result);
@@ -193,6 +209,10 @@ public class SeatHoldRepository {
 
 	/**
 	 * 여러 좌석 확정
+	 *
+	 * @param trainScheduleId 열차 스케줄 ID
+	 * @param seatIds 좌석 ID 목록
+	 * @param pendingBookingId 예약 ID
 	 */
 	public void confirmHoldSeats(Long trainScheduleId, List<Long> seatIds, String pendingBookingId) {
 		log.info("[다중 좌석 확정 시도] trainScheduleId={}, seatIds={}, pendingBookingId={}",
@@ -206,10 +226,18 @@ public class SeatHoldRepository {
 	}
 
 	/**
-	 * 좌석 점유 해제 (예약 취소 또는 타임아웃 수동 처리)
+	 * 좌석 점유 해제
+	 *
+	 * <p>예약 취소 시 또는 TTL 만료 전 수동 해제가 필요할 때 사용.
+	 * Hold가 이미 없어도 에러 발생하지 않음 (멱등성)</p>
+	 *
+	 * @param trainScheduleId 열차 스케줄 ID
+	 * @param seatId 좌석 ID
+	 * @param pendingBookingId 예약 ID
 	 */
 	public void releaseHold(Long trainScheduleId, Long seatId, String pendingBookingId) {
 		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
+		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
 
 		log.debug("[좌석 Hold 해제] trainScheduleId={}, seatId={}, pendingBookingId={}",
 			trainScheduleId, seatId, pendingBookingId);
@@ -217,7 +245,8 @@ public class SeatHoldRepository {
 		try {
 			customStringRedisTemplate.execute(
 				seatReleaseScript,
-				List.of(holdKey)
+				List.of(holdKey, holdsKey),
+				pendingBookingId
 			);
 
 			log.info("[좌석 Hold 해제 완료] trainScheduleId={}, seatId={}, pendingBookingId={}",
@@ -232,6 +261,10 @@ public class SeatHoldRepository {
 
 	/**
 	 * 여러 좌석 점유 해제
+	 *
+	 * @param trainScheduleId 열차 스케줄 ID
+	 * @param seatIds 좌석 ID 목록
+	 * @param pendingBookingId 예약 ID
 	 */
 	public void releaseHold(Long trainScheduleId, List<Long> seatIds, String pendingBookingId) {
 		log.info("[다중 좌석 Hold 해제] trainScheduleId={}, seatIds={}, pendingBookingId={}",
@@ -243,33 +276,42 @@ public class SeatHoldRepository {
 	}
 
 	/**
-	 * Hold 스크립트 인자 구성
+	 * Hold 스크립트 인자 배열 구성
+	 *
+	 * <p>ARGV 형식: [ttl, pendingBookingId, section1, section2, ...]</p>
+	 *
+	 * @param pendingBookingId 예약 ID (holds 인덱스에 추가할 값)
+	 * @param sections 구간 목록 (예: ["0-1", "1-2", "2-3"])
+	 * @return Lua ARGV로 전달할 인자 배열
 	 */
-	private Object[] buildHoldArgs(List<String> sections) {
-		Object[] args = new Object[sections.size() + 1];
-		args[0] = String.valueOf(seatHoldTTLSeconds);
+	private Object[] buildHoldArgs(String pendingBookingId, List<String> sections) {
+		Object[] args = new Object[sections.size() + 2];
+		args[0] = String.valueOf(seatHoldTTLSeconds);  // ARGV[1]: TTL
+		args[1] = pendingBookingId;                    // ARGV[2]: pendingBookingId
 		for (int i = 0; i < sections.size(); i++) {
-			args[i + 1] = sections.get(i);
+			args[i + 2] = sections.get(i);             // ARGV[3...]: 구간들
 		}
 		return args;
 	}
 
 	/**
-	 * 충돌 시 롤백
+	 * 충돌 발생 시 이미 점유한 좌석들 롤백
+	 *
+	 * <p>개별 해제 실패해도 계속 진행 (TTL로 자동 해제됨)</p>
 	 */
 	private void rollbackHolds(Long trainScheduleId, List<Long> seatIds, String pendingBookingId) {
 		if (seatIds.isEmpty()) {
 			return;
 		}
 
-		log.warn("[좌석 Hold 롤백 시도] trainScheduleId={}, seatIds={}, pendingBookingId={}",
+		log.warn("[좌석 Hold 롤백] trainScheduleId={}, seatIds={}, pendingBookingId={}",
 			trainScheduleId, seatIds, pendingBookingId);
 
 		for (Long seatId : seatIds) {
 			try {
 				releaseHold(trainScheduleId, seatId, pendingBookingId);
 			} catch (Exception e) {
-				log.error("[좌석 Hold 롤백 실패] seatId={}, error={}", seatId, e.getMessage());
+				log.error("[롤백 실패] seatId={}, error={}", seatId, e.getMessage());
 				// 롤백 실패해도 계속 진행 (TTL로 자동 해제됨)
 			}
 		}

@@ -3,8 +3,10 @@
 --
 -- KEYS[1]: sold key      (예: {seat:1001:12}:sold)
 -- KEYS[2]: new hold key  (예: {seat:1001:12}:hold:pending_abc123)
+-- KEYS[3]: holds key     (예: {seat:1001:12}:holds) - Hold 목록 인덱스
 -- ARGV[1]: ttl (seconds)
--- ARGV[2...]: sections ("0-1", "1-2", ...)
+-- ARGV[2]: pendingBookingId (holds Set에 추가할 값)
+-- ARGV[3...]: sections ("0-1", "1-2", ...)
 --
 -- 반환값:
 -- 성공: {1, "HOLD_SUCCESS"}
@@ -12,11 +14,13 @@
 
 local soldKey = KEYS[1]
 local newHoldKey = KEYS[2]
+local holdsKey = KEYS[3]
 local ttl = tonumber(ARGV[1])
+local pendingBookingId = ARGV[2]
 
 -- 요청 구간 수집
 local sections = {}
-for i = 2, #ARGV do
+for i = 3, #ARGV do
     table.insert(sections, ARGV[i])
 end
 
@@ -28,15 +32,15 @@ for _, s in ipairs(sections) do
 end
 
 -- 2. HOLD 충돌 검사 (다른 사용자의 임시 점유와 겹치는지)
--- Hash Tag로 인해 같은 슬롯 내에서만 KEYS 검색
-local pattern = string.gsub(newHoldKey, ":hold:.*", ":hold:*")
-local holdKeys = redis.call("KEYS", pattern)
+-- holds Set에서 현재 Hold 목록 조회 (KEYS 명령 대신 SMEMBERS 사용)
+local holdIds = redis.call("SMEMBERS", holdsKey)
 
-for _, hk in ipairs(holdKeys) do
+for _, holdId in ipairs(holdIds) do
     -- 자기 자신은 제외 (재시도 케이스 대응)
-    if hk ~= newHoldKey then
+    if holdId ~= pendingBookingId then
+        local holdKey = string.gsub(newHoldKey, pendingBookingId, holdId)
         for _, s in ipairs(sections) do
-            if redis.call("SISMEMBER", hk, s) == 1 then
+            if redis.call("SISMEMBER", holdKey, s) == 1 then
                 return {0, "CONFLICT_WITH_HOLD", s}
             end
         end
@@ -48,5 +52,9 @@ for _, s in ipairs(sections) do
     redis.call("SADD", newHoldKey, s)
 end
 redis.call("EXPIRE", newHoldKey, ttl)
+
+-- 4. holds 인덱스에 추가 (TTL 동일하게 설정)
+redis.call("SADD", holdsKey, pendingBookingId)
+redis.call("EXPIRE", holdsKey, ttl)
 
 return {1, "HOLD_SUCCESS"}

@@ -46,7 +46,7 @@ public class SeatHoldService {
 		Long arrivalStopId,
 		List<Long> seatIds
 	) {
-		// 1. &#xCD9C;&#xBC1C;/&#xB3C4;&#xCC29; &#xC815;&#xCC28;&#xC5ED; &#xC870;&#xD68C;&#xD558;&#xC5EC; stopOrder &#xD68D;&#xB4DD;
+		// 1. 출발/도착 정차역을 조회하여 stopOrder를 획득
 		ScheduleStop departureStop = getScheduleStop(departureStopId);
 		ScheduleStop arrivalStop = getScheduleStop(arrivalStopId);
 

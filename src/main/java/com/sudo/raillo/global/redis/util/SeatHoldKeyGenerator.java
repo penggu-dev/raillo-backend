@@ -17,7 +17,7 @@ public class SeatHoldKeyGenerator {
 	 */
 	private static final String SEAT_HOLD_KEY_FORMAT = "{seat:%d:%d}:hold:%s";
 	private static final String SEAT_SOLD_KEY_FORMAT = "{seat:%d:%d}:sold";
-	private static final String SEAT_HOLD_PATTERN_FORMAT = "{seat:%d:%d}:hold:*";
+	private static final String SEAT_HOLDS_KEY_FORMAT = "{seat:%d:%d}:holds";
 
 	/**
 	 * 좌석 임시 점유 키 생성
@@ -43,14 +43,18 @@ public class SeatHoldKeyGenerator {
 	}
 
 	/**
-	 * 좌석 Hold 패턴 키 생성 (KEYS 명령용)
-	 * 예: {seat:1001:12}:hold:*
+	 * 좌석 Hold 목록 인덱스 키 생성
+	 *
+	 * <p>예: {@code {seat:1001:12}:holds}</p>
+	 * <p>해당 좌석의 현재 Hold 목록(pendingBookingId들)을 저장하는 Set의 키</p>
+	 * <p>KEYS 명령 대신 SMEMBERS로 Hold 목록을 조회하기 위한 인덱스 역할</p>
 	 *
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @param seatId 좌석 ID
+	 * @return Redis 키
 	 */
-	public String generateHoldPatternKey(Long trainScheduleId, Long seatId) {
-		return String.format(SEAT_HOLD_PATTERN_FORMAT, trainScheduleId, seatId);
+	public String generateHoldsKey(Long trainScheduleId, Long seatId) {
+		return String.format(SEAT_HOLDS_KEY_FORMAT, trainScheduleId, seatId);
 	}
 
 	/**
