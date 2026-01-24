@@ -14,6 +14,7 @@ import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
+import com.sudo.raillo.booking.util.PendingBookingIdGenerator;
 import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.domain.ScheduleStop;
@@ -34,6 +35,7 @@ public class PendingBookingFacade {
 	private final TrainSeatQueryService trainSeatQueryService;
 	private final FareCalculator fareCalculator;
 	private final BookingValidator bookingValidator;
+	private final PendingBookingIdGenerator pendingBookingIdGenerator;
 
 	/**
 	 * 예약 생성
@@ -63,7 +65,7 @@ public class PendingBookingFacade {
 		);
 
 		// 4. 좌석 Hold & 5. 저장 (Hold 이후 실패 시 보상 로직)
-		String pendingBookingId = UUID.randomUUID().toString();
+		String pendingBookingId = pendingBookingIdGenerator.generate();
 		seatHoldService.holdSeats(
 			pendingBookingId,
 			request.trainScheduleId(),
