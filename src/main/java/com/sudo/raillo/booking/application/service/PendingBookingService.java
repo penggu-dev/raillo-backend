@@ -61,7 +61,7 @@ public class PendingBookingService {
 	) {
 		List<PendingSeatBooking> pendingSeatBookings = createPendingSeatBookings(passengerTypes, seatIds);
 
-		PendingBooking pendingBooking = PendingBooking.createWithId(
+		PendingBooking pendingBooking = PendingBooking.create(
 			pendingBookingId,
 			memberNo,
 			trainSchedule.getId(),

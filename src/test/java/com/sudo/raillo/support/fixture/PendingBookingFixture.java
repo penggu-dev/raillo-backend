@@ -2,6 +2,7 @@ package com.sudo.raillo.support.fixture;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
@@ -13,6 +14,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class PendingBookingFixture {
 
+	private String id = UUID.randomUUID().toString();
 	private String memberNo = "202601010001";
 	private Long trainScheduleId = 1L;
 	private Long departureStopId = 1L;
@@ -31,6 +33,7 @@ public class PendingBookingFixture {
 
 	public PendingBooking build() {
 		return PendingBooking.create(
+			id,
 			memberNo,
 			trainScheduleId,
 			departureStopId,
@@ -38,6 +41,11 @@ public class PendingBookingFixture {
 			pendingSeatBookings,
 			totalFare
 		);
+	}
+
+	public PendingBookingFixture withId(String id) {
+		this.id = id;
+		return this;
 	}
 
 	public PendingBookingFixture withMemberNo(String memberNo) {

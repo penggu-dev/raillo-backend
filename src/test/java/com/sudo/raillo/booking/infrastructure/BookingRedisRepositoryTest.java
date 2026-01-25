@@ -18,6 +18,7 @@ import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.redis.util.RedisKeyGenerator;
 import com.sudo.raillo.support.annotation.ServiceTest;
+import com.sudo.raillo.support.fixture.PendingBookingFixture;
 
 @ServiceTest
 class BookingRedisRepositoryTest {
@@ -44,14 +45,14 @@ class BookingRedisRepositoryTest {
 			new PendingSeatBooking(2L, PassengerType.CHILD)
 		);
 
-		testPendingBooking = PendingBooking.create(
-			testMemberNo,
-			100L,
-			1L,
-			2L,
-			testSeatBookings,
-			BigDecimal.valueOf(15000)
-		);
+		testPendingBooking = PendingBookingFixture.builder()
+			.withMemberNo(testMemberNo)
+			.withTrainScheduleId(100L)
+			.withDepartureStopId(1L)
+			.withArrivalStopId(2L)
+			.withPendingSeatBookings(testSeatBookings)
+			.withTotalFare(BigDecimal.valueOf(15000))
+			.build();
 	}
 
 	@Test
@@ -146,14 +147,14 @@ class BookingRedisRepositoryTest {
 		// given
 		bookingRedisRepository.savePendingBooking(testPendingBooking);
 
-		PendingBooking anotherPendingBooking = PendingBooking.create(
-			testMemberNo,
-			200L,
-			1L,
-			2L,
-			testSeatBookings,
-			BigDecimal.valueOf(30000)
-		);
+		PendingBooking anotherPendingBooking = PendingBookingFixture.builder()
+			.withMemberNo(testMemberNo)
+			.withTrainScheduleId(200L)
+			.withDepartureStopId(1L)
+			.withArrivalStopId(2L)
+			.withPendingSeatBookings(testSeatBookings)
+			.withTotalFare(BigDecimal.valueOf(30000))
+			.build();
 		bookingRedisRepository.savePendingBooking(anotherPendingBooking);
 
 		// when
