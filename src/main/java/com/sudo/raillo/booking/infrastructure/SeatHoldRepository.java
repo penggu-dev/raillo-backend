@@ -1,6 +1,5 @@
 package com.sudo.raillo.booking.infrastructure;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -107,61 +106,6 @@ public class SeatHoldRepository {
 	}
 
 	/**
-	 * 여러 좌석 동시 임시 점유 시도
-	 *
-	 * <p>모든 좌석에 대해 순차적으로 Hold를 시도하고,
-	 * 하나라도 실패하면 이미 성공한 좌석들을 롤백함</p>
-	 *
-	 * @param trainScheduleId 열차 스케줄 ID
-	 * @param seatIds 좌석 ID 목록
-	 * @param pendingBookingId 예약 ID
-	 * @param departureStopOrder 출발역 stopOrder
-	 * @param arrivalStopOrder 도착역 stopOrder
-	 * @throws BusinessException 하나라도 충돌 시 예외 발생 (SEAT_CONFLICT_WITH_SOLD 또는 SEAT_CONFLICT_WITH_HOLD)
-	 */
-	public void tryHoldSeats(
-		Long trainScheduleId,
-		List<Long> seatIds,
-		String pendingBookingId,
-		int departureStopOrder,
-		int arrivalStopOrder
-	) {
-		log.info("[다중 좌석 Hold 시도] trainScheduleId={}, seatIds={}, pendingBookingId={}",
-			trainScheduleId, seatIds, pendingBookingId);
-
-		// 롤백을 위해 성공한 좌석 추적
-		List<Long> successfulSeats = new ArrayList<>();
-
-		try {
-			for (Long seatId : seatIds) {
-				SeatHoldResult result = tryHold(
-					trainScheduleId, seatId, pendingBookingId,
-					departureStopOrder, arrivalStopOrder
-				);
-
-				if (!result.success()) {
-					// 실패 시 이미 점유한 좌석들 롤백 후 예외 발생
-					rollbackHolds(trainScheduleId, successfulSeats, pendingBookingId);
-					throwConflictException(result);
-				}
-
-				successfulSeats.add(seatId);
-			}
-
-			log.info("[다중 좌석 Hold 성공] trainScheduleId={}, seatCount={}, pendingBookingId={}",
-				trainScheduleId, seatIds.size(), pendingBookingId);
-
-		} catch (BusinessException e) {
-			throw e;
-		} catch (Exception e) {
-			// 예상치 못한 오류 시에도 롤백
-			rollbackHolds(trainScheduleId, successfulSeats, pendingBookingId);
-			log.error("[다중 좌석 Hold 오류] trainScheduleId={}, error={}", trainScheduleId, e.getMessage(), e);
-			throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
-		}
-	}
-
-	/**
 	 * 좌석 확정 (Hold → Sold 전환)
 	 *
 	 * <p>결제 완료 시 호출하여 임시 점유를 확정 예약으로 전환</p>
@@ -208,24 +152,6 @@ public class SeatHoldRepository {
 	}
 
 	/**
-	 * 여러 좌석 확정
-	 *
-	 * @param trainScheduleId 열차 스케줄 ID
-	 * @param seatIds 좌석 ID 목록
-	 * @param pendingBookingId 예약 ID
-	 */
-	public void confirmHoldSeats(Long trainScheduleId, List<Long> seatIds, String pendingBookingId) {
-		log.info("[다중 좌석 확정 시도] trainScheduleId={}, seatIds={}, pendingBookingId={}",
-			trainScheduleId, seatIds, pendingBookingId);
-
-		for (Long seatId : seatIds) {
-			confirmHold(trainScheduleId, seatId, pendingBookingId);
-		}
-
-		log.info("[다중 좌석 확정 성공] trainScheduleId={}, seatCount={}", trainScheduleId, seatIds.size());
-	}
-
-	/**
 	 * 좌석 점유 해제
 	 *
 	 * <p>예약 취소 시 또는 TTL 만료 전 수동 해제가 필요할 때 사용.
@@ -260,22 +186,6 @@ public class SeatHoldRepository {
 	}
 
 	/**
-	 * 여러 좌석 점유 해제
-	 *
-	 * @param trainScheduleId 열차 스케줄 ID
-	 * @param seatIds 좌석 ID 목록
-	 * @param pendingBookingId 예약 ID
-	 */
-	public void releaseHold(Long trainScheduleId, List<Long> seatIds, String pendingBookingId) {
-		log.info("[다중 좌석 Hold 해제] trainScheduleId={}, seatIds={}, pendingBookingId={}",
-			trainScheduleId, seatIds, pendingBookingId);
-
-		for (Long seatId : seatIds) {
-			releaseHold(trainScheduleId, seatId, pendingBookingId);
-		}
-	}
-
-	/**
 	 * Hold 스크립트 인자 배열 구성
 	 *
 	 * <p>ARGV 형식: [ttl, pendingBookingId, section1, section2, ...]</p>
@@ -294,39 +204,4 @@ public class SeatHoldRepository {
 		return args;
 	}
 
-	/**
-	 * 충돌 발생 시 이미 점유한 좌석들 롤백
-	 *
-	 * <p>개별 해제 실패해도 계속 진행 (TTL로 자동 해제됨)</p>
-	 */
-	private void rollbackHolds(Long trainScheduleId, List<Long> seatIds, String pendingBookingId) {
-		if (seatIds.isEmpty()) {
-			return;
-		}
-
-		log.warn("[좌석 Hold 롤백] trainScheduleId={}, seatIds={}, pendingBookingId={}",
-			trainScheduleId, seatIds, pendingBookingId);
-
-		for (Long seatId : seatIds) {
-			try {
-				releaseHold(trainScheduleId, seatId, pendingBookingId);
-			} catch (Exception e) {
-				log.error("[롤백 실패] seatId={}, error={}", seatId, e.getMessage());
-				// 롤백 실패해도 계속 진행 (TTL로 자동 해제됨)
-			}
-		}
-	}
-
-	/**
-	 * 충돌 타입에 따른 예외 발생
-	 */
-	private void throwConflictException(SeatHoldResult result) {
-		if (result.isConflictWithSold()) {
-			throw new BusinessException(BookingError.SEAT_CONFLICT_WITH_SOLD);
-		} else if (result.isConflictWithHold()) {
-			throw new BusinessException(BookingError.SEAT_CONFLICT_WITH_HOLD);
-		} else {
-			throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
-		}
-	}
 }

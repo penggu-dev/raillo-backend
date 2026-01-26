@@ -71,8 +71,8 @@ public class PendingBookingFacade {
 		seatHoldService.holdSeats(
 			pendingBookingId,
 			request.trainScheduleId(),
-			departureStop.getId(),
-			arrivalStop.getId(),
+			departureStop,
+			arrivalStop,
 			request.seatIds()
 		);
 

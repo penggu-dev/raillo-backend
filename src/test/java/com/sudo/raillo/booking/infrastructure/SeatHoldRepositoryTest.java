@@ -154,51 +154,6 @@ class SeatHoldRepositoryTest {
 	}
 
 	@Nested
-	@DisplayName("다중 좌석 Hold")
-	class MultipleSeatHoldTest {
-
-		@Test
-		@DisplayName("여러 좌석 동시 Hold에 성공한다")
-		void hold_multiple_seats_success() {
-			// given
-			String pendingBookingId = "pending_001";
-			List<Long> seatIds = List.of(1L, 2L, 3L);
-
-			// when & then - 예외 발생하지 않으면 성공
-			assertThatCode(() ->
-				seatHoldRepository.tryHoldSeats(
-					TRAIN_SCHEDULE_ID, seatIds, pendingBookingId, 0, 3
-				)
-			).doesNotThrowAnyException();
-		}
-
-		@Test
-		@DisplayName("여러 좌석 중 하나라도 충돌 시 전체 롤백된다")
-		void hold_multiple_seats_rollback_on_conflict() {
-			// given
-			String pendingBookingId1 = "pending_001";
-			String pendingBookingId2 = "pending_002";
-
-			// 좌석 2번에 먼저 Hold
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 2L, pendingBookingId1, 0, 3);
-
-			// when - 좌석 1, 2, 3 동시 Hold 시도 (2번에서 충돌)
-			assertThatThrownBy(() -> seatHoldRepository.tryHoldSeats(
-				TRAIN_SCHEDULE_ID, List.of(1L, 2L, 3L), pendingBookingId2, 0, 3)
-			)
-				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_HOLD)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_HOLD.getMessage());
-
-			// then - 좌석 1번도 롤백되어 Hold 가능해야 함
-			SeatHoldResult result = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, 1L, "pending_003", 0, 3
-			);
-			assertThat(result.success()).isTrue();
-		}
-	}
-
-	@Nested
 	@DisplayName("Confirm & Release")
 	class ConfirmAndReleaseTest {
 

@@ -25,10 +25,10 @@ import com.sudo.raillo.support.fixture.PendingBookingFixture;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
+import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
 
 @ServiceTest
 @DisplayName("SeatHoldService 테스트")
@@ -74,8 +74,8 @@ class SeatHoldServiceTest {
 			// given
 			String pendingBookingId = "pending-booking-001";
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(2).getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId(), seats.get(1).getId());
 
 			// when & then
@@ -83,8 +83,8 @@ class SeatHoldServiceTest {
 				seatHoldService.holdSeats(
 					pendingBookingId,
 					trainScheduleId,
-					departureStopId,
-					arrivalStopId,
+					departureStop,
+					arrivalStop,
 					seatIds
 				)
 			).doesNotThrowAnyException();
@@ -96,8 +96,8 @@ class SeatHoldServiceTest {
 			// given
 			String pendingBookingId = "pending-booking-001";
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(1).getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 			List<Long> seatIds = List.of(
 				seats.get(0).getId(),
 				seats.get(1).getId(),
@@ -109,59 +109,11 @@ class SeatHoldServiceTest {
 				seatHoldService.holdSeats(
 					pendingBookingId,
 					trainScheduleId,
-					departureStopId,
-					arrivalStopId,
+					departureStop,
+					arrivalStop,
 					seatIds
 				)
 			).doesNotThrowAnyException();
-		}
-
-		@Test
-		@DisplayName("존재하지 않는 출발 정차역으로 점유 시도 시 예외가 발생한다")
-		void holdSeats_departureStopNotFound_fail() {
-			// given
-			String pendingBookingId = "pending-booking-001";
-			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long invalidDepartureStopId = 9999L;
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(1).getId();
-			List<Long> seatIds = List.of(seats.get(0).getId());
-
-			// when & then
-			assertThatThrownBy(() ->
-				seatHoldService.holdSeats(
-					pendingBookingId,
-					trainScheduleId,
-					invalidDepartureStopId,
-					arrivalStopId,
-					seatIds
-				)
-			)
-				.isInstanceOf(BusinessException.class)
-				.hasMessage(TrainErrorCode.STATION_NOT_FOUND.getMessage());
-		}
-
-		@Test
-		@DisplayName("존재하지 않는 도착 정차역으로 점유 시도 시 예외가 발생한다")
-		void holdSeats_arrivalStopNotFound_fail() {
-			// given
-			String pendingBookingId = "pending-booking-001";
-			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long invalidArrivalStopId = 9999L;
-			List<Long> seatIds = List.of(seats.get(0).getId());
-
-			// when & then
-			assertThatThrownBy(() ->
-				seatHoldService.holdSeats(
-					pendingBookingId,
-					trainScheduleId,
-					departureStopId,
-					invalidArrivalStopId,
-					seatIds
-				)
-			)
-				.isInstanceOf(BusinessException.class)
-				.hasMessage(TrainErrorCode.STATION_NOT_FOUND.getMessage());
 		}
 
 		@Test
@@ -171,16 +123,16 @@ class SeatHoldServiceTest {
 			String pendingBookingId1 = "pending-booking-001";
 			String pendingBookingId2 = "pending-booking-002";
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(2).getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId());
 
 			// 첫 번째 사용자가 먼저 Hold
 			seatHoldService.holdSeats(
 				pendingBookingId1,
 				trainScheduleId,
-				departureStopId,
-				arrivalStopId,
+				departureStop,
+				arrivalStop,
 				seatIds
 			);
 
@@ -189,13 +141,52 @@ class SeatHoldServiceTest {
 				seatHoldService.holdSeats(
 					pendingBookingId2,
 					trainScheduleId,
-					departureStopId,
-					arrivalStopId,
+					departureStop,
+					arrivalStop,
 					seatIds
 				)
 			)
 				.isInstanceOf(BusinessException.class)
 				.hasMessage(BookingError.SEAT_CONFLICT_WITH_HOLD.getMessage());
+		}
+
+		@Test
+		@DisplayName("여러 좌석 중 하나라도 충돌 시 전체 롤백된다")
+		void holdSeats_multipleSeats_rollbackOnConflict() {
+			// given
+			String pendingBookingId1 = "pending-booking-001";
+			String pendingBookingId2 = "pending-booking-002";
+			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
+			int departureStopOrder = departureStop.getStopOrder();
+			int arrivalStopOrder = arrivalStop.getStopOrder();
+
+			Long seat1Id = seats.get(0).getId();
+			Long seat2Id = seats.get(1).getId();
+			Long seat3Id = seats.get(2).getId();
+
+			// 좌석 2번에 먼저 Hold
+			seatHoldRepository.tryHold(trainScheduleId, seat2Id, pendingBookingId1, departureStopOrder, arrivalStopOrder);
+
+			// when - 좌석 1, 2, 3 동시 Hold 시도 (2번에서 충돌)
+			assertThatThrownBy(() ->
+				seatHoldService.holdSeats(
+					pendingBookingId2,
+					trainScheduleId,
+					departureStop,
+					arrivalStop,
+					List.of(seat1Id, seat2Id, seat3Id)
+				)
+			)
+				.isInstanceOf(BusinessException.class)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_HOLD.getMessage());
+
+			// then - 좌석 1번도 롤백되어 Hold 가능해야 함
+			SeatHoldResult result = seatHoldRepository.tryHold(
+				trainScheduleId, seat1Id, "pending-booking-003", departureStopOrder, arrivalStopOrder
+			);
+			assertThat(result.success()).isTrue();
 		}
 
 		@Test
@@ -205,12 +196,12 @@ class SeatHoldServiceTest {
 			String pendingBookingId1 = "pending-booking-001";
 			String pendingBookingId2 = "pending-booking-002";
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(2).getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			Long seatId = seats.get(0).getId();
 
-			int departureStopOrder = trainScheduleResult.scheduleStops().get(0).getStopOrder();
-			int arrivalStopOrder = trainScheduleResult.scheduleStops().get(2).getStopOrder();
+			int departureStopOrder = departureStop.getStopOrder();
+			int arrivalStopOrder = arrivalStop.getStopOrder();
 
 			// 첫 번째 사용자가 Hold 후 Confirm (Sold 상태로 전환)
 			seatHoldRepository.tryHold(trainScheduleId, seatId, pendingBookingId1, departureStopOrder, arrivalStopOrder);
@@ -221,8 +212,8 @@ class SeatHoldServiceTest {
 				seatHoldService.holdSeats(
 					pendingBookingId2,
 					trainScheduleId,
-					departureStopId,
-					arrivalStopId,
+					departureStop,
+					arrivalStop,
 					List.of(seatId)
 				)
 			)
@@ -240,19 +231,19 @@ class SeatHoldServiceTest {
 			Long seatId = seats.get(0).getId();
 
 			// 첫 번째 사용자: 서울 -> 대전 (구간 0-1)
-			Long departureStopId1 = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId1 = trainScheduleResult.scheduleStops().get(1).getId();
+			ScheduleStop departureStop1 = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop1 = trainScheduleResult.scheduleStops().get(1);
 
 			// 두 번째 사용자: 대전 -> 부산 (구간 1-2)
-			Long departureStopId2 = trainScheduleResult.scheduleStops().get(1).getId();
-			Long arrivalStopId2 = trainScheduleResult.scheduleStops().get(2).getId();
+			ScheduleStop departureStop2 = trainScheduleResult.scheduleStops().get(1);
+			ScheduleStop arrivalStop2 = trainScheduleResult.scheduleStops().get(2);
 
 			// 첫 번째 사용자 Hold
 			seatHoldService.holdSeats(
 				pendingBookingId1,
 				trainScheduleId,
-				departureStopId1,
-				arrivalStopId1,
+				departureStop1,
+				arrivalStop1,
 				List.of(seatId)
 			);
 
@@ -261,8 +252,8 @@ class SeatHoldServiceTest {
 				seatHoldService.holdSeats(
 					pendingBookingId2,
 					trainScheduleId,
-					departureStopId2,
-					arrivalStopId2,
+					departureStop2,
+					arrivalStop2,
 					List.of(seatId)
 				)
 			).doesNotThrowAnyException();
@@ -278,14 +269,14 @@ class SeatHoldServiceTest {
 		void confirmSeats_success() {
 			// given
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(2).getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId(), seats.get(1).getId());
 
 			PendingBooking pendingBooking = PendingBookingFixture.builder()
 				.withTrainScheduleId(trainScheduleId)
-				.withDepartureStopId(departureStopId)
-				.withArrivalStopId(arrivalStopId)
+				.withDepartureStopId(departureStop.getId())
+				.withArrivalStopId(arrivalStop.getId())
 				.withPendingSeatBookings(
 					List.of(
 						new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT),
@@ -299,8 +290,8 @@ class SeatHoldServiceTest {
 			seatHoldService.holdSeats(
 				pendingBooking.getId(),
 				trainScheduleId,
-				departureStopId,
-				arrivalStopId,
+				departureStop,
+				arrivalStop,
 				seatIds
 			);
 
@@ -315,14 +306,14 @@ class SeatHoldServiceTest {
 		void confirmSeats_holdNotFound_fail() {
 			// given
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(2).getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId());
 
 			PendingBooking pendingBooking = PendingBookingFixture.builder()
 				.withTrainScheduleId(trainScheduleId)
-				.withDepartureStopId(departureStopId)
-				.withArrivalStopId(arrivalStopId)
+				.withDepartureStopId(departureStop.getId())
+				.withArrivalStopId(arrivalStop.getId())
 				.withPendingSeatBookings(
 					List.of(new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT))
 				)
@@ -342,14 +333,14 @@ class SeatHoldServiceTest {
 		void confirmSeats_thenConflict_fail() {
 			// given
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(2).getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			Long seatId = seats.get(0).getId();
 
 			PendingBooking pendingBooking = PendingBookingFixture.builder()
 				.withTrainScheduleId(trainScheduleId)
-				.withDepartureStopId(departureStopId)
-				.withArrivalStopId(arrivalStopId)
+				.withDepartureStopId(departureStop.getId())
+				.withArrivalStopId(arrivalStop.getId())
 				.withPendingSeatBookings(
 					List.of(new PendingSeatBooking(seatId, PassengerType.ADULT))
 				)
@@ -360,8 +351,8 @@ class SeatHoldServiceTest {
 			seatHoldService.holdSeats(
 				pendingBooking.getId(),
 				trainScheduleId,
-				departureStopId,
-				arrivalStopId,
+				departureStop,
+				arrivalStop,
 				List.of(seatId)
 			);
 			seatHoldService.confirmSeats(pendingBooking);
@@ -371,8 +362,8 @@ class SeatHoldServiceTest {
 				seatHoldService.holdSeats(
 					"other-pending-booking",
 					trainScheduleId,
-					departureStopId,
-					arrivalStopId,
+					departureStop,
+					arrivalStop,
 					List.of(seatId)
 				)
 			)
@@ -391,16 +382,16 @@ class SeatHoldServiceTest {
 			// given
 			String pendingBookingId = "pending-booking-001";
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(2).getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId(), seats.get(1).getId());
 
 			// Hold 먼저 수행
 			seatHoldService.holdSeats(
 				pendingBookingId,
 				trainScheduleId,
-				departureStopId,
-				arrivalStopId,
+				departureStop,
+				arrivalStop,
 				seatIds
 			);
 
@@ -421,16 +412,16 @@ class SeatHoldServiceTest {
 			String pendingBookingId1 = "pending-booking-001";
 			String pendingBookingId2 = "pending-booking-002";
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(2).getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId());
 
 			// 첫 번째 사용자 Hold
 			seatHoldService.holdSeats(
 				pendingBookingId1,
 				trainScheduleId,
-				departureStopId,
-				arrivalStopId,
+				departureStop,
+				arrivalStop,
 				seatIds
 			);
 
@@ -446,8 +437,8 @@ class SeatHoldServiceTest {
 				seatHoldService.holdSeats(
 					pendingBookingId2,
 					trainScheduleId,
-					departureStopId,
-					arrivalStopId,
+					departureStop,
+					arrivalStop,
 					seatIds
 				)
 			).doesNotThrowAnyException();
@@ -459,8 +450,8 @@ class SeatHoldServiceTest {
 			// given
 			String pendingBookingId = "pending-booking-001";
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			Long departureStopId = trainScheduleResult.scheduleStops().get(0).getId();
-			Long arrivalStopId = trainScheduleResult.scheduleStops().get(2).getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(
 				seats.get(0).getId(),
 				seats.get(1).getId(),
@@ -471,8 +462,8 @@ class SeatHoldServiceTest {
 			seatHoldService.holdSeats(
 				pendingBookingId,
 				trainScheduleId,
-				departureStopId,
-				arrivalStopId,
+				departureStop,
+				arrivalStop,
 				seatIds
 			);
 
@@ -490,8 +481,8 @@ class SeatHoldServiceTest {
 				trainScheduleId,
 				seatIds.get(0),
 				"new-pending",
-				trainScheduleResult.scheduleStops().get(0).getStopOrder(),
-				trainScheduleResult.scheduleStops().get(2).getStopOrder()
+				departureStop.getStopOrder(),
+				arrivalStop.getStopOrder()
 			);
 			assertThat(result.success()).isTrue();
 		}
