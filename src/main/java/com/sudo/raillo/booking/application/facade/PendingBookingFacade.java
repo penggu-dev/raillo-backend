@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class PendingBookingFacade {
 
 	private final PendingBookingService pendingBookingService;
