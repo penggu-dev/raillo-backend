@@ -3,7 +3,6 @@ package com.sudo.raillo.booking.domain;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -51,26 +50,6 @@ public class PendingBooking {
 	}
 
 	public static PendingBooking create(
-		String memberNo,
-		Long trainScheduleId,
-		Long departureStopId,
-		Long arrivalStopId,
-		List<PendingSeatBooking> pendingSeatBookings,
-		BigDecimal totalFare
-	) {
-		return new PendingBooking(
-			String.valueOf(UUID.randomUUID()),
-			memberNo,
-			trainScheduleId,
-			departureStopId,
-			arrivalStopId,
-			List.copyOf(pendingSeatBookings),
-			totalFare,
-			LocalDateTime.now()
-		);
-	}
-
-	public static PendingBooking createWithId(
 		String id,
 		String memberNo,
 		Long trainScheduleId,
