@@ -2,7 +2,6 @@ package com.sudo.raillo.booking.application.facade;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -103,23 +102,23 @@ public class PendingBookingFacade {
 	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
 		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);
 
-		pendingBookings.forEach(pb -> {
+		pendingBookings.forEach(pendingBooking -> {
 			try {
 				seatHoldService.releaseSeats(
-					pb.getId(),
-					pb.getTrainScheduleId(),
-					extractSeatIds(pb)
+					pendingBooking.getId(),
+					pendingBooking.getTrainScheduleId(),
+					extractSeatIds(pendingBooking)
 				);
 			} catch (Exception e) {
-				log.warn("[좌석 Hold 해제 실패] pendingBookingId={}, error={}", pb.getId(), e.getMessage());
+				log.warn("[좌석 Hold 해제 실패] pendingBookingId={}, error={}", pendingBooking.getId(), e.getMessage());
 			}
 		});
 
 		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
 	}
 
-	private List<Long> extractSeatIds(PendingBooking pb) {
-		return pb.getPendingSeatBookings().stream()
+	private List<Long> extractSeatIds(PendingBooking pendingBooking) {
+		return pendingBooking.getPendingSeatBookings().stream()
 			.map(PendingSeatBooking::seatId)
 			.toList();
 	}

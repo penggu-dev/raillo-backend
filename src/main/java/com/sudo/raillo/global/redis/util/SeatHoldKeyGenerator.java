@@ -2,6 +2,7 @@ package com.sudo.raillo.global.redis.util;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.springframework.stereotype.Component;
 
@@ -65,7 +66,7 @@ public class SeatHoldKeyGenerator {
 	 * @param arrivalStopOrder 도착역 stopOrder
 	 */
 	public List<String> generateSections(int departureStopOrder, int arrivalStopOrder) {
-		return java.util.stream.IntStream
+		return IntStream
 			.range(departureStopOrder, arrivalStopOrder)
 			.mapToObj(i -> i + "-" + (i + 1))
 			.collect(Collectors.toList());

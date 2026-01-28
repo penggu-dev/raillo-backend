@@ -143,8 +143,8 @@ public class PendingBookingService {
 		return bookings;
 	}
 
-	public void deletePendingBookings(List<String> ids, String memberNo) {
-		bookingRedisRepository.deletePendingBookings(ids, memberNo);
+	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
+		bookingRedisRepository.deletePendingBookings(pendingBookingIds, memberNo);
 	}
 
 	private List<PendingSeatBooking> createPendingSeatBookings(
