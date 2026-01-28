@@ -12,7 +12,6 @@ public record SeatHoldResult(
 ) {
 
 	private static final long SUCCESS_CODE = 1L;
-	private static final String HOLD_SUCCESS = "HOLD_SUCCESS";
 	private static final String CONFLICT_WITH_SOLD = "CONFLICT_WITH_SOLD";
 	private static final String CONFLICT_WITH_HOLD = "CONFLICT_WITH_HOLD";
 
