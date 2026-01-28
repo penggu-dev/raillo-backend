@@ -44,6 +44,8 @@ out/
 ### AI docs ###
 CLAUDE.md
 GEMINI.md
+.claude/
+.gemini/
 
 ### K6 Test ###
 package.json

@@ -69,4 +69,25 @@ public class PendingBooking {
 			LocalDateTime.now()
 		);
 	}
+
+	public static PendingBooking createWithId(
+		String id,
+		String memberNo,
+		Long trainScheduleId,
+		Long departureStopId,
+		Long arrivalStopId,
+		List<PendingSeatBooking> pendingSeatBookings,
+		BigDecimal totalFare
+	) {
+		return new PendingBooking(
+			id,
+			memberNo,
+			trainScheduleId,
+			departureStopId,
+			arrivalStopId,
+			List.copyOf(pendingSeatBookings),
+			totalFare,
+			LocalDateTime.now()
+		);
+	}
 }

@@ -3,7 +3,6 @@ package com.sudo.raillo.booking.application.service;
 import com.sudo.raillo.booking.application.dto.SeatInfo;
 import com.sudo.raillo.booking.application.dto.StopInfo;
 import com.sudo.raillo.booking.application.dto.TrainScheduleInfo;
-import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.PendingBookingDetailResponse;
 import com.sudo.raillo.booking.application.mapper.PendingBookingMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
@@ -21,7 +20,6 @@ import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,29 +47,22 @@ public class PendingBookingService {
 
 	/**
 	 * 예약을 생성하는 메서드
-	 * @param request 예약 요청 DTO
 	 * @return 예약
-	 * */
+	 */
 	public PendingBooking createPendingBooking(
-		PendingBookingCreateRequest request,
+		String pendingBookingId,
+		TrainSchedule trainSchedule,
+		ScheduleStop departureStop,
+		ScheduleStop arrivalStop,
+		List<PassengerType> passengerTypes,
+		List<Long> seatIds,
 		String memberNo,
 		BigDecimal totalFare
 	) {
-		TrainSchedule trainSchedule = getTrainSchedule(request.trainScheduleId());
-		ScheduleStop departureStop = getStopStation(trainSchedule, request.departureStationId());
-		ScheduleStop arrivalStop = getStopStation(trainSchedule, request.arrivalStationId());
+		List<PendingSeatBooking> pendingSeatBookings = createPendingSeatBookings(passengerTypes, seatIds);
 
-		// 열차 스케줄, 출발역, 도착역 검증
-		bookingValidator.validateTrainOperating(trainSchedule);
-		bookingValidator.validateSameSchedule(departureStop, arrivalStop);
-		bookingValidator.validateStopSequence(departureStop, arrivalStop);
-		// 승객 수와 좌석 수 일치 여부 검증
-		bookingValidator.validatePassengerSeatCount(request.passengerTypes(), request.seatIds());
-
-		List<PendingSeatBooking> pendingSeatBookings = createPendingSeatBookings(request.passengerTypes(),
-			request.seatIds());
-
-		PendingBooking pendingBooking = PendingBooking.create(
+		PendingBooking pendingBooking = PendingBooking.createWithId(
+			pendingBookingId,
 			memberNo,
 			trainSchedule.getId(),
 			departureStop.getId(),
@@ -80,7 +71,6 @@ public class PendingBookingService {
 			totalFare
 		);
 
-		// redis 에 저장
 		bookingRedisRepository.savePendingBooking(pendingBooking);
 
 		return pendingBooking;
@@ -133,37 +123,28 @@ public class PendingBookingService {
 
 	/**
 	 * 여러 PendingBooking 한 번에 조회 및 검증
-	 * - 모든 예약이 Redis에 존재해야 함
+	 * - 모든 예약이 Redis에 존재, 소유자가 일치해야 함
 	 * @param pendingBookingIds 조회할 예약 아이디 리스트
+	 * @param memberNo 멤버 번호
 	 * @return 예약 목록
 	 */
 	@Transactional(readOnly = true)
-	public List<PendingBooking> getPendingBookings(List<String> pendingBookingIds) {
+	public List<PendingBooking> getPendingBookings(List<String> pendingBookingIds, String memberNo) {
 		Map<String, PendingBooking> bookingsById = bookingRedisRepository.getPendingBookingsAsMap(pendingBookingIds);
 
 		bookingValidator.validateAllPendingBookingsExist(pendingBookingIds, bookingsById);
 
-		return pendingBookingIds.stream()
+		List<PendingBooking> bookings = pendingBookingIds.stream()
 			.map(bookingsById::get)
 			.toList();
+
+		bookingValidator.validatePendingBookingOwner(bookings, memberNo);
+
+		return bookings;
 	}
 
-	/**
-	 * 예약 다중 삭제 메서드
-	 * @param pendingBookingIds 삭제할 예약 리스트
-	 */
 	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
-		Map<String, PendingBooking> pendingBookingMap = bookingRedisRepository.getPendingBookingsAsMap(
-			pendingBookingIds);
-
-		if (pendingBookingMap.isEmpty()) {
-			return;
-		}
-
-		List<PendingBooking> pendingBookings = pendingBookingMap.values().stream().toList();
-		bookingValidator.validatePendingBookingOwner(pendingBookings, memberNo);
-
-		bookingRedisRepository.deletePendingBookings(new ArrayList<>(pendingBookingMap.keySet()), memberNo);
+		bookingRedisRepository.deletePendingBookings(pendingBookingIds, memberNo);
 	}
 
 	private List<PendingSeatBooking> createPendingSeatBookings(
@@ -173,16 +154,6 @@ public class PendingBookingService {
 		return IntStream.range(0, seatIds.size())
 			.mapToObj(i -> new PendingSeatBooking(seatIds.get(i), passengerTypes.get(i)))
 			.toList();
-	}
-
-	private ScheduleStop getStopStation(TrainSchedule trainSchedule, Long request) {
-		return scheduleStopRepository.findByTrainScheduleIdAndStationId(trainSchedule.getId(), request)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
-	}
-
-	private TrainSchedule getTrainSchedule(Long trainScheduleId) {
-		return trainScheduleRepository.findById(trainScheduleId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
 	}
 
 	private Map<Long, TrainScheduleInfo> getTrainScheduleMap(Set<Long> trainScheduleIds) {

@@ -222,11 +222,10 @@ class PaymentFacadeTest {
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 회원번호로 결제 준비 시 USER_NOT_FOUND 예외가 발생한다")
-	void preparePayment_memberNotFound_throwsException() {
+	@DisplayName("회원 탈퇴 후 결제 시도 시 USER_NOT_FOUND 예외가 발생한다")
+	void preparePayment_memberDeleted_throwsException() {
 		// given
 		String memberNo = member.getMemberDetail().getMemberNo();
-		String nonExistentMemberNo = "9999999999";
 
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
@@ -237,7 +236,7 @@ class PaymentFacadeTest {
 			1
 		);
 
-		// 실제 회원번호로 PendingBooking 생성
+		// 유효한 회원의 PendingBooking 생성
 		PendingBooking pendingBooking = PendingBookingFixture.builder()
 			.withMemberNo(memberNo)
 			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
@@ -250,10 +249,13 @@ class PaymentFacadeTest {
 			.build();
 		bookingRedisRepository.savePendingBooking(pendingBooking);
 
+		// 회원 탈퇴
+		memberRepository.delete(member);
+
 		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getId()));
 
-		// when & then (존재하지 않는 회원번호로 결제 시도)
-		assertThatThrownBy(() -> paymentFacade.preparePayment(request, nonExistentMemberNo))
+		// when & then (탈퇴한 회원의 토큰으로 결제 시도)
+		assertThatThrownBy(() -> paymentFacade.preparePayment(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", MemberError.USER_NOT_FOUND)
 			.hasMessage(MemberError.USER_NOT_FOUND.getMessage());

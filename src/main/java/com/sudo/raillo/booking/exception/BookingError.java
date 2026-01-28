@@ -47,6 +47,18 @@ public enum BookingError implements ErrorCode {
 	PENDING_BOOKING_ACCESS_DENIED("해당 임시 예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "B302"),
 	PENDING_BOOKING_IDS_REQUIRED("조회할 임시 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "B303"),
 
+	// BookingError.java에 추가할 부분
+
+	// 좌석 충돌 관련 (기존 SEAT 관련 에러 아래에 추가)
+	SEAT_CONFLICT_WITH_SOLD("이미 판매된 좌석이 존재하는 구간입니다.", HttpStatus.CONFLICT, "B_304"),
+	SEAT_CONFLICT_WITH_HOLD("다른 사용자가 임시 점유 중인 구간입니다.", HttpStatus.CONFLICT, "B_305"),
+
+	// 좌석 Hold 관련
+	SEAT_HOLD_SCRIPT_ERROR("좌석 점유 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_306"),
+	SEAT_HOLD_NOT_FOUND("임시 점유 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_307"),
+	SEAT_HOLD_CONFIRM_FAILED("좌석 확정 처리에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_308"),
+	SEAT_HOLD_RELEASE_FAILED("좌석 점유 해제에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_309"),
+
 	// 영수증 관련
 	RECEIPT_NOT_FOUND("영수증 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B401");
 
