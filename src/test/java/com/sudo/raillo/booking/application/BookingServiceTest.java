@@ -35,6 +35,7 @@ import com.sudo.raillo.support.helper.OrderTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
+import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
@@ -444,5 +445,106 @@ class BookingServiceTest {
 		// then
 		List<SeatBooking> result = seatBookingRepository.findAll();
 		assertThat(result.size()).isEqualTo(0);
+	}
+
+	@Test
+	@DisplayName("예매 생성 시 SeatBooking의 역정규화 필드(역ID, 정차순서, 객차타입)가 설정된다")
+	void createBookingFromOrder_seatBooking_denormalized_fields_set() {
+		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
+
+		Order order = orderTestHelper.builder(member)
+			.addOrderBooking(trainScheduleResult)
+				.addSeat(seats.get(0), PassengerType.ADULT)
+				.and()
+			.build()
+			.order();
+		order.completePayment();
+
+		// when
+		bookingService.createBookingFromOrder(order);
+
+		// then
+		List<SeatBooking> seatBookings = seatBookingRepository.findAll();
+		assertThat(seatBookings).hasSize(1);
+
+		SeatBooking seatBooking = seatBookings.get(0);
+
+		Long departureStationId = trainScheduleResult.scheduleStops().get(0).getStation().getId();
+		Long arrivalStationId = trainScheduleResult.scheduleStops().get(1).getStation().getId();
+
+		assertThat(seatBooking.getDepartureStationId()).isEqualTo(departureStationId);
+		assertThat(seatBooking.getArrivalStationId()).isEqualTo(arrivalStationId);
+		assertThat(seatBooking.getDepartureStopOrder()).isEqualTo(0);
+		assertThat(seatBooking.getArrivalStopOrder()).isEqualTo(1);
+		assertThat(seatBooking.getCarType()).isEqualTo(CarType.STANDARD);
+	}
+
+	@Test
+	@DisplayName("중간 정차역 구간 예매 시 SeatBooking의 역정규화 필드가 올바르게 설정된다")
+	void createBookingFromOrder_seatBooking_intermediate_stops_denormalized() {
+		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createKTX();
+
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.builder()
+			.scheduleName("test")
+			.operationDate(LocalDate.now().plusDays(1))
+			.train(train)
+			.addStop("서울", null, LocalTime.of(6, 0))
+			.addStop("대전", LocalTime.of(7, 30), LocalTime.of(7, 35))
+			.addStop("동대구", LocalTime.of(8, 30), LocalTime.of(8, 35))
+			.addStop("부산", LocalTime.of(9, 30), null)
+			.build();
+
+		trainScheduleTestHelper.createOrUpdateStationFare("대전", "동대구", 15000, 25000);
+
+		// 대전 -> 동대구 구간으로 예매 (중간 정차역 테스트)
+		List<Seat> standardSeats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
+		List<Seat> firstClassSeats = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, 1);
+
+		ScheduleStop departureStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "대전");
+		ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(trainScheduleResult, "동대구");
+
+		Order order = orderTestHelper.builder(member)
+			.addOrderBooking(trainScheduleResult)
+				.setDepartureScheduleStop(departureStop)
+				.setArrivalScheduleStop(arrivalStop)
+				.addSeat(standardSeats.get(0), PassengerType.ADULT)
+				.and()
+			.addOrderBooking(trainScheduleResult)
+				.setDepartureScheduleStop(departureStop)
+				.setArrivalScheduleStop(arrivalStop)
+				.addSeat(firstClassSeats.get(0), PassengerType.CHILD)
+				.and()
+			.build()
+			.order();
+		order.completePayment();
+
+		// when
+		bookingService.createBookingFromOrder(order);
+
+		// then
+		List<SeatBooking> seatBookings = seatBookingRepository.findAll();
+		assertThat(seatBookings).hasSize(2);
+
+		Long departureStationId = trainScheduleResult.scheduleStops().get(1).getStation().getId(); // 대전
+		Long arrivalStationId = trainScheduleResult.scheduleStops().get(2).getStation().getId(); // 동대구
+
+		// 출발역/도착역 ID, stopOrder 검증
+		for (SeatBooking seatBooking : seatBookings) {
+			assertThat(seatBooking.getDepartureStationId()).isEqualTo(departureStationId);
+			assertThat(seatBooking.getArrivalStationId()).isEqualTo(arrivalStationId);
+			assertThat(seatBooking.getDepartureStopOrder()).isEqualTo(1); // 대전은 stopOrder 1
+			assertThat(seatBooking.getArrivalStopOrder()).isEqualTo(2); // 동대구는 stopOrder 2
+		}
+
+		// CarType 검증
+		assertThat(seatBookings.get(0).getCarType()).isEqualTo(CarType.STANDARD);
+		assertThat(seatBookings.get(1).getCarType()).isEqualTo(CarType.FIRST_CLASS);
 	}
 }
