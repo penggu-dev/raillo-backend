@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: 'chanwon2/raillo-db-with-data'
+    image: 'chanwon2/raillo-test-db:latest'
     environment:
       - 'MYSQL_DATABASE=raillo'
       - 'MYSQL_PASSWORD=secret'
