@@ -58,6 +58,7 @@ public enum BookingError implements ErrorCode {
 	SEAT_HOLD_NOT_FOUND("임시 점유 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_307"),
 	SEAT_HOLD_CONFIRM_FAILED("좌석 확정 처리에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_308"),
 	SEAT_HOLD_RELEASE_FAILED("좌석 점유 해제에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_309"),
+	SEAT_HOLD_SECTION_NOT_FOUND("좌석 점유 구간을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_310"),
 
 	// 영수증 관련
 	RECEIPT_NOT_FOUND("영수증 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B401");

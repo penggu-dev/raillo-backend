@@ -1,9 +1,17 @@
 package com.sudo.raillo.booking.application.validator;
 
+import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
+import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
+import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
+import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
 import com.sudo.raillo.member.domain.Member;
+
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -19,11 +27,17 @@ import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class BookingValidator {
+
+	private final SeatHoldKeyGenerator seatHoldKeyGenerator;
+	private final SeatHoldRepository seatHoldRepository;
+	private final SeatBookingRepository seatBookingRepository;
 
 	/**
 	 * 출발지, 도착지 순서 검증
@@ -143,6 +157,115 @@ public class BookingValidator {
 	public void validateTicketOwner(Ticket ticket, Member member) {
 		if (!ticket.getBooking().getMember().getId().equals(member.getId())) {
 			throw new BusinessException(BookingError.TICKET_ACCESS_DENIED);
+		}
+	}
+
+	/**
+	 * 결제 준비 시 좌석 충돌 검증
+	 * - Redis Hold 구간과 DB SeatBooking 구간 비교
+	 * - trainScheduleId별로 그룹핑하여 배치 처리
+	 * - 같은 스케줄에 해당하는 예약을 그룹핑하여 처리
+	 *
+	 * @param pendingBookings 결제할 PendingBooking 목록
+	 */
+	public void validateSeatConflicts(List<PendingBooking> pendingBookings) {
+		// trainScheduleId 별로 그룹핑
+		Map<Long, List<PendingBooking>> pendingBookingsMap = pendingBookings.stream()
+			.collect(Collectors.groupingBy(PendingBooking::getTrainScheduleId));
+
+		pendingBookingsMap.forEach(this::validateSeatConflictsForSchedule);
+	}
+
+	/**
+	 * 특정 열차 스케줄에 대한 좌석 충돌 검증
+	 */
+	private void validateSeatConflictsForSchedule(
+		Long trainScheduleId,
+		List<PendingBooking> pendingBookings
+	) {
+		List<Long> allSeatIds = pendingBookings.stream()
+			.flatMap(pb -> pb.getPendingSeatBookings().stream())
+			.map(PendingSeatBooking::seatId)
+			.toList();
+
+		List<SeatBooking> allExistingSeatBookings = seatBookingRepository.findByTrainScheduleIdAndSeatIds(
+			trainScheduleId, allSeatIds
+		);
+
+		if(allExistingSeatBookings.isEmpty()) {
+			return;
+		}
+
+		// SeatBooking을 seatId 별로 그룹핑
+		Map<Long, List<SeatBooking>> seatBookingBySeatId = allExistingSeatBookings.stream()
+			.collect(Collectors.groupingBy(sb -> sb.getSeat().getId()));
+
+		for (PendingBooking pendingBooking : pendingBookings) {
+			// 1. 해당 PendingBooking의 SeatId 목록 추출
+			List<Long> seatIds = pendingBooking.getPendingSeatBookings().stream()
+				.map(PendingSeatBooking::seatId)
+				.toList();
+
+			if (seatIds.isEmpty()) {
+				continue;
+			}
+
+			// 2. Redis에서 Hold 구간 조회
+			Map<Long, Set<String>> holdSectionsBySeat = seatHoldRepository.getHoldSections(
+				trainScheduleId, seatIds, pendingBooking.getId()
+			);
+
+			// 3. 좌석 별로 충돌 검증
+			for (Long seatId : seatIds) {
+				Set<String> holdSections = holdSectionsBySeat.getOrDefault(seatId, Set.of());
+
+				if (holdSections.isEmpty()) {
+					log.warn("[Hold 구간 없음] pendingBookingId={}, seatId={}", pendingBooking.getId(), seatId);
+					throw new BusinessException(BookingError.SEAT_HOLD_SECTION_NOT_FOUND);
+				}
+
+				List<SeatBooking> seatBookings = seatBookingBySeatId.getOrDefault(seatId, List.of());
+
+				if (seatBookings.isEmpty()) {
+					continue;
+				}
+
+				try {
+					validateConflictWithSeatBookings(holdSections, seatBookings);
+				} catch (BusinessException e) {
+					log.error("[구간 충돌] pendingBookingId={}, seatId={}", pendingBooking.getId(), seatId);
+					throw e;
+				}
+			}
+		}
+	}
+
+	/**
+	 * 임시 점유 구간(Hold)과 SeatBooking의 예매 좌석 구간 충돌 검증
+	 * @param holdSections 임시 점유 구간 리스트 (예: ["1-2", "2-3", "3-4"])
+	 * @param seatBookings 예매된 좌석 목록
+	 */
+	private void validateConflictWithSeatBookings(
+		Set<String> holdSections,
+		List<SeatBooking> seatBookings
+	) {
+		for (SeatBooking seatBooking : seatBookings) {
+			List<String> seatBookingSections = seatHoldKeyGenerator.generateSections(
+				seatBooking.getDepartureStopOrder(),
+				seatBooking.getArrivalStopOrder()
+			);
+
+			Set<String> conflictSections = new HashSet<>(holdSections);
+			conflictSections.retainAll(seatBookingSections);
+
+			if (!conflictSections.isEmpty()) {
+				log.error(
+					"[구간 충돌] seatBookingId={}, seatId={}, conflictSections={}, holdSections={}, seatBookingSections={}",
+					seatBooking.getId(), seatBooking.getSeat().getId(), conflictSections, holdSections,
+					seatBookingSections
+				);
+				throw new BusinessException(BookingError.SEAT_ALREADY_BOOKED);
+			}
 		}
 	}
 }
