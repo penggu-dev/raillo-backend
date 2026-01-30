@@ -1,8 +1,13 @@
 package com.sudo.raillo.booking.infrastructure;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.IntStream;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
@@ -183,6 +188,33 @@ public class SeatHoldRepository {
 				trainScheduleId, seatId, e.getMessage(), e);
 			throw new BusinessException(BookingError.SEAT_HOLD_RELEASE_FAILED);
 		}
+	}
+
+	public Map<Long, Set<String>> getHoldSections(
+		Long trainScheduleId,
+		List<Long> seatIds,
+		String pendingBookingId
+	) {
+		List<String> holdKeys = seatIds.stream()
+			.map(seatId -> seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId))
+			.toList();
+
+		// pipeline으로 한번에 조회
+		List<Object> results = customStringRedisTemplate.executePipelined(
+			(RedisCallback<Object>)connection -> {
+				for (String holdKey : holdKeys) {
+					connection.setCommands().sMembers(holdKey.getBytes());
+				}
+				return null;
+			});
+
+		Map<Long, Set<String>> resultMap = new HashMap<>();
+		IntStream.range(0, seatIds.size()).forEach(i -> {
+			@SuppressWarnings("unchecked")
+			Set<String> sections = (Set<String>)results.get(i);
+			resultMap.put(seatIds.get(i), sections != null ? sections : Set.of());
+		});
+		return resultMap;
 	}
 
 	/**
