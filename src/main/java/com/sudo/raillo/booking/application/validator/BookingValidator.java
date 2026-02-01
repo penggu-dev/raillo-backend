@@ -163,60 +163,36 @@ public class BookingValidator {
 	/**
 	 * 결제 준비 시 좌석 충돌 검증
 	 * - Redis Hold 구간과 DB SeatBooking 구간 비교
-	 * - trainScheduleId별로 그룹핑하여 배치 처리
-	 * - 같은 스케줄에 해당하는 예약을 그룹핑하여 처리
 	 *
 	 * @param pendingBookings 결제할 PendingBooking 목록
 	 */
 	public void validateSeatConflicts(List<PendingBooking> pendingBookings) {
-		// trainScheduleId 별로 그룹핑
-		Map<Long, List<PendingBooking>> pendingBookingsMap = pendingBookings.stream()
-			.collect(Collectors.groupingBy(PendingBooking::getTrainScheduleId));
-
-		pendingBookingsMap.forEach(this::validateSeatConflictsForSchedule);
-	}
-
-	/**
-	 * 특정 열차 스케줄에 대한 좌석 충돌 검증
-	 */
-	private void validateSeatConflictsForSchedule(
-		Long trainScheduleId,
-		List<PendingBooking> pendingBookings
-	) {
-		List<Long> allSeatIds = pendingBookings.stream()
-			.flatMap(pb -> pb.getPendingSeatBookings().stream())
-			.map(PendingSeatBooking::seatId)
-			.toList();
-
-		List<SeatBooking> allExistingSeatBookings = seatBookingRepository.findByTrainScheduleIdAndSeatIds(
-			trainScheduleId, allSeatIds
-		);
-
-		if(allExistingSeatBookings.isEmpty()) {
-			return;
-		}
-
-		// SeatBooking을 seatId 별로 그룹핑
-		Map<Long, List<SeatBooking>> seatBookingBySeatId = allExistingSeatBookings.stream()
-			.collect(Collectors.groupingBy(sb -> sb.getSeat().getId()));
-
-		for (PendingBooking pendingBooking : pendingBookings) {
-			// 1. 해당 PendingBooking의 SeatId 목록 추출
+		for(PendingBooking pendingBooking : pendingBookings) {
+			Long trainScheduleId = pendingBooking.getTrainScheduleId();
 			List<Long> seatIds = pendingBooking.getPendingSeatBookings().stream()
 				.map(PendingSeatBooking::seatId)
 				.toList();
 
-			if (seatIds.isEmpty()) {
+			// 1. DB에서 기존 예약 조회
+			List<SeatBooking> existingSeatBookings = seatBookingRepository.findByTrainScheduleIdAndSeatIds(
+				trainScheduleId, seatIds
+			);
+
+			// trainScheduleId, SeatId에 맞는 SeatBooking이 조회되지 않는다면 충돌 검증 필요 없이 조기 반환
+			if(existingSeatBookings.isEmpty()) {
 				continue;
 			}
+
+			// SeatBooking을 seatId 별로 그룹핑
+			Map<Long, List<SeatBooking>> seatBookingBySeatId = existingSeatBookings.stream()
+				.collect(Collectors.groupingBy(sb -> sb.getSeat().getId()));
 
 			// 2. Redis에서 Hold 구간 조회
 			Map<Long, Set<String>> holdSectionsBySeat = seatHoldRepository.getHoldSections(
 				trainScheduleId, seatIds, pendingBooking.getId()
 			);
 
-			// 3. 좌석 별로 충돌 검증
-			for (Long seatId : seatIds) {
+			for(Long seatId : seatIds) {
 				Set<String> holdSections = holdSectionsBySeat.getOrDefault(seatId, Set.of());
 
 				if (holdSections.isEmpty()) {
@@ -225,7 +201,7 @@ public class BookingValidator {
 				}
 
 				List<SeatBooking> seatBookings = seatBookingBySeatId.getOrDefault(seatId, List.of());
-
+				// 해당 좌석에 해당하는 SeatBooking이 없다면 충돌 검증 없이 조기 반환
 				if (seatBookings.isEmpty()) {
 					continue;
 				}
