@@ -34,6 +34,8 @@ import com.sudo.raillo.train.domain.type.CarType;
 @DisplayName("SeatHoldService 테스트")
 class SeatHoldServiceTest {
 
+	private static final long TEST_SOLD_TTL_SECONDS = 3600L; // 테스트용 1시간
+
 	@Autowired
 	private SeatHoldService seatHoldService;
 
@@ -205,7 +207,7 @@ class SeatHoldServiceTest {
 
 			// 첫 번째 사용자가 Hold 후 Confirm (Sold 상태로 전환)
 			seatHoldRepository.tryHold(trainScheduleId, seatId, pendingBookingId1, departureStopOrder, arrivalStopOrder);
-			seatHoldRepository.confirmHold(trainScheduleId, seatId, pendingBookingId1);
+			seatHoldRepository.confirmHold(trainScheduleId, seatId, pendingBookingId1, TEST_SOLD_TTL_SECONDS);
 
 			// when & then - 두 번째 사용자가 같은 좌석 Hold 시도
 			assertThatThrownBy(() ->

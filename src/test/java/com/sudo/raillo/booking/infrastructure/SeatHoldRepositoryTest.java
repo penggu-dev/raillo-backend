@@ -26,6 +26,7 @@ class SeatHoldRepositoryTest {
 
 	private static final Long TRAIN_SCHEDULE_ID = 1001L;
 	private static final Long SEAT_ID = 12L;
+	private static final long TEST_SOLD_TTL_SECONDS = 3600L; // 테스트용 1시간
 
 	@Nested
 	@DisplayName("단일 좌석 Hold")
@@ -139,7 +140,7 @@ class SeatHoldRepositoryTest {
 
 			// 첫 번째 Hold 후 Confirm (Sold로 전환)
 			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 2);
-			seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1);
+			seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, TEST_SOLD_TTL_SECONDS);
 
 			// when - Sold 구간과 겹치는 Hold 시도
 			SeatHoldResult result = seatHoldRepository.tryHold(
@@ -166,7 +167,7 @@ class SeatHoldRepositoryTest {
 
 			// when & then
 			assertThatCode(() ->
-				seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId)
+				seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId, TEST_SOLD_TTL_SECONDS)
 			).doesNotThrowAnyException();
 		}
 
@@ -174,7 +175,7 @@ class SeatHoldRepositoryTest {
 		@DisplayName("존재하지 않는 Hold 확정 시 예외가 발생한다")
 		void confirm_fail_when_hold_not_exists() {
 			// when & then
-			assertThatThrownBy(() -> seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, "non_existent"))
+			assertThatThrownBy(() -> seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, "non_existent", TEST_SOLD_TTL_SECONDS))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_HOLD_NOT_FOUND)
 				.hasMessage(BookingError.SEAT_HOLD_NOT_FOUND.getMessage());
