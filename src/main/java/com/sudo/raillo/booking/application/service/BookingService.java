@@ -101,40 +101,6 @@ public class BookingService {
 		log.info("[주문에 대한 예매 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());
 	}
 
-	/***
-	 * 새로운 좌석 예약 현황을 생성하고 예약하는 메서드 (redis 변경 전 좌석 락 참고용)
-	 * @param booking Booking Entity
-	 * @param seat Seat Entity
-	 * @return SeatBooking Entity
-	 */
-	public SeatBooking reserveNewSeat(Booking booking, Seat seat, PassengerType passengerType) {
-		try {
-			Long trainScheduleId = booking.getTrainSchedule().getId();
-			Long seatId = seat.getId();
-
-			// 1. 먼저 좌석 자체에 비관적 락을 걸어 동시 접근 차단 (최우선 락)
-			Seat lockedSeat = seatRepository.findByIdWithLock(seatId)
-				.orElseThrow(() -> new BusinessException(BookingError.SEAT_NOT_FOUND));
-
-			// 2. 락이 걸린 상태에서 해당 좌석의 기존 예약들을 비관적 락으로 조회
-			List<SeatBooking> existingBookings = seatBookingRepository
-				.findByTrainScheduleAndSeatWithLock(trainScheduleId, seatId);
-
-			// 3. 락이 걸린 상태에서 충돌 검증 (원자성 보장)
-			bookingValidator.validateConflictWithExistingBookings(booking, existingBookings);
-
-			SeatBooking seatBooking = SeatBooking.create(
-				booking,
-				lockedSeat,
-				passengerType
-			);
-			return seatBookingRepository.save(seatBooking);
-		} catch (OptimisticLockException | DataIntegrityViolationException e) {
-			// 동시성 문제 및 유니크 제약 위반 발생
-			throw new BusinessException(BookingError.SEAT_ALREADY_BOOKED);
-		}
-	}
-
 	/**
 	 * 예매를 조회하는 메서드
 	 * @param memberNo 회원 번호
