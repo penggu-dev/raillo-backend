@@ -370,7 +370,7 @@ public class SeatConflictTest {
 		}
 
 		@Test
-		@DisplayName("동일 좌석에 여러 기존 예매가 있을 때 하나의 좌석이라도 충돌하면 예외가 발생한다")
+		@DisplayName("동일 좌석에 여러 기존 예매가 있을 때 하나의 예매 구간이라도 충돌하면 예외가 발생한다")
 		void multipleSeatBookingsOnSameSeat_oneConflict_fail() {
 			// given
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
