@@ -19,6 +19,9 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -60,13 +63,19 @@ public class Order extends BaseEntity {
 	@Comment("주문 만료 시간")
 	private LocalDateTime expiredAt;
 
-	public static Order create(Member member, BigDecimal totalAmount) {
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "json")
+	@Comment("연관된 PendingBooking ID 목록")
+	private List<String> pendingBookingIds;
+
+	public static Order create(Member member, BigDecimal totalAmount, List<String> pendingBookingIds) {
 		Order order = new Order();
 		order.member = member;
 		order.orderCode = OrderCodeGenerator.generate();
 		order.orderStatus = OrderStatus.PENDING;
 		validateTotalAmount(totalAmount);
 		order.totalAmount = totalAmount;
+		order.pendingBookingIds = pendingBookingIds;
 		return order;
 	}
 

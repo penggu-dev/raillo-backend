@@ -93,7 +93,7 @@ public class OrderTestHelper {
 		builder.validateRequired();
 
 		BigDecimal totalAmount = builder.calculateTotalAmount();
-		Order order = orderRepository.save(Order.create(builder.member, totalAmount));
+		Order order = orderRepository.save(Order.create(builder.member, totalAmount, List.of()));
 
 		List<OrderBooking> orderBookings = new ArrayList<>();
 		List<OrderSeatBooking> orderSeatBookings = new ArrayList<>();

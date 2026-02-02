@@ -95,11 +95,16 @@ public class OrderService {
 			.map(OrderBookingInfo::totalFare)
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
 
-		// 4. Order 생성 및 저장
-		Order order = Order.create(member, totalAmount);
+		// 4. PendingBookingIds 추출
+		List<String> pendingBookingIds = pendingBookings.stream()
+			.map(PendingBooking::getId)
+			.toList();
+
+		// 5. Order 생성 및 저장
+		Order order = Order.create(member, totalAmount, pendingBookingIds);
 		orderRepository.save(order);
 
-		// 5. OrderBooking, OrderSeatBooking 생성
+		// 6. OrderBooking, OrderSeatBooking 생성
 		orderBookingInfos.forEach(info -> createOrderBooking(order, info, scheduleMap, stopMap));
 		log.info("[주문 생성] orderId={}, memberNo={}, totalAmount={}", order.getId(), memberNo, totalAmount);
 		return order;

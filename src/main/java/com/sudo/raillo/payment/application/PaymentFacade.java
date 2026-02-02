@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
+import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -39,6 +40,7 @@ public class PaymentFacade {
 	private final OrderService orderService;
 	private final MemberService memberService;
 	private final PendingBookingService pendingBookingService;
+	private final SeatHoldService seatHoldService;
 	private final BookingService bookingService;
 	private final TossPaymentClient tossPaymentClient;
 	private final PaymentValidator paymentValidator;
@@ -134,9 +136,41 @@ public class PaymentFacade {
 		// 9. Payment 승인 처리 (PENDING -> PAID, paymentMethod, paidAt 저장)
 		payment.approve(paymentMethod);
 
+		// 10. 좌석 확정 (Hold -> Sold) 및 PendingBooking 정리
+		confirmSeatsAndCleanupPendingBookings(order, memberNo);
+
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
 
 		return PaymentConfirmResponse.from(payment);
+	}
+
+	/**
+	 * 좌석 확정 및 PendingBooking 정리
+	 *
+	 * 1. Order에 저장된 pendingBookingIds로 PendingBooking 조회
+	 * 2. 각 PendingBooking에 대해 좌석 확정 (Hold -> Sold)
+	 * 3. PendingBooking 삭제
+	 */
+	private void confirmSeatsAndCleanupPendingBookings(Order order, String memberNo) {
+		List<String> pendingBookingIds = order.getPendingBookingIds();
+		if (pendingBookingIds == null || pendingBookingIds.isEmpty()) {
+			log.warn("[PendingBooking 정리 스킵] pendingBookingIds가 없음: orderCode={}", order.getOrderCode());
+			return;
+		}
+
+		// PendingBooking 조회 (이미 TTL 만료된 경우 조회되지 않을 수 있음)
+		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);
+
+		// 각 PendingBooking에 대해 좌석 확정
+		for (PendingBooking pendingBooking : pendingBookings) {
+			seatHoldService.confirmSeats(pendingBooking);
+		}
+
+		// PendingBooking 삭제
+		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
+
+		log.info("[PendingBooking 정리 완료] orderCode={}, pendingBookingCount={}",
+			order.getOrderCode(), pendingBookingIds.size());
 	}
 
 	/**
