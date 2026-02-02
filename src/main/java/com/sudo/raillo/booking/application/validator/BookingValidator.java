@@ -26,6 +26,7 @@ import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BookingValidator {
 
 	private final SeatHoldKeyGenerator seatHoldKeyGenerator;
-	private final SeatHoldRepository seatHoldRepository;
+	private final ScheduleStopRepository scheduleStopRepository;
 	private final SeatBookingRepository seatBookingRepository;
 
 	/**
@@ -161,87 +162,87 @@ public class BookingValidator {
 	}
 
 	/**
-	 * 결제 준비 시 좌석 충돌 검증
+	 // * 결제 준비 시 좌석 충돌 검증
 	 * - Redis Hold 구간과 DB SeatBooking 구간 비교
-	 *
 	 * @param pendingBookings 결제할 PendingBooking 목록
 	 */
 	public void validateSeatConflicts(List<PendingBooking> pendingBookings) {
-		for(PendingBooking pendingBooking : pendingBookings) {
+		for (PendingBooking pendingBooking : pendingBookings) {
 			Long trainScheduleId = pendingBooking.getTrainScheduleId();
-			List<Long> seatIds = pendingBooking.getPendingSeatBookings().stream()
-				.map(PendingSeatBooking::seatId)
-				.toList();
+			List<Long> seatIds = getSeatIds(pendingBooking);
 
 			// 1. DB에서 기존 예약 조회
 			List<SeatBooking> existingSeatBookings = seatBookingRepository.findByTrainScheduleIdAndSeatIds(
 				trainScheduleId, seatIds
 			);
 
-			// trainScheduleId, SeatId에 맞는 SeatBooking이 조회되지 않는다면 충돌 검증 필요 없이 조기 반환
-			if(existingSeatBookings.isEmpty()) {
+			// 기존 예매가 없으면 검증 없이 조기 반환
+			if (existingSeatBookings.isEmpty()) {
 				continue;
 			}
 
-			// SeatBooking을 seatId 별로 그룹핑
-			Map<Long, List<SeatBooking>> seatBookingBySeatId = existingSeatBookings.stream()
-				.collect(Collectors.groupingBy(sb -> sb.getSeat().getId()));
+			// 2. PendingBooking에서 구간 계산
+			List<String> pendingSections = calculateSections(pendingBooking);
 
-			// 2. Redis에서 Hold 구간 조회
-			Map<Long, Set<String>> holdSectionsBySeat = seatHoldRepository.getHoldSections(
-				trainScheduleId, seatIds, pendingBooking.getId()
-			);
-
-			for(Long seatId : seatIds) {
-				Set<String> holdSections = holdSectionsBySeat.getOrDefault(seatId, Set.of());
-
-				if (holdSections.isEmpty()) {
-					log.warn("[Hold 구간 없음] pendingBookingId={}, seatId={}", pendingBooking.getId(), seatId);
-					throw new BusinessException(BookingError.SEAT_HOLD_SECTION_NOT_FOUND);
-				}
-
-				List<SeatBooking> seatBookings = seatBookingBySeatId.getOrDefault(seatId, List.of());
-				// 해당 좌석에 해당하는 SeatBooking이 없다면 충돌 검증 없이 조기 반환
-				if (seatBookings.isEmpty()) {
-					continue;
-				}
-
-				try {
-					validateConflictWithSeatBookings(holdSections, seatBookings);
-				} catch (BusinessException e) {
-					log.error("[구간 충돌] pendingBookingId={}, seatId={}", pendingBooking.getId(), seatId);
-					throw e;
-				}
+			// 3. 기존 SeatBooking과 구간 충돌 검증
+			for (SeatBooking seatBooking : existingSeatBookings) {
+				validateConflictWithSeatBooking(pendingSections, seatBooking, pendingBooking.getId());
 			}
 		}
 	}
 
 	/**
-	 * 임시 점유 구간(Hold)과 SeatBooking의 예매 좌석 구간 충돌 검증
-	 * @param holdSections 임시 점유 구간 리스트 (예: ["1-2", "2-3", "3-4"])
-	 * @param seatBookings 예매된 좌석 목록
+	 * PendingBooking 구간과 기존 SeatBooking 구간 충돌 검증
+	 *
+	 * @param pendingSections 예약하려는 구간 (예: ["0-1", "1-2"])
+	 * @param seatBooking 기존 예매된 좌석
+	 * @param pendingBookingId 로깅용 PendingBooking ID
 	 */
-	private void validateConflictWithSeatBookings(
-		Set<String> holdSections,
-		List<SeatBooking> seatBookings
+	private void validateConflictWithSeatBooking(
+		List<String> pendingSections,
+		SeatBooking seatBooking,
+		String pendingBookingId
 	) {
-		for (SeatBooking seatBooking : seatBookings) {
-			List<String> seatBookingSections = seatHoldKeyGenerator.generateSections(
-				seatBooking.getDepartureStopOrder(),
-				seatBooking.getArrivalStopOrder()
-			);
+		List<String> seatBookingSections = seatHoldKeyGenerator.generateSections(
+			seatBooking.getDepartureStopOrder(),
+			seatBooking.getArrivalStopOrder()
+		);
 
-			Set<String> conflictSections = new HashSet<>(holdSections);
-			conflictSections.retainAll(seatBookingSections);
+		Set<String> conflictSections = new HashSet<>(pendingSections);
+		conflictSections.retainAll(seatBookingSections);
 
-			if (!conflictSections.isEmpty()) {
-				log.error(
-					"[구간 충돌] seatBookingId={}, seatId={}, conflictSections={}, holdSections={}, seatBookingSections={}",
-					seatBooking.getId(), seatBooking.getSeat().getId(), conflictSections, holdSections,
-					seatBookingSections
-				);
-				throw new BusinessException(BookingError.SEAT_ALREADY_BOOKED);
-			}
+		if (!conflictSections.isEmpty()) {
+			log.error(
+				"[구간 충돌] pendingBookingId={}, seatBookingId={}, seatId={}, conflictSections={}, pendingSections={}, seatBookingSections={}",
+				pendingBookingId, seatBooking.getId(), seatBooking.getSeat().getId(), conflictSections, pendingSections, seatBookingSections);
+			throw new BusinessException(BookingError.SEAT_ALREADY_BOOKED);
 		}
+	}
+
+	/**
+	 * PendingBooking의 출발/도착 정류장에서 구간 목록 계산
+	 */
+	private List<String> calculateSections(PendingBooking pendingBooking) {
+		ScheduleStop departureStop = getScheduleStop(pendingBooking.getDepartureStopId());
+		ScheduleStop arrivalStop = getScheduleStop(pendingBooking.getArrivalStopId());
+
+		return seatHoldKeyGenerator.generateSections(
+			departureStop.getStopOrder(),
+			arrivalStop.getStopOrder()
+		);
+	}
+
+	private ScheduleStop getScheduleStop(Long scheduleStopId) {
+		return scheduleStopRepository.findById(scheduleStopId)
+			.orElseThrow(() -> {
+				log.error("[정류장 조회 실패] scheduleStopId={}", scheduleStopId);
+				return new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND);
+			});
+	}
+
+	private static List<Long> getSeatIds(PendingBooking pendingBooking) {
+		return pendingBooking.getPendingSeatBookings().stream()
+			.map(PendingSeatBooking::seatId)
+			.toList();
 	}
 }
