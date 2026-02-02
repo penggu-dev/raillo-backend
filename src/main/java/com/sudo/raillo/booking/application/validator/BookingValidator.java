@@ -3,7 +3,6 @@ package com.sudo.raillo.booking.application.validator;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
-import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
 import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
 import com.sudo.raillo.member.domain.Member;
 
@@ -11,11 +10,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
-import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -65,25 +62,6 @@ public class BookingValidator {
 		if (trainSchedule.getOperationStatus() == OperationStatus.CANCELLED) {
 			throw new BusinessException(TrainErrorCode.TRAIN_OPERATION_CANCELLED);
 		}
-	}
-
-	/**
-	 * 기존 예매들과 충돌 검증 (락이 걸린 상태에서 수행)
-	 */
-	public void validateConflictWithExistingBookings(
-		Booking newBooking,
-		List<SeatBooking> existingBookings
-	) {
-		int newDepartureOrder = newBooking.getDepartureStop().getStopOrder();
-		int newArrivalOrder = newBooking.getArrivalStop().getStopOrder();
-
-		existingBookings.forEach(existingBooking -> {
-			int existingDepartureOrder = existingBooking.getBooking().getDepartureStop().getStopOrder();
-			int existingArrivalOrder = existingBooking.getBooking().getArrivalStop().getStopOrder();
-			if (existingDepartureOrder < newArrivalOrder && existingArrivalOrder > newDepartureOrder) {
-				throw new BusinessException(BookingError.SEAT_ALREADY_BOOKED);
-			}
-		});
 	}
 
 	/**
