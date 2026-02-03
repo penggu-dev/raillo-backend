@@ -32,6 +32,7 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
+import com.sudo.raillo.train.exception.TrainErrorCode;
 
 @ServiceTest
 public class SeatConflictTest {
@@ -409,6 +410,33 @@ public class SeatConflictTest {
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_BOOKED)
 				.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
 		}
+	}
+
+	@Test
+	@DisplayName("정류장 정보를 찾을 수 없으면 예외가 발생한다")
+	void nonExistScheduleStopId_fail() {
+		//given
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
+		Seat seat = seats.get(0);
+		List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
+
+		Long nonExistentStopId = 999999L;
+
+		PendingBooking pendingBooking = PendingBookingFixture.builder()
+			.withId("pb_123")
+			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
+			.withDepartureStopId(stops.get(0).getId())
+			.withArrivalStopId(nonExistentStopId)       // 존재하지 않는 정류장
+			.withPendingSeatBookings(List.of(
+				new PendingSeatBooking(seat.getId(), PassengerType.ADULT)
+			))
+			.build();
+
+		// when & then
+		assertThatThrownBy(() ->
+			bookingValidator.validateSeatConflicts(List.of(pendingBooking))
+		).isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", TrainErrorCode.SCHEDULE_STOP_NOT_FOUND);
 	}
 }
 
