@@ -10,6 +10,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Component;
 
@@ -145,11 +148,23 @@ public class BookingValidator {
 	 * @param pendingBookings 결제할 PendingBooking 목록
 	 */
 	public void validateSeatConflicts(List<PendingBooking> pendingBookings) {
+		// 1. 필요한 ScheduleStop ID들을 한 번에 수집하여 한 번의 쿼리로 조회
+		Set<Long> stopIds = pendingBookings.stream()
+			.flatMap(pb -> Stream.of(pb.getDepartureStopId(), pb.getArrivalStopId()))
+			.collect(Collectors.toSet());
+
+		Map<Long, ScheduleStop> stopMap = scheduleStopRepository.findAllById(stopIds)
+			.stream()
+			.collect(Collectors.toMap(ScheduleStop::getId, Function.identity()));
+
+		// 2. 정류장 조회 결과 검증
+		validateAllStopsExist(stopIds, stopMap);
+
 		for (PendingBooking pendingBooking : pendingBookings) {
 			Long trainScheduleId = pendingBooking.getTrainScheduleId();
 			List<Long> seatIds = getSeatIds(pendingBooking);
 
-			// 1. DB에서 기존 예약 조회
+			// 3. DB에서 기존 예약 조회
 			List<SeatBooking> existingSeatBookings = seatBookingRepository.findByTrainScheduleIdAndSeatIds(
 				trainScheduleId, seatIds
 			);
@@ -159,10 +174,10 @@ public class BookingValidator {
 				continue;
 			}
 
-			// 2. PendingBooking에서 구간 계산
-			List<String> pendingSections = calculateSections(pendingBooking);
+			// 4. PendingBooking에서 구간 계산
+			List<String> pendingSections = calculateSections(pendingBooking, stopMap);
 
-			// 3. 기존 SeatBooking과 구간 충돌 검증
+			// 5. 기존 SeatBooking과 구간 충돌 검증
 			for (SeatBooking seatBooking : existingSeatBookings) {
 				validateConflictWithSeatBooking(pendingSections, seatBooking, pendingBooking.getId());
 			}
@@ -200,9 +215,9 @@ public class BookingValidator {
 	/**
 	 * PendingBooking의 출발/도착 정류장에서 구간 목록 계산
 	 */
-	private List<String> calculateSections(PendingBooking pendingBooking) {
-		ScheduleStop departureStop = getScheduleStop(pendingBooking.getDepartureStopId());
-		ScheduleStop arrivalStop = getScheduleStop(pendingBooking.getArrivalStopId());
+	private List<String> calculateSections(PendingBooking pendingBooking, Map<Long, ScheduleStop> stopMap) {
+		ScheduleStop departureStop = stopMap.get(pendingBooking.getDepartureStopId());
+		ScheduleStop arrivalStop = stopMap.get(pendingBooking.getArrivalStopId());
 
 		return seatHoldKeyGenerator.generateSections(
 			departureStop.getStopOrder(),
@@ -210,12 +225,14 @@ public class BookingValidator {
 		);
 	}
 
-	private ScheduleStop getScheduleStop(Long scheduleStopId) {
-		return scheduleStopRepository.findById(scheduleStopId)
-			.orElseThrow(() -> {
-				log.error("[정류장 조회 실패] scheduleStopId={}", scheduleStopId);
-				return new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND);
-			});
+	private void validateAllStopsExist(Set<Long> stopIds, Map<Long, ScheduleStop> stopMap) {
+		if(stopIds.size() != stopMap.size()) {
+			Set<Long> noExistIds = stopIds.stream()
+				.filter(id -> !stopMap.containsKey(id))
+				.collect(Collectors.toSet());
+			log.error("[정류장 조회 실패] scheduleStopIds={}", noExistIds);
+			throw new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND);
+		}
 	}
 
 	private static List<Long> getSeatIds(PendingBooking pendingBooking) {
