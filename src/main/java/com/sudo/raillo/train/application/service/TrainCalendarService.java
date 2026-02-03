@@ -53,25 +53,29 @@ public class TrainCalendarService {
 	 * TODO : 공휴일 API 연동 후 판단 처리 로직 추가 필요
 	 */
 	private boolean isHoliday(LocalDate date) {
-		// 2025년 공휴일 임시 하드코딩
-		Set<LocalDate> holidays2025 = Set.of(
-			LocalDate.of(2025, 1, 1),   // 신정
-			LocalDate.of(2025, 1, 28),  // 설날 연휴
-			LocalDate.of(2025, 1, 29),  // 설날
-			LocalDate.of(2025, 1, 30),  // 설날 연휴
-			LocalDate.of(2025, 3, 1),   // 삼일절
-			LocalDate.of(2025, 5, 5),   // 어린이날
-			LocalDate.of(2025, 6, 6),   // 현충일
-			LocalDate.of(2025, 8, 15),  // 광복절
-			LocalDate.of(2025, 10, 3),  // 개천절
-			LocalDate.of(2025, 10, 5),  // 추석 연휴
-			LocalDate.of(2025, 10, 6),  // 추석 연휴
-			LocalDate.of(2025, 10, 7),  // 추석 연휴
-			LocalDate.of(2025, 10, 8),  // 추석
-			LocalDate.of(2025, 10, 9),  // 한글날
-			LocalDate.of(2025, 12, 25)  // 크리스마스
+		// 2026년 공휴일 임시 하드코딩
+		Set<LocalDate> holidays2026 = Set.of(
+			LocalDate.of(2026, 1, 1),   // 신정
+			LocalDate.of(2026, 2, 16),  // 설날 연휴
+			LocalDate.of(2026, 2, 17),  // 설날
+			LocalDate.of(2026, 2, 18),  // 설날 연휴
+			LocalDate.of(2026, 3, 1),   // 삼일절
+			LocalDate.of(2026, 3, 2),   // 삼일절 대체공휴일
+			LocalDate.of(2026, 5, 5),   // 어린이날
+			LocalDate.of(2026, 5, 24),  // 부처님오신날
+			LocalDate.of(2026, 5, 25),  // 부처님오신날 대체공휴일
+			LocalDate.of(2026, 6, 6),   // 현충일
+			LocalDate.of(2026, 8, 15),  // 광복절
+			LocalDate.of(2026, 8, 17),  // 광복절 대체공휴일
+			LocalDate.of(2026, 9, 24),  // 추석 연휴
+			LocalDate.of(2026, 9, 25),  // 추석
+			LocalDate.of(2026, 9, 26),  // 추석 연휴
+			LocalDate.of(2026, 10, 3),  // 개천절
+			LocalDate.of(2026, 10, 5),  // 개천절 대체공휴일
+			LocalDate.of(2026, 10, 9),  // 한글날
+			LocalDate.of(2026, 12, 25)  // 크리스마스
 		);
 
-		return holidays2025.contains(date);
+		return holidays2026.contains(date);
 	}
 }
