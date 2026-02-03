@@ -1,6 +1,7 @@
 package com.sudo.raillo.train.application.facade;
 
 import com.sudo.raillo.train.application.dto.response.OperationCalendarItemResponse;
+import com.sudo.raillo.train.application.service.TrainCalendarService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +16,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CachedTrainSearchFacade {
 
-	private final TrainSearchFacade trainSearchFacade;
+	private final TrainCalendarService trainCalendarService;
 
 	/**
 	 * 운행 캘린더 조회 (캐시 적용)
@@ -24,6 +25,6 @@ public class CachedTrainSearchFacade {
 	@Cacheable("train:calendar")
 	public List<OperationCalendarItemResponse> getOperationCalendar() {
 		log.info("운행 캘린더 캐시 미스 - DB 조회 실행");
-		return trainSearchFacade.getOperationCalendar();
+		return trainCalendarService.getOperationCalendar();
 	}
 }
