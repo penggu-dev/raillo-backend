@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
+import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberService;
@@ -41,6 +42,7 @@ public class PaymentFacade {
 	private final BookingService bookingService;
 	private final TossPaymentClient tossPaymentClient;
 	private final PaymentValidator paymentValidator;
+	private final BookingValidator bookingValidator;
 
 	/**
 	 * 결제 준비 처리
@@ -53,6 +55,8 @@ public class PaymentFacade {
 	 */
 	public PaymentPrepareResponse preparePayment(PaymentPrepareRequest request, String memberNo) {
 		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(request.pendingBookingIds(), memberNo);
+
+		bookingValidator.validateSeatConflicts(pendingBookings);
 
 		Member member = memberService.getMemberByMemberNo(memberNo);
 		Order order = orderService.createOrder(memberNo, pendingBookings);

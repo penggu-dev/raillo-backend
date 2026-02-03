@@ -1,13 +1,21 @@
 package com.sudo.raillo.booking.application.validator;
 
+import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
+import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
+import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
 import com.sudo.raillo.member.domain.Member;
+
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Component;
 
-import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -18,12 +26,19 @@ import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class BookingValidator {
+
+	private final SeatHoldKeyGenerator seatHoldKeyGenerator;
+	private final ScheduleStopRepository scheduleStopRepository;
+	private final SeatBookingRepository seatBookingRepository;
 
 	/**
 	 * 출발지, 도착지 순서 검증
@@ -50,25 +65,6 @@ public class BookingValidator {
 		if (trainSchedule.getOperationStatus() == OperationStatus.CANCELLED) {
 			throw new BusinessException(TrainErrorCode.TRAIN_OPERATION_CANCELLED);
 		}
-	}
-
-	/**
-	 * 기존 예매들과 충돌 검증 (락이 걸린 상태에서 수행)
-	 */
-	public void validateConflictWithExistingBookings(
-		Booking newBooking,
-		List<SeatBooking> existingBookings
-	) {
-		int newDepartureOrder = newBooking.getDepartureStop().getStopOrder();
-		int newArrivalOrder = newBooking.getArrivalStop().getStopOrder();
-
-		existingBookings.forEach(existingBooking -> {
-			int existingDepartureOrder = existingBooking.getBooking().getDepartureStop().getStopOrder();
-			int existingArrivalOrder = existingBooking.getBooking().getArrivalStop().getStopOrder();
-			if (existingDepartureOrder < newArrivalOrder && existingArrivalOrder > newDepartureOrder) {
-				throw new BusinessException(BookingError.SEAT_ALREADY_BOOKED);
-			}
-		});
 	}
 
 	/**
@@ -144,5 +140,104 @@ public class BookingValidator {
 		if (!ticket.getBooking().getMember().getId().equals(member.getId())) {
 			throw new BusinessException(BookingError.TICKET_ACCESS_DENIED);
 		}
+	}
+
+	/**
+	 // * 결제 준비 시 좌석 충돌 검증
+	 * - Redis Hold 구간과 DB SeatBooking 구간 비교
+	 * @param pendingBookings 결제할 PendingBooking 목록
+	 */
+	public void validateSeatConflicts(List<PendingBooking> pendingBookings) {
+		// 1. 필요한 ScheduleStop ID들을 한 번에 수집하여 한 번의 쿼리로 조회
+		Set<Long> stopIds = pendingBookings.stream()
+			.flatMap(pb -> Stream.of(pb.getDepartureStopId(), pb.getArrivalStopId()))
+			.collect(Collectors.toSet());
+
+		Map<Long, ScheduleStop> stopMap = scheduleStopRepository.findAllById(stopIds)
+			.stream()
+			.collect(Collectors.toMap(ScheduleStop::getId, Function.identity()));
+
+		// 2. 정류장 조회 결과 검증
+		validateAllStopsExist(stopIds, stopMap);
+
+		for (PendingBooking pendingBooking : pendingBookings) {
+			Long trainScheduleId = pendingBooking.getTrainScheduleId();
+			List<Long> seatIds = getSeatIds(pendingBooking);
+
+			// 3. DB에서 기존 예약 조회
+			List<SeatBooking> existingSeatBookings = seatBookingRepository.findByTrainScheduleIdAndSeatIds(
+				trainScheduleId, seatIds
+			);
+
+			// 기존 예매가 없으면 검증 없이 조기 반환
+			if (existingSeatBookings.isEmpty()) {
+				continue;
+			}
+
+			// 4. PendingBooking에서 구간 계산
+			List<String> pendingSections = calculateSections(pendingBooking, stopMap);
+
+			// 5. 기존 SeatBooking과 구간 충돌 검증
+			for (SeatBooking seatBooking : existingSeatBookings) {
+				validateConflictWithSeatBooking(pendingSections, seatBooking, pendingBooking.getId());
+			}
+		}
+	}
+
+	/**
+	 * PendingBooking 구간과 기존 SeatBooking 구간 충돌 검증
+	 *
+	 * @param pendingSections 예약하려는 구간 (예: ["0-1", "1-2"])
+	 * @param seatBooking 기존 예매된 좌석
+	 * @param pendingBookingId 로깅용 PendingBooking ID
+	 */
+	private void validateConflictWithSeatBooking(
+		List<String> pendingSections,
+		SeatBooking seatBooking,
+		String pendingBookingId
+	) {
+		List<String> seatBookingSections = seatHoldKeyGenerator.generateSections(
+			seatBooking.getDepartureStopOrder(),
+			seatBooking.getArrivalStopOrder()
+		);
+
+		Set<String> conflictSections = new HashSet<>(pendingSections);
+		conflictSections.retainAll(seatBookingSections);
+
+		if (!conflictSections.isEmpty()) {
+			log.error(
+				"[구간 충돌] pendingBookingId={}, seatBookingId={}, seatId={}, conflictSections={}, pendingSections={}, seatBookingSections={}",
+				pendingBookingId, seatBooking.getId(), seatBooking.getSeat().getId(), conflictSections, pendingSections, seatBookingSections);
+			throw new BusinessException(BookingError.SEAT_ALREADY_BOOKED);
+		}
+	}
+
+	/**
+	 * PendingBooking의 출발/도착 정류장에서 구간 목록 계산
+	 */
+	private List<String> calculateSections(PendingBooking pendingBooking, Map<Long, ScheduleStop> stopMap) {
+		ScheduleStop departureStop = stopMap.get(pendingBooking.getDepartureStopId());
+		ScheduleStop arrivalStop = stopMap.get(pendingBooking.getArrivalStopId());
+
+		return seatHoldKeyGenerator.generateSections(
+			departureStop.getStopOrder(),
+			arrivalStop.getStopOrder()
+		);
+	}
+
+	private void validateAllStopsExist(Set<Long> stopIds, Map<Long, ScheduleStop> stopMap) {
+		if(stopIds.size() != stopMap.size()) {
+			Set<Long> noExistIds = stopIds.stream()
+				.filter(id -> !stopMap.containsKey(id))
+				.collect(Collectors.toSet());
+			log.error("[정류장 조회 실패] scheduleStopIds={}", noExistIds);
+			throw new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND);
+		}
+	}
+
+	private static List<Long> getSeatIds(PendingBooking pendingBooking) {
+		return pendingBooking.getPendingSeatBookings().stream()
+			.map(PendingSeatBooking::seatId)
+			.toList();
 	}
 }
