@@ -1,7 +1,12 @@
 package com.sudo.raillo.global.config;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper.DefaultTypeResolverBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Duration;
 import java.util.Map;
@@ -25,9 +30,16 @@ public class CacheConfig {
 	public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
 		ObjectMapper objectMapper = new ObjectMapper();
 		objectMapper.registerModule(new JavaTimeModule());
-
-		//LocalDateTime, LocalDate를 문자열 형식("2024-01-29T10:00:00")으로 저장
 		objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+		// Record 타입의 Redis 직렬화/역직렬화 지원을 위한 커스텀 타입 리졸버 설정
+		RecordSupportingTypeResolver typeResolver = new RecordSupportingTypeResolver(
+			DefaultTyping.NON_FINAL,
+			objectMapper.getPolymorphicTypeValidator()
+		);
+		typeResolver.init(JsonTypeInfo.Id.CLASS, null);
+		typeResolver.inclusion(JsonTypeInfo.As.PROPERTY);
+		objectMapper.setDefaultTyping(typeResolver);
 
 		var serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
 
@@ -44,5 +56,30 @@ public class CacheConfig {
 			.cacheDefaults(defaultConfig)
 			.withInitialCacheConfigurations(Map.of(TRAIN_CALENDAR_CACHE, calendarConfig))
 			.build();
+	}
+
+	static class RecordSupportingTypeResolver extends DefaultTypeResolverBuilder {
+		public RecordSupportingTypeResolver(DefaultTyping t, PolymorphicTypeValidator ptv) {
+			super(t, ptv);
+		}
+
+		@Override
+		public boolean useForType(JavaType t) {
+			Class<?> rawClass = t.getRawClass();
+
+			// Java Record 타입이면 무조건 포함
+			if (rawClass.isRecord()) {
+				return true;
+			}
+
+			// 컬렉션도 타입 정보 포함
+			if (java.util.Collection.class.isAssignableFrom(rawClass) ||
+				java.util.Map.class.isAssignableFrom(rawClass)) {
+				return true;
+			}
+
+			// 나머지는 기존 전략 따름
+			return super.useForType(t);
+		}
 	}
 }
