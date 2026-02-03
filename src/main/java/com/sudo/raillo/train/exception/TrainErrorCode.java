@@ -30,6 +30,7 @@ public enum TrainErrorCode implements ErrorCode {
 	STATION_NOT_FOUND("존재하지 않는 역입니다.", HttpStatus.NOT_FOUND, "T4201"),
 	STATION_FARE_NOT_FOUND("해당 구간의 요금 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "T4202"),
 	INVALID_ROUTE("출발역과 도착역이 동일하거나 유효하지 않은 경로입니다.", HttpStatus.BAD_REQUEST, "T4203"),
+	SCHEDULE_STOP_NOT_FOUND("정류장 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "T4204"),
 
 	// 승객 관련
 	INVALID_PASSENGER_COUNT("승객 수는 1명 이상 9명 이하여야 합니다.", HttpStatus.BAD_REQUEST, "T4301"),

@@ -214,7 +214,7 @@ public class BookingValidator {
 		return scheduleStopRepository.findById(scheduleStopId)
 			.orElseThrow(() -> {
 				log.error("[정류장 조회 실패] scheduleStopId={}", scheduleStopId);
-				return new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND);
+				return new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND);
 			});
 	}
 
