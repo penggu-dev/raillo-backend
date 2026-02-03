@@ -213,7 +213,7 @@ public class SeatConflictTest {
 
 	@Nested
 	@DisplayName("실패 케이스 - 충돌 발생")
-	class ConflictTest {
+	class ConflictTests {
 
 		@Test
 		@DisplayName("하나의 예약, 하나의 좌석에 대해 확정 예매 좌석과 일부 구간이 겹치면 예외가 발생한다")
