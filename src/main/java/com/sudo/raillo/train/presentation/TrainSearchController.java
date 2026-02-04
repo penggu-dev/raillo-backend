@@ -42,7 +42,6 @@ public class TrainSearchController implements TrainSearchControllerDoc {
 	 */
 	@GetMapping("/calendar")
 	public SuccessResponse<List<OperationCalendarItemResponse>> getOperationCalendar() {
-		log.info("운행 캘린더 조회");
 		List<OperationCalendarItemResponse> calendar = trainSearchFacade.getOperationCalendar();
 		log.info("운행 캘린더 조회: {} 건", calendar.size());
 
