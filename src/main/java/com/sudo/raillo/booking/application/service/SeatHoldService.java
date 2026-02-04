@@ -1,6 +1,8 @@
 package com.sudo.raillo.booking.application.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SeatHoldService {
 
 	private static final long SOLD_TTL_BUFFER_SECONDS = 3600; // 1시간 여유
+	private static final long SOLD_TTL_MINIMUM_SECONDS = 3600; // 최소 1시간 보장 (음수 TTL 방어)
 
 	private final SeatHoldRepository seatHoldRepository;
 	private final TrainScheduleRepository trainScheduleRepository;
@@ -85,6 +88,8 @@ public class SeatHoldService {
 	 * <p>열차 도착 시간 + 1시간 여유분을 TTL로 설정하여,
 	 * 열차 운행 완료 후 자동으로 Redis 메모리가 정리되도록 함</p>
 	 *
+	 * <p>방어 로직: 계산된 TTL이 최소값보다 작으면 최소 TTL 보장</p>
+	 *
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @return TTL (초 단위)
 	 */
@@ -92,15 +97,29 @@ public class SeatHoldService {
 		TrainSchedule trainSchedule = trainScheduleRepository.findById(trainScheduleId)
 			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
 
-		LocalDateTime arrivalDateTime = LocalDateTime.of(
-			trainSchedule.getOperationDate(),
-			trainSchedule.getArrivalTime()
-		);
+		LocalDate arrivalDate = trainSchedule.getOperationDate();
+		LocalTime arrivalTime = trainSchedule.getArrivalTime();
+		LocalTime departureTime = trainSchedule.getDepartureTime();
+
+		// 도착시간이 출발시간보다 이르면 자정을 넘긴 것이므로 다음날로 처리
+		if (arrivalTime.isBefore(departureTime)) {
+			arrivalDate = arrivalDate.plusDays(1);
+		}
+
+		LocalDateTime arrivalDateTime = LocalDateTime.of(arrivalDate, arrivalTime);
 		LocalDateTime now = LocalDateTime.now();
 
 		long secondsUntilArrival = ChronoUnit.SECONDS.between(now, arrivalDateTime);
+		long calculatedTTL = secondsUntilArrival + SOLD_TTL_BUFFER_SECONDS;
 
-		return secondsUntilArrival + SOLD_TTL_BUFFER_SECONDS;
+		// 방어 로직: TTL이 최소값보다 작으면 최소 TTL 보장
+		if (calculatedTTL < SOLD_TTL_MINIMUM_SECONDS) {
+			log.warn("[Sold TTL 방어 로직 적용] trainScheduleId={}, calculatedTTL={}s, minimumTTL={}s",
+				trainScheduleId, calculatedTTL, SOLD_TTL_MINIMUM_SECONDS);
+			return SOLD_TTL_MINIMUM_SECONDS;
+		}
+
+		return calculatedTTL;
 	}
 
 	/**

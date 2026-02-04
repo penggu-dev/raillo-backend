@@ -13,6 +13,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.data.redis.core.RedisTemplate;
+
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -20,6 +24,7 @@ import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
 import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
 import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.PendingBookingFixture;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
@@ -47,6 +52,12 @@ class SeatHoldServiceTest {
 
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
+
+	@Autowired
+	private RedisTemplate<String, String> customStringRedisTemplate;
+
+	@Autowired
+	private SeatHoldKeyGenerator seatHoldKeyGenerator;
 
 	private Train train;
 	private TrainScheduleResult trainScheduleResult;
@@ -371,6 +382,52 @@ class SeatHoldServiceTest {
 			)
 				.isInstanceOf(BusinessException.class)
 				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
+		}
+
+		@Test
+		@DisplayName("자정을 넘기는 야간 열차의 좌석 확정 시 TTL이 올바르게 계산된다")
+		void confirmSeats_overnightTrain_correctTTL() {
+			// given - 23:00 출발 → 00:30 도착 (자정을 넘기는 야간 열차)
+			TrainScheduleResult overnightSchedule = trainScheduleTestHelper.builder()
+				.scheduleName("KTX 야간 열차")
+				.train(train)
+				.operationDate(LocalDate.now().plusDays(1))
+				.addStop("서울", null, LocalTime.of(23, 0))
+				.addStop("대전", LocalTime.of(23, 50), LocalTime.of(23, 55))
+				.addStop("부산", LocalTime.of(0, 30), null)  // 다음날 00:30 도착
+				.build();
+
+			Long trainScheduleId = overnightSchedule.trainSchedule().getId();
+			ScheduleStop departureStop = overnightSchedule.scheduleStops().get(0);
+			ScheduleStop arrivalStop = overnightSchedule.scheduleStops().get(2);
+			Long seatId = seats.get(0).getId();
+
+			PendingBooking pendingBooking = PendingBookingFixture.builder()
+				.withTrainScheduleId(trainScheduleId)
+				.withDepartureStopId(departureStop.getId())
+				.withArrivalStopId(arrivalStop.getId())
+				.withPendingSeatBookings(
+					List.of(new PendingSeatBooking(seatId, PassengerType.ADULT))
+				)
+				.withTotalFare(BigDecimal.valueOf(50000))
+				.build();
+
+			// when - Hold 후 Confirm
+			seatHoldService.holdSeats(
+				pendingBooking.getId(),
+				trainScheduleId,
+				departureStop,
+				arrivalStop,
+				List.of(seatId)
+			);
+			seatHoldService.confirmSeats(pendingBooking);
+
+			// then
+			String soldKey = seatHoldKeyGenerator.generateSoldKey(trainScheduleId, seatId);
+			Long ttl = customStringRedisTemplate.getExpire(soldKey, TimeUnit.SECONDS);
+
+			assertThat(ttl).isNotNull();
+			assertThat(ttl).isGreaterThan(0);  // Sold 키의 TTL이 양수여야 함 (자정을 넘긴 날짜가 올바르게 계산되었다면)
 		}
 	}
 
