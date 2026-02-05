@@ -77,10 +77,10 @@ public class PaymentFacade {
 	/**
 	 * 결제 승인 처리
 	 *
-	 * 1. Member, Order, Payment 조회
-	 * 2. 소유자 검증 (Order, Payment 모두 요청한 Member 소유인지 확인)
-	 * 3. 금액 3중 검증 (Client Request, Order, Payment 모두 일치 확인)
-	 * 4. 상태 검증 (Payment 승인 가능 여부, 중복 결제 방지)
+	 * 1. Order 조회 및 PendingBooking 유효성 검증 (TTL 만료 여부)
+	 * 2. Member, Payment 조회
+	 * 3. 소유자 검증 (Order, Payment 모두 요청한 Member 소유인지 확인)
+	 * 4. 금액 3중 검증 및 중복 결제 방지
 	 * 5. PaymentKey 저장 (별도 트랜잭션 - 무조건 커밋)
 	 * 6. 토스페이먼츠 결제 승인 API 호출
 	 *    - 성공: 다음 단계 진행
@@ -88,28 +88,32 @@ public class PaymentFacade {
 	 * 7. 토스 응답 검증 (금액, paymentKey 일치 확인)
 	 * 8. PaymentMethod 매핑
 	 * 9. Order 상태 변경 (PENDING → ORDERED)
-	 * 10. Booking & SeatBooking 생성 (BOOKED)
+	 * 10. Booking & SeatBooking & Ticket 생성 (BOOKED)
 	 * 11. Payment 승인 처리 (PENDING → PAID, paymentMethod 저장)
+	 * 12. 좌석 확정 (Hold → Sold) 및 PendingBooking 정리
 	 */
 	public PaymentConfirmResponse confirmPayment(PaymentConfirmRequest request, String memberNo) {
 		log.info("결제 승인 시작: orderId={}, paymentKey={}, amount={}",
 			request.orderId(), request.paymentKey(), request.amount());
 
-		// 1. Member, Order, Payment 조회
-		Member member = memberService.getMemberByMemberNo(memberNo);
+		// 1. Order 조회 및 PendingBooking 유효성 검증 (TTL 만료 여부)
 		Order order = orderService.getOrderByOrderCode(request.orderId());
+		List<PendingBooking> pendingBookings = validateAndGetPendingBookings(order, memberNo);
+
+		// 2. Member, Payment 조회
+		Member member = memberService.getMemberByMemberNo(memberNo);
 		Payment payment = paymentService.getPaymentByOrder(order);
 
-		// 2. 요청 전 검증 (소유자, 금액, 중복결제)
+		// 3. 요청 전 검증 (소유자, 금액, 중복결제)
 		orderService.validateOrderOwner(order, member);
 		paymentValidator.validatePaymentOwner(payment, member);
 		paymentValidator.validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
 		paymentValidator.validateDuplicatePayment(order);
 
-		// 3. 클라이언트에서 받은 PaymentKey 저장 (토스 승인 요청 전 별도 트랜잭션에서 무조건 커밋)
+		// 4. 클라이언트에서 받은 PaymentKey 저장 (토스 승인 요청 전 별도 트랜잭션에서 무조건 커밋)
 		paymentService.updatePaymentKeyInNewTransaction(payment.getId(), request.paymentKey());
 
-		// 4. 토스페이먼츠 결제 승인 API 호출
+		// 5. 토스페이먼츠 결제 승인 API 호출
 		TossPaymentConfirmResponse result;
 		try {
 			result = tossPaymentClient.confirmPayment(request);
@@ -124,23 +128,23 @@ public class PaymentFacade {
 		TossPaymentConfirmResponse tossResponse = result;
 
 
-		// 5. 토스 응답 금액, paymentKey 재검증
+		// 6. 토스 응답 금액, paymentKey 재검증
 		paymentValidator.validateTossResponseMatchesRequest(tossResponse, request);
 
-		// 6. PaymentMethod 매핑
+		// 7. PaymentMethod 매핑
 		PaymentMethod paymentMethod = mapToPaymentMethod(tossResponse.method());
 
-		// 7. Order 상태 변경 (PENDING -> ORDERED)
+		// 8. Order 상태 변경 (PENDING -> ORDERED)
 		order.completePayment();
 
-		// 8. Booking & SeatBooking 생성 (BOOKED)
+		// 9. Booking & SeatBooking 생성 (BOOKED)
 		bookingService.createBookingFromOrder(order);
 
-		// 9. Payment 승인 처리 (PENDING -> PAID, paymentMethod, paidAt 저장)
+		// 10. Payment 승인 처리 (PENDING -> PAID, paymentMethod, paidAt 저장)
 		payment.approve(paymentMethod);
 
-		// 10. 좌석 확정 (Hold -> Sold) 및 PendingBooking 정리
-		confirmSeatsAndCleanupPendingBookings(order, memberNo);
+		// 11. 좌석 확정 (Hold -> Sold) 및 PendingBooking 정리
+		confirmSeatsAndCleanupPendingBookings(pendingBookings);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
 
@@ -148,22 +152,30 @@ public class PaymentFacade {
 	}
 
 	/**
-	 * 좌석 확정 및 PendingBooking 정리
+	 * PendingBooking 유효성 검증 및 조회
 	 *
-	 * 1. Order에 저장된 pendingBookingIds로 PendingBooking 조회
-	 * 2. 각 PendingBooking에 대해 좌석 확정 (Hold -> Sold)
-	 * 3. PendingBooking 삭제
+	 * <p>결제 승인 전에 모든 PendingBooking이 살아있는지(TTL 만료되지 않았는지) 확인합니다.
+	 * 하나라도 만료되었으면 결제를 진행할 수 없습니다.</p>
+	 *
+	 * @throws BusinessException PendingBooking이 없거나 일부가 만료된 경우
 	 */
-	private void confirmSeatsAndCleanupPendingBookings(Order order, String memberNo) {
+	private List<PendingBooking> validateAndGetPendingBookings(Order order, String memberNo) {
 		List<String> pendingBookingIds = order.getPendingBookingIds();
 		if (pendingBookingIds == null || pendingBookingIds.isEmpty()) {
-			log.warn("[PendingBooking 정리 스킵] pendingBookingIds가 없음: orderCode={}", order.getOrderCode());
-			return;
+			log.error("[PendingBooking 검증 실패] pendingBookingIds가 없음: orderCode={}", order.getOrderCode());
+			throw new BusinessException(PaymentError.PENDING_BOOKING_EXPIRED);
 		}
 
-		// PendingBooking 조회 (이미 TTL 만료된 경우 조회되지 않을 수 있음)
-		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);
+		// 모든 PendingBooking이 존재하는지 검증 (getPendingBookings 내부에서 검증)
+		return pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);
+	}
 
+	/**
+	 * 좌석 확정 및 PendingBooking 정리
+	 *
+	 * <p>이미 검증된 PendingBooking에 대해 Hold → Sold 전환 및 삭제를 수행합니다.</p>
+	 */
+	private void confirmSeatsAndCleanupPendingBookings(List<PendingBooking> pendingBookings) {
 		// 각 PendingBooking에 대해 좌석 확정
 		for (PendingBooking pendingBooking : pendingBookings) {
 			TrainScheduleTimeInfo timeInfo = trainScheduleService.getTrainScheduleTimeInfo(pendingBooking.getTrainScheduleId());
@@ -171,10 +183,13 @@ public class PaymentFacade {
 		}
 
 		// PendingBooking 삭제
+		List<String> pendingBookingIds = pendingBookings.stream()
+			.map(PendingBooking::getId)
+			.toList();
+		String memberNo = pendingBookings.get(0).getMemberNo();
 		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
 
-		log.info("[PendingBooking 정리 완료] orderCode={}, pendingBookingCount={}",
-			order.getOrderCode(), pendingBookingIds.size());
+		log.info("[PendingBooking 정리 완료] pendingBookingCount={}", pendingBookings.size());
 	}
 
 	/**
