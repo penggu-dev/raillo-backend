@@ -15,10 +15,8 @@ import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
 import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
 import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.train.application.dto.TrainScheduleTimeInfo;
 import com.sudo.raillo.train.domain.ScheduleStop;
-import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.exception.TrainErrorCode;
-import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +35,6 @@ public class SeatHoldService {
 	private static final long SOLD_TTL_MINIMUM_SECONDS = 3600; // 최소 1시간 보장 (음수 TTL 방어)
 
 	private final SeatHoldRepository seatHoldRepository;
-	private final TrainScheduleRepository trainScheduleRepository;
 
 	/**
 	 * 좌석 임시 점유 시도
@@ -71,13 +68,14 @@ public class SeatHoldService {
 	 * Hold → Sold 전환
 	 *
 	 * @param pendingBooking 예약 정보
+	 * @param timeInfo 열차 스케줄 시간 정보 (TTL 계산용)
 	 */
-	public void confirmSeats(PendingBooking pendingBooking) {
+	public void confirmSeats(PendingBooking pendingBooking, TrainScheduleTimeInfo timeInfo) {
 		Long trainScheduleId = pendingBooking.getTrainScheduleId();
 		String pendingBookingId = pendingBooking.getId();
 		List<Long> seatIds = extractSeatIds(pendingBooking);
 
-		long soldTTLSeconds = calculateSoldTTL(trainScheduleId);
+		long soldTTLSeconds = calculateSoldTTL(timeInfo);
 
 		confirmHoldSeats(trainScheduleId, seatIds, pendingBookingId, soldTTLSeconds);
 	}
@@ -90,16 +88,13 @@ public class SeatHoldService {
 	 *
 	 * <p>방어 로직: 계산된 TTL이 최소값보다 작으면 최소 TTL 보장</p>
 	 *
-	 * @param trainScheduleId 열차 스케줄 ID
+	 * @param timeInfo 열차 스케줄 시간 정보
 	 * @return TTL (초 단위)
 	 */
-	private long calculateSoldTTL(Long trainScheduleId) {
-		TrainSchedule trainSchedule = trainScheduleRepository.findById(trainScheduleId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
-
-		LocalDate arrivalDate = trainSchedule.getOperationDate();
-		LocalTime arrivalTime = trainSchedule.getArrivalTime();
-		LocalTime departureTime = trainSchedule.getDepartureTime();
+	private long calculateSoldTTL(TrainScheduleTimeInfo timeInfo) {
+		LocalDate arrivalDate = timeInfo.operationDate();
+		LocalTime arrivalTime = timeInfo.arrivalTime();
+		LocalTime departureTime = timeInfo.departureTime();
 
 		// 도착시간이 출발시간보다 이르면 자정을 넘긴 것이므로 다음날로 처리
 		if (arrivalTime.isBefore(departureTime)) {
@@ -115,7 +110,7 @@ public class SeatHoldService {
 		// 방어 로직: TTL이 최소값보다 작으면 최소 TTL 보장
 		if (calculatedTTL < SOLD_TTL_MINIMUM_SECONDS) {
 			log.warn("[Sold TTL 방어 로직 적용] trainScheduleId={}, calculatedTTL={}s, minimumTTL={}s",
-				trainScheduleId, calculatedTTL, SOLD_TTL_MINIMUM_SECONDS);
+				timeInfo.id(), calculatedTTL, SOLD_TTL_MINIMUM_SECONDS);
 			return SOLD_TTL_MINIMUM_SECONDS;
 		}
 

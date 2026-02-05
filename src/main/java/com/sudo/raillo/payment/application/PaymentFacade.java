@@ -26,6 +26,8 @@ import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.TossPaymentClient;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
+import com.sudo.raillo.train.application.dto.TrainScheduleTimeInfo;
+import com.sudo.raillo.train.application.service.TrainScheduleService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +47,7 @@ public class PaymentFacade {
 	private final TossPaymentClient tossPaymentClient;
 	private final PaymentValidator paymentValidator;
 	private final BookingValidator bookingValidator;
+	private final TrainScheduleService trainScheduleService;
 
 	/**
 	 * 결제 준비 처리
@@ -163,7 +166,8 @@ public class PaymentFacade {
 
 		// 각 PendingBooking에 대해 좌석 확정
 		for (PendingBooking pendingBooking : pendingBookings) {
-			seatHoldService.confirmSeats(pendingBooking);
+			TrainScheduleTimeInfo timeInfo = trainScheduleService.getTrainScheduleTimeInfo(pendingBooking.getTrainScheduleId());
+			seatHoldService.confirmSeats(pendingBooking, timeInfo);
 		}
 
 		// PendingBooking 삭제
