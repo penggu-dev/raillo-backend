@@ -11,18 +11,34 @@ import org.springframework.scripting.support.ResourceScriptSource;
 /**
  * Redis Lua 스크립트 Bean 설정
  *
- * <p> @Bean 메서드 이름이 Bean 이름으로 사용됨</p>
- * <p>- SeatHoldRepository에서 동일한 이름으로 주입받아 사용</p>
+ * <h3>DefaultRedisScript 제네릭 타입 설명</h3>
+ * <p>{@code DefaultRedisScript<List>}에서 {@code List}는 <b>Lua 스크립트의 반환값 타입</b>입니다.</p>
+ * <p>Lua에서 table을 반환하면 Java의 List로 변환됩니다:</p>
+ * <pre>
+ * // Lua
+ * return {1, "SUCCESS"}
  *
- * Lua 스크립트 위치: src/main/resources/scripts/
+ * // Java
+ * List&lt;Object&gt; result = [1L, "SUCCESS"]
+ * </pre>
+ *
+ * <h3>사용 방법</h3>
+ * <p>@Bean 메서드 이름이 Bean 이름으로 사용되며, SeatHoldRepository에서 동일한 이름으로 주입받아 사용합니다.</p>
+ *
+ * <h3>Lua 스크립트 위치</h3>
+ * <p>{@code src/main/resources/scripts/}</p>
  *
  * @see com.sudo.raillo.booking.infrastructure.SeatHoldRepository
+ * @see com.sudo.raillo.booking.infrastructure.SeatHoldResult
  */
 @Configuration
 public class RedisScriptConfig {
 
 	/**
 	 * 좌석 임시 점유 스크립트
+	 *
+	 * <p>반환값: {@code {성공여부(1/0), 상태문자열, [충돌구간]}}</p>
+	 * <p>예: {@code {1, "HOLD_SUCCESS"}} 또는 {@code {0, "CONFLICT_WITH_SOLD", "1-2"}}</p>
 	 */
 	@Bean
 	public DefaultRedisScript<List> seatHoldScript() {
@@ -35,6 +51,9 @@ public class RedisScriptConfig {
 
 	/**
 	 * 좌석 확정 스크립트 (Hold → Sold)
+	 *
+	 * <p>반환값: {@code {성공여부(1/0), 상태문자열}}</p>
+	 * <p>예: {@code {1, "CONFIRM_SUCCESS"}} 또는 {@code {0, "HOLD_NOT_FOUND"}}</p>
 	 */
 	@Bean
 	public DefaultRedisScript<List> seatConfirmScript() {
@@ -47,6 +66,9 @@ public class RedisScriptConfig {
 
 	/**
 	 * 좌석 점유 해제 스크립트
+	 *
+	 * <p>Hold 키 삭제 및 holds 인덱스에서 제거</p>
+	 * <p>반환값: {@code {1, "RELEASE_SUCCESS"}}</p>
 	 */
 	@Bean
 	public DefaultRedisScript<List> seatReleaseScript() {

@@ -83,4 +83,4 @@ redis:
   ttl:
     pending-booking: 10m
     pending-booking-member-key: 580s # 유령 인덱스 방지를 위해 주 키의 TTL 설정 값보다 20초 짧게 설정
-    seat-hold: 600
+    seat-hold: 660 # 11분 (PendingBooking TTL 10분 + 여유 1분)

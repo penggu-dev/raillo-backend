@@ -1,5 +1,9 @@
 package com.sudo.raillo.booking.application.service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,6 +16,9 @@ import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
 import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.TrainSchedule;
+import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +33,11 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class SeatHoldService {
 
+	private static final long SOLD_TTL_BUFFER_SECONDS = 3600; // 1시간 여유
+	private static final long SOLD_TTL_MINIMUM_SECONDS = 3600; // 최소 1시간 보장 (음수 TTL 방어)
+
 	private final SeatHoldRepository seatHoldRepository;
+	private final TrainScheduleRepository trainScheduleRepository;
 
 	/**
 	 * 좌석 임시 점유 시도
@@ -56,7 +67,6 @@ public class SeatHoldService {
 	}
 
 	/**
-	 * // TODO : 결제 완료 시 호출 필요
 	 * 좌석 확정 (결제 완료 시)
 	 * Hold → Sold 전환
 	 *
@@ -67,10 +77,49 @@ public class SeatHoldService {
 		String pendingBookingId = pendingBooking.getId();
 		List<Long> seatIds = extractSeatIds(pendingBooking);
 
-		log.info("[좌석 확정 요청] pendingBookingId={}, trainScheduleId={}, seatCount={}",
-			pendingBookingId, trainScheduleId, seatIds.size());
+		long soldTTLSeconds = calculateSoldTTL(trainScheduleId);
 
-		confirmHoldSeats(trainScheduleId, seatIds, pendingBookingId);
+		confirmHoldSeats(trainScheduleId, seatIds, pendingBookingId, soldTTLSeconds);
+	}
+
+	/**
+	 * 열차 도착 시간 기반 Sold TTL 계산
+	 *
+	 * <p>열차 도착 시간 + 1시간 여유분을 TTL로 설정하여,
+	 * 열차 운행 완료 후 자동으로 Redis 메모리가 정리되도록 함</p>
+	 *
+	 * <p>방어 로직: 계산된 TTL이 최소값보다 작으면 최소 TTL 보장</p>
+	 *
+	 * @param trainScheduleId 열차 스케줄 ID
+	 * @return TTL (초 단위)
+	 */
+	private long calculateSoldTTL(Long trainScheduleId) {
+		TrainSchedule trainSchedule = trainScheduleRepository.findById(trainScheduleId)
+			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
+
+		LocalDate arrivalDate = trainSchedule.getOperationDate();
+		LocalTime arrivalTime = trainSchedule.getArrivalTime();
+		LocalTime departureTime = trainSchedule.getDepartureTime();
+
+		// 도착시간이 출발시간보다 이르면 자정을 넘긴 것이므로 다음날로 처리
+		if (arrivalTime.isBefore(departureTime)) {
+			arrivalDate = arrivalDate.plusDays(1);
+		}
+
+		LocalDateTime arrivalDateTime = LocalDateTime.of(arrivalDate, arrivalTime);
+		LocalDateTime now = LocalDateTime.now();
+
+		long secondsUntilArrival = ChronoUnit.SECONDS.between(now, arrivalDateTime);
+		long calculatedTTL = secondsUntilArrival + SOLD_TTL_BUFFER_SECONDS;
+
+		// 방어 로직: TTL이 최소값보다 작으면 최소 TTL 보장
+		if (calculatedTTL < SOLD_TTL_MINIMUM_SECONDS) {
+			log.warn("[Sold TTL 방어 로직 적용] trainScheduleId={}, calculatedTTL={}s, minimumTTL={}s",
+				trainScheduleId, calculatedTTL, SOLD_TTL_MINIMUM_SECONDS);
+			return SOLD_TTL_MINIMUM_SECONDS;
+		}
+
+		return calculatedTTL;
 	}
 
 	/**
@@ -139,12 +188,12 @@ public class SeatHoldService {
 		}
 	}
 
-	private void confirmHoldSeats(Long trainScheduleId, List<Long> seatIds, String pendingBookingId) {
-		log.info("[다중 좌석 확정 시도] trainScheduleId={}, seatIds={}, pendingBookingId={}",
-			trainScheduleId, seatIds, pendingBookingId);
+	private void confirmHoldSeats(Long trainScheduleId, List<Long> seatIds, String pendingBookingId, long soldTTLSeconds) {
+		log.info("[다중 좌석 확정 시도] trainScheduleId={}, seatIds={}, pendingBookingId={}, soldTTL={}s",
+			trainScheduleId, seatIds, pendingBookingId, soldTTLSeconds);
 
 		for (Long seatId : seatIds) {
-			seatHoldRepository.confirmHold(trainScheduleId, seatId, pendingBookingId);
+			seatHoldRepository.confirmHold(trainScheduleId, seatId, pendingBookingId, soldTTLSeconds);
 		}
 
 		log.info("[다중 좌석 확정 성공] trainScheduleId={}, seatCount={}", trainScheduleId, seatIds.size());
