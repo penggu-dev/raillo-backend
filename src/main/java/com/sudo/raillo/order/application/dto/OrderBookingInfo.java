@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public record OrderBookingInfo(
+	String pendingBookingId,
 	Long trainScheduleId,
 	Long departureStopId,
 	Long arrivalStopId,
