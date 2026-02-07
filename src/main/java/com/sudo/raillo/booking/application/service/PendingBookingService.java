@@ -134,13 +134,13 @@ public class PendingBookingService {
 
 		bookingValidator.validateAllPendingBookingsExist(pendingBookingIds, bookingsById);
 
-		List<PendingBooking> bookings = pendingBookingIds.stream()
+		List<PendingBooking> pendingBookings = pendingBookingIds.stream()
 			.map(bookingsById::get)
 			.toList();
 
-		bookingValidator.validatePendingBookingOwner(bookings, memberNo);
+		bookingValidator.validatePendingBookingOwner(pendingBookings, memberNo);
 
-		return bookings;
+		return pendingBookings;
 	}
 
 	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {

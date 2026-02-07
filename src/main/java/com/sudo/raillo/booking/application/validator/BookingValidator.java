@@ -103,15 +103,14 @@ public class BookingValidator {
 	/**
 	 * 예약 존재 여부 검증
 	 */
-	public void validateAllPendingBookingsExist(List<String> pendingBookingIds,
-		Map<String, PendingBooking> bookingsById) {
+	public void validateAllPendingBookingsExist(List<String> pendingBookingIds, Map<String, PendingBooking> bookingsById) {
 		List<String> notFoundIds = pendingBookingIds.stream()
 			.filter(id -> !bookingsById.containsKey(id))
 			.toList();
 
 		if (!notFoundIds.isEmpty()) {
-			log.warn("[예약 찾지 못함] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
-			throw new BusinessException(BookingError.PENDING_BOOKING_NOT_FOUND);
+			log.warn("[임시 예약 만료] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
+			throw new BusinessException(BookingError.PENDING_BOOKING_EXPIRED);
 		}
 	}
 

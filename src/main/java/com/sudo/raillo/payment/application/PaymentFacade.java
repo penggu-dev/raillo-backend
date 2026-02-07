@@ -10,6 +10,7 @@ import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberService;
 import com.sudo.raillo.member.domain.Member;
@@ -163,7 +164,7 @@ public class PaymentFacade {
 		List<String> pendingBookingIds = order.getPendingBookingIds();
 		if (pendingBookingIds == null || pendingBookingIds.isEmpty()) {
 			log.error("[PendingBooking 검증 실패] pendingBookingIds가 없음: orderCode={}", order.getOrderCode());
-			throw new BusinessException(PaymentError.PENDING_BOOKING_EXPIRED);
+			throw new BusinessException(BookingError.PENDING_BOOKING_IDS_REQUIRED);
 		}
 
 		// 모든 PendingBooking이 존재하는지 검증 (getPendingBookings 내부에서 검증)
