@@ -113,11 +113,14 @@ public class PaymentFacade {
 
 		// 4. 클라이언트에서 받은 PaymentKey 저장 (토스 승인 요청 전 별도 트랜잭션에서 무조건 커밋)
 		paymentService.updatePaymentKeyInNewTransaction(payment.getId(), request.paymentKey());
+		// REQUIRES_NEW로 별도 커밋된 paymentKey를 바깥 트랜잭션의 엔티티에도 동기화
+		// (미동기화 시 바깥 트랜잭션 커밋 때 Hibernate가 paymentKey=null로 덮어씀)
+		payment.updatePaymentKey(request.paymentKey());
 
 		// 5. 토스페이먼츠 결제 승인 API 호출
-		TossPaymentConfirmResponse result;
+		TossPaymentConfirmResponse tossResponse;
 		try {
-			result = tossPaymentClient.confirmPayment(request);
+			tossResponse = tossPaymentClient.confirmPayment(request);
 		} catch (TossPaymentException e) {
 			paymentService.failPaymentInNewTransaction(payment.getId(), e.getErrorCode(), e.getMessage());
 
@@ -126,7 +129,6 @@ public class PaymentFacade {
 
 			throw e;
 		}
-		TossPaymentConfirmResponse tossResponse = result;
 
 
 		// 6. 토스 응답 금액, paymentKey 재검증
