@@ -138,8 +138,8 @@ public class PaymentFacade {
 	 * @throws BusinessException PendingBooking이 없거나 일부가 만료된 경우
 	 */
 	private List<PendingBooking> validateAndGetPendingBookings(Order order, String memberNo) {
-		List<String> pendingBookingIds = order.getPendingBookingIds();
-		if (pendingBookingIds == null || pendingBookingIds.isEmpty()) {
+		List<String> pendingBookingIds = orderService.getPendingBookingIds(order);
+		if (pendingBookingIds.isEmpty()) {
 			log.error("[PendingBooking 검증 실패] pendingBookingIds가 없음: orderCode={}", order.getOrderCode());
 			throw new BusinessException(BookingError.PENDING_BOOKING_IDS_REQUIRED);
 		}

@@ -72,6 +72,16 @@ public class OrderService {
 	}
 
 	/**
+	 * Order에 연결된 PendingBooking ID 목록 조회
+	 */
+	@Transactional(readOnly = true)
+	public List<String> getPendingBookingIds(Order order) {
+		return orderBookingRepository.findByOrderId(order.getId()).stream()
+			.map(OrderBooking::getPendingBookingId)
+			.toList();
+	}
+
+	/**
 	 * 주문 생성
 	 * @param memberNo 회원 번호
 	 * @param pendingBookings 주문할 PendingBooking 리스트
@@ -95,16 +105,11 @@ public class OrderService {
 			.map(OrderBookingInfo::totalFare)
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
 
-		// 4. PendingBookingIds 추출
-		List<String> pendingBookingIds = pendingBookings.stream()
-			.map(PendingBooking::getId)
-			.toList();
-
-		// 5. Order 생성 및 저장
-		Order order = Order.create(member, totalAmount, pendingBookingIds);
+		// 4. Order 생성 및 저장
+		Order order = Order.create(member, totalAmount);
 		orderRepository.save(order);
 
-		// 6. OrderBooking, OrderSeatBooking 생성
+		// 5. OrderBooking, OrderSeatBooking 생성
 		orderBookingInfos.forEach(info -> createOrderBooking(order, info, scheduleMap, stopMap));
 		log.info("[주문 생성] orderId={}, memberNo={}, totalAmount={}", order.getId(), memberNo, totalAmount);
 		return order;

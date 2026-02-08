@@ -3,7 +3,6 @@ package com.sudo.raillo.order.domain;
 import static org.assertj.core.api.Assertions.*;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,7 +23,7 @@ class OrderTest {
 		BigDecimal totalAmount = BigDecimal.valueOf(10000);
 
 		// when
-		Order order = Order.create(member, totalAmount, List.of());
+		Order order = Order.create(member, totalAmount);
 
 		// then
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
@@ -42,7 +41,7 @@ class OrderTest {
 		BigDecimal totalAmount = BigDecimal.ZERO;
 
 		// when
-		Order order = Order.create(member, totalAmount, List.of());
+		Order order = Order.create(member, totalAmount);
 
 		// then
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
@@ -58,7 +57,7 @@ class OrderTest {
 		BigDecimal invalidAmount = BigDecimal.valueOf(-1000);
 
 		// when & then
-		assertThatThrownBy(() -> Order.create(member, invalidAmount, List.of()))
+		assertThatThrownBy(() -> Order.create(member, invalidAmount))
 			.isInstanceOf(DomainException.class)
 			.hasMessage(OrderError.INVALID_TOTAL_AMOUNT.getMessage());
 	}
@@ -68,7 +67,7 @@ class OrderTest {
 	void completePayment() {
 		// given
 		Member member = MemberFixture.create();
-		Order order = Order.create(member, BigDecimal.valueOf(10000), List.of());
+		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
 		order.completePayment();
@@ -82,7 +81,7 @@ class OrderTest {
 	void completePaymentFail() {
 		// given
 		Member member = MemberFixture.create();
-		Order order = Order.create(member, BigDecimal.valueOf(10000), List.of());
+		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
 		order.completePayment();
@@ -98,7 +97,7 @@ class OrderTest {
 	void expired() {
 		// given
 		Member member = MemberFixture.create();
-		Order order = Order.create(member, BigDecimal.valueOf(10000), List.of());
+		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
 		order.expired();
@@ -113,7 +112,7 @@ class OrderTest {
 	void expiredFail() {
 		// given
 		Member member = MemberFixture.create();
-		Order order = Order.create(member, BigDecimal.valueOf(10000), List.of());
+		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
 		order.completePayment();

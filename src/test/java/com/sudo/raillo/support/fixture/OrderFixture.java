@@ -1,8 +1,6 @@
 package com.sudo.raillo.support.fixture;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
@@ -15,7 +13,6 @@ public class OrderFixture {
 
 	private Member member;
 	private BigDecimal totalAmount = BigDecimal.valueOf(10000);
-	private List<String> pendingBookingIds = new ArrayList<>();
 
 	public static Order create(Member member) {
 		return builder()
@@ -29,7 +26,7 @@ public class OrderFixture {
 	}
 
 	public Order build() {
-		return Order.create(member, totalAmount, pendingBookingIds);
+		return Order.create(member, totalAmount);
 	}
 
 	public OrderFixture withMember(Member member) {
@@ -39,11 +36,6 @@ public class OrderFixture {
 
 	public OrderFixture withTotalAmount(BigDecimal totalAmount) {
 		this.totalAmount = totalAmount;
-		return this;
-	}
-
-	public OrderFixture withPendingBookingIds(List<String> pendingBookingIds) {
-		this.pendingBookingIds = pendingBookingIds;
 		return this;
 	}
 }
