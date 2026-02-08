@@ -112,6 +112,7 @@ public class OrderService {
 		Map<Long, ScheduleStop> stopMap
 	) {
 		OrderBooking orderBooking = OrderBooking.create(
+			orderBookingInfo.pendingBookingId(),
 			order,
 			scheduleMap.get(orderBookingInfo.trainScheduleId()),
 			stopMap.get(orderBookingInfo.departureStopId()),
@@ -205,6 +206,7 @@ public class OrderService {
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
 
 		return new OrderBookingInfo(
+			pendingBooking.getId(),
 			pendingBooking.getTrainScheduleId(),
 			pendingBooking.getDepartureStopId(),
 			pendingBooking.getArrivalStopId(),

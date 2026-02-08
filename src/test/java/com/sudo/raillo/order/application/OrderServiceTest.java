@@ -153,6 +153,7 @@ class OrderServiceTest {
 		assertThat(orderBookings).hasSize(1);
 
 		OrderBooking savedOrderBooking = orderBookings.get(0);
+		assertThat(savedOrderBooking.getPendingBookingId()).isEqualTo(pendingBooking.getId());
 		assertThat(savedOrderBooking.getOrder().getId()).isEqualTo(savedOrder.getId());
 		assertThat(savedOrderBooking.getTrainSchedule().getId()).isEqualTo(1L);
 		assertThat(savedOrderBooking.getDepartureStop().getId()).isEqualTo(1L);

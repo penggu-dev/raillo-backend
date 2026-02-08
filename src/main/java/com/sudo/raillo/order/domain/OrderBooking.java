@@ -30,6 +30,10 @@ public class OrderBooking extends BaseEntity {
 	@Comment("주문 예약 ID")
 	private Long id;
 
+	@Column(name = "pending_booking_id", nullable = false)
+	@Comment("예약 ID")
+	private String pendingBookingId;
+
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "order_id", nullable = false)
 	@OnDelete(action = OnDeleteAction.CASCADE)
@@ -56,6 +60,7 @@ public class OrderBooking extends BaseEntity {
 	private BigDecimal totalFare;
 
 	public static OrderBooking create(
+		String pendingBookingId,
 		Order order,
 		TrainSchedule trainSchedule,
 		ScheduleStop departureStop,
@@ -63,6 +68,7 @@ public class OrderBooking extends BaseEntity {
 		BigDecimal totalFare
 	) {
 		OrderBooking orderBooking = new OrderBooking();
+		orderBooking.pendingBookingId = pendingBookingId;
 		orderBooking.order = order;
 		orderBooking.trainSchedule = trainSchedule;
 		orderBooking.departureStop = departureStop;
