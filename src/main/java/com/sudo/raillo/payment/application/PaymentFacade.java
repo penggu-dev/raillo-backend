@@ -53,11 +53,10 @@ public class PaymentFacade {
 	/**
 	 * 결제 준비 처리
 	 *
-	 * 1. PendingBooking 조회 (BookingService - 모든 Id 존재 확인, 소유자 검증)
-	 * 2. Member 조회
-	 * 3. Order 생성 (PENDING) - OrderBooking, OrderSeatBooking도 함께 생성
-	 * 4. Payment 생성 (PENDING)
-	 * 5. orderId, amount 응답
+	 * <p>1. PendingBooking 조회 (모든 Id 존재 확인, 소유자 검증)
+	 * <p>2. Order 생성 (PENDING) - OrderBooking, OrderSeatBooking 함께 생성
+	 * <p>3. Payment 생성 (PENDING)
+	 * <p>4. orderId, amount 응답
 	 */
 	public PaymentPrepareResponse preparePayment(PaymentPrepareRequest request, String memberNo) {
 		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(request.pendingBookingIds(), memberNo);
@@ -78,79 +77,55 @@ public class PaymentFacade {
 	/**
 	 * 결제 승인 처리
 	 *
-	 * 1. Order 조회 및 PendingBooking 유효성 검증 (TTL 만료 여부)
-	 * 2. Member, Payment 조회
-	 * 3. 소유자 검증 (Order, Payment 모두 요청한 Member 소유인지 확인)
-	 * 4. 금액 3중 검증 및 중복 결제 방지
-	 * 5. PaymentKey 저장 (별도 트랜잭션 - 무조건 커밋)
-	 * 6. 토스페이먼츠 결제 승인 API 호출
-	 *    - 성공: 다음 단계 진행
-	 *    - 실패: 실패 정보 저장 (별도 트랜잭션 - 무조건 커밋) 후 예외 throw
-	 * 7. 토스 응답 검증 (금액, paymentKey 일치 확인)
-	 * 8. PaymentMethod 매핑
-	 * 9. Order 상태 변경 (PENDING → ORDERED)
-	 * 10. Booking & SeatBooking & Ticket 생성 (BOOKED)
-	 * 11. Payment 승인 처리 (PENDING → PAID, paymentMethod 저장)
-	 * 12. 좌석 확정 (Hold → Sold) 및 PendingBooking 정리
+	 * <p>1. 데이터 조회 및 검증 (Order, PendingBooking, Member, Payment)
+	 * <p>2. 소유자 검증, 금액 3중 검증, 중복 결제 방지
+	 * <p>3. PaymentKey 저장 (REQUIRES_NEW - 토스 호출 전 무조건 커밋)
+	 * <p>4. 토스페이먼츠 결제 승인 API 호출 (실패 시 실패 정보 저장 후 예외 전파)
+	 * <p>5. 토스 응답 검증 → Order/Payment 상태 변경 → Booking 생성 → 좌석 확정
 	 */
 	public PaymentConfirmResponse confirmPayment(PaymentConfirmRequest request, String memberNo) {
-		log.info("결제 승인 시작: orderId={}, paymentKey={}, amount={}",
+		log.info("[결제 승인 시작] orderId={}, paymentKey={}, amount={}",
 			request.orderId(), request.paymentKey(), request.amount());
 
-		// 1. Order 조회 및 PendingBooking 유효성 검증 (TTL 만료 여부)
+		// 1. 데이터 조회 및 PendingBooking 유효성 검증 (TTL 만료 여부)
 		Order order = orderService.getOrderByOrderCode(request.orderId());
 		List<PendingBooking> pendingBookings = validateAndGetPendingBookings(order, memberNo);
-
-		// 2. Member, Payment 조회
 		Member member = memberService.getMemberByMemberNo(memberNo);
 		Payment payment = paymentService.getPaymentByOrder(order);
 
-		// 3. 요청 전 검증 (소유자, 금액, 중복결제)
+		// 2. 요청 전 검증 (소유자, 금액, 중복결제)
 		orderService.validateOrderOwner(order, member);
 		paymentValidator.validatePaymentOwner(payment, member);
 		paymentValidator.validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
 		paymentValidator.validateDuplicatePayment(order);
 
-		// 4. 클라이언트에서 받은 PaymentKey 저장 (토스 승인 요청 전 별도 트랜잭션에서 무조건 커밋)
+		// 3. PaymentKey 저장 (REQUIRES_NEW - 토스 호출 전 무조건 커밋)
 		paymentService.updatePaymentKeyInNewTransaction(payment.getId(), request.paymentKey());
 		// REQUIRES_NEW로 별도 커밋된 paymentKey를 바깥 트랜잭션의 엔티티에도 동기화
 		// (미동기화 시 바깥 트랜잭션 커밋 때 Hibernate가 paymentKey=null로 덮어씀)
 		payment.updatePaymentKey(request.paymentKey());
 
-		// 5. 토스페이먼츠 결제 승인 API 호출
+		// 4. 토스페이먼츠 결제 승인 API 호출 (실패 시 REQUIRES_NEW로 실패 정보 저장 후 예외 전파)
 		TossPaymentConfirmResponse tossResponse;
 		try {
 			tossResponse = tossPaymentClient.confirmPayment(request);
 		} catch (TossPaymentException e) {
 			paymentService.failPaymentInNewTransaction(payment.getId(), e.getErrorCode(), e.getMessage());
-
 			log.info("[토스 결제 승인 실패] orderCode={}, httpStatus={}, tossCode={}, tossMessage={}",
 				request.orderId(), e.getHttpStatus(), e.getErrorCode(), e.getMessage());
-
 			throw e;
 		}
 
-
-		// 6. 토스 응답 금액, paymentKey 재검증
+		// 5. 토스 응답 검증 및 결제 확정
 		paymentValidator.validateTossResponseMatchesRequest(tossResponse, request);
-
-		// 7. PaymentMethod 매핑
 		PaymentMethod paymentMethod = mapToPaymentMethod(tossResponse.method());
 
-		// 8. Order 상태 변경 (PENDING -> ORDERED)
 		order.completePayment();
-
-		// 9. Booking & SeatBooking 생성 (BOOKED)
 		bookingService.createBookingFromOrder(order);
-
-		// 10. Payment 승인 처리 (PENDING -> PAID, paymentMethod, paidAt 저장)
 		payment.approve(paymentMethod);
-
-		// 11. 좌석 확정 (Hold -> Sold) 및 PendingBooking 정리
 		confirmSeatsAndCleanupPendingBookings(pendingBookings);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
-
 		return PaymentConfirmResponse.from(payment);
 	}
 
