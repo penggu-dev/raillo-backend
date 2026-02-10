@@ -27,6 +27,7 @@ import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
+import com.sudo.raillo.payment.infrastructure.dto.TossCancelDetail;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentCancelResponse;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
 
@@ -189,7 +190,7 @@ class TossPaymentClientTest {
 
 		@Test
 		@DisplayName("200 응답 시 TossPaymentCancelResponse로 정상 매핑되고 Idempotency-Key 헤더가 포함된다")
-		void success() {
+		void success() throws Exception {
 			// given
 			String paymentKey = "toss_pk_cancel_123";
 			TossPaymentCancelRequest request = new TossPaymentCancelRequest("고객 변심", null);
@@ -218,6 +219,7 @@ class TossPaymentClientTest {
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel"))
 				.andExpect(method(HttpMethod.POST))
 				.andExpect(header("Idempotency-Key", org.hamcrest.Matchers.notNullValue()))
+				.andExpect(content().json(objectMapper.writeValueAsString(request)))
 				.andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
 			// when
@@ -230,6 +232,14 @@ class TossPaymentClientTest {
 			assertThat(response.balanceAmount()).isEqualTo(0);
 			assertThat(response.cancels()).hasSize(1);
 			assertThat(response.isFullyCanceled()).isTrue();
+
+			TossCancelDetail cancelDetail = response.cancels().get(0);
+			assertThat(cancelDetail.transactionKey()).isEqualTo("TX_KEY_001");
+			assertThat(cancelDetail.cancelReason()).isEqualTo("고객 변심");
+			assertThat(cancelDetail.canceledAt()).isNotNull();
+			assertThat(cancelDetail.cancelAmount()).isEqualTo(50000);
+			assertThat(cancelDetail.refundableAmount()).isEqualTo(0);
+			assertThat(cancelDetail.cancelStatus()).isEqualTo("DONE");
 
 			server.verify();
 		}
@@ -261,6 +271,57 @@ class TossPaymentClientTest {
 					assertThat(ex.getErrorCode()).isEqualTo("ALREADY_CANCELED_PAYMENT");
 					assertThat(ex.getMessage()).isEqualTo("이미 취소된 결제입니다.");
 				});
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("5xx 응답 시 TossPaymentException으로 변환된다")
+		void fail_5xx() {
+			// given
+			String paymentKey = "toss_pk_cancel_123";
+			TossPaymentCancelRequest request = new TossPaymentCancelRequest("고객 변심", null);
+
+			String errorBody = """
+				{
+					"code": "PROVIDER_ERROR",
+					"message": "일시적인 오류가 발생했습니다."
+				}
+				""";
+
+			server.expect(requestTo("https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel"))
+				.andExpect(method(HttpMethod.POST))
+				.andRespond(withServerError().body(errorBody).contentType(MediaType.APPLICATION_JSON));
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.cancelPayment(paymentKey, request))
+				.isInstanceOf(TossPaymentException.class)
+				.satisfies(e -> {
+					TossPaymentException ex = (TossPaymentException) e;
+					assertThat(ex.getHttpStatus()).isEqualTo(500);
+					assertThat(ex.getErrorCode()).isEqualTo("PROVIDER_ERROR");
+					assertThat(ex.getMessage()).isEqualTo("일시적인 오류가 발생했습니다.");
+				});
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_SYSTEM_ERROR BusinessException으로 래핑된다")
+		void fail_unexpectedException() {
+			// given
+			String paymentKey = "toss_pk_cancel_123";
+			TossPaymentCancelRequest request = new TossPaymentCancelRequest("고객 변심", null);
+
+			server.expect(requestTo("https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel"))
+				.andExpect(method(HttpMethod.POST))
+				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.cancelPayment(paymentKey, request))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
+				.hasMessageContaining("결제 취소 처리 중 알 수 없는 오류가 발생했습니다");
 
 			server.verify();
 		}
