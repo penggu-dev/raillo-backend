@@ -38,28 +38,13 @@ public class RedisScriptConfig {
 	 * 좌석 임시 점유 스크립트
 	 *
 	 * <p>반환값: {@code {성공여부(1/0), 상태문자열, [충돌구간]}}</p>
-	 * <p>예: {@code {1, "HOLD_SUCCESS"}} 또는 {@code {0, "CONFLICT_WITH_SOLD", "1-2"}}</p>
+	 * <p>예: {@code {1, "HOLD_SUCCESS"}} 또는 {@code {0, "CONFLICT_WITH_HOLD", "1-2"}}</p>
 	 */
 	@Bean
 	public DefaultRedisScript<List> seatHoldScript() {
 		DefaultRedisScript<List> script = new DefaultRedisScript<>();
 		script.setScriptSource(new ResourceScriptSource(
 			new ClassPathResource("scripts/seat_hold.lua")));
-		script.setResultType(List.class);
-		return script;
-	}
-
-	/**
-	 * 좌석 확정 스크립트 (Hold → Sold)
-	 *
-	 * <p>반환값: {@code {성공여부(1/0), 상태문자열}}</p>
-	 * <p>예: {@code {1, "CONFIRM_SUCCESS"}} 또는 {@code {0, "HOLD_NOT_FOUND"}}</p>
-	 */
-	@Bean
-	public DefaultRedisScript<List> seatConfirmScript() {
-		DefaultRedisScript<List> script = new DefaultRedisScript<>();
-		script.setScriptSource(new ResourceScriptSource(
-			new ClassPathResource("scripts/seat_confirm.lua")));
 		script.setResultType(List.class);
 		return script;
 	}

@@ -1,13 +1,7 @@
 package com.sudo.raillo.payment.application;
 
-import java.util.List;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
-import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -27,11 +21,11 @@ import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.TossPaymentClient;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
-import com.sudo.raillo.train.application.dto.TrainScheduleTimeInfo;
-import com.sudo.raillo.train.application.service.TrainScheduleService;
-
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -43,12 +37,10 @@ public class PaymentFacade {
 	private final OrderService orderService;
 	private final MemberService memberService;
 	private final PendingBookingService pendingBookingService;
-	private final SeatHoldService seatHoldService;
 	private final BookingService bookingService;
 	private final TossPaymentClient tossPaymentClient;
 	private final PaymentValidator paymentValidator;
 	private final BookingValidator bookingValidator;
-	private final TrainScheduleService trainScheduleService;
 
 	/**
 	 * 결제 준비 처리
@@ -123,7 +115,6 @@ public class PaymentFacade {
 		order.completePayment();
 		bookingService.createBookingFromOrder(order);
 		payment.approve(paymentMethod);
-		confirmSeatsAndCleanupPendingBookings(pendingBookings);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
 		return PaymentConfirmResponse.from(payment);
@@ -146,28 +137,6 @@ public class PaymentFacade {
 
 		// 모든 PendingBooking이 존재하는지 검증 (getPendingBookings 내부에서 검증)
 		return pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);
-	}
-
-	/**
-	 * 좌석 확정 및 PendingBooking 정리
-	 *
-	 * <p>이미 검증된 PendingBooking에 대해 Hold → Sold 전환 및 삭제를 수행합니다.</p>
-	 */
-	private void confirmSeatsAndCleanupPendingBookings(List<PendingBooking> pendingBookings) {
-		// 각 PendingBooking에 대해 좌석 확정
-		for (PendingBooking pendingBooking : pendingBookings) {
-			TrainScheduleTimeInfo timeInfo = trainScheduleService.getTrainScheduleTimeInfo(pendingBooking.getTrainScheduleId());
-			seatHoldService.confirmSeats(pendingBooking, timeInfo);
-		}
-
-		// PendingBooking 삭제
-		List<String> pendingBookingIds = pendingBookings.stream()
-			.map(PendingBooking::getId)
-			.toList();
-		String memberNo = pendingBookings.get(0).getMemberNo();
-		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
-
-		log.info("[PendingBooking 정리 완료] pendingBookingCount={}", pendingBookings.size());
 	}
 
 	/**

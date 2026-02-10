@@ -17,7 +17,6 @@ public class SeatHoldKeyGenerator {
 	 * 동일 좌석의 모든 키가 같은 슬롯에 위치하도록 보장
 	 */
 	private static final String SEAT_HOLD_KEY_FORMAT = "{seat:%d:%d}:hold:%s";
-	private static final String SEAT_SOLD_KEY_FORMAT = "{seat:%d:%d}:sold";
 	private static final String SEAT_HOLDS_KEY_FORMAT = "{seat:%d:%d}:holds";
 
 	/**
@@ -30,17 +29,6 @@ public class SeatHoldKeyGenerator {
 	 */
 	public String generateHoldKey(Long trainScheduleId, Long seatId, String pendingBookingId) {
 		return String.format(SEAT_HOLD_KEY_FORMAT, trainScheduleId, seatId, pendingBookingId);
-	}
-
-	/**
-	 * 좌석 확정 키 생성
-	 * 예: {seat:1001:12}:sold
-	 *
-	 * @param trainScheduleId 열차 스케줄 ID
-	 * @param seatId 좌석 ID
-	 */
-	public String generateSoldKey(Long trainScheduleId, Long seatId) {
-		return String.format(SEAT_SOLD_KEY_FORMAT, trainScheduleId, seatId);
 	}
 
 	/**
