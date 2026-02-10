@@ -9,7 +9,7 @@
 --
 -- 반환값:
 -- 성공: {1, "HOLD_SUCCESS"}
--- 실패: {0, "CONFLICT_WITH_SOLD", "충돌구간"} 또는 {0, "CONFLICT_WITH_HOLD", "충돌구간"}
+-- 실패: {0, "CONFLICT_WITH_HOLD", "충돌구간"}
 
 local holdKey = KEYS[1]
 local holdsKey = KEYS[2]
