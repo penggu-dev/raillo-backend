@@ -72,6 +72,16 @@ public class OrderService {
 	}
 
 	/**
+	 * Order에 연결된 PendingBooking ID 목록 조회
+	 */
+	@Transactional(readOnly = true)
+	public List<String> getPendingBookingIds(Order order) {
+		return orderBookingRepository.findByOrderId(order.getId()).stream()
+			.map(OrderBooking::getPendingBookingId)
+			.toList();
+	}
+
+	/**
 	 * 주문 생성
 	 * @param memberNo 회원 번호
 	 * @param pendingBookings 주문할 PendingBooking 리스트

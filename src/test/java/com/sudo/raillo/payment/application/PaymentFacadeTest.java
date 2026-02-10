@@ -177,8 +177,8 @@ class PaymentFacadeTest {
 		// when & then
 		assertThatThrownBy(() -> paymentFacade.preparePayment(request, memberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_NOT_FOUND)
-			.hasMessage(BookingError.PENDING_BOOKING_NOT_FOUND.getMessage());
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_EXPIRED)
+			.hasMessage(BookingError.PENDING_BOOKING_EXPIRED.getMessage());
 	}
 
 	@Test

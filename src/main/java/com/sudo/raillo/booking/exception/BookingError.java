@@ -46,6 +46,7 @@ public enum BookingError implements ErrorCode {
 	PENDING_BOOKING_NOT_FOUND("임시 예약을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B301"),
 	PENDING_BOOKING_ACCESS_DENIED("해당 임시 예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "B302"),
 	PENDING_BOOKING_IDS_REQUIRED("조회할 임시 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "B303"),
+	PENDING_BOOKING_EXPIRED("만료된 임시 예약이 있습니다. 다시 예약해주세요.", HttpStatus.BAD_REQUEST, "B304"),
 
 	// BookingError.java에 추가할 부분
 

@@ -30,6 +30,7 @@ import com.sudo.raillo.support.fixture.PendingBookingFixture;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
+import com.sudo.raillo.train.application.dto.TrainScheduleTimeInfo;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
@@ -309,8 +310,9 @@ class SeatHoldServiceTest {
 			);
 
 			// when & then
+			TrainScheduleTimeInfo timeInfo = TrainScheduleTimeInfo.from(trainScheduleResult.trainSchedule());
 			assertThatCode(() ->
-				seatHoldService.confirmSeats(pendingBooking)
+				seatHoldService.confirmSeats(pendingBooking, timeInfo)
 			).doesNotThrowAnyException();
 		}
 
@@ -334,8 +336,9 @@ class SeatHoldServiceTest {
 				.build();
 
 			// when & then - Hold 없이 바로 confirm 시도
+			TrainScheduleTimeInfo timeInfo = TrainScheduleTimeInfo.from(trainScheduleResult.trainSchedule());
 			assertThatThrownBy(() ->
-				seatHoldService.confirmSeats(pendingBooking)
+				seatHoldService.confirmSeats(pendingBooking, timeInfo)
 			)
 				.isInstanceOf(BusinessException.class)
 				.hasMessage(BookingError.SEAT_HOLD_NOT_FOUND.getMessage());
@@ -368,7 +371,8 @@ class SeatHoldServiceTest {
 				arrivalStop,
 				List.of(seatId)
 			);
-			seatHoldService.confirmSeats(pendingBooking);
+			TrainScheduleTimeInfo timeInfo = TrainScheduleTimeInfo.from(trainScheduleResult.trainSchedule());
+			seatHoldService.confirmSeats(pendingBooking, timeInfo);
 
 			// when & then - 다른 사용자가 같은 좌석 Hold 시도
 			assertThatThrownBy(() ->
@@ -420,7 +424,8 @@ class SeatHoldServiceTest {
 				arrivalStop,
 				List.of(seatId)
 			);
-			seatHoldService.confirmSeats(pendingBooking);
+			TrainScheduleTimeInfo timeInfo = TrainScheduleTimeInfo.from(overnightSchedule.trainSchedule());
+			seatHoldService.confirmSeats(pendingBooking, timeInfo);
 
 			// then
 			String soldKey = seatHoldKeyGenerator.generateSoldKey(trainScheduleId, seatId);
