@@ -1,9 +1,8 @@
 -- seat_hold.lua
 -- 좌석 임시 점유 Lua 스크립트
 --
--- KEYS[1]: sold key      (예: {seat:1001:12}:sold)
--- KEYS[2]: new hold key  (예: {seat:1001:12}:hold:pending_abc123)
--- KEYS[3]: holds key     (예: {seat:1001:12}:holds) - Hold 목록 인덱스
+-- KEYS[1]: hold key  (예: {seat:1001:12}:hold:pending_abc123)
+-- KEYS[2]: holds key     (예: {seat:1001:12}:holds) - Hold 목록 인덱스
 -- ARGV[1]: ttl (seconds)
 -- ARGV[2]: pendingBookingId (holds Set에 추가할 값)
 -- ARGV[3...]: sections ("0-1", "1-2", ...)
@@ -12,9 +11,8 @@
 -- 성공: {1, "HOLD_SUCCESS"}
 -- 실패: {0, "CONFLICT_WITH_SOLD", "충돌구간"} 또는 {0, "CONFLICT_WITH_HOLD", "충돌구간"}
 
-local soldKey = KEYS[1]
-local newHoldKey = KEYS[2]
-local holdsKey = KEYS[3]
+local holdKey = KEYS[1]
+local holdsKey = KEYS[2]
 local ttl = tonumber(ARGV[1])
 local pendingBookingId = ARGV[2]
 
@@ -24,14 +22,7 @@ for i = 3, #ARGV do
     table.insert(sections, ARGV[i])
 end
 
--- 1. SOLD 충돌 검사 (이미 확정된 예약과 겹치는지)
-for _, s in ipairs(sections) do
-    if redis.call("SISMEMBER", soldKey, s) == 1 then
-        return {0, "CONFLICT_WITH_SOLD", s}
-    end
-end
-
--- 2. HOLD 충돌 검사 (다른 사용자의 임시 점유와 겹치는지)
+-- 1. HOLD 충돌 검사 (다른 사용자의 임시 점유와 겹치는지)
 -- holds Set에서 현재 Hold 목록 조회 (KEYS 명령 대신 SMEMBERS 사용)
 local holdIds = redis.call("SMEMBERS", holdsKey)
 
@@ -40,8 +31,8 @@ for _, holdId in ipairs(holdIds) do
     if holdId ~= pendingBookingId then
         -- string.gsub은 패턴 매칭을 사용하므로 특수문자('-' 등)가 포함된 ID 처리 시 오류 발생 가능
         -- 따라서 문자열 길이를 기반으로 prefix를 추출하여 단순 결합 방식으로 변경
-        local prefixLen = string.len(newHoldKey) - string.len(pendingBookingId)
-        local prefix = string.sub(newHoldKey, 1, prefixLen)
+        local prefixLen = string.len(holdKey) - string.len(pendingBookingId)
+        local prefix = string.sub(holdKey, 1, prefixLen)
         local otherHoldKey = prefix .. holdId
 
         -- 만료된 Hold 키 정리 (Lazy Cleanup)
@@ -58,13 +49,13 @@ for _, holdId in ipairs(holdIds) do
     end
 end
 
--- 3. 임시 점유 생성
+-- 2. 임시 점유 생성
 for _, s in ipairs(sections) do
-    redis.call("SADD", newHoldKey, s)
+    redis.call("SADD", holdKey, s)
 end
-redis.call("EXPIRE", newHoldKey, ttl)
+redis.call("EXPIRE", holdKey, ttl)
 
--- 4. holds 인덱스에 추가 (TTL 동일하게 설정)
+-- 3. holds 인덱스에 추가 (TTL 동일하게 설정)
 redis.call("SADD", holdsKey, pendingBookingId)
 redis.call("EXPIRE", holdsKey, ttl)
 
