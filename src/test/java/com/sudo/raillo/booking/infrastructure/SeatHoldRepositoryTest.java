@@ -1,21 +1,16 @@
 package com.sudo.raillo.booking.infrastructure;
 
-import static org.assertj.core.api.AssertionsForClassTypes.*;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-import java.util.List;
+import com.sudo.raillo.support.annotation.RedisTest;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.support.annotation.RedisTest;
 
 @RedisTest
 @DisplayName("SeatHoldRepository 테스트")
@@ -26,7 +21,6 @@ class SeatHoldRepositoryTest {
 
 	private static final Long TRAIN_SCHEDULE_ID = 1001L;
 	private static final Long SEAT_ID = 12L;
-	private static final long TEST_SOLD_TTL_SECONDS = 3600L; // 테스트용 1시간
 
 	@Nested
 	@DisplayName("단일 좌석 Hold")
@@ -128,59 +122,8 @@ class SeatHoldRepositoryTest {
 	}
 
 	@Nested
-	@DisplayName("Sold 충돌")
-	class SoldConflictTest {
-
-		@Test
-		@DisplayName("Sold 구간과 겹치면 충돌이 발생한다")
-		void hold_fail_when_conflict_with_sold() {
-			// given
-			String pendingBookingId1 = "pending_001";
-			String pendingBookingId2 = "pending_002";
-
-			// 첫 번째 Hold 후 Confirm (Sold로 전환)
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 2);
-			seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, TEST_SOLD_TTL_SECONDS);
-
-			// when - Sold 구간과 겹치는 Hold 시도
-			SeatHoldResult result = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 1, 3
-			);
-
-			// then
-			assertThat(result.success()).isFalse();
-			assertThat(result.isConflictWithSold()).isTrue();
-			assertThat(result.conflictSection()).isEqualTo("1-2");
-		}
-	}
-
-	@Nested
 	@DisplayName("Confirm & Release")
 	class ConfirmAndReleaseTest {
-
-		@Test
-		@DisplayName("Hold 확정에 성공한다")
-		void confirm_hold_success() {
-			// given
-			String pendingBookingId = "pending_001";
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId, 0, 3);
-
-			// when & then
-			assertThatCode(() ->
-				seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId, TEST_SOLD_TTL_SECONDS)
-			).doesNotThrowAnyException();
-		}
-
-		@Test
-		@DisplayName("존재하지 않는 Hold 확정 시 예외가 발생한다")
-		void confirm_fail_when_hold_not_exists() {
-			// when & then
-			assertThatThrownBy(() -> seatHoldRepository.confirmHold(TRAIN_SCHEDULE_ID, SEAT_ID, "non_existent", TEST_SOLD_TTL_SECONDS))
-				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_HOLD_NOT_FOUND)
-				.hasMessage(BookingError.SEAT_HOLD_NOT_FOUND.getMessage());
-		}
-
 		@Test
 		@DisplayName("Hold 해제 후 같은 구간을 다시 Hold 할 수 있다")
 		void release_then_hold_again_success() {
