@@ -1,5 +1,7 @@
 package com.sudo.raillo.booking.application.facade;
 
+import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.global.exception.error.BusinessException;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -18,8 +20,10 @@ import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.application.service.TrainScheduleService;
 import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
+import com.sudo.raillo.train.infrastructure.SeatRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +41,7 @@ public class PendingBookingFacade {
 	private final BookingValidator bookingValidator;
 	private final PendingBookingIdGenerator pendingBookingIdGenerator;
 	private final TrainScheduleService trainScheduleService;
+	private final SeatRepository seatRepository;
 
 	/**
 	 * 예약 생성
@@ -68,12 +73,14 @@ public class PendingBookingFacade {
 
 		// 4. 좌석 Hold
 		String pendingBookingId = pendingBookingIdGenerator.generate();
+		Long trainCarId = getTrainCarId(request.seatIds());
 		seatHoldService.holdSeats(
 			pendingBookingId,
 			request.trainScheduleId(),
 			departureStop,
 			arrivalStop,
-			request.seatIds()
+			request.seatIds(),
+			trainCarId
 		);
 
 		try {
@@ -100,7 +107,14 @@ public class PendingBookingFacade {
 			return new PendingBookingCreateResponse(pendingBooking.getId());
 		} catch (Exception e) {
 			log.error("[PendingBooking 저장 실패 - Hold 롤백] pendingBookingId={}, error={}", pendingBookingId, e.getMessage());
-			seatHoldService.releaseSeats(pendingBookingId, request.trainScheduleId(), request.seatIds());
+			seatHoldService.releaseSeats(
+				pendingBookingId,
+				request.trainScheduleId(),
+				request.seatIds(),
+				trainCarId,
+				departureStop.getStopOrder(),
+				arrivalStop.getStopOrder()
+			);
 			throw e;
 		}
 	}
@@ -114,10 +128,19 @@ public class PendingBookingFacade {
 
 		pendingBookings.forEach(pendingBooking -> {
 			try {
+				List<Long> seatIds = extractSeatIds(pendingBooking);
+				Long trainCarId = getTrainCarId(seatIds);
+				TrainSchedule trainSchedule = trainScheduleService.getTrainSchedule(pendingBooking.getTrainScheduleId());
+				ScheduleStop departureStop = trainScheduleService.getStopStation(trainSchedule, pendingBooking.getDepartureStopId());
+				ScheduleStop arrivalStop = trainScheduleService.getStopStation(trainSchedule, pendingBooking.getArrivalStopId());
+
 				seatHoldService.releaseSeats(
 					pendingBooking.getId(),
 					pendingBooking.getTrainScheduleId(),
-					extractSeatIds(pendingBooking)
+					seatIds,
+					trainCarId,
+					departureStop.getStopOrder(),
+					arrivalStop.getStopOrder()
 				);
 			} catch (Exception e) {
 				log.warn("[좌석 Hold 해제 실패] pendingBookingId={}, error={}", pendingBooking.getId(), e.getMessage());
@@ -131,5 +154,17 @@ public class PendingBookingFacade {
 		return pendingBooking.getPendingSeatBookings().stream()
 			.map(PendingSeatBooking::seatId)
 			.toList();
+	}
+
+	/**
+	 * 좌석 ID 목록에서 trainCarId 추출
+	 * 같은 CarType의 좌석들은 모두 같은 객차에 속하므로 첫 번째 좌석의 trainCarId 반환
+	 */
+	private Long getTrainCarId(List<Long> seatIds) {
+		List<Seat> seats = seatRepository.findAllByIdWithTrainCar(seatIds);
+		if (seats.isEmpty()) {
+			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
+		}
+		return seats.get(0).getTrainCar().getId();
 	}
 }
