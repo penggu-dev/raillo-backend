@@ -172,7 +172,10 @@ class PaymentScenarioTest {
 
 		// when & then - 예외 발생
 		assertThatThrownBy(() -> paymentFacade.confirmPayment(confirmRequest, memberNo))
-			.isInstanceOf(TossPaymentException.class);
+			.isInstanceOf(TossPaymentException.class)
+			.hasFieldOrPropertyWithValue("httpStatus", 400)
+			.hasFieldOrPropertyWithValue("errorCode", "REJECT_CARD_PAYMENT")
+			.hasMessageContaining("카드 결제가 거절되었습니다.");
 
 		// then - Payment FAILED 상태 (REQUIRES_NEW로 커밋됨)
 		Payment payment = paymentRepository.findByPaymentKey(paymentKey).orElseThrow();

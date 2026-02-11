@@ -184,7 +184,10 @@ class PaymentFacadeConfirmTest {
 
 		// when - 바깥 트랜잭션 롤백
 		assertThatThrownBy(() -> paymentFacade.confirmPayment(confirmRequest, memberNo))
-			.isInstanceOf(TossPaymentException.class);
+			.isInstanceOf(TossPaymentException.class)
+			.hasFieldOrPropertyWithValue("httpStatus", 400)
+			.hasFieldOrPropertyWithValue("errorCode", "INVALID_REQUEST")
+			.hasMessageContaining("test error");
 
 		// then - REQUIRES_NEW로 커밋한 paymentKey는 롤백과 무관하게 살아있어야 함
 		Payment savedPayment = paymentRepository.findByPaymentKey(paymentKey).orElseThrow();

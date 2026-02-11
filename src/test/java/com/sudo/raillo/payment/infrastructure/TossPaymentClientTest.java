@@ -1,6 +1,7 @@
 package com.sudo.raillo.payment.infrastructure;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.springframework.http.HttpMethod.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
@@ -82,7 +83,7 @@ class TossPaymentClientTest {
 				""";
 
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
-				.andExpect(method(HttpMethod.POST))
+				.andExpect(method(POST))
 				.andExpect(header(HttpHeaders.AUTHORIZATION, "Basic " + Base64.getEncoder()
 					.encodeToString((SECRET_KEY + ":").getBytes(StandardCharsets.UTF_8))))
 				.andExpect(content().json(objectMapper.writeValueAsString(request)))
@@ -116,18 +117,15 @@ class TossPaymentClientTest {
 				""";
 
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
-				.andExpect(method(HttpMethod.POST))
+				.andExpect(method(POST))
 				.andRespond(withBadRequest().body(errorBody).contentType(MediaType.APPLICATION_JSON));
 
 			// when & then
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
 				.isInstanceOf(TossPaymentException.class)
-				.satisfies(e -> {
-					TossPaymentException ex = (TossPaymentException) e;
-					assertThat(ex.getHttpStatus()).isEqualTo(400);
-					assertThat(ex.getErrorCode()).isEqualTo("REJECT_CARD_PAYMENT");
-					assertThat(ex.getMessage()).isEqualTo("카드 결제가 거절되었습니다.");
-				});
+				.hasFieldOrPropertyWithValue("httpStatus", 400)
+				.hasFieldOrPropertyWithValue("errorCode", "REJECT_CARD_PAYMENT")
+				.hasMessageContaining("카드 결제가 거절되었습니다.");
 
 			server.verify();
 		}
@@ -147,17 +145,15 @@ class TossPaymentClientTest {
 				""";
 
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
-				.andExpect(method(HttpMethod.POST))
+				.andExpect(method(POST))
 				.andRespond(withServerError().body(errorBody).contentType(MediaType.APPLICATION_JSON));
 
 			// when & then
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
 				.isInstanceOf(TossPaymentException.class)
-				.satisfies(e -> {
-					TossPaymentException ex = (TossPaymentException) e;
-					assertThat(ex.getHttpStatus()).isEqualTo(500);
-					assertThat(ex.getErrorCode()).isEqualTo("PROVIDER_ERROR");
-				});
+				.hasFieldOrPropertyWithValue("httpStatus", 500)
+				.hasFieldOrPropertyWithValue("errorCode", "PROVIDER_ERROR")
+				.hasMessageContaining("일시적인 오류가 발생했습니다.");
 
 			server.verify();
 		}
@@ -171,7 +167,7 @@ class TossPaymentClientTest {
 
 			// 응답 body 없이 연결 실패 시뮬레이션 - 잘못된 JSON으로 파싱 실패 유도
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
-				.andExpect(method(HttpMethod.POST))
+				.andExpect(method(POST))
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
 			// when & then
@@ -217,7 +213,7 @@ class TossPaymentClientTest {
 				""";
 
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel"))
-				.andExpect(method(HttpMethod.POST))
+				.andExpect(method(POST))
 				.andExpect(header("Idempotency-Key", org.hamcrest.Matchers.notNullValue()))
 				.andExpect(content().json(objectMapper.writeValueAsString(request)))
 				.andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
@@ -259,18 +255,15 @@ class TossPaymentClientTest {
 				""";
 
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel"))
-				.andExpect(method(HttpMethod.POST))
+				.andExpect(method(POST))
 				.andRespond(withBadRequest().body(errorBody).contentType(MediaType.APPLICATION_JSON));
 
 			// when & then
 			assertThatThrownBy(() -> tossPaymentClient.cancelPayment(paymentKey, request))
 				.isInstanceOf(TossPaymentException.class)
-				.satisfies(e -> {
-					TossPaymentException ex = (TossPaymentException) e;
-					assertThat(ex.getHttpStatus()).isEqualTo(400);
-					assertThat(ex.getErrorCode()).isEqualTo("ALREADY_CANCELED_PAYMENT");
-					assertThat(ex.getMessage()).isEqualTo("이미 취소된 결제입니다.");
-				});
+				.hasFieldOrPropertyWithValue("httpStatus", 400)
+				.hasFieldOrPropertyWithValue("errorCode", "ALREADY_CANCELED_PAYMENT")
+				.hasMessageContaining("이미 취소된 결제입니다.");
 
 			server.verify();
 		}
@@ -290,18 +283,15 @@ class TossPaymentClientTest {
 				""";
 
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel"))
-				.andExpect(method(HttpMethod.POST))
+				.andExpect(method(POST))
 				.andRespond(withServerError().body(errorBody).contentType(MediaType.APPLICATION_JSON));
 
 			// when & then
 			assertThatThrownBy(() -> tossPaymentClient.cancelPayment(paymentKey, request))
 				.isInstanceOf(TossPaymentException.class)
-				.satisfies(e -> {
-					TossPaymentException ex = (TossPaymentException) e;
-					assertThat(ex.getHttpStatus()).isEqualTo(500);
-					assertThat(ex.getErrorCode()).isEqualTo("PROVIDER_ERROR");
-					assertThat(ex.getMessage()).isEqualTo("일시적인 오류가 발생했습니다.");
-				});
+				.hasFieldOrPropertyWithValue("httpStatus", 500)
+				.hasFieldOrPropertyWithValue("errorCode", "PROVIDER_ERROR")
+				.hasMessageContaining("일시적인 오류가 발생했습니다.");
 
 			server.verify();
 		}
@@ -314,7 +304,7 @@ class TossPaymentClientTest {
 			TossPaymentCancelRequest request = new TossPaymentCancelRequest("고객 변심", null);
 
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel"))
-				.andExpect(method(HttpMethod.POST))
+				.andExpect(method(POST))
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
 			// when & then
