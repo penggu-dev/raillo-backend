@@ -13,15 +13,14 @@ import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;
+import com.sudo.raillo.train.application.dto.projection.TrainCarIdsBatch;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
-import com.sudo.raillo.train.infrastructure.TrainCarRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
@@ -42,7 +41,6 @@ public class TrainSearchService {
 	private final TrainScheduleQueryRepository trainScheduleQueryRepository;
 	private final StationFareRepository stationFareRepository;
 	private final SeatBookingQueryRepository seatBookingQueryRepository;
-	private final TrainCarRepository trainCarRepository;
 
 	/**
 	 * 기본 열차 정보 조회
@@ -50,14 +48,12 @@ public class TrainSearchService {
 	public Slice<TrainBasicInfo> findTrainBasicInfo(TrainSearchRequest request, Pageable pageable) {
 		LocalTime departureTimeFrom = request.getDepartureTimeFilter();
 
-		Slice<TrainBasicInfo> trainPage = trainScheduleQueryRepository.findTrainBasicInfo(
+		return trainScheduleQueryRepository.findTrainBasicInfo(
 			request.departureStationId(),
 			request.arrivalStationId(),
 			request.operationDate(),
 			departureTimeFrom,
 			pageable);
-
-		return trainPage;
 	}
 
 	/**
@@ -104,9 +100,9 @@ public class TrainSearchService {
 	}
 
 	/**
-	 * CarType별 객차 ID 목록 조회
+	 * 여러 스케줄의 CarType별 객차 ID 배치 조회
 	 */
-	public List<Long> getTrainCarIdsByCarType(Long trainScheduleId, CarType carType) {
-		return trainCarRepository.findIdsByScheduleIdAndCarType(trainScheduleId, carType);
+	public TrainCarIdsBatch getTrainCarIdsBatch(List<Long> trainScheduleIds) {
+		return trainScheduleQueryRepository.findTrainCarIdsBatch(trainScheduleIds);
 	}
 }

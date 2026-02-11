@@ -1,7 +1,9 @@
 package com.sudo.raillo.train.infrastructure;
 
+import com.querydsl.core.Tuple;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -18,6 +20,7 @@ import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
+import com.sudo.raillo.train.application.dto.projection.TrainCarIdsBatch;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoProjection;
 import com.sudo.raillo.train.domain.QScheduleStop;
@@ -193,6 +196,40 @@ public class TrainScheduleQueryRepository {
 		}
 
 		return new TrainSeatInfoBatch(seatsByCarType, totalSeats);
+	}
+
+	/**
+	 * 여러 스케줄의 CarType별 객차 ID 배치 조회
+	 */
+	public TrainCarIdsBatch findTrainCarIdsBatch(List<Long> trainScheduleIds) {
+		if (trainScheduleIds.isEmpty()) {
+			return new TrainCarIdsBatch(Map.of());
+		}
+
+		QTrainSchedule trainSchedule = QTrainSchedule.trainSchedule;
+		QTrain train = QTrain.train;
+		QTrainCar trainCar = QTrainCar.trainCar;
+
+		List<Tuple> rows = queryFactory
+			.select(trainSchedule.id, trainCar.carType, trainCar.id)
+			.from(trainSchedule)
+			.join(trainSchedule.train, train)
+			.join(trainCar).on(trainCar.train.id.eq(train.id))
+			.where(trainSchedule.id.in(trainScheduleIds))
+			.fetch();
+
+		// 결과 변환: scheduleId → carType → trainCarIds
+		Map<Long, Map<CarType, List<Long>>> result = new HashMap<>();
+		for (Tuple row : rows) {
+			Long scheduleId = row.get(trainSchedule.id);
+			CarType carType = row.get(trainCar.carType);
+			Long trainCarId = row.get(trainCar.id);
+
+			result.computeIfAbsent(scheduleId, k -> new HashMap<>())
+				.computeIfAbsent(carType, k -> new ArrayList<>())
+				.add(trainCarId);
+		}
+		return new TrainCarIdsBatch(result);
 	}
 
 	@Getter

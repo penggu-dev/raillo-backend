@@ -7,6 +7,7 @@ import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.SectionSeatStatus;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;
+import com.sudo.raillo.train.application.dto.projection.TrainCarIdsBatch;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
@@ -165,12 +166,15 @@ public class TrainSearchFacade {
 		Map<Long, List<SeatBookingInfo>> overlappingBookingsMap = trainSearchService.findOverlappingBookingsBatch(
 			trainScheduleIds, request.departureStationId(), request.arrivalStationId());
 
-		// 2. 각 열차별로 배치 조회된 데이터를 사용해 응답 생성
+		// 2. Hold 조회용 객차 ID 배치 조회
+		TrainCarIdsBatch trainCarIdsBatch = trainSearchService.getTrainCarIdsBatch(trainScheduleIds);
+
+		// 3. 각 열차별로 배치 조회된 데이터를 사용해 응답 생성
 		List<TrainSearchResponse> results = trainInfoSlice.stream()
 			.map(trainInfo -> {
 				try {
 					return processTrainSearchResult(
-						trainInfo, seatInfoBatch, overlappingBookingsMap, fare, request.passengerCount()
+						trainInfo, seatInfoBatch, overlappingBookingsMap, trainCarIdsBatch, fare, request.passengerCount()
 					);
 				} catch (Exception e) {
 					log.warn("열차 {} 처리 실패: {}", trainInfo.trainNumber(), e.getMessage());
@@ -196,6 +200,7 @@ public class TrainSearchFacade {
 		TrainBasicInfo trainInfo,
 		TrainSeatInfoBatch seatInfoBatch,
 		Map<Long, List<SeatBookingInfo>> overlappingBookingsMap,
+		TrainCarIdsBatch trainCarIdsBatch,
 		StationFare fare,
 		int passengerCount
 	) {
@@ -206,7 +211,7 @@ public class TrainSearchFacade {
 		// SeatBooking 좌석
 		List<SeatBookingInfo> overlappingBookings = overlappingBookingsMap.getOrDefault(trainScheduleId, List.of());
 		// Hold 좌석
-		Map<CarType, Integer> holdSeat = getHoldSeatsByCarType(trainInfo);
+		Map<CarType, Integer> holdSeat = getHoldSeatsByCarType(trainInfo, trainCarIdsBatch);
 
 		// 좌석 상태 계산 (전체 좌석 - SeatBooking - Hold = 잔여석)
 		SectionSeatStatus sectionStatus = seatAvailabilityCalculator
@@ -218,15 +223,16 @@ public class TrainSearchFacade {
 	/**
 	 * CarType별 Hold 점유 좌석 수 조회
 	 */
-	private Map<CarType, Integer> getHoldSeatsByCarType(TrainBasicInfo trainInfo) {
+	private Map<CarType, Integer> getHoldSeatsByCarType(TrainBasicInfo trainInfo, TrainCarIdsBatch trainCarIdsBatch) {
 		Long trainScheduleId = trainInfo.trainScheduleId();
 		int departureStopOrder = trainInfo.departureStopOrder();
 		int arrivalStopOrder = trainInfo.arrivalStopOrder();
 
 		Map<CarType, Integer> holdSeat = new HashMap<>();
 		for (CarType carType : CarType.values()) {
-			List<Long> trainCarIds = trainSearchService.getTrainCarIdsByCarType(trainScheduleId, carType);
-			int holdCount = seatHoldService.calculateHoldSeatByCarType(trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder);
+			List<Long> trainCarIds = trainCarIdsBatch.getTrainCarIds(trainScheduleId, carType);
+			int holdCount = seatHoldService.calculateHoldSeatByCarType(
+				trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder);
 			holdSeat.put(carType, holdCount);
 		}
 		return holdSeat;
