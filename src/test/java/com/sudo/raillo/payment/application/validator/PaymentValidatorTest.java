@@ -55,8 +55,10 @@ class PaymentValidatorTest {
 		@Test
 		@DisplayName("요청 금액, Order 금액, Payment 금액이 모두 일치하면 검증을 통과한다")
 		void success_allAmountsMatch() {
+			// given
 			BigDecimal amount = BigDecimal.valueOf(50000);
 
+			// when & then
 			assertThatCode(() -> paymentValidator.validateAmounts(amount, amount, amount))
 				.doesNotThrowAnyException();
 		}
@@ -64,10 +66,12 @@ class PaymentValidatorTest {
 		@Test
 		@DisplayName("요청 금액과 Order 금액이 다르면 PAYMENT_AMOUNT_MISMATCH 예외가 발생한다")
 		void fail_requestAmountNotMatchOrderAmount() {
+			// given
 			BigDecimal requestAmount = BigDecimal.valueOf(50000);
 			BigDecimal orderAmount = BigDecimal.valueOf(60000);
 			BigDecimal paymentAmount = BigDecimal.valueOf(60000);
 
+			// when & then
 			assertThatThrownBy(() -> paymentValidator.validateAmounts(requestAmount, orderAmount, paymentAmount))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_AMOUNT_MISMATCH)
@@ -77,10 +81,12 @@ class PaymentValidatorTest {
 		@Test
 		@DisplayName("Order 금액과 Payment 금액이 다르면 PAYMENT_AMOUNT_MISMATCH 예외가 발생한다")
 		void fail_orderAmountNotMatchPaymentAmount() {
+			// given
 			BigDecimal requestAmount = BigDecimal.valueOf(50000);
 			BigDecimal orderAmount = BigDecimal.valueOf(50000);
 			BigDecimal paymentAmount = BigDecimal.valueOf(60000);
 
+			// when & then
 			assertThatThrownBy(() -> paymentValidator.validateAmounts(requestAmount, orderAmount, paymentAmount))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_AMOUNT_MISMATCH)
@@ -95,9 +101,11 @@ class PaymentValidatorTest {
 		@Test
 		@DisplayName("Payment의 소유자와 요청 회원이 일치하면 검증을 통과한다")
 		void success_ownerMatches() {
+			// given
 			Order order = orderRepository.save(Order.create(member, BigDecimal.valueOf(50000)));
 			Payment payment = paymentRepository.save(Payment.create(member, order));
 
+			// when & then
 			assertThatCode(() -> paymentValidator.validatePaymentOwner(payment, member))
 				.doesNotThrowAnyException();
 		}
@@ -105,9 +113,11 @@ class PaymentValidatorTest {
 		@Test
 		@DisplayName("Payment의 소유자와 요청 회원이 다르면 PAYMENT_ACCESS_DENIED 예외가 발생한다")
 		void fail_ownerMismatch() {
+			// given
 			Order order = orderRepository.save(Order.create(member, BigDecimal.valueOf(50000)));
 			Payment payment = paymentRepository.save(Payment.create(member, order));
 
+			// when & then
 			assertThatThrownBy(() -> paymentValidator.validatePaymentOwner(payment, otherMember))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ACCESS_DENIED)
@@ -122,9 +132,11 @@ class PaymentValidatorTest {
 		@Test
 		@DisplayName("해당 주문에 PAID 상태의 결제가 없으면 검증을 통과한다")
 		void success_noDuplicatePayment() {
+			// given
 			Order order = orderRepository.save(Order.create(member, BigDecimal.valueOf(50000)));
 			paymentRepository.save(Payment.create(member, order)); // PENDING 상태
 
+			// when & then
 			assertThatCode(() -> paymentValidator.validateDuplicatePayment(order))
 				.doesNotThrowAnyException();
 		}
@@ -132,11 +144,13 @@ class PaymentValidatorTest {
 		@Test
 		@DisplayName("해당 주문에 이미 PAID 상태의 결제가 있으면 PAYMENT_ALREADY_COMPLETED 예외가 발생한다")
 		void fail_alreadyPaidPaymentExists() {
+			// given
 			Order order = orderRepository.save(Order.create(member, BigDecimal.valueOf(50000)));
 			Payment payment = paymentRepository.save(Payment.create(member, order));
 			payment.approve(PaymentMethod.CREDIT_CARD);
 			paymentRepository.saveAndFlush(payment);
 
+			// when & then
 			assertThatThrownBy(() -> paymentValidator.validateDuplicatePayment(order))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ALREADY_COMPLETED)
@@ -151,6 +165,7 @@ class PaymentValidatorTest {
 		@Test
 		@DisplayName("토스 응답의 금액과 paymentKey가 요청과 일치하면 검증을 통과한다")
 		void success_responseMatchesRequest() {
+			// given
 			String paymentKey = "toss_pk_test";
 			BigDecimal amount = BigDecimal.valueOf(50000);
 
@@ -158,6 +173,7 @@ class PaymentValidatorTest {
 				paymentKey, "ORDER_001", "카드", amount.longValue(), "DONE");
 			PaymentConfirmRequest request = new PaymentConfirmRequest(paymentKey, "ORDER_001", amount);
 
+			// when & then
 			assertThatCode(() -> paymentValidator.validateTossResponseMatchesRequest(tossResponse, request))
 				.doesNotThrowAnyException();
 		}
@@ -165,6 +181,7 @@ class PaymentValidatorTest {
 		@Test
 		@DisplayName("토스 응답 금액이 요청 금액과 다르면 PAYMENT_AMOUNT_MISMATCH 예외가 발생한다")
 		void fail_amountMismatch() {
+			// given
 			String paymentKey = "toss_pk_test";
 
 			TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
@@ -172,6 +189,7 @@ class PaymentValidatorTest {
 			PaymentConfirmRequest request = new PaymentConfirmRequest(
 				paymentKey, "ORDER_001", BigDecimal.valueOf(50000));
 
+			// when & then
 			assertThatThrownBy(() -> paymentValidator.validateTossResponseMatchesRequest(tossResponse, request))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_AMOUNT_MISMATCH)
@@ -181,6 +199,7 @@ class PaymentValidatorTest {
 		@Test
 		@DisplayName("토스 응답 paymentKey가 요청 paymentKey와 다르면 PAYMENT_KEY_MISMATCH 예외가 발생한다")
 		void fail_paymentKeyMismatch() {
+			// given
 			BigDecimal amount = BigDecimal.valueOf(50000);
 
 			TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
@@ -188,6 +207,7 @@ class PaymentValidatorTest {
 			PaymentConfirmRequest request = new PaymentConfirmRequest(
 				"toss_pk_original", "ORDER_001", amount);
 
+			// when & then
 			assertThatThrownBy(() -> paymentValidator.validateTossResponseMatchesRequest(tossResponse, request))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_KEY_MISMATCH)
