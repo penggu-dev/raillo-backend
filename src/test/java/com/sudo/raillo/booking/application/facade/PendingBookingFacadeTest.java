@@ -134,13 +134,15 @@ class PendingBookingFacadeTest {
 		// then - Hold가 롤백되어 다른 사용자가 같은 좌석을 Hold 할 수 있어야 함
 		int departureStopOrder = trainScheduleResult.scheduleStops().get(0).getStopOrder();
 		int arrivalStopOrder = trainScheduleResult.scheduleStops().get(2).getStopOrder();
+		Long trainCarId = seats.get(0).getTrainCar().getId();
 
 		SeatHoldResult result = seatHoldRepository.tryHold(
 			trainScheduleResult.trainSchedule().getId(),
 			seats.get(0).getId(),
 			"other-pending-booking",
 			departureStopOrder,
-			arrivalStopOrder
+			arrivalStopOrder,
+			trainCarId
 		);
 
 		assertThat(result.success()).isTrue();

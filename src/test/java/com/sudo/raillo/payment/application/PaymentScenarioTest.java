@@ -46,6 +46,7 @@ import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 
@@ -260,19 +261,22 @@ class PaymentScenarioTest {
 
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
-		List<Long> seatIds = trainTestHelper.getSeatIds(
+		List<Seat> seats = trainTestHelper.getSeats(
 			trainScheduleResult.trainSchedule().getTrain(), CarType.STANDARD, 2);
+		List<Long> seatIds = seats.stream().map(Seat::getId).toList();
 
 		PendingBooking pb1 = createSingleSeatPendingBooking(
 			departureStop, arrivalStop, seatIds.get(0), farePerBooking);
 		PendingBooking pb2 = createSingleSeatPendingBooking(
 			departureStop, arrivalStop, seatIds.get(1), farePerBooking);
 
+		Long trainCarId = seats.get(0).getTrainCar().getId();
+
 		// 좌석 Hold
 		seatHoldService.holdSeats(pb1.getId(), trainScheduleResult.trainSchedule().getId(),
-			departureStop, arrivalStop, List.of(seatIds.get(0)));
+			departureStop, arrivalStop, List.of(seatIds.get(0)), trainCarId);
 		seatHoldService.holdSeats(pb2.getId(), trainScheduleResult.trainSchedule().getId(),
-			departureStop, arrivalStop, List.of(seatIds.get(1)));
+			departureStop, arrivalStop, List.of(seatIds.get(1)), trainCarId);
 
 		bookingRedisRepository.savePendingBooking(pb1);
 		bookingRedisRepository.savePendingBooking(pb2);
@@ -334,8 +338,10 @@ class PaymentScenarioTest {
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
-		List<Long> seatIds = trainTestHelper.getSeatIds(
+		List<Seat> seats = trainTestHelper.getSeats(
 			trainScheduleResult.trainSchedule().getTrain(), CarType.STANDARD, 1);
+		List<Long> seatIds = seats.stream().map(Seat::getId).toList();
+		Long trainCarId = seats.get(0).getTrainCar().getId();
 
 		PendingBooking pendingBooking = PendingBookingFixture.builder()
 			.withMemberNo(memberNo)
@@ -353,7 +359,8 @@ class PaymentScenarioTest {
 			trainScheduleResult.trainSchedule().getId(),
 			departureStop,
 			arrivalStop,
-			seatIds
+			seatIds,
+			trainCarId
 		);
 
 		bookingRedisRepository.savePendingBooking(pendingBooking);
