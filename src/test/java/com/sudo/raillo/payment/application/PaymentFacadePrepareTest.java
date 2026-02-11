@@ -36,7 +36,7 @@ import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 
 @ServiceTest
-class PaymentFacadeTest {
+class PaymentFacadePrepareTest {
 
 	@Autowired
 	private PaymentFacade paymentFacade;

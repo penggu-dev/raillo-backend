@@ -31,7 +31,6 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/api/v1/trains")
 @RequiredArgsConstructor
-@Tag(name = "열차 조회", description = "열차 스케줄, 객차, 좌석 정보 조회 API")
 @Slf4j
 public class TrainSearchController implements TrainSearchControllerDoc {
 
