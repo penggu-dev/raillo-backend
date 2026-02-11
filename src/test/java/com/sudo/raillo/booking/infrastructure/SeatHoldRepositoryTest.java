@@ -3,6 +3,7 @@ package com.sudo.raillo.booking.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.support.annotation.RedisTest;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -387,6 +388,101 @@ class SeatHoldRepositoryTest {
 			assertThat(members).hasSize(1);
 			assertThat(members.contains("12:2-3")).isTrue();
 			assertThat(members.contains("12:0-1")).isFalse();
+		}
+	}
+
+	@Nested
+	@DisplayName("Hold 점유 수 조회 테스트")
+	class GetHoldSeatsCountTest {
+
+		@Test
+		@DisplayName("Hold가 없으면 Hold 점유 수가 0이다")
+		void getHoldSeatsCount_returns_zero_when_no_holds() {
+			// when
+			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID), List.of("0-1", "1-2")
+			);
+
+			// then
+			assertThat(count).isEqualTo(0);
+		}
+
+		@Test
+		@DisplayName("Hold된 좌석의 겹치는 구간만 점유 수에 포함된다")
+		void getHoldSeatsCount_counts_only_overlapping_sections() {
+			// given
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 1, 3, TRAIN_CAR_ID);
+
+			// when
+			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID), List.of("0-1", "1-2")
+			);
+
+			// then
+			assertThat(count).isEqualTo(1); // 좌석 1-2가 겹침
+		}
+
+		@Test
+		@DisplayName("겹치지 않는 구간의 Hold는 점유 수에 포함되지 않는다")
+		void getHoldSeatsCount_excludes_non_overlapping_sections() {
+			// given
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 1, TRAIN_CAR_ID);
+
+			// when
+			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID), List.of("2-3")
+			);
+
+			// then
+			assertThat(count).isEqualTo(0);
+		}
+
+		@Test
+		@DisplayName("같은 좌석이 여러 구간에 Hold되어도 좌석 수는 1이다")
+		void getHoldSeatsCount_deduplicates_same_seat() {
+			// given
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 3, TRAIN_CAR_ID);
+
+			// when
+			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID), List.of("0-1", "1-2", "2-3")
+			);
+
+			// then
+			assertThat(count).isEqualTo(1);
+		}
+
+		@Test
+		@DisplayName("여러 좌석이 Hold되면 좌석 수만큼 카운트된다")
+		void getHoldSeatsCount_counts_multiple_seats() {
+			// given
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 2, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 13L, "pending_001", 0, 2, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 14L, "pending_001", 0, 2, TRAIN_CAR_ID);
+
+			// when
+			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID), List.of("0-1", "1-2")
+			);
+
+			// then
+			assertThat(count).isEqualTo(3);
+		}
+
+		@Test
+		@DisplayName("여러 객차의 Hold를 한 번에 조회하여 합산한다")
+		void getHoldSeatsCount_aggregates_multiple_train_cars() {
+			// given
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 2, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 13L, "pending_002", 0, 2, 234L);
+
+			// when
+			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID, 234L), List.of("0-1", "1-2")
+			);
+
+			// then
+			assertThat(count).isEqualTo(2);
 		}
 	}
 }

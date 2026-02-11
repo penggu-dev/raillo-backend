@@ -1,18 +1,15 @@
 package com.sudo.raillo.booking.infrastructure;
 
+import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
 import java.util.List;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
-
-import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * 좌석 임시 점유(Hold) Redis Repository
@@ -39,6 +36,7 @@ public class SeatHoldRepository {
 	private final SeatHoldKeyGenerator seatHoldKeyGenerator;
 	private final DefaultRedisScript<List> seatHoldScript;
 	private final DefaultRedisScript<List> seatReleaseScript;
+	private final DefaultRedisScript<Long> getHoldSeatsCountScript;
 
 	@Value("${redis.ttl.seat-hold:600}")
 	private long seatHoldTTLSeconds;
@@ -149,6 +147,51 @@ public class SeatHoldRepository {
 			log.error("[좌석 Hold 해제 오류] trainScheduleId={}, seatId={}, error={}",
 				trainScheduleId, seatId, e.getMessage(), e);
 			throw new BusinessException(BookingError.SEAT_HOLD_RELEASE_FAILED);
+		}
+	}
+
+
+	/**
+	 * CarType별 Hold 점유 좌석 수 계산 (Lua 스크립트 사용)
+	 *
+	 * <p>여러 객차의 Hold Index를 한 번에 조회하여 Hold 점유 좌석 수를 계산</p>
+	 * <p>Lua 스크립트에서 section 필터링 및 seatId 중복 제거를 수행</p>
+	 *
+	 * @param trainScheduleId 스케줄 ID
+	 * @param trainCarIds 조회할 객차 ID 목록 (동일 CarType)
+	 * @param sections 검색 구간 목록 (예: ["0-1", "1-2"])
+	 * @return Hold 점유 좌석 수
+	 */
+	public int getHoldSeatsCountByCarType(
+		Long trainScheduleId,
+		List<Long> trainCarIds,
+		List<String> sections
+	) {
+		// KEYS: Hold Index 키 목록 생성
+		List<String> keys = trainCarIds.stream()
+			.map(carId -> seatHoldKeyGenerator.generateHoldIndexKey(trainScheduleId, carId))
+			.toList();
+
+		// ARGV: [currentTime, section1, section2, ...]
+		long currentTime = System.currentTimeMillis() / 1000;
+		Object[] args = new Object[sections.size() + 1];
+		args[0] = String.valueOf(currentTime);
+		for (int i = 0; i < sections.size(); i++) {
+			args[i + 1] = sections.get(i);
+		}
+
+		try {
+			Long count = customStringRedisTemplate.execute(
+				getHoldSeatsCountScript,
+				keys,
+				args
+			);
+			return count.intValue();
+
+		} catch (Exception e) {
+			log.error("[Hold 점유 수 조회 오류] trainScheduleId={}, trainCarIds={}, error={}",
+				trainScheduleId, trainCarIds, e.getMessage(), e);
+			return 0;
 		}
 	}
 
