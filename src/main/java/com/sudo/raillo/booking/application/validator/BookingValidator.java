@@ -166,8 +166,51 @@ public class BookingValidator {
 	}
 
 	/**
+	 * PendingBooking 생성 시 좌석 충돌 검증
+	 * <p>DB SeatBooking과 충돌 검증 - PendingBooking 생성 전 조기 실패</p>
+	 *
+	 * @param trainScheduleId 열차 스케줄 ID
+	 * @param departureStopId 출발 정류장 ID
+	 * @param arrivalStopId 도착 정류장 ID
+	 * @param seatIds 좌석 ID 목록
+	 */
+	public void validateSeatConflicts(
+		Long trainScheduleId,
+		Long departureStopId,
+		Long arrivalStopId,
+		List<Long> seatIds
+	) {
+		// 1. ScheduleStop 조회
+		ScheduleStop departureStop = scheduleStopRepository.findById(departureStopId)
+			.orElseThrow(() -> new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND));
+
+		ScheduleStop arrivalStop = scheduleStopRepository.findById(arrivalStopId)
+			.orElseThrow(() -> new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND));
+
+		// 2. 요청 구간 계산
+		List<String> requestSections = seatHoldKeyGenerator.generateSections(
+			departureStop.getStopOrder(),
+			arrivalStop.getStopOrder()
+		);
+
+		// 3. DB에서 기존 예약 조회
+		List<SeatBooking> existingBookings = seatBookingRepository
+			.findByTrainScheduleIdAndSeatIds(trainScheduleId, seatIds);
+
+		// 기존 예매가 없으면 검증 없이 조기 반환
+		if (existingBookings.isEmpty()) {
+			return;
+		}
+
+		// 4. 구간 충돌 검증
+		for (SeatBooking seatBooking : existingBookings) {
+			validateConflictWithSeatBooking(requestSections, seatBooking, null);
+		}
+	}
+
+	/**
 	 * 결제 준비 시 좌석 충돌 검증
-	 * <p>- Redis Hold 구간과 DB SeatBooking 구간 비교
+	 * <p>Redis Hold 구간과 DB SeatBooking 구간 비교</p>
 	 * @param pendingBookings 결제할 PendingBooking 목록
 	 */
 	public void validateSeatConflicts(List<PendingBooking> pendingBookings) {
@@ -229,8 +272,9 @@ public class BookingValidator {
 
 		if (!conflictSections.isEmpty()) {
 			log.error(
-				"[구간 충돌] pendingBookingId={}, seatBookingId={}, seatId={}, conflictSections={}, pendingSections={}, seatBookingSections={}",
-				pendingBookingId, seatBooking.getId(), seatBooking.getSeat().getId(), conflictSections, pendingSections, seatBookingSections);
+				"[구간 충돌 - {}] seatBookingId={}, seatId={}, conflictSections={}, requestSections={}, bookedSections={}",
+				pendingBookingId != null ? pendingBookingId : "createPendingBooking",
+				seatBooking.getId(), seatBooking.getSeat().getId(), conflictSections, pendingSections, seatBookingSections);
 			throw new BusinessException(BookingError.SEAT_ALREADY_BOOKED);
 		}
 	}

@@ -51,7 +51,8 @@ public enum BookingError implements ErrorCode {
 	// BookingError.java에 추가할 부분
 
 	// 좌석 충돌 관련 (기존 SEAT 관련 에러 아래에 추가)
-	SEAT_CONFLICT_WITH_HOLD("다른 사용자가 임시 점유 중인 구간입니다.", HttpStatus.CONFLICT, "B_304"),
+	SEAT_CONFLICT_WITH_SOLD("이미 판매된 좌석이 존재하는 구간입니다.", HttpStatus.CONFLICT, "B_304"),
+	SEAT_CONFLICT_WITH_HOLD("다른 사용자가 임시 점유 중인 구간입니다.", HttpStatus.CONFLICT, "B_305"),
 
 	// 좌석 Hold 관련
 	SEAT_HOLD_SCRIPT_ERROR("좌석 점유 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "B_306"),
