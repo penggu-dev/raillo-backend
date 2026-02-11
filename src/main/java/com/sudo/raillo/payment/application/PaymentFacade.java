@@ -115,6 +115,7 @@ public class PaymentFacade {
 		order.completePayment();
 		bookingService.createBookingFromOrder(order);
 		payment.approve(paymentMethod);
+		cleanupPendingBookings(pendingBookings);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
 		return PaymentConfirmResponse.from(payment);
@@ -137,6 +138,20 @@ public class PaymentFacade {
 
 		// 모든 PendingBooking이 존재하는지 검증 (getPendingBookings 내부에서 검증)
 		return pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);
+	}
+
+	/**
+	 * PendingBooking 삭제
+	 * <p>예매가 완료된 PendingBooking에 대해 삭제를 수행합니다.</p>
+	 */
+	private void cleanupPendingBookings(List<PendingBooking> pendingBookings) {
+		List<String> pendingBookingIds = pendingBookings.stream()
+			.map(PendingBooking::getId)
+			.toList();
+		String memberNo = pendingBookings.get(0).getMemberNo();
+		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
+
+		log.info("[PendingBooking 삭제 완료] pendingBookingCount={}", pendingBookings.size());
 	}
 
 	/**
