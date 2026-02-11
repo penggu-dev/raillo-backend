@@ -1,15 +1,9 @@
 package com.sudo.raillo.booking.infrastructure;
 
-import java.util.List;
-
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-
 import com.sudo.raillo.booking.domain.SeatBooking;
-
-import jakarta.persistence.LockModeType;
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 public interface SeatBookingRepository extends JpaRepository<SeatBooking, Long> {
 
@@ -17,9 +11,14 @@ public interface SeatBookingRepository extends JpaRepository<SeatBooking, Long> 
 
 	void deleteAllByBookingId(Long bookingId);
 
-	@Query("SELECT sb FROM SeatBooking sb WHERE sb.trainSchedule.id = :trainScheduleId AND sb.seat.id IN :seatIds")
-	List<SeatBooking> findByTrainScheduleIdAndSeatIds(
-		@Param("trainScheduleId") Long trainScheduleId,
-		@Param("seatIds") List<Long> seatId
+	@Query("SELECT sb FROM SeatBooking sb WHERE sb.trainSchedule.id = :trainScheduleId " +
+		"AND sb.seat.id IN :seatIds " +
+		"AND sb.departureStopOrder < :arrivalStopOrder " +
+		"AND sb.arrivalStopOrder > :departureStopOrder")
+	List<SeatBooking> findConflictingSeatBookings(
+		Long trainScheduleId,
+		List<Long> seatIds,
+		int departureStopOrder,
+		int arrivalStopOrder
 	);
 }

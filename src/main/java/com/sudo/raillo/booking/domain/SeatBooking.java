@@ -17,7 +17,6 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -31,10 +30,8 @@ import org.hibernate.annotations.OnDeleteAction;
 @Table(
 	name = "seat_booking",
 	indexes = {
-		@Index(name = "idx_seat_booking_seat", columnList = "train_schedule_id, seat_id"),
-		@Index(name = "idx_seat_booking_schedule_search", columnList = "train_schedule_id, arrival_stop_order, departure_stop_order")
-	},
-	uniqueConstraints = {@UniqueConstraint(columnNames = {"train_schedule_id", "seat_id", "booking_id"})}
+		@Index(name = "idx_seat_booking_seat", columnList = "train_schedule_id, seat_id, departure_stop_order, arrival_stop_order"),
+	}
 )
 public class SeatBooking extends BaseEntity {
 

@@ -144,8 +144,7 @@ class PaymentScenarioTest {
 		List<Long> seatIds = pendingBooking.getPendingSeatBookings().stream()
 			.map(PendingSeatBooking::seatId)
 			.toList();
-		List<SeatBooking> seatBookings = seatBookingRepository.findByTrainScheduleIdAndSeatIds(
-			trainScheduleResult.trainSchedule().getId(), seatIds);
+		List<SeatBooking> seatBookings = seatBookingRepository.findAll();
 		assertThat(seatBookings).hasSize(1);
 
 		// then - PendingBooking 삭제 검증 (Redis에서 제거됨)
@@ -292,8 +291,7 @@ class PaymentScenarioTest {
 		assertThat(bookingRepository.findAll()).hasSize(2);
 
 		// then - SeatBooking 2건 생성 검증
-		List<SeatBooking> seatBookings = seatBookingRepository.findByTrainScheduleIdAndSeatIds(
-			trainScheduleResult.trainSchedule().getId(), seatIds);
+		List<SeatBooking> seatBookings = seatBookingRepository.findAll();
 		assertThat(seatBookings).hasSize(2);
 
 		// then - 두 PendingBooking 모두 Redis에서 삭제됨
