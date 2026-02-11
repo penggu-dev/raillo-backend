@@ -88,7 +88,9 @@ class TrainSearchServiceTest {
 				"서울",                 // departureStationName
 				"부산",                 // arrivalStationName
 				LocalTime.of(10, 0),   // departureTime
-				LocalTime.of(13, 0)    // arrivalTime
+				LocalTime.of(13, 0),   // arrivalTime
+				0,                     // departureStopOrder
+				2                      // arrivalStopOrder
 			)
 		);
 		Slice<TrainBasicInfo> trainSlice = new SliceImpl<>(trainInfoList, pageable, false);

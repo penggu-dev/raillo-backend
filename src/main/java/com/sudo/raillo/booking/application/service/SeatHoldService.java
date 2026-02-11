@@ -4,6 +4,7 @@ import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
 import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
 import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 public class SeatHoldService {
 
 	private final SeatHoldRepository seatHoldRepository;
+	private final SeatHoldKeyGenerator seatHoldKeyGenerator;
 
 	/**
 	 * 좌석 임시 점유 시도
@@ -84,6 +86,42 @@ public class SeatHoldService {
 				arrivalStopOrder
 			);
 		}
+	}
+
+	/**
+	 * CarType별 Hold 점유 좌석 수 계산 (Lua 스크립트 기반)
+	 *
+	 * <p>전달받은 trainCarIds에 대해 Lua 스크립트로 Hold Index를 조회하여 Hold 좌석 수를 계산</p>
+	 * <p>Lua 내부에서 section 필터링 + seatId 중복 제거를 수행</p>
+	 *
+	 * @param trainScheduleId 스케줄 ID
+	 * @param trainCarIds 조회할 객차 ID 목록 (동일 CarType, Facade에서 RDB 조회 후 전달)
+	 * @param departureStopOrder 출발역 stopOrder
+	 * @param arrivalStopOrder 도착역 stopOrder
+	 * @return Hold 점유 좌석 수
+	 */
+	public int calculateHoldSeatByCarType(
+		Long trainScheduleId,
+		List<Long> trainCarIds,
+		int departureStopOrder,
+		int arrivalStopOrder
+	) {
+		if (trainCarIds.isEmpty()) {
+			return 0;
+		}
+
+		List<String> searchSections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
+
+		int holdCount = seatHoldRepository.getHoldSeatsCountByCarType(
+			trainScheduleId,
+			trainCarIds,
+			searchSections
+		);
+
+		log.debug("[Hold 점유 수 계산] trainScheduleId={}, trainCarIds={}, stopOrder={}->{}, holdCount={}",
+			trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder, holdCount);
+
+		return holdCount;
 	}
 
 	/**

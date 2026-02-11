@@ -107,7 +107,9 @@ public class TrainScheduleQueryRepository {
 				depStop2.departureTime,
 				arrStop2.arrivalTime,
 				departureStation.stationName,
-				arrivalStation.stationName))
+				arrivalStation.stationName,
+				depStop2.stopOrder,
+				arrStop2.stopOrder))
 			.from(ts)
 			.join(ts.train, t)
 			.join(depStop2).on(depStop2.trainSchedule.id.eq(ts.id))
@@ -139,7 +141,9 @@ public class TrainScheduleQueryRepository {
 				temp.getDepartureStationName(),
 				temp.getArrivalStationName(),
 				temp.getDepartureTime(),
-				temp.getArrivalTime()
+				temp.getArrivalTime(),
+				temp.getDepartureStopOrder(),
+				temp.getArrivalStopOrder()
 			))
 			.collect(Collectors.toList());
 
@@ -201,5 +205,7 @@ public class TrainScheduleQueryRepository {
 		private LocalTime arrivalTime;
 		private String departureStationName;
 		private String arrivalStationName;
+		private int departureStopOrder;
+		private int arrivalStopOrder;
 	}
 }

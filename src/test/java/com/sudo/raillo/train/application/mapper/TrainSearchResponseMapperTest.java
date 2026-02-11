@@ -96,8 +96,7 @@ class TrainSearchResponseMapperTest {
 		return new TrainBasicInfo(
 			scheduleId, trainNumber, trainName,
 			"서울", "부산",
-			LocalTime.of(10, 0), LocalTime.of(13, 0)
-		);
+			LocalTime.of(10, 0), LocalTime.of(13, 0), 0, 2);
 	}
 
 	private StationFare createStationFare() {

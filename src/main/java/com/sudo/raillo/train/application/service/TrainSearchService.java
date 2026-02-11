@@ -17,9 +17,11 @@ import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.TrainSchedule;
+import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
+import com.sudo.raillo.train.infrastructure.TrainCarRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
@@ -40,6 +42,7 @@ public class TrainSearchService {
 	private final TrainScheduleQueryRepository trainScheduleQueryRepository;
 	private final StationFareRepository stationFareRepository;
 	private final SeatBookingQueryRepository seatBookingQueryRepository;
+	private final TrainCarRepository trainCarRepository;
 
 	/**
 	 * 기본 열차 정보 조회
@@ -98,5 +101,12 @@ public class TrainSearchService {
 		List<Long> trainScheduleIds, Long departureStationId, Long arrivalStationId) {
 		return seatBookingQueryRepository.findOverlappingBookingsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId);
+	}
+
+	/**
+	 * CarType별 객차 ID 목록 조회
+	 */
+	public List<Long> getTrainCarIdsByCarType(Long trainScheduleId, CarType carType) {
+		return trainCarRepository.findIdsByScheduleIdAndCarType(trainScheduleId, carType);
 	}
 }
