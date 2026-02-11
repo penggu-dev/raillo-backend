@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sudo.raillo.booking.application.validator.BookingValidator;
-import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -35,7 +34,7 @@ import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 
 @ServiceTest
-public class SeatConflictTest {
+public class SeatConflictValidatorTest {
 
 	@Autowired
 	private MemberRepository memberRepository;
