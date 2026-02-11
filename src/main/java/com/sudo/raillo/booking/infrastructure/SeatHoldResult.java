@@ -12,12 +12,11 @@ public record SeatHoldResult(
 ) {
 
 	private static final long SUCCESS_CODE = 1L;
-	private static final String CONFLICT_WITH_SOLD = "CONFLICT_WITH_SOLD";
 	private static final String CONFLICT_WITH_HOLD = "CONFLICT_WITH_HOLD";
 
 	/**
 	 * Lua 스크립트 반환값을 파싱하여 SeatHoldResult 생성
-	 * Lua 반환: {1, "HOLD_SUCCESS"} 또는 {0, "CONFLICT_WITH_SOLD", "1-2"}
+	 * Lua 반환: {1, "HOLD_SUCCESS"} 또는 {0, "CONFLICT_WITH_HOLD", "1-2"}
 	 */
 	public static SeatHoldResult fromLuaResult(List<Object> result) {
 		if (result == null || result.isEmpty()) {
@@ -34,10 +33,6 @@ public record SeatHoldResult(
 
 	public static SeatHoldResult failure(String status, String conflictSection) {
 		return new SeatHoldResult(false, status, conflictSection);
-	}
-
-	public boolean isConflictWithSold() {
-		return CONFLICT_WITH_SOLD.equals(status);
 	}
 
 	public boolean isConflictWithHold() {

@@ -38,7 +38,6 @@ public class SeatHoldRepository {
 	private final RedisTemplate<String, String> customStringRedisTemplate;
 	private final SeatHoldKeyGenerator seatHoldKeyGenerator;
 	private final DefaultRedisScript<List> seatHoldScript;
-	private final DefaultRedisScript<List> seatConfirmScript;
 	private final DefaultRedisScript<List> seatReleaseScript;
 
 	@Value("${redis.ttl.seat-hold:600}")
@@ -63,7 +62,6 @@ public class SeatHoldRepository {
 		int departureStopOrder,
 		int arrivalStopOrder
 	) {
-		String soldKey = seatHoldKeyGenerator.generateSoldKey(trainScheduleId, seatId);
 		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
 		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
 		List<String> sections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
@@ -73,7 +71,7 @@ public class SeatHoldRepository {
 
 		try {
 			// Lua 스크립트 실행
-			// - KEYS: [soldKey, holdKey, holdsKey] - Redis 키들
+			// - KEYS: [holdKey, holdsKey] - Redis 키들
 			// - ARGV: [ttl, pendingBookingId, section1, section2, ...] - 인자들
 			// - 반환: List<Object> (Lua table이 Java List로 변환됨)
 			Object[] args = buildHoldArgs(pendingBookingId, sections);
@@ -81,7 +79,7 @@ public class SeatHoldRepository {
 			@SuppressWarnings("unchecked")  // DefaultRedisScript<List>의 raw type 때문에 필요
 			List<Object> result = customStringRedisTemplate.execute(
 				seatHoldScript,
-				List.of(soldKey, holdKey, holdsKey),
+				List.of(holdKey, holdsKey),
 				args
 			);
 
@@ -102,54 +100,6 @@ public class SeatHoldRepository {
 			log.error("[좌석 Hold 스크립트 오류] trainScheduleId={}, seatId={}, error={}",
 				trainScheduleId, seatId, e.getMessage(), e);
 			throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
-		}
-	}
-
-	/**
-	 * 좌석 확정 (Hold → Sold 전환)
-	 *
-	 * <p>결제 완료 시 호출하여 임시 점유를 확정 예약으로 전환</p>
-	 *
-	 * @param trainScheduleId 열차 스케줄 ID
-	 * @param seatId 좌석 ID
-	 * @param pendingBookingId 예약 ID
-	 * @param soldTTLSeconds sold 키의 TTL (초 단위, 열차 도착 시간 기반으로 계산된 값)
-	 * @throws BusinessException Hold가 없으면 SEAT_HOLD_NOT_FOUND 예외
-	 */
-	public void confirmHold(Long trainScheduleId, Long seatId, String pendingBookingId, long soldTTLSeconds) {
-		String soldKey = seatHoldKeyGenerator.generateSoldKey(trainScheduleId, seatId);
-		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
-		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
-
-		log.debug("[좌석 확정 시도] trainScheduleId={}, seatId={}, pendingBookingId={}, soldTTL={}s",
-			trainScheduleId, seatId, pendingBookingId, soldTTLSeconds);
-
-		try {
-			@SuppressWarnings("unchecked")
-			List<Object> result = customStringRedisTemplate.execute(
-				seatConfirmScript,
-				List.of(soldKey, holdKey, holdsKey),
-				pendingBookingId,
-				String.valueOf(soldTTLSeconds)
-			);
-
-			SeatHoldResult confirmResult = SeatHoldResult.fromLuaResult(result);
-
-			if (!confirmResult.success()) {
-				log.warn("[좌석 확정 실패 - Hold 없음] trainScheduleId={}, seatId={}, pendingBookingId={}",
-					trainScheduleId, seatId, pendingBookingId);
-				throw new BusinessException(BookingError.SEAT_HOLD_NOT_FOUND);
-			}
-
-			log.info("[좌석 확정 성공] trainScheduleId={}, seatId={}, pendingBookingId={}, soldTTL={}s",
-				trainScheduleId, seatId, pendingBookingId, soldTTLSeconds);
-
-		} catch (BusinessException e) {
-			throw e;
-		} catch (Exception e) {
-			log.error("[좌석 확정 오류] trainScheduleId={}, seatId={}, error={}",
-				trainScheduleId, seatId, e.getMessage(), e);
-			throw new BusinessException(BookingError.SEAT_HOLD_CONFIRM_FAILED);
 		}
 	}
 
@@ -205,5 +155,4 @@ public class SeatHoldRepository {
 		}
 		return args;
 	}
-
 }

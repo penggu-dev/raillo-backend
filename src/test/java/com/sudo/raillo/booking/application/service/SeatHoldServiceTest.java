@@ -1,46 +1,33 @@
 package com.sudo.raillo.booking.application.service;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.math.BigDecimal;
+import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
+import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
+import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.support.annotation.ServiceTest;
+import com.sudo.raillo.support.helper.TrainScheduleResult;
+import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
+import com.sudo.raillo.support.helper.TrainTestHelper;
+import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.Seat;
+import com.sudo.raillo.train.domain.Train;
+import com.sudo.raillo.train.domain.type.CarType;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.concurrent.TimeUnit;
-
-import org.springframework.data.redis.core.RedisTemplate;
-
-import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
-import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
-import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
-import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
-import com.sudo.raillo.support.annotation.ServiceTest;
-import com.sudo.raillo.support.fixture.PendingBookingFixture;
-import com.sudo.raillo.support.helper.TrainScheduleResult;
-import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
-import com.sudo.raillo.support.helper.TrainTestHelper;
-import com.sudo.raillo.train.application.dto.TrainScheduleTimeInfo;
-import com.sudo.raillo.train.domain.ScheduleStop;
-import com.sudo.raillo.train.domain.Seat;
-import com.sudo.raillo.train.domain.Train;
-import com.sudo.raillo.train.domain.type.CarType;
-
 @ServiceTest
 @DisplayName("SeatHoldService 테스트")
 class SeatHoldServiceTest {
-
-	private static final long TEST_SOLD_TTL_SECONDS = 3600L; // 테스트용 1시간
 
 	@Autowired
 	private SeatHoldService seatHoldService;
@@ -53,12 +40,6 @@ class SeatHoldServiceTest {
 
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
-
-	@Autowired
-	private RedisTemplate<String, String> customStringRedisTemplate;
-
-	@Autowired
-	private SeatHoldKeyGenerator seatHoldKeyGenerator;
 
 	private Train train;
 	private TrainScheduleResult trainScheduleResult;
@@ -204,38 +185,6 @@ class SeatHoldServiceTest {
 		}
 
 		@Test
-		@DisplayName("이미 판매된 좌석 점유 시도 시 충돌 예외가 발생한다")
-		void holdSeats_conflictWithSold_fail() {
-			// given
-			String pendingBookingId1 = "pending-booking-001";
-			String pendingBookingId2 = "pending-booking-002";
-			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
-			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
-			Long seatId = seats.get(0).getId();
-
-			int departureStopOrder = departureStop.getStopOrder();
-			int arrivalStopOrder = arrivalStop.getStopOrder();
-
-			// 첫 번째 사용자가 Hold 후 Confirm (Sold 상태로 전환)
-			seatHoldRepository.tryHold(trainScheduleId, seatId, pendingBookingId1, departureStopOrder, arrivalStopOrder);
-			seatHoldRepository.confirmHold(trainScheduleId, seatId, pendingBookingId1, TEST_SOLD_TTL_SECONDS);
-
-			// when & then - 두 번째 사용자가 같은 좌석 Hold 시도
-			assertThatThrownBy(() ->
-				seatHoldService.holdSeats(
-					pendingBookingId2,
-					trainScheduleId,
-					departureStop,
-					arrivalStop,
-					List.of(seatId)
-				)
-			)
-				.isInstanceOf(BusinessException.class)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
-		}
-
-		@Test
 		@DisplayName("겹치지 않는 구간은 같은 좌석이라도 Hold 가능하다")
 		void holdSeats_nonOverlappingSections_success() {
 			// given
@@ -271,168 +220,6 @@ class SeatHoldServiceTest {
 					List.of(seatId)
 				)
 			).doesNotThrowAnyException();
-		}
-	}
-
-	@Nested
-	@DisplayName("confirmSeats - 좌석 확정")
-	class ConfirmSeatsTest {
-
-		@Test
-		@DisplayName("좌석 확정에 성공한다")
-		void confirmSeats_success() {
-			// given
-			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
-			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
-			List<Long> seatIds = List.of(seats.get(0).getId(), seats.get(1).getId());
-
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
-				.withTrainScheduleId(trainScheduleId)
-				.withDepartureStopId(departureStop.getId())
-				.withArrivalStopId(arrivalStop.getId())
-				.withPendingSeatBookings(
-					List.of(
-						new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT),
-						new PendingSeatBooking(seatIds.get(1), PassengerType.CHILD)
-					)
-				)
-				.withTotalFare(BigDecimal.valueOf(50000))
-				.build();
-
-			// Hold 먼저 수행
-			seatHoldService.holdSeats(
-				pendingBooking.getId(),
-				trainScheduleId,
-				departureStop,
-				arrivalStop,
-				seatIds
-			);
-
-			// when & then
-			TrainScheduleTimeInfo timeInfo = TrainScheduleTimeInfo.from(trainScheduleResult.trainSchedule());
-			assertThatCode(() ->
-				seatHoldService.confirmSeats(pendingBooking, timeInfo)
-			).doesNotThrowAnyException();
-		}
-
-		@Test
-		@DisplayName("Hold 없이 확정 시도 시 예외가 발생한다")
-		void confirmSeats_holdNotFound_fail() {
-			// given
-			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
-			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
-			List<Long> seatIds = List.of(seats.get(0).getId());
-
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
-				.withTrainScheduleId(trainScheduleId)
-				.withDepartureStopId(departureStop.getId())
-				.withArrivalStopId(arrivalStop.getId())
-				.withPendingSeatBookings(
-					List.of(new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT))
-				)
-				.withTotalFare(BigDecimal.valueOf(50000))
-				.build();
-
-			// when & then - Hold 없이 바로 confirm 시도
-			TrainScheduleTimeInfo timeInfo = TrainScheduleTimeInfo.from(trainScheduleResult.trainSchedule());
-			assertThatThrownBy(() ->
-				seatHoldService.confirmSeats(pendingBooking, timeInfo)
-			)
-				.isInstanceOf(BusinessException.class)
-				.hasMessage(BookingError.SEAT_HOLD_NOT_FOUND.getMessage());
-		}
-
-		@Test
-		@DisplayName("확정 후 같은 구간에 다른 사용자가 Hold 시도 시 충돌이 발생한다")
-		void confirmSeats_thenConflict_fail() {
-			// given
-			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
-			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
-			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
-			Long seatId = seats.get(0).getId();
-
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
-				.withTrainScheduleId(trainScheduleId)
-				.withDepartureStopId(departureStop.getId())
-				.withArrivalStopId(arrivalStop.getId())
-				.withPendingSeatBookings(
-					List.of(new PendingSeatBooking(seatId, PassengerType.ADULT))
-				)
-				.withTotalFare(BigDecimal.valueOf(50000))
-				.build();
-
-			// Hold 후 Confirm
-			seatHoldService.holdSeats(
-				pendingBooking.getId(),
-				trainScheduleId,
-				departureStop,
-				arrivalStop,
-				List.of(seatId)
-			);
-			TrainScheduleTimeInfo timeInfo = TrainScheduleTimeInfo.from(trainScheduleResult.trainSchedule());
-			seatHoldService.confirmSeats(pendingBooking, timeInfo);
-
-			// when & then - 다른 사용자가 같은 좌석 Hold 시도
-			assertThatThrownBy(() ->
-				seatHoldService.holdSeats(
-					"other-pending-booking",
-					trainScheduleId,
-					departureStop,
-					arrivalStop,
-					List.of(seatId)
-				)
-			)
-				.isInstanceOf(BusinessException.class)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
-		}
-
-		@Test
-		@DisplayName("자정을 넘기는 야간 열차의 좌석 확정 시 TTL이 올바르게 계산된다")
-		void confirmSeats_overnightTrain_correctTTL() {
-			// given - 23:00 출발 → 00:30 도착 (자정을 넘기는 야간 열차)
-			TrainScheduleResult overnightSchedule = trainScheduleTestHelper.builder()
-				.scheduleName("KTX 야간 열차")
-				.train(train)
-				.operationDate(LocalDate.now().plusDays(1))
-				.addStop("서울", null, LocalTime.of(23, 0))
-				.addStop("대전", LocalTime.of(23, 50), LocalTime.of(23, 55))
-				.addStop("부산", LocalTime.of(0, 30), null)  // 다음날 00:30 도착
-				.build();
-
-			Long trainScheduleId = overnightSchedule.trainSchedule().getId();
-			ScheduleStop departureStop = overnightSchedule.scheduleStops().get(0);
-			ScheduleStop arrivalStop = overnightSchedule.scheduleStops().get(2);
-			Long seatId = seats.get(0).getId();
-
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
-				.withTrainScheduleId(trainScheduleId)
-				.withDepartureStopId(departureStop.getId())
-				.withArrivalStopId(arrivalStop.getId())
-				.withPendingSeatBookings(
-					List.of(new PendingSeatBooking(seatId, PassengerType.ADULT))
-				)
-				.withTotalFare(BigDecimal.valueOf(50000))
-				.build();
-
-			// when - Hold 후 Confirm
-			seatHoldService.holdSeats(
-				pendingBooking.getId(),
-				trainScheduleId,
-				departureStop,
-				arrivalStop,
-				List.of(seatId)
-			);
-			TrainScheduleTimeInfo timeInfo = TrainScheduleTimeInfo.from(overnightSchedule.trainSchedule());
-			seatHoldService.confirmSeats(pendingBooking, timeInfo);
-
-			// then
-			String soldKey = seatHoldKeyGenerator.generateSoldKey(trainScheduleId, seatId);
-			Long ttl = customStringRedisTemplate.getExpire(soldKey, TimeUnit.SECONDS);
-
-			assertThat(ttl).isNotNull();
-			assertThat(ttl).isGreaterThan(0);  // Sold 키의 TTL이 양수여야 함 (자정을 넘긴 날짜가 올바르게 계산되었다면)
 		}
 	}
 
