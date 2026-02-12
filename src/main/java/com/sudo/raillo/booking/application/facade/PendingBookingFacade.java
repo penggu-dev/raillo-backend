@@ -68,9 +68,9 @@ public class PendingBookingFacade {
 
 		// 4. DB 충돌 검증
 		bookingValidator.validateSeatConflicts(
-			request.trainScheduleId(),
-			departureStop.getId(),
-			arrivalStop.getId(),
+			trainSchedule,
+			departureStop,
+			arrivalStop,
 			request.seatIds()
 		);
 

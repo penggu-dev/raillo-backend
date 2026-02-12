@@ -1,15 +1,7 @@
 package com.sudo.raillo.booking.application;
 
-import static org.assertj.core.api.Assertions.*;
-
-import java.time.LocalTime;
-import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
@@ -32,6 +24,13 @@ import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
+import java.time.LocalTime;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 public class SeatConflictValidatorTest {
@@ -453,9 +452,9 @@ public class SeatConflictValidatorTest {
 			// when & then
 			assertThatNoException().isThrownBy(() ->
 				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule().getId(),
-					stops.get(0).getId(),  // 서울
-					stops.get(1).getId(),  // 대전
+					trainScheduleResult.trainSchedule(),
+					stops.get(0), // 서울
+					stops.get(1), // 대전
 					List.of(seat.getId())
 				)
 			);
@@ -479,9 +478,9 @@ public class SeatConflictValidatorTest {
 			// when & then: 서울 → 대전, "0-1" 구간 (충돌 없음)
 			assertThatNoException().isThrownBy(() ->
 				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule().getId(),
-					stops.get(0).getId(),  // 서울
-					stops.get(1).getId(),  // 대전
+					trainScheduleResult.trainSchedule(),
+					stops.get(0), // 서울
+					stops.get(1), // 대전
 					List.of(seat.getId())
 				)
 			);
@@ -505,9 +504,9 @@ public class SeatConflictValidatorTest {
 			// when & then: 서울 → 동대구, "0-2" 구간 (section 1-2 겹침)
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule().getId(),
-					stops.get(0).getId(),  // 서울
-					stops.get(2).getId(),  // 동대구
+					trainScheduleResult.trainSchedule(),
+					stops.get(0), // 서울
+					stops.get(2), // 동대구
 					List.of(seat.getId())
 				)
 			).isInstanceOf(BusinessException.class)
@@ -533,9 +532,9 @@ public class SeatConflictValidatorTest {
 			// when & then: 서울 → 부산, "0-3" 구간 (완전히 동일)
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule().getId(),
-					stops.get(0).getId(),  // 서울
-					stops.get(3).getId(),  // 부산
+					trainScheduleResult.trainSchedule(),
+					stops.get(0),  // 서울
+					stops.get(3),  // 부산
 					List.of(seat.getId())
 				)
 			).isInstanceOf(BusinessException.class)
@@ -562,60 +561,14 @@ public class SeatConflictValidatorTest {
 			// when & then: seat1, seat2를 서울 → 동대구로 예약 시도 (seat1 충돌)
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule().getId(),
-					stops.get(0).getId(),  // 서울
-					stops.get(2).getId(),  // 동대구
+					trainScheduleResult.trainSchedule(),
+					stops.get(0), // 서울
+					stops.get(2), // 동대구
 					List.of(seat1.getId(), seat2.getId())
 				)
 			).isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_BOOKED)
 				.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
-		}
-
-		@Test
-		@DisplayName("존재하지 않는 출발 정류장 ID로 요청하면 예외가 발생한다")
-		void nonExistentDepartureStopId_fail() {
-			// given
-			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
-			Seat seat = seats.get(0);
-			List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
-
-			Long nonExistentStopId = 999999L;
-
-			// when & then
-			assertThatThrownBy(() ->
-				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule().getId(),
-					nonExistentStopId,     // 존재하지 않는 정류장
-					stops.get(3).getId(),  // 부산
-					List.of(seat.getId())
-				)
-			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", TrainErrorCode.SCHEDULE_STOP_NOT_FOUND)
-				.hasMessage(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND.getMessage());
-		}
-
-		@Test
-		@DisplayName("존재하지 않는 도착 정류장 ID로 요청하면 예외가 발생한다")
-		void nonExistentArrivalStopId_fail() {
-			// given
-			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
-			Seat seat = seats.get(0);
-			List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
-
-			Long nonExistentStopId = 999999L;
-
-			// when & then
-			assertThatThrownBy(() ->
-				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule().getId(),
-					stops.get(0).getId(),  // 서울
-					nonExistentStopId,     // 존재하지 않는 정류장
-					List.of(seat.getId())
-				)
-			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", TrainErrorCode.SCHEDULE_STOP_NOT_FOUND)
-				.hasMessage(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND.getMessage());
 		}
 	}
 }

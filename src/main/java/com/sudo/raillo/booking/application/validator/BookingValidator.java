@@ -167,32 +167,26 @@ public class BookingValidator {
 	 * PendingBooking 생성 시 좌석 충돌 검증
 	 * <p>DB SeatBooking과 충돌 검증 - PendingBooking 생성 전 조기 실패</p>
 	 *
-	 * @param trainScheduleId 열차 스케줄 ID
-	 * @param departureStopId 출발 정류장 ID
-	 * @param arrivalStopId 도착 정류장 ID
+	 * @param trainSchedule 열차 스케줄
+	 * @param departureStop 출발 정류장
+	 * @param arrivalStop 도착 정류장
 	 * @param seatIds 좌석 ID 목록
 	 */
 	public void validateSeatConflicts(
-		Long trainScheduleId,
-		Long departureStopId,
-		Long arrivalStopId,
+		TrainSchedule trainSchedule,
+		ScheduleStop departureStop,
+		ScheduleStop arrivalStop,
 		List<Long> seatIds
 	) {
-		// 1. ScheduleStop 조회
-		ScheduleStop departureStop = scheduleStopRepository.findById(departureStopId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND));
-
-		ScheduleStop arrivalStop = scheduleStopRepository.findById(arrivalStopId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND));
-
-		// 2. DB에서 구간 겹침 조건으로 충돌 예약 조회
+		// DB에서 구간 겹침 조건으로 충돌 예약 조회
 		List<SeatBooking> conflictingBookings = seatBookingRepository.findConflictingSeatBookings(
-			trainScheduleId, seatIds,
+			trainSchedule.getId(),
+			seatIds,
 			departureStop.getStopOrder(),
 			arrivalStop.getStopOrder()
 		);
 
-		// 3. 충돌 행이 있으면 예외 발생
+		// 충돌 행이 있으면 예외 발생
 		if (!conflictingBookings.isEmpty()) {
 			log.error("[구간 충돌] seatId={}, booked=[{}-{}], request=[{}-{}]",
 				conflictingBookings.get(0).getSeat().getId(),
