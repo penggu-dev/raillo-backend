@@ -12,7 +12,6 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import com.sudo.raillo.support.helper.BookingResult;
 import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
@@ -28,6 +27,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +38,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * PendingBooking 생성 동시성 테스트
  * <p>여러 스레드가 동시에 같은 좌석을 예약할 때 올바르게 동작하는지 검증</p>
  */
+@Slf4j
 @ServiceTest
 public class PendingBookingConcurrencyTest {
 
@@ -112,7 +113,7 @@ public class PendingBookingConcurrencyTest {
 		AtomicInteger failCount = new AtomicInteger(0);
 		List<String> successfulBookingIds = new ArrayList<>();
 
-		// when: 10개 스레드가 동시에 같은 좌석 예약 시도
+		// when
 		for (int i = 0; i < threadCount; i++) {
 			executorService.submit(() -> {
 				try {
@@ -152,7 +153,7 @@ public class PendingBookingConcurrencyTest {
 		// 모든 스레드 완료 대기 (최대 10초)
 		doneLatch.await();
 
-		// then: 정확히 1개만 성공해야 함
+		// then
 		assertThat(successCount.get()).isEqualTo(1);
 		assertThat(failCount.get()).isEqualTo(9);
 		assertThat(successfulBookingIds).hasSize(1);
@@ -172,10 +173,9 @@ public class PendingBookingConcurrencyTest {
 		AtomicInteger successCount = new AtomicInteger(0);
 		AtomicInteger failCount = new AtomicInteger(0);
 
+		// when
 		for (int i = 0; i < threadCount; i++) {
-			final int threadIndex = i;
 			final boolean isShortRoute = i < 5;
-
 			executorService.submit(() -> {
 				try {
 					startLatch.await();
@@ -190,7 +190,7 @@ public class PendingBookingConcurrencyTest {
 						List.of(seat.getId())
 					);
 
-					PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
+					pendingBookingFacade.createPendingBooking(
 						request,
 						member.getMemberDetail().getMemberNo()
 					);
@@ -207,7 +207,7 @@ public class PendingBookingConcurrencyTest {
 		startLatch.countDown();
 		doneLatch.await();
 
-		// then: section 0-1이 겹치므로 1개만 성공
+		// then
 		assertThat(successCount.get()).isEqualTo(1);
 		assertThat(failCount.get()).isEqualTo(9);
 	}
@@ -220,7 +220,7 @@ public class PendingBookingConcurrencyTest {
 		Seat seat = seats.get(0);
 
 		// 기존 확정 예매 생성 (서울 → 부산)
-		BookingResult confirmedBooking = bookingTestHelper.builder(member, trainScheduleResult)
+		bookingTestHelper.builder(member, trainScheduleResult)
 			.addSeat(seat, PassengerType.ADULT)
 			.build();
 
@@ -232,7 +232,7 @@ public class PendingBookingConcurrencyTest {
 		AtomicInteger failCount = new AtomicInteger(0);
 		List<String> failureReasons = new ArrayList<>();
 
-		// when: 10개 스레드가 동시에 같은 좌석 예약 시도
+		// when
 		for (int i = 0; i < threadCount; i++) {
 			executorService.submit(() -> {
 				try {
@@ -288,10 +288,9 @@ public class PendingBookingConcurrencyTest {
 		AtomicInteger successCount = new AtomicInteger(0);
 		AtomicInteger failCount = new AtomicInteger(0);
 
+		// when
 		try {
-			// when: 100개 스레드가 동시에 같은 좌석 예약 시도
 			for (int i = 0; i < threadCount; i++) {
-				final int threadIndex = i;
 				largeExecutor.submit(() -> {
 					try {
 						startLatch.await();
@@ -317,7 +316,7 @@ public class PendingBookingConcurrencyTest {
 			startLatch.countDown();
 			doneLatch.await();
 
-			// then: 100개 중 정확히 1개만 성공
+			// then
 			assertThat(successCount.get()).isEqualTo(1);
 			assertThat(failCount.get()).isEqualTo(99);
 		} finally {
