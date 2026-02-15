@@ -9,6 +9,7 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -130,6 +131,24 @@ public class SeatHoldService {
 			trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder, holdCount);
 
 		return holdCount;
+	}
+
+	/**
+	 * 특정 객차에서 Hold된 개별 좌석 ID 목록 조회
+	 *
+	 * @param trainScheduleId 열차 스케줄 ID
+	 * @param trainCarId 객차 ID
+	 * @param departureStopOrder 출발역 stopOrder
+	 * @param arrivalStopOrder 도착역 stopOrder
+	 */
+	public Set<Long> getSeatIdsOnHold(
+		Long trainScheduleId,
+		Long trainCarId,
+		int departureStopOrder,
+		int arrivalStopOrder
+	) {
+		List<String> sections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
+		return seatHoldRepository.findSeatIdsOnHold(trainScheduleId, trainCarId, sections);
 	}
 
 	/**
