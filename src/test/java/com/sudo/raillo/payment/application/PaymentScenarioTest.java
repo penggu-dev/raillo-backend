@@ -105,6 +105,8 @@ class PaymentScenarioTest {
 		// given - 결제 준비
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_scenario_success";
+		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
@@ -144,7 +146,12 @@ class PaymentScenarioTest {
 		List<Long> seatIds = pendingBooking.getPendingSeatBookings().stream()
 			.map(PendingSeatBooking::seatId)
 			.toList();
-		List<SeatBooking> seatBookings = seatBookingRepository.findAll();
+		List<SeatBooking> seatBookings = seatBookingRepository.findOverlappingSeatBookings(
+			trainScheduleResult.trainSchedule().getId(),
+			seatIds,
+			departureStop.getStopOrder(),
+			arrivalStop.getStopOrder()
+		);
 		assertThat(seatBookings).hasSize(1);
 
 		// then - PendingBooking 삭제 검증 (Redis에서 제거됨)
@@ -291,7 +298,12 @@ class PaymentScenarioTest {
 		assertThat(bookingRepository.findAll()).hasSize(2);
 
 		// then - SeatBooking 2건 생성 검증
-		List<SeatBooking> seatBookings = seatBookingRepository.findAll();
+		List<SeatBooking> seatBookings = seatBookingRepository.findOverlappingSeatBookings(
+			trainScheduleResult.trainSchedule().getId(),
+			seatIds,
+			departureStop.getStopOrder(),
+			arrivalStop.getStopOrder()
+		);
 		assertThat(seatBookings).hasSize(2);
 
 		// then - 두 PendingBooking 모두 Redis에서 삭제됨
