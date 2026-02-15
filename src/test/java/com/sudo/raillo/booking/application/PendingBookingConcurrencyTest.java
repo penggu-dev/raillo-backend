@@ -3,7 +3,6 @@ package com.sudo.raillo.booking.application;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
 import com.sudo.raillo.booking.application.facade.PendingBookingFacade;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -22,6 +21,7 @@ import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -111,7 +111,7 @@ public class PendingBookingConcurrencyTest {
 
 		AtomicInteger successCount = new AtomicInteger(0);
 		AtomicInteger failCount = new AtomicInteger(0);
-		List<String> successfulBookingIds = new ArrayList<>();
+		List<String> failureReasons = Collections.synchronizedList(new ArrayList<>());
 
 		// when
 		for (int i = 0; i < threadCount; i++) {
@@ -129,16 +129,15 @@ public class PendingBookingConcurrencyTest {
 						List.of(seat.getId())
 					);
 
-					PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
+					pendingBookingFacade.createPendingBooking(
 						request,
 						member.getMemberDetail().getMemberNo()
 					);
-
-					synchronized (successfulBookingIds) {
-						successfulBookingIds.add(response.pendingBookingId());
-					}
 					successCount.incrementAndGet();
 
+				} catch (BusinessException e) {
+					failCount.incrementAndGet();
+					failureReasons.add(e.getErrorCode().getCode());
 				} catch (Exception e) {
 					failCount.incrementAndGet();
 				} finally {
@@ -156,7 +155,9 @@ public class PendingBookingConcurrencyTest {
 		// then
 		assertThat(successCount.get()).isEqualTo(1);
 		assertThat(failCount.get()).isEqualTo(9);
-		assertThat(successfulBookingIds).hasSize(1);
+		assertThat(failureReasons)
+			.hasSize(9)
+			.allMatch(code -> code.equals(BookingError.SEAT_CONFLICT_WITH_HOLD.getCode()));
 	}
 
 	@Test
@@ -172,6 +173,8 @@ public class PendingBookingConcurrencyTest {
 
 		AtomicInteger successCount = new AtomicInteger(0);
 		AtomicInteger failCount = new AtomicInteger(0);
+
+		List<String> failureReasons = Collections.synchronizedList(new ArrayList<>());
 
 		// when
 		for (int i = 0; i < threadCount; i++) {
@@ -196,6 +199,9 @@ public class PendingBookingConcurrencyTest {
 					);
 
 					successCount.incrementAndGet();
+				} catch (BusinessException e) {
+					failCount.incrementAndGet();
+					failureReasons.add(e.getErrorCode().getCode());
 				} catch (Exception e) {
 					failCount.incrementAndGet();
 				} finally {
@@ -210,6 +216,9 @@ public class PendingBookingConcurrencyTest {
 		// then
 		assertThat(successCount.get()).isEqualTo(1);
 		assertThat(failCount.get()).isEqualTo(9);
+		assertThat(failureReasons)
+			.hasSize(9)
+			.allMatch(code -> code.equals(BookingError.SEAT_CONFLICT_WITH_HOLD.getCode()));
 	}
 
 	@Test
@@ -230,7 +239,7 @@ public class PendingBookingConcurrencyTest {
 
 		AtomicInteger successCount = new AtomicInteger(0);
 		AtomicInteger failCount = new AtomicInteger(0);
-		List<String> failureReasons = new ArrayList<>();
+		List<String> failureReasons = Collections.synchronizedList(new ArrayList<>());
 
 		// when
 		for (int i = 0; i < threadCount; i++) {
@@ -251,9 +260,7 @@ public class PendingBookingConcurrencyTest {
 
 				} catch (BusinessException e) {
 					failCount.incrementAndGet();
-					synchronized (failureReasons) {
-						failureReasons.add(e.getErrorCode().getCode());
-					}
+					failureReasons.add(e.getErrorCode().getCode());
 				} catch (Exception e) {
 					failCount.incrementAndGet();
 				} finally {
@@ -270,7 +277,12 @@ public class PendingBookingConcurrencyTest {
 		assertThat(failCount.get()).isEqualTo(10);
 		assertThat(failureReasons)
 			.hasSize(10)
-			.allMatch(code -> code.equals(BookingError.SEAT_CONFLICT_WITH_SOLD.getCode()));
+		    // 동시 경합 시 HOLD 검증이 SeatBooking 검증보다 먼저 실행되어,
+			// SeatBooking 충돌이 있어도 SEAT_CONFLICT_WITH_HOLD가 반환될 수 있어 임시로 두 코드를 허용
+			.allMatch(code ->
+				code.equals(BookingError.SEAT_CONFLICT_WITH_SOLD.getCode())
+				|| code.equals(BookingError.SEAT_CONFLICT_WITH_HOLD.getCode())
+			);
 	}
 
 	@Test
@@ -281,46 +293,49 @@ public class PendingBookingConcurrencyTest {
 		Seat seat = seats.get(0);
 
 		int threadCount = 100;
-		ExecutorService largeExecutor = Executors.newFixedThreadPool(50);
 		CountDownLatch startLatch = new CountDownLatch(1);
 		CountDownLatch doneLatch = new CountDownLatch(threadCount);
 
 		AtomicInteger successCount = new AtomicInteger(0);
 		AtomicInteger failCount = new AtomicInteger(0);
 
+		List<String> failureReasons = Collections.synchronizedList(new ArrayList<>());
+
 		// when
-		try {
-			for (int i = 0; i < threadCount; i++) {
-				largeExecutor.submit(() -> {
-					try {
-						startLatch.await();
+		for (int i = 0; i < threadCount; i++) {
+			executorService.submit(() -> {
+				try {
+					startLatch.await();
 
-						PendingBookingCreateRequest request = new PendingBookingCreateRequest(
-							trainScheduleResult.trainSchedule().getId(),
-							stops.get(0).getStation().getId(),  // 서울
-							stops.get(3).getStation().getId(),  // 부산
-							List.of(PassengerType.ADULT),
-							List.of(seat.getId())
-						);
+					PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+						trainScheduleResult.trainSchedule().getId(),
+						stops.get(0).getStation().getId(),  // 서울
+						stops.get(3).getStation().getId(),  // 부산
+						List.of(PassengerType.ADULT),
+						List.of(seat.getId())
+					);
 
-						pendingBookingFacade.createPendingBooking(request, member.getMemberDetail().getMemberNo());
-						successCount.incrementAndGet();
-					} catch (Exception e) {
-						failCount.incrementAndGet();
-					} finally {
-						doneLatch.countDown();
-					}
-				});
-			}
-
-			startLatch.countDown();
-			doneLatch.await();
-
-			// then
-			assertThat(successCount.get()).isEqualTo(1);
-			assertThat(failCount.get()).isEqualTo(99);
-		} finally {
-			largeExecutor.shutdownNow();
+					pendingBookingFacade.createPendingBooking(request, member.getMemberDetail().getMemberNo());
+					successCount.incrementAndGet();
+				} catch (BusinessException e) {
+					failCount.incrementAndGet();
+					failureReasons.add(e.getErrorCode().getCode());
+				} catch (Exception e) {
+					failCount.incrementAndGet();
+				} finally {
+					doneLatch.countDown();
+				}
+			});
 		}
+
+		startLatch.countDown();
+		doneLatch.await();
+
+		// then
+		assertThat(successCount.get()).isEqualTo(1);
+		assertThat(failCount.get()).isEqualTo(99);
+		assertThat(failureReasons)
+			.hasSize(99)
+			.allMatch(code -> code.equals(BookingError.SEAT_CONFLICT_WITH_HOLD.getCode()));
 	}
 }
