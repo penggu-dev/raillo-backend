@@ -15,7 +15,7 @@ public interface SeatBookingRepository extends JpaRepository<SeatBooking, Long> 
 		"AND sb.seat.id IN :seatIds " +
 		"AND sb.departureStopOrder < :arrivalStopOrder " +
 		"AND sb.arrivalStopOrder > :departureStopOrder")
-	List<SeatBooking> findConflictingSeatBookings(
+	List<SeatBooking> findOverlappingSeatBookings(
 		Long trainScheduleId,
 		List<Long> seatIds,
 		int departureStopOrder,
