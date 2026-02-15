@@ -40,7 +40,7 @@ public class PendingBookingFacade {
 
 	/**
 	 * 예약 생성
-	 * 조회 → 검증 → 운임 계산 → DB 충돌 검증 → 좌석 Hold → PendingBooking 저장
+	 * 조회 → 검증 → 운임 계산 → 좌석 Hold -> DB 충돌 검증 →  → PendingBooking 저장
 	 */
 	public PendingBookingCreateResponse createPendingBooking(PendingBookingCreateRequest request, String memberNo) {
 		// 1. 조회
@@ -66,15 +66,7 @@ public class PendingBookingFacade {
 			carType
 		);
 
-		// 4. DB 충돌 검증
-		bookingValidator.validateSeatConflicts(
-			trainSchedule,
-			departureStop,
-			arrivalStop,
-			request.seatIds()
-		);
-
-		// 5. 좌석 Hold
+		// 4. 좌석 Hold
 		String pendingBookingId = pendingBookingIdGenerator.generate();
 		seatHoldService.holdSeats(
 			pendingBookingId,
@@ -85,6 +77,14 @@ public class PendingBookingFacade {
 		);
 
 		try {
+			// 5. DB 충돌 검증
+			bookingValidator.validateSeatConflicts(
+				trainSchedule.getId(),
+				departureStop,
+				arrivalStop,
+				request.seatIds()
+			);
+
 			// 6. PendingBooking 저장 (Hold 이후 실패 시 보상 로직)
 			PendingBooking pendingBooking = pendingBookingService.createPendingBooking(
 				pendingBookingId,
