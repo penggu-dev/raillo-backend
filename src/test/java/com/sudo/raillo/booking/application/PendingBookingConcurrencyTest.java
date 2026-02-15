@@ -270,7 +270,7 @@ public class PendingBookingConcurrencyTest {
 		assertThat(failCount.get()).isEqualTo(10);
 		assertThat(failureReasons)
 			.hasSize(10)
-			.allMatch(code -> code.equals(BookingError.SEAT_ALREADY_BOOKED.getCode()));
+			.allMatch(code -> code.equals(BookingError.SEAT_CONFLICT_WITH_SOLD.getCode()));
 	}
 
 	@Test

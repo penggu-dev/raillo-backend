@@ -244,8 +244,8 @@ public class SeatConflictValidatorTest {
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_BOOKED)
-				.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
 		}
 
 		@Test
@@ -280,8 +280,8 @@ public class SeatConflictValidatorTest {
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_BOOKED)
-				.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
 		}
 
 		@Test
@@ -330,8 +330,8 @@ public class SeatConflictValidatorTest {
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(List.of(pendingBooking1, pendingBooking2))
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_BOOKED)
-				.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
 		}
 
 		@Test
@@ -364,8 +364,8 @@ public class SeatConflictValidatorTest {
 			assertThatThrownBy(() ->
 					bookingValidator.validateSeatConflicts(List.of(pendingBooking))
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_BOOKED)
-				.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
 		}
 
 		@Test
@@ -405,8 +405,8 @@ public class SeatConflictValidatorTest {
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_BOOKED)
-				.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
 		}
 	}
 
@@ -452,7 +452,7 @@ public class SeatConflictValidatorTest {
 			// when & then
 			assertThatNoException().isThrownBy(() ->
 				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule(),
+					trainScheduleResult.trainSchedule().getId(),
 					stops.get(0), // 서울
 					stops.get(1), // 대전
 					List.of(seat.getId())
@@ -478,7 +478,7 @@ public class SeatConflictValidatorTest {
 			// when & then: 서울 → 대전, "0-1" 구간 (충돌 없음)
 			assertThatNoException().isThrownBy(() ->
 				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule(),
+					trainScheduleResult.trainSchedule().getId(),
 					stops.get(0), // 서울
 					stops.get(1), // 대전
 					List.of(seat.getId())
@@ -504,14 +504,14 @@ public class SeatConflictValidatorTest {
 			// when & then: 서울 → 동대구, "0-2" 구간 (section 1-2 겹침)
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule(),
+					trainScheduleResult.trainSchedule().getId()	,
 					stops.get(0), // 서울
 					stops.get(2), // 동대구
 					List.of(seat.getId())
 				)
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_BOOKED)
-				.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
 		}
 
 		@Test
@@ -532,14 +532,14 @@ public class SeatConflictValidatorTest {
 			// when & then: 서울 → 부산, "0-3" 구간 (완전히 동일)
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule(),
+					trainScheduleResult.trainSchedule().getId(),
 					stops.get(0),  // 서울
 					stops.get(3),  // 부산
 					List.of(seat.getId())
 				)
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_BOOKED)
-				.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
 		}
 
 		@Test
@@ -561,14 +561,14 @@ public class SeatConflictValidatorTest {
 			// when & then: seat1, seat2를 서울 → 동대구로 예약 시도 (seat1 충돌)
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(
-					trainScheduleResult.trainSchedule(),
+					trainScheduleResult.trainSchedule().getId(),
 					stops.get(0), // 서울
 					stops.get(2), // 동대구
 					List.of(seat1.getId(), seat2.getId())
 				)
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_BOOKED)
-				.hasMessage(BookingError.SEAT_ALREADY_BOOKED.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
 		}
 	}
 }
