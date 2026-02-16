@@ -139,6 +139,10 @@ public class TrainScheduleTestHelper {
 		Station departure = builder.stops.get(0).getStation();
 		Station arrival = builder.stops.get(builder.stops.size() - 1).getStation();
 
+		if (builder.operationDate == null) {
+			builder.operationDate = LocalDate.now().plusDays(1);
+		}
+
 		TrainSchedule schedule = TrainScheduleFixture.create(
 			builder.scheduleName,
 			builder.operationDate,
