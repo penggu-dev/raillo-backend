@@ -6,6 +6,9 @@ import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
 import com.sudo.raillo.member.domain.Member;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +71,27 @@ public class BookingValidator {
 	}
 
 	/**
+	 * 출발 시간이 현재 시간보다 이전인지 검증
+	 * <p>자정을 넘기는 야간 열차의 경우 operationDate + 1일로 계산
+	 */
+	public void validateDepartureTimeNotPassed(TrainSchedule trainSchedule, ScheduleStop departureStop) {
+		LocalDate departureDate = trainSchedule.getOperationDate();
+		LocalTime stopDepartureTime = departureStop.getDepartureTime();
+		LocalTime trainDepartureTime = trainSchedule.getDepartureTime();
+
+		// 정차역 출발시간이 열차 출발시간보다 이르면 자정을 넘긴 것이므로 다음날로 처리
+		if(stopDepartureTime.isBefore(trainDepartureTime)) {
+			departureDate = departureDate.plusDays(1);
+		}
+
+		LocalDateTime departureDateTime = LocalDateTime.of(departureDate, stopDepartureTime);
+
+		if(departureDateTime.isBefore(LocalDateTime.now())) {
+			throw new BusinessException(TrainErrorCode.DEPARTURE_TIME_PASSED);
+		}
+	}
+
+	/**
 	 * 요청된 승객 수와 선택한 좌석 수의 일치 여부를 검증
 	 * */
 	public void validatePassengerSeatCount(List<PassengerType> passengerTypes, List<Long> seatIds) {
@@ -116,8 +140,8 @@ public class BookingValidator {
 
 	/**
 	 * 좌석 검증
-	 * 1. 좌석 존재 여부 검증
-	 * 2. 동일 객차 타입 검증
+	 * <p>1. 좌석 존재 여부 검증
+	 * <p>2. 동일 객차 타입 검증
 	 */
 	public CarType validateSeatIdsAndGetSingleCarType(List<CarType> carTypes) {
 		if (carTypes.isEmpty()) {
@@ -142,8 +166,8 @@ public class BookingValidator {
 	}
 
 	/**
-	 // * 결제 준비 시 좌석 충돌 검증
-	 * - Redis Hold 구간과 DB SeatBooking 구간 비교
+	 * 결제 준비 시 좌석 충돌 검증
+	 * <p>- Redis Hold 구간과 DB SeatBooking 구간 비교
 	 * @param pendingBookings 결제할 PendingBooking 목록
 	 */
 	public void validateSeatConflicts(List<PendingBooking> pendingBookings) {

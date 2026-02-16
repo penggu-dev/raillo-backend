@@ -34,6 +34,7 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
+import com.sudo.raillo.train.exception.TrainErrorCode;
 
 @ServiceTest
 class PendingBookingFacadeTest {
@@ -143,5 +144,61 @@ class PendingBookingFacadeTest {
 		);
 
 		assertThat(result.success()).isTrue();
+	}
+
+	@Test
+	@DisplayName("출발 시간이 이미 지난 열차를 예약하면 예외가 발생한다")
+	void createPendingBooking_fail_departureTimePassed() {
+		// given
+		TrainScheduleResult pastSchedule = trainScheduleTestHelper.builder()
+			.scheduleName("KTX 002 경부선")
+			.train(train)
+			.operationDate(LocalDate.now().minusDays(1)) // 과거 시간으로 스케줄 생성
+			.addStop("서울", null, LocalTime.of(5, 0))
+			.addStop("대전", LocalTime.of(7, 0), LocalTime.of(7, 5))
+			.addStop("부산", LocalTime.of(9, 0), null)
+			.build();
+
+		String memberNo = "202601010001";
+		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+			pastSchedule.trainSchedule().getId(),
+			pastSchedule.scheduleStops().get(0).getStation().getId(),
+			pastSchedule.scheduleStops().get(2).getStation().getId(),
+			List.of(PassengerType.ADULT),
+			List.of(seats.get(0).getId())
+		);
+
+		// when & then
+		assertThatThrownBy(() -> pendingBookingFacade.createPendingBooking(request, memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", TrainErrorCode.DEPARTURE_TIME_PASSED);
+	}
+
+	@Test
+	@DisplayName("자정을 넘기는 야간 열차의 출발 시간이 아직 지나지 않았으면 예약에 성공한다")
+	void createPendingBooking_success_overnightTrain() {
+		// given
+		TrainScheduleResult overnightSchedule = trainScheduleTestHelper.builder()
+			.scheduleName("KTX 003 야간")
+			.train(train)
+			.operationDate(LocalDate.now().plusDays(1))
+			.addStop("서울", null, LocalTime.of(23, 0))
+			.addStop("대전", LocalTime.of(0, 30), LocalTime.of(0, 35))
+			.addStop("부산", LocalTime.of(2, 0), null)
+			.build();
+		trainScheduleTestHelper.createOrUpdateStationFare("대전", "부산", 30000, 50000);
+
+		String memberNo = "202601010001";
+		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+			overnightSchedule.trainSchedule().getId(),
+			overnightSchedule.scheduleStops().get(1).getStation().getId(),  // 자정을 넘긴 중간역
+			overnightSchedule.scheduleStops().get(2).getStation().getId(),
+			List.of(PassengerType.ADULT),
+			List.of(seats.get(0).getId())
+		);
+
+		// when & then
+		assertThatCode(() -> pendingBookingFacade.createPendingBooking(request, memberNo))
+			.doesNotThrowAnyException();
 	}
 }

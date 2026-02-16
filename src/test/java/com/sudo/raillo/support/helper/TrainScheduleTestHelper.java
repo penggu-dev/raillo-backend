@@ -49,7 +49,7 @@ public class TrainScheduleTestHelper {
 		createOrUpdateStationFare("서울", "부산", 50000, 100000);
 		return builder()
 			.scheduleName("KTX 001 경부선")
-			.operationDate(LocalDate.now())
+			.operationDate(LocalDate.now().plusDays(1))
 			.train(train)
 			.addStop("서울", null, LocalTime.of(5, 0))
 			.addStop("부산", LocalTime.of(8, 0), null)

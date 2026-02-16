@@ -40,7 +40,7 @@ public enum TrainErrorCode implements ErrorCode {
 	INVALID_OPERATION_DATE("운행 날짜는 오늘 이후여야 합니다.", HttpStatus.BAD_REQUEST, "T4401"),
 	OPERATION_DATE_TOO_FAR("예약 가능한 기간을 초과했습니다. (최대 1개월)", HttpStatus.BAD_REQUEST, "T4402"),
 	NO_OPERATION_ON_DATE("해당 날짜와 운행하는 열차가 없습니다.", HttpStatus.NOT_FOUND, "T4403"),
-	DEPARTURE_TIME_PASSED("선택하신 출발 시간이 이미 지났습니다.", HttpStatus.BAD_REQUEST, "T4404"),
+	DEPARTURE_TIME_PASSED("선택하신 열차의 출발 시간이 이미 지났습니다.", HttpStatus.BAD_REQUEST, "T4404"),
 
 	// 검색 관련
 	NO_SEARCH_RESULTS("검색 조건에 맞는 열차가 없습니다.", HttpStatus.NOT_FOUND, "T4501"),

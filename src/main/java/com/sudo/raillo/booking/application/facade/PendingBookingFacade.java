@@ -50,6 +50,7 @@ public class PendingBookingFacade {
 
 		// 2. 검증
 		bookingValidator.validateTrainOperating(trainSchedule);
+		bookingValidator.validateDepartureTimeNotPassed(trainSchedule, departureStop);
 		bookingValidator.validateSameSchedule(departureStop, arrivalStop);
 		bookingValidator.validateStopSequence(departureStop, arrivalStop);
 		bookingValidator.validatePassengerSeatCount(request.passengerTypes(), request.seatIds());
