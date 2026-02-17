@@ -5,6 +5,7 @@ import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.member.domain.Member;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -38,6 +39,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class BookingValidator {
 
+	private static final long BOOKING_CLOSE_MINUTES_BEFORE_DEPARTURE = 5L;
+
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final SeatBookingRepository seatBookingRepository;
 
@@ -68,25 +71,24 @@ public class BookingValidator {
 		}
 	}
 
-	/**
-	 * 출발 시간이 현재 시간보다 이전인지 검증
-	 * <p>자정을 넘기는 야간 열차의 경우 operationDate + 1일로 계산
-	 */
-	public void validateDepartureTimeNotPassed(TrainSchedule trainSchedule, ScheduleStop departureStop) {
-		LocalDate departureDate = trainSchedule.getOperationDate();
-		LocalTime stopDepartureTime = departureStop.getDepartureTime();
-		LocalTime trainDepartureTime = trainSchedule.getDepartureTime();
+	public void validateDepartureTimeNotPassed(LocalDateTime departureDateTime, LocalDateTime now) {
+		LocalDateTime bookingClosedAt = departureDateTime.minusMinutes(BOOKING_CLOSE_MINUTES_BEFORE_DEPARTURE);
 
-		// 정차역 출발시간이 열차 출발시간보다 이르면 자정을 넘긴 것이므로 다음날로 처리
-		if(stopDepartureTime.isBefore(trainDepartureTime)) {
-			departureDate = departureDate.plusDays(1);
-		}
-
-		LocalDateTime departureDateTime = LocalDateTime.of(departureDate, stopDepartureTime);
-
-		if(departureDateTime.isBefore(LocalDateTime.now())) {
+		if (!now.isBefore(bookingClosedAt)) {
 			throw new BusinessException(TrainErrorCode.DEPARTURE_TIME_PASSED);
 		}
+	}
+
+	public Duration calculatePendingBookingTtl(
+		LocalDateTime departureDateTime,
+		Duration defaultPendingBookingTtl,
+		LocalDateTime now
+	) {
+		Duration remainingUntilDeparture = Duration.between(now, departureDateTime);
+
+		return remainingUntilDeparture.compareTo(defaultPendingBookingTtl) < 0
+			? remainingUntilDeparture
+			: defaultPendingBookingTtl;
 	}
 
 	/**
@@ -242,5 +244,18 @@ public class BookingValidator {
 		return pendingBooking.getPendingSeatBookings().stream()
 			.map(PendingSeatBooking::seatId)
 			.toList();
+	}
+
+	public LocalDateTime calculateDepartureDateTime(TrainSchedule trainSchedule, ScheduleStop departureStop) {
+		LocalDate departureDate = trainSchedule.getOperationDate();
+		LocalTime stopDepartureTime = departureStop.getDepartureTime();
+		LocalTime trainDepartureTime = trainSchedule.getDepartureTime();
+
+		// 정차역 출발시간이 열차 출발시간보다 이르면 자정을 넘긴 것이므로 다음날로 처리
+		if (stopDepartureTime.isBefore(trainDepartureTime)) {
+			departureDate = departureDate.plusDays(1);
+		}
+
+		return LocalDateTime.of(departureDate, stopDepartureTime);
 	}
 }

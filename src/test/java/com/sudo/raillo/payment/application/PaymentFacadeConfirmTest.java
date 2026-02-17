@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -342,7 +343,8 @@ class PaymentFacadeConfirmTest {
 			departureStop,
 			arrivalStop,
 			seatIds,
-			trainCarId
+			trainCarId,
+			Duration.ofMinutes(10)
 		);
 
 		bookingRedisRepository.savePendingBooking(pendingBooking);

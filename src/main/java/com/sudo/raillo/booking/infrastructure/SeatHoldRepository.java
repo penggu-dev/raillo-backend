@@ -1,5 +1,7 @@
 package com.sudo.raillo.booking.infrastructure;
 
+import java.time.Duration;
+
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
@@ -62,6 +64,47 @@ public class SeatHoldRepository {
 		int arrivalStopOrder,
 		Long trainCarId
 	) {
+		return tryHold(
+			trainScheduleId,
+			seatId,
+			pendingBookingId,
+			departureStopOrder,
+			arrivalStopOrder,
+			trainCarId,
+			seatHoldTTLSeconds
+		);
+	}
+
+	public SeatHoldResult tryHold(
+		Long trainScheduleId,
+		Long seatId,
+		String pendingBookingId,
+		int departureStopOrder,
+		int arrivalStopOrder,
+		Long trainCarId,
+		Duration holdTtl
+	) {
+		long holdTtlSeconds = Math.max(1L, holdTtl.toSeconds());
+		return tryHold(
+			trainScheduleId,
+			seatId,
+			pendingBookingId,
+			departureStopOrder,
+			arrivalStopOrder,
+			trainCarId,
+			holdTtlSeconds
+		);
+	}
+
+	private SeatHoldResult tryHold(
+		Long trainScheduleId,
+		Long seatId,
+		String pendingBookingId,
+		int departureStopOrder,
+		int arrivalStopOrder,
+		Long trainCarId,
+		long holdTtlSeconds
+	) {
 		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
 		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
 		List<String> sections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
@@ -76,7 +119,7 @@ public class SeatHoldRepository {
 			// - KEYS: [holdKey, holdsKey, holdIndexKey] - Redis 키들
 			// - ARGV: [ttl, pendingBookingId, seatId, section1, section2, ...] - 인자들
 			// - 반환: List<Object> (Lua table이 Java List로 변환됨)
-			Object[] args = buildHoldArgs(pendingBookingId, seatId, sections);
+			Object[] args = buildHoldArgs(pendingBookingId, seatId, sections, holdTtlSeconds);
 
 			@SuppressWarnings("unchecked")  // DefaultRedisScript<List>의 raw type 때문에 필요
 			List<Object> result = customStringRedisTemplate.execute(
@@ -226,15 +269,17 @@ public class SeatHoldRepository {
 	 * @param pendingBookingId 예약 ID (holds 인덱스에 추가할 값)
 	 * @param seatId 좌석 ID (Hold Index 멤버 생성용)
 	 * @param sections 구간 목록 (예: ["0-1", "1-2", "2-3"])
+	 * @param holdTtlSeconds hold TTL (초)
 	 * @return Lua ARGV로 전달할 인자 배열
 	 */
 	private Object[] buildHoldArgs(
 		String pendingBookingId,
 		Long seatId,
-		List<String> sections
+		List<String> sections,
+		long holdTtlSeconds
 	) {
 		Object[] args = new Object[sections.size() + 3];
-		args[0] = String.valueOf(seatHoldTTLSeconds);    // ARGV[1]: TTL
+		args[0] = String.valueOf(holdTtlSeconds);        // ARGV[1]: TTL
 		args[1] = pendingBookingId;                      // ARGV[2]: pendingBookingId
 		args[2] = String.valueOf(seatId);                // ARGV[3]: seatId
 		for (int i = 0; i < sections.size(); i++) {

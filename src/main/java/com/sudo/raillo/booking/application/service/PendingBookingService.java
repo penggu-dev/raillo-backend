@@ -20,6 +20,8 @@ import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,7 +59,8 @@ public class PendingBookingService {
 		List<PassengerType> passengerTypes,
 		List<Long> seatIds,
 		String memberNo,
-		BigDecimal totalFare
+		BigDecimal totalFare,
+		Duration pendingBookingTtl
 	) {
 		List<PendingSeatBooking> pendingSeatBookings = createPendingSeatBookings(passengerTypes, seatIds);
 
@@ -71,9 +74,17 @@ public class PendingBookingService {
 			totalFare
 		);
 
-		bookingRedisRepository.savePendingBooking(pendingBooking);
+		bookingRedisRepository.savePendingBooking(pendingBooking, pendingBookingTtl);
 
 		return pendingBooking;
+	}
+
+	public Duration calculatePendingBookingTtl(LocalDateTime departureDateTime, LocalDateTime now) {
+		return bookingValidator.calculatePendingBookingTtl(
+			departureDateTime,
+			bookingRedisRepository.getPendingBookingExpireTime(),
+			now
+		);
 	}
 
 	/**
