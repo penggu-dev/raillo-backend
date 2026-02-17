@@ -129,10 +129,12 @@ public class PendingBookingFacade {
 
 	/**
 	 * 예약 삭제
-	 * 좌석 Hold 해제 → PendingBooking 삭제
+	 * PendingBooking 삭제 (취소 확정) → 좌석 Hold 해제 (best-effort 정리)
 	 */
 	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
 		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);
+
+		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
 
 		pendingBookings.forEach(pendingBooking -> {
 			try {
@@ -154,8 +156,6 @@ public class PendingBookingFacade {
 				log.warn("[좌석 Hold 해제 실패] pendingBookingId={}, error={}", pendingBooking.getId(), e.getMessage());
 			}
 		});
-
-		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
 	}
 
 	private List<Long> extractSeatIds(PendingBooking pendingBooking) {

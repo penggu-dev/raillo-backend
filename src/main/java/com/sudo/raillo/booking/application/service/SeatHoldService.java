@@ -80,14 +80,18 @@ public class SeatHoldService {
 			pendingBookingId, trainScheduleId, seatIds.size());
 
 		for (Long seatId : seatIds) {
-			seatHoldRepository.releaseHold(
-				trainScheduleId,
-				seatId,
-				pendingBookingId,
-				trainCarId,
-				departureStopOrder,
-				arrivalStopOrder
-			);
+			try {
+				seatHoldRepository.releaseHold(
+					trainScheduleId,
+					seatId,
+					pendingBookingId,
+					trainCarId,
+					departureStopOrder,
+					arrivalStopOrder
+				);
+			} catch (Exception e) {
+				log.error("[좌석 Hold 해제 실패] seatId={}, error={}", seatId, e.getMessage());
+			}
 		}
 	}
 
@@ -199,20 +203,7 @@ public class SeatHoldService {
 		log.warn("[좌석 Hold 롤백] trainScheduleId={}, seatIds={}, pendingBookingId={}",
 			trainScheduleId, seatIds, pendingBookingId);
 
-		for (Long seatId : seatIds) {
-			try {
-				seatHoldRepository.releaseHold(
-					trainScheduleId,
-					seatId,
-					pendingBookingId,
-					trainCarId,
-					departureStopOrder,
-					arrivalStopOrder
-				);
-			} catch (Exception e) {
-				log.error("[롤백 실패] seatId={}, error={}", seatId, e.getMessage());
-			}
-		}
+		releaseSeats(pendingBookingId, trainScheduleId, seatIds, trainCarId, departureStopOrder, arrivalStopOrder);
 	}
 
 	private void throwConflictException(SeatHoldResult result) {
