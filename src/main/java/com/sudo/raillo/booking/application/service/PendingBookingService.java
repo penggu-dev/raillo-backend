@@ -80,11 +80,12 @@ public class PendingBookingService {
 	}
 
 	public Duration calculatePendingBookingTtl(LocalDateTime departureDateTime, LocalDateTime now) {
-		return bookingValidator.calculatePendingBookingTtl(
-			departureDateTime,
-			bookingRedisRepository.getPendingBookingExpireTime(),
-			now
-		);
+		Duration remainingUntilDeparture = Duration.between(now, departureDateTime);
+
+		Duration defaultPendingBookingTtl = bookingRedisRepository.getPendingBookingExpireTime();
+		return remainingUntilDeparture.compareTo(defaultPendingBookingTtl) < 0
+			? remainingUntilDeparture
+			: defaultPendingBookingTtl;
 	}
 
 	/**

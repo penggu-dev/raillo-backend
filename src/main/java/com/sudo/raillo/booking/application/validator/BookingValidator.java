@@ -5,7 +5,6 @@ import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.member.domain.Member;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -75,18 +74,6 @@ public class BookingValidator {
 		if (!now.isBefore(bookingClosedAt)) {
 			throw new BusinessException(TrainErrorCode.DEPARTURE_TIME_PASSED);
 		}
-	}
-
-	public Duration calculatePendingBookingTtl(
-		LocalDateTime departureDateTime,
-		Duration defaultPendingBookingTtl,
-		LocalDateTime now
-	) {
-		Duration remainingUntilDeparture = Duration.between(now, departureDateTime);
-
-		return remainingUntilDeparture.compareTo(defaultPendingBookingTtl) < 0
-			? remainingUntilDeparture
-			: defaultPendingBookingTtl;
 	}
 
 	/**
