@@ -26,9 +26,14 @@ public class SeatHoldService {
 	private final SeatHoldRepository seatHoldRepository;
 	private final SeatHoldKeyGenerator seatHoldKeyGenerator;
 
+	private static final Duration HOLD_TTL_BUFFER = Duration.ofMinutes(1);
+
 	/**
 	 * 좌석 임시 점유 시도
 	 * PendingBooking 생성 전에 호출하여 충돌 검사 수행
+	 *
+	 * <p>Hold TTL은 PendingBooking TTL보다 1분 길게 설정하여
+	 * PendingBooking이 만료되기 전에 Hold가 먼저 사라지는 것을 방지한다.</p>
 	 *
 	 * @param pendingBookingId 미리 생성한 UUID (Hold 키 식별자)
 	 * @param trainScheduleId 열차 스케줄 ID
@@ -36,7 +41,7 @@ public class SeatHoldService {
 	 * @param arrivalStop 도착 정차역
 	 * @param seatIds 점유할 좌석 ID 목록
 	 * @param trainCarId 객차 ID (Hold Index 키 생성용)
-	 * @param holdTtl 커스텀 TTL
+	 * @param pendingBookingTtl PendingBooking TTL
 	 * @throws BusinessException 좌석 충돌 시 예외 발생
 	 */
 	public void holdSeats(
@@ -46,7 +51,7 @@ public class SeatHoldService {
 		ScheduleStop arrivalStop,
 		List<Long> seatIds,
 		Long trainCarId,
-		Duration holdTtl
+		Duration pendingBookingTtl
 	) {
 		int departureStopOrder = departureStop.getStopOrder();
 		int arrivalStopOrder = arrivalStop.getStopOrder();
@@ -54,6 +59,7 @@ public class SeatHoldService {
 		log.info("[좌석 Hold 요청] pendingBookingId={}, trainScheduleId={}, trainCarId={}, stopOrder={}->{}, seatCount={}",
 			pendingBookingId, trainScheduleId, trainCarId, departureStopOrder, arrivalStopOrder, seatIds.size());
 
+		Duration holdTtl = pendingBookingTtl.plus(HOLD_TTL_BUFFER);
 		tryHoldSeats(trainScheduleId, seatIds, pendingBookingId, departureStopOrder, arrivalStopOrder, trainCarId, holdTtl);
 	}
 

@@ -64,26 +64,6 @@ public class SeatHoldRepository {
 		Duration holdTtl
 	) {
 		long holdTtlSeconds = Math.max(1L, holdTtl.toSeconds());
-		return tryHold(
-			trainScheduleId,
-			seatId,
-			pendingBookingId,
-			departureStopOrder,
-			arrivalStopOrder,
-			trainCarId,
-			holdTtlSeconds
-		);
-	}
-
-	private SeatHoldResult tryHold(
-		Long trainScheduleId,
-		Long seatId,
-		String pendingBookingId,
-		int departureStopOrder,
-		int arrivalStopOrder,
-		Long trainCarId,
-		long holdTtlSeconds
-	) {
 		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
 		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
 		List<String> sections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);

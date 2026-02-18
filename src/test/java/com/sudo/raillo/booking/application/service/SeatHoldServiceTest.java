@@ -99,8 +99,8 @@ class SeatHoldServiceTest {
 		}
 
 		@Test
-		@DisplayName("TTL을 지정하면 Hold 키 TTL이 동일하게 설정된다")
-		void holdSeats_success_withCustomTtl() {
+		@DisplayName("Hold TTL은 PendingBooking TTL보다 1분 길게 설정된다")
+		void holdSeats_success_holdTtlHasBuffer() {
 			// given
 			String pendingBookingId = "pending-booking-ttl-001";
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
@@ -108,9 +108,9 @@ class SeatHoldServiceTest {
 			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId());
 			Long trainCarId = seats.get(0).getTrainCar().getId();
-			Duration customTtl = Duration.ofSeconds(120);
+			Duration pendingBookingTtl = Duration.ofSeconds(120);
 
-			// when
+			// when - PendingBooking TTL 120초 전달 → Hold TTL 180초(+1분 버퍼)
 			seatHoldService.holdSeats(
 				pendingBookingId,
 				trainScheduleId,
@@ -118,17 +118,17 @@ class SeatHoldServiceTest {
 				arrivalStop,
 				seatIds,
 				trainCarId,
-				customTtl
+				pendingBookingTtl
 			);
 
-			// then
+			// then - Hold TTL이 PendingBooking TTL + 1분(60초) = 180초
 			String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatIds.get(0), pendingBookingId);
 			String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatIds.get(0));
 			Long holdKeyTtl = customStringRedisTemplate.getExpire(holdKey, TimeUnit.SECONDS);
 			Long holdsKeyTtl = customStringRedisTemplate.getExpire(holdsKey, TimeUnit.SECONDS);
 
-			assertThat(holdKeyTtl).isBetween(110L, 120L);
-			assertThat(holdsKeyTtl).isBetween(110L, 120L);
+			assertThat(holdKeyTtl).isBetween(170L, 180L);
+			assertThat(holdsKeyTtl).isBetween(170L, 180L);
 		}
 
 		@Test
