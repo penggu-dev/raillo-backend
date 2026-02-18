@@ -6,9 +6,7 @@ import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.member.domain.Member;
 
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -246,16 +244,4 @@ public class BookingValidator {
 			.toList();
 	}
 
-	public LocalDateTime calculateDepartureDateTime(TrainSchedule trainSchedule, ScheduleStop departureStop) {
-		LocalDate departureDate = trainSchedule.getOperationDate();
-		LocalTime stopDepartureTime = departureStop.getDepartureTime();
-		LocalTime trainDepartureTime = trainSchedule.getDepartureTime();
-
-		// 정차역 출발시간이 열차 출발시간보다 이르면 자정을 넘긴 것이므로 다음날로 처리
-		if (stopDepartureTime.isBefore(trainDepartureTime)) {
-			departureDate = departureDate.plusDays(1);
-		}
-
-		return LocalDateTime.of(departureDate, stopDepartureTime);
-	}
 }

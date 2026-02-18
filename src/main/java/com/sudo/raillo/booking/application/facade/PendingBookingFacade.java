@@ -58,7 +58,7 @@ public class PendingBookingFacade {
 		// 2. 검증
 		bookingValidator.validateTrainOperating(trainSchedule);
 		LocalDateTime now = LocalDateTime.now();
-		LocalDateTime departureDateTime = bookingValidator.calculateDepartureDateTime(trainSchedule, departureStop);
+		LocalDateTime departureDateTime = trainSchedule.getDepartureDateTimeAt(departureStop);
 		bookingValidator.validateDepartureTimeNotPassed(departureDateTime, now);
 		bookingValidator.validateSameSchedule(departureStop, arrivalStop);
 		bookingValidator.validateStopSequence(departureStop, arrivalStop);

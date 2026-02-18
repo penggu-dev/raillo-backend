@@ -1,6 +1,7 @@
 package com.sudo.raillo.train.domain;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 import com.sudo.raillo.train.domain.status.OperationStatus;
@@ -97,5 +98,15 @@ public class TrainSchedule {
 	public void recoverDelay() {
 		this.delayMinutes = 0;
 		this.operationStatus = OperationStatus.ACTIVE;
+	}
+
+	public LocalDateTime getDepartureDateTimeAt(ScheduleStop stop) {
+		LocalDate date = operationDate;
+
+		// 정차역 출발시간이 열차 출발시간보다 이르면 자정을 넘긴 것이므로 다음날로 처리
+		if (stop.getDepartureTime().isBefore(departureTime)) {
+			date = date.plusDays(1);
+		}
+		return LocalDateTime.of(date, stop.getDepartureTime());
 	}
 }
