@@ -21,7 +21,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
+import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
@@ -33,6 +35,7 @@ import com.sudo.raillo.support.fixture.PendingBookingFixture;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
+import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
@@ -46,6 +49,9 @@ class PendingBookingFacadeTest {
 
 	@MockitoSpyBean
 	private PendingBookingService pendingBookingService;
+
+	@Autowired
+	private SeatHoldService seatHoldService;
 
 	@Autowired
 	private SeatHoldRepository seatHoldRepository;
@@ -79,7 +85,48 @@ class PendingBookingFacadeTest {
 		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 30000, 50000);
 	}
 
-	// PendingBookingFacadeTest로 이동
+	@Test
+	@DisplayName("예약 삭제 시 좌석 Hold가 해제된다")
+	void deletePendingBookings_success_holdReleased() {
+		// given
+		String memberNo = "202601010001";
+		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
+		Long seatId = seats.get(0).getId();
+
+		PendingBooking pendingBooking = PendingBookingFixture.builder()
+			.withMemberNo(memberNo)
+			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
+			.withDepartureStopId(departureStop.getId())
+			.withArrivalStopId(arrivalStop.getId())
+			.withPendingSeatBookings(List.of(new PendingSeatBooking(seatId, PassengerType.ADULT)))
+			.build();
+
+		seatHoldService.holdSeats(
+			pendingBooking.getId(),
+			trainScheduleResult.trainSchedule().getId(),
+			departureStop,
+			arrivalStop,
+			List.of(seatId),
+			Duration.ofMinutes(10)
+		);
+		bookingRedisRepository.savePendingBooking(pendingBooking);
+
+		// when
+		pendingBookingFacade.deletePendingBookings(List.of(pendingBooking.getId()), memberNo);
+
+		// then - Hold가 해제되어 다른 사용자가 같은 좌석을 Hold 할 수 있어야 함
+		SeatHoldResult result = seatHoldRepository.tryHold(
+			trainScheduleResult.trainSchedule().getId(),
+			seatId,
+			"other-pending-booking",
+			departureStop.getStopOrder(),
+			arrivalStop.getStopOrder(),
+			Duration.ofMinutes(10)
+		);
+		assertThat(result.success()).isTrue();
+	}
+
 	@Test
 	@DisplayName("권한이 없는 예약을 삭제하려고 시도하면 예외가 발생한다")
 	void deletePendingBookings_fail_notOwner() {

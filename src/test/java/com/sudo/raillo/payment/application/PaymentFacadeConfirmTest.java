@@ -20,6 +20,8 @@ import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
+import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
+import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -79,6 +81,9 @@ class PaymentFacadeConfirmTest {
 
 	@Autowired
 	private SeatHoldService seatHoldService;
+
+	@Autowired
+	private SeatHoldRepository seatHoldRepository;
 
 	private Member member;
 	private String memberNo;
@@ -203,6 +208,44 @@ class PaymentFacadeConfirmTest {
 		// 바깥 트랜잭션은 롤백되었으므로 Order는 PENDING 상태 그대로
 		Order savedOrder = orderRepository.findByOrderCode(prepareResponse.orderId()).orElseThrow();
 		assertThat(savedOrder.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
+	}
+
+	@Test
+	@DisplayName("결제 승인 성공 시 좌석 Hold가 해제된다")
+	void confirmPayment_holdReleasedAfterSuccess() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_hold_release_test";
+
+		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
+		Long seatId = pendingBooking.getPendingSeatBookings().get(0).seatId();
+
+		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
+			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+
+		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
+			paymentKey, prepareResponse.orderId(), "카드", amount.longValue(), "DONE");
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
+			.willReturn(tossResponse);
+
+		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+			paymentKey, prepareResponse.orderId(), amount);
+
+		// when
+		paymentFacade.confirmPayment(confirmRequest, memberNo);
+
+		// then - Hold가 해제되어 다른 사용자가 같은 좌석을 Hold 할 수 있어야 함
+		SeatHoldResult result = seatHoldRepository.tryHold(
+			trainScheduleResult.trainSchedule().getId(),
+			seatId,
+			"other-pending-booking",
+			departureStop.getStopOrder(),
+			arrivalStop.getStopOrder(),
+			Duration.ofMinutes(10)
+		);
+		assertThat(result.success()).isTrue();
 	}
 
 	// ========== 실패 시나리오 테스트 ==========
