@@ -137,7 +137,6 @@ public class SeatHoldService {
 	 *
 	 * <p>모든 좌석에 대해 순차적으로 Hold를 시도하고,
 	 * 하나라도 실패하면 이미 성공한 좌석들을 롤백함</p>
-	 *
 	 */
 	private void tryHoldSeats(
 		Long trainScheduleId,
