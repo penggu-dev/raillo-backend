@@ -2,8 +2,10 @@ package com.sudo.raillo.payment.application;
 
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
+import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberService;
@@ -37,6 +39,7 @@ public class PaymentFacade {
 	private final OrderService orderService;
 	private final MemberService memberService;
 	private final PendingBookingService pendingBookingService;
+	private final SeatHoldService seatHoldService;
 	private final BookingService bookingService;
 	private final TossPaymentClient tossPaymentClient;
 	private final PaymentValidator paymentValidator;
@@ -141,8 +144,8 @@ public class PaymentFacade {
 	}
 
 	/**
-	 * PendingBooking 삭제
-	 * <p>예매가 완료된 PendingBooking에 대해 삭제를 수행합니다.</p>
+	 * PendingBooking 삭제 및 Hold 해제
+	 * <p>예매가 완료된 PendingBooking에 대해 삭제 및 좌석 Hold 해제를 수행합니다.</p>
 	 */
 	private void cleanupPendingBookings(List<PendingBooking> pendingBookings) {
 		List<String> pendingBookingIds = pendingBookings.stream()
@@ -151,7 +154,17 @@ public class PaymentFacade {
 		String memberNo = pendingBookings.get(0).getMemberNo();
 		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
 
-		log.info("[PendingBooking 삭제 완료] pendingBookingCount={}", pendingBookings.size());
+		pendingBookings.forEach(pendingBooking ->
+			seatHoldService.releaseSeats(
+				pendingBooking.getId(),
+				pendingBooking.getTrainScheduleId(),
+				pendingBooking.getPendingSeatBookings().stream()
+					.map(PendingSeatBooking::seatId)
+					.toList()
+			)
+		);
+
+		log.info("[PendingBooking 삭제 및 Hold 해제 완료] pendingBookingCount={}", pendingBookings.size());
 	}
 
 	/**
