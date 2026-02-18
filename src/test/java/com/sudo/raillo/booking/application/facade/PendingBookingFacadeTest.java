@@ -145,7 +145,8 @@ class PendingBookingFacadeTest {
 			"other-pending-booking",
 			departureStopOrder,
 			arrivalStopOrder,
-			trainCarId
+			trainCarId,
+			Duration.ofMinutes(10)
 		);
 
 		assertThat(result.success()).isTrue();

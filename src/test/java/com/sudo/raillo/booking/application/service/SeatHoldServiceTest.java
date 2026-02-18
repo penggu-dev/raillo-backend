@@ -217,7 +217,7 @@ class SeatHoldServiceTest {
 			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// 좌석 2번에 먼저 Hold
-			seatHoldRepository.tryHold(trainScheduleId, seat2Id, pendingBookingId1, departureStopOrder, arrivalStopOrder, trainCarId);
+			seatHoldRepository.tryHold(trainScheduleId, seat2Id, pendingBookingId1, departureStopOrder, arrivalStopOrder, trainCarId, Duration.ofMinutes(10));
 
 			// when - 좌석 1, 2, 3 동시 Hold 시도 (2번에서 충돌)
 			assertThatThrownBy(() ->
@@ -236,7 +236,7 @@ class SeatHoldServiceTest {
 
 			// then - 좌석 1번도 롤백되어 Hold 가능해야 함
 			SeatHoldResult result = seatHoldRepository.tryHold(
-				trainScheduleId, seat1Id, "pending-booking-003", departureStopOrder, arrivalStopOrder, trainCarId
+				trainScheduleId, seat1Id, "pending-booking-003", departureStopOrder, arrivalStopOrder, trainCarId, Duration.ofMinutes(10)
 			);
 			assertThat(result.success()).isTrue();
 		}
@@ -416,7 +416,8 @@ class SeatHoldServiceTest {
 				"new-pending",
 				departureStop.getStopOrder(),
 				arrivalStop.getStopOrder(),
-				trainCarId
+				trainCarId,
+				Duration.ofMinutes(10)
 			);
 			assertThat(result.success()).isTrue();
 		}

@@ -40,9 +40,6 @@ public class SeatHoldRepository {
 	private final DefaultRedisScript<List> seatReleaseScript;
 	private final DefaultRedisScript<Long> getHoldSeatsCountScript;
 
-	@Value("${redis.ttl.seat-hold:600}")
-	private long seatHoldTTLSeconds;
-
 	/**
 	 * 좌석 임시 점유 시도
 	 *
@@ -54,27 +51,9 @@ public class SeatHoldRepository {
 	 * @param departureStopOrder 출발역 stopOrder
 	 * @param arrivalStopOrder 도착역 stopOrder
 	 * @param trainCarId 객차 ID (Hold Index 키 생성용)
+	 * @param holdTtl Hold TTL
 	 * @return SeatHoldResult 점유 결과 (성공/실패 + 충돌 정보)
 	 */
-	public SeatHoldResult tryHold(
-		Long trainScheduleId,
-		Long seatId,
-		String pendingBookingId,
-		int departureStopOrder,
-		int arrivalStopOrder,
-		Long trainCarId
-	) {
-		return tryHold(
-			trainScheduleId,
-			seatId,
-			pendingBookingId,
-			departureStopOrder,
-			arrivalStopOrder,
-			trainCarId,
-			seatHoldTTLSeconds
-		);
-	}
-
 	public SeatHoldResult tryHold(
 		Long trainScheduleId,
 		Long seatId,

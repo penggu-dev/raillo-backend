@@ -36,7 +36,7 @@ public class SeatHoldService {
 	 * @param arrivalStop 도착 정차역
 	 * @param seatIds 점유할 좌석 ID 목록
 	 * @param trainCarId 객차 ID (Hold Index 키 생성용)
-	 * @param holdTtl 커스텀 TTL (null이면 Repository 기본 TTL 사용)
+	 * @param holdTtl 커스텀 TTL
 	 * @throws BusinessException 좌석 충돌 시 예외 발생
 	 */
 	public void holdSeats(
@@ -132,7 +132,6 @@ public class SeatHoldService {
 	 * <p>모든 좌석에 대해 순차적으로 Hold를 시도하고,
 	 * 하나라도 실패하면 이미 성공한 좌석들을 롤백함</p>
 	 *
-	 * @param holdTtl 커스텀 TTL (null이면 Repository 기본 TTL 사용)
 	 */
 	private void tryHoldSeats(
 		Long trainScheduleId,
@@ -150,9 +149,8 @@ public class SeatHoldService {
 
 		try {
 			for (Long seatId : seatIds) {
-				SeatHoldResult result = holdTtl == null
-					? seatHoldRepository.tryHold(trainScheduleId, seatId, pendingBookingId, departureStopOrder, arrivalStopOrder, trainCarId)
-					: seatHoldRepository.tryHold(trainScheduleId, seatId, pendingBookingId, departureStopOrder, arrivalStopOrder, trainCarId, holdTtl);
+				SeatHoldResult result = seatHoldRepository.tryHold(
+					trainScheduleId, seatId, pendingBookingId, departureStopOrder, arrivalStopOrder, trainCarId, holdTtl);
 
 				if (!result.success()) {
 					rollbackHolds(
