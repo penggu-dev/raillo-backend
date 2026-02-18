@@ -32,6 +32,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	private final PendingBookingFacade pendingBookingFacade;
 	private final PendingBookingService pendingBookingService;
 
+
 	/***
 	 * 예약을 생성하는 메서드
 	 * @param request 예약 생성 요청 DTO
@@ -72,7 +73,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	) {
 		String memberNo = userDetails.getUsername();
 
-		pendingBookingService.deletePendingBookings(request.pendingBookingIds(), memberNo);
+		pendingBookingFacade.deletePendingBookings(request.pendingBookingIds(), memberNo);
 		return SuccessResponse.of(BookingSuccess.PENDING_BOOKING_DELETE_SUCCESS);
 	}
 
