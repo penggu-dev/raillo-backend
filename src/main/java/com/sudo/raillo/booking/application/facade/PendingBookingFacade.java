@@ -16,7 +16,6 @@ import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.util.PendingBookingIdGenerator;
 import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.application.service.TrainScheduleService;
@@ -138,7 +137,7 @@ public class PendingBookingFacade {
 
 		pendingBookings.forEach(pendingBooking -> {
 			try {
-				List<Long> seatIds = extractSeatIds(pendingBooking);
+				List<Long> seatIds = pendingBooking.getSeatIds();
 				Long trainCarId = getTrainCarId(seatIds);
 				TrainSchedule trainSchedule = trainScheduleService.getTrainSchedule(pendingBooking.getTrainScheduleId());
 				ScheduleStop departureStop = trainScheduleService.getStopStation(trainSchedule, pendingBooking.getDepartureStopId());
@@ -156,12 +155,6 @@ public class PendingBookingFacade {
 				log.warn("[좌석 Hold 해제 실패] pendingBookingId={}, error={}", pendingBooking.getId(), e.getMessage());
 			}
 		});
-	}
-
-	private List<Long> extractSeatIds(PendingBooking pendingBooking) {
-		return pendingBooking.getPendingSeatBookings().stream()
-			.map(PendingSeatBooking::seatId)
-			.toList();
 	}
 
 	/**

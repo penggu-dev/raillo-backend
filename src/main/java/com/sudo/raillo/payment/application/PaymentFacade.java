@@ -5,7 +5,6 @@ import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberService;
@@ -152,15 +151,18 @@ public class PaymentFacade {
 			.map(PendingBooking::getId)
 			.toList();
 		String memberNo = pendingBookings.get(0).getMemberNo();
-		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
+
+		try {
+			pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
+		} catch (Exception e) {
+			log.error("[PendingBooking 삭제 실패] error={}", e.getMessage(), e);
+		}
 
 		pendingBookings.forEach(pendingBooking ->
 			seatHoldService.releaseSeats(
 				pendingBooking.getId(),
 				pendingBooking.getTrainScheduleId(),
-				pendingBooking.getPendingSeatBookings().stream()
-					.map(PendingSeatBooking::seatId)
-					.toList()
+				pendingBooking.getSeatIds()
 			)
 		);
 

@@ -49,6 +49,16 @@ public class PendingBooking {
 		this.createdAt = createdAt;
 	}
 
+	public List<Long> getSeatIds() {
+		if (pendingSeatBookings == null) {
+			return List.of();
+		}
+
+		return pendingSeatBookings.stream()
+			.map(PendingSeatBooking::seatId)
+			.toList();
+	}
+
 	public static PendingBooking create(
 		String id,
 		String memberNo,
