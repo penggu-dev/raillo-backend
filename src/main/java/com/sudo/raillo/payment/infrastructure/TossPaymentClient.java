@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -51,9 +50,12 @@ public class TossPaymentClient {
 			TossPaymentConfirmResponse response = tossPaymentRestClient.post()
 				.uri("/v1/payments/confirm")
 				.body(request)
-				.retrieve()
-				.onStatus(HttpStatusCode::isError, (req, res) -> handleErrorResponse(res, "결제 승인"))
-				.body(TossPaymentConfirmResponse.class);
+				.exchange((req, res) -> {
+					if (res.getStatusCode().isError()) {
+						handleErrorResponse(res, "결제 승인");
+					}
+					return res.bodyTo(TossPaymentConfirmResponse.class);
+				});
 
 			log.info("[TOSS] 결제 승인 성공: paymentKey={}, orderId={}, status={}",
 				response.paymentKey(), response.orderId(), response.status());
@@ -99,9 +101,12 @@ public class TossPaymentClient {
 				.uri("/v1/payments/{paymentKey}/cancel", paymentKey)
 				.header(IDEMPOTENCY_KEY_HEADER, idempotencyKey)
 				.body(request)
-				.retrieve()
-				.onStatus(HttpStatusCode::isError, (req, res) -> handleErrorResponse(res, "결제 취소"))
-				.body(TossPaymentCancelResponse.class);
+				.exchange((req, res) -> {
+					if (res.getStatusCode().isError()) {
+						handleErrorResponse(res, "결제 취소");
+					}
+					return res.bodyTo(TossPaymentCancelResponse.class);
+				});
 
 			log.info("[TOSS] 결제 취소 성공: paymentKey={}, status={}, balanceAmount={}, cancelCount={}",
 				response.paymentKey(), response.status(), response.balanceAmount(), response.getCancelCount());
@@ -124,10 +129,9 @@ public class TossPaymentClient {
 	}
 
 	private void handleErrorResponse(ClientHttpResponse res, String operation) throws IOException {
+		int statusCode = res.getStatusCode().value();
 		String raw = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
 		TossErrorResponseV1 error = objectMapper.readValue(raw, TossErrorResponseV1.class);
-
-		int statusCode = res.getStatusCode().value();
 
 		if (res.getStatusCode().is5xxServerError()) {
 			log.error("[TOSS] {} 실패 (5xx): httpStatus={}, code={}, message={}",
