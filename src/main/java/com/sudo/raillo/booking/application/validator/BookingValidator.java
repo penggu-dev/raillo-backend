@@ -1,6 +1,5 @@
 package com.sudo.raillo.booking.application.validator;
 
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.member.domain.Member;
@@ -169,7 +168,7 @@ public class BookingValidator {
 
 		for (PendingBooking pendingBooking : pendingBookings) {
 			Long trainScheduleId = pendingBooking.getTrainScheduleId();
-			List<Long> seatIds = getSeatIds(pendingBooking);
+			List<Long> seatIds = pendingBooking.getSeatIds();
 
 			// 3. stopOrder 추출
 			ScheduleStop departureStop = stopMap.get(pendingBooking.getDepartureStopId());
@@ -224,10 +223,5 @@ public class BookingValidator {
 		}
 	}
 
-	private static List<Long> getSeatIds(PendingBooking pendingBooking) {
-		return pendingBooking.getPendingSeatBookings().stream()
-			.map(PendingSeatBooking::seatId)
-			.toList();
-	}
 
 }

@@ -145,9 +145,7 @@ class PaymentScenarioTest {
 		assertThat(bookingRepository.findAll()).isNotEmpty();
 
 		// then - SeatBooking 생성 검증
-		List<Long> seatIds = pendingBooking.getPendingSeatBookings().stream()
-			.map(PendingSeatBooking::seatId)
-			.toList();
+		List<Long> seatIds = pendingBooking.getSeatIds();
 		List<SeatBooking> seatBookings = seatBookingRepository.findOverlappingSeatBookings(
 			trainScheduleResult.trainSchedule().getId(),
 			seatIds,
