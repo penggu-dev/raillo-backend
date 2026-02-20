@@ -1,7 +1,6 @@
 # ingress-controller 설치 명령어
 # kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.1/deploy/static/provider/aws/deploy.yaml
 
-
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -13,12 +12,12 @@ metadata:
 spec:
   tls:
     - hosts:
-        - "server.raillo.shop"
+        - "server.raillo.store"
       # https설정시에 TLS 인증서가 저장된 certificate의 Secret의 이름(spec.secretName)을 지정
       # https.yml 의 Certificate 정의의 spec.secretName 와 동일해야 함
       secretName: server-raillo-com-tls
   rules:
-    - host: server.raillo.shop
+    - host: server.raillo.store
       http:
         paths:
           - path: / #모든 url요청을 service로 라우팅

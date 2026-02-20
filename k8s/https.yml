@@ -8,7 +8,7 @@ spec:
     # ca 서버 주소. 해당 서버를 통해 인증서 발행
     server: https://acme-v02.api.letsencrypt.org/directory
     # 인증서 만료 또는 갱신 필요시 알람 email
-    email: kmina591208@gmail.com
+    email: railloservice@gmail.com
     privateKeySecretRef:
       # 인증서를 발급받기 위해 ca와 통신시에 사용되는 Secret 이름
       name: raillo-issuer
@@ -33,8 +33,8 @@ spec:
     # ClusterIssuer의 이름을 참조
     name: raillo-issuer
     kind: ClusterIssuer
-  commonName: server.raillo.shop
+  commonName: server.raillo.store
   dnsNames:
     # 추가적인 서브도메인을 추가하고 싶은경우에 여기에 나열
-    - server.raillo.shop
+    - server.raillo.store
 
