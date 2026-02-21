@@ -69,17 +69,19 @@ public class SeatHoldRepository {
 		log.debug("[좌석 Hold 시도] trainScheduleId={}, seatId={}, trainCarId={}, pendingBookingId={}, sections={}",
 			trainScheduleId, seatId, trainCarId, pendingBookingId, sections);
 
+		String holdIndexKey = seatHoldKeyGenerator.generateHoldIndexKey(trainScheduleId, trainCarId);
+
 		try {
 			// Lua 스크립트 실행
-			// - KEYS: [holdKey, holdsKey] - Redis 키들
-			// - ARGV: [ttl, pendingBookingId, seatId, scheduleId, trainCarId, section1, section2, ...] - 인자들
+			// - KEYS: [holdKey, holdsKey, holdIndexKey] - Redis 키들
+			// - ARGV: [ttl, pendingBookingId, seatId, section1, section2, ...] - 인자들
 			// - 반환: List<Object> (Lua table이 Java List로 변환됨)
-			Object[] args = buildHoldArgs(pendingBookingId, seatId, trainScheduleId, trainCarId, sections);
+			Object[] args = buildHoldArgs(pendingBookingId, seatId, sections);
 
 			@SuppressWarnings("unchecked")  // DefaultRedisScript<List>의 raw type 때문에 필요
 			List<Object> result = customStringRedisTemplate.execute(
 				seatHoldScript,
-				List.of(holdKey, holdsKey),
+				List.of(holdKey, holdsKey, holdIndexKey),
 				args
 			);
 
@@ -131,12 +133,14 @@ public class SeatHoldRepository {
 		log.debug("[좌석 Hold 해제] trainScheduleId={}, seatId={}, trainCarId={}, pendingBookingId={}",
 			trainScheduleId, seatId, trainCarId, pendingBookingId);
 
+		String holdIndexKey = seatHoldKeyGenerator.generateHoldIndexKey(trainScheduleId, trainCarId);
+
 		try {
-			Object[] args = buildReleaseArgs(pendingBookingId, seatId, trainScheduleId, trainCarId, sections);
+			Object[] args = buildReleaseArgs(pendingBookingId, seatId, sections);
 
 			customStringRedisTemplate.execute(
 				seatReleaseScript,
-				List.of(holdKey, holdsKey),
+				List.of(holdKey, holdsKey, holdIndexKey),
 				args
 			);
 
@@ -192,29 +196,23 @@ public class SeatHoldRepository {
 	/**
 	 * Release 스크립트 인자 배열 구성
 	 *
-	 * <p>ARGV 형식: [pendingBookingId, seatId, scheduleId, trainCarId, section1, section2, ...]</p>
+	 * <p>ARGV 형식: [pendingBookingId, seatId, section1, section2, ...]</p>
 	 *
 	 * @param pendingBookingId 예약 ID
 	 * @param seatId 좌석 ID
-	 * @param trainScheduleId 스케줄 ID
-	 * @param trainCarId 객차 ID
 	 * @param sections 구간 목록
 	 * @return Lua ARGV로 전달할 인자 배열
 	 */
 	private Object[] buildReleaseArgs(
 		String pendingBookingId,
 		Long seatId,
-		Long trainScheduleId,
-		Long trainCarId,
 		List<String> sections
 	) {
-		Object[] args = new Object[sections.size() + 4];
+		Object[] args = new Object[sections.size() + 2];
 		args[0] = pendingBookingId;                      // ARGV[1]: pendingBookingId
 		args[1] = String.valueOf(seatId);                // ARGV[2]: seatId
-		args[2] = String.valueOf(trainScheduleId);       // ARGV[3]: scheduleId
-		args[3] = String.valueOf(trainCarId);            // ARGV[4]: trainCarId
 		for (int i = 0; i < sections.size(); i++) {
-			args[i + 4] = sections.get(i);               // ARGV[5...]: sections
+			args[i + 2] = sections.get(i);               // ARGV[3...]: sections
 		}
 		return args;
 	}
@@ -222,30 +220,24 @@ public class SeatHoldRepository {
 	/**
 	 * Hold 스크립트 인자 배열 구성
 	 *
-	 * <p>ARGV 형식: [ttl, pendingBookingId, seatId, scheduleId, trainCarId, section1, section2, ...]</p>
+	 * <p>ARGV 형식: [ttl, pendingBookingId, seatId, section1, section2, ...]</p>
 	 *
 	 * @param pendingBookingId 예약 ID (holds 인덱스에 추가할 값)
 	 * @param seatId 좌석 ID (Hold Index 멤버 생성용)
-	 * @param trainScheduleId 스케줄 ID (Hold Index 키 생성용)
-	 * @param trainCarId 객차 ID (Hold Index 키 생성용)
 	 * @param sections 구간 목록 (예: ["0-1", "1-2", "2-3"])
 	 * @return Lua ARGV로 전달할 인자 배열
 	 */
 	private Object[] buildHoldArgs(
 		String pendingBookingId,
 		Long seatId,
-		Long trainScheduleId,
-		Long trainCarId,
 		List<String> sections
 	) {
-		Object[] args = new Object[sections.size() + 5];
+		Object[] args = new Object[sections.size() + 3];
 		args[0] = String.valueOf(seatHoldTTLSeconds);    // ARGV[1]: TTL
 		args[1] = pendingBookingId;                      // ARGV[2]: pendingBookingId
 		args[2] = String.valueOf(seatId);                // ARGV[3]: seatId
-		args[3] = String.valueOf(trainScheduleId);       // ARGV[4]: scheduleId
-		args[4] = String.valueOf(trainCarId);            // ARGV[5]: trainCarId
 		for (int i = 0; i < sections.size(); i++) {
-			args[i + 5] = sections.get(i);               // ARGV[6...]: sections
+			args[i + 3] = sections.get(i);               // ARGV[4...]: sections
 		}
 		return args;
 	}

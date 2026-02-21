@@ -1,15 +1,14 @@
 -- seat_hold.lua
 -- 좌석 임시 점유 Lua 스크립트
 --
--- KEYS[1]: hold key  (예: {seat:1001:12}:hold:pending_abc123)
+-- KEYS[1]: hold key      (예: {seat:1001:12}:hold:pending_abc123)
 -- KEYS[2]: holds key     (예: {seat:1001:12}:holds) - Hold 목록 인덱스
+-- KEYS[3]: holdIndexKey  (예: {schedule:1785}:traincar:231:holding-seats) - Hold Index
 --
 -- ARGV[1]: ttl (seconds)
 -- ARGV[2]: pendingBookingId (holds Set에 추가할 값)
 -- ARGV[3]: seatId
--- ARGV[4]: scheduleId
--- ARGV[5]: trainCarId
--- ARGV[6...]: sections ("0-1", "1-2", ...)
+-- ARGV[4...]: sections ("0-1", "1-2", ...)
 --
 -- 반환값:
 -- 성공: {1, "HOLD_SUCCESS"}
@@ -17,15 +16,14 @@
 
 local holdKey = KEYS[1]
 local holdsKey = KEYS[2]
+local holdIndexKey = KEYS[3]
 local ttl = tonumber(ARGV[1])
 local pendingBookingId = ARGV[2]
 local seatId = ARGV[3]
-local scheduleId = ARGV[4]
-local trainCarId = ARGV[5]
 
 -- 요청 구간 수집
 local sections = {}
-for i = 6, #ARGV do
+for i = 4, #ARGV do
     table.insert(sections, ARGV[i])
 end
 
@@ -69,11 +67,6 @@ redis.call("EXPIRE", holdsKey, ttl)
 -- 4. Hold Index에 compound 멤버 등록
 local currentTime = redis.call("TIME")[1]
 local expiryTime = currentTime + ttl
-
-local holdIndexKey = string.format(
-    "{schedule:%s}:traincar:%s:holding-seats",
-    scheduleId, trainCarId
-)
 
 for _, s in ipairs(sections) do
     local member = seatId .. ":" .. s  -- "42:0-1" 형태
