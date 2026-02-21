@@ -3,6 +3,7 @@ package com.sudo.raillo.booking.infrastructure;
 import static org.assertj.core.api.Assertions.*;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -112,6 +113,25 @@ class BookingRedisRepositoryTest {
 
 		assertThat(ttl).isNotNull();
 		assertThat(ttl).isBetween(570L, 580L); // 약간의 오차 허용
+	}
+
+	@Test
+	@DisplayName("동적 TTL로 저장하면 PendingBooking/Member 키 모두 남은 시간 기준으로 저장된다")
+	void savePendingBooking_dynamicTtl_success() {
+		// given
+		Duration dynamicTtl = Duration.ofSeconds(120);
+
+		// when
+		bookingRedisRepository.savePendingBooking(testPendingBooking, dynamicTtl);
+
+		// then
+		String pendingBookingKey = redisKeyGenerator.generatePendingBookingKey(testPendingBooking.getId());
+		String memberKey = redisKeyGenerator.generatePendingBookingMemberKey(testMemberNo, testPendingBooking.getId());
+		Long pendingBookingTtl = customObjectRedisTemplate.getExpire(pendingBookingKey, TimeUnit.SECONDS);
+		Long memberKeyTtl = customObjectRedisTemplate.getExpire(memberKey, TimeUnit.SECONDS);
+
+		assertThat(pendingBookingTtl).isBetween(110L, 120L);
+		assertThat(memberKeyTtl).isBetween(110L, 120L);
 	}
 
 	@Test

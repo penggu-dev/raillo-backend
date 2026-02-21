@@ -3,6 +3,7 @@ package com.sudo.raillo.booking.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.support.annotation.RedisTest;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -28,6 +29,7 @@ class SeatHoldRepositoryTest {
 	private static final Long TRAIN_SCHEDULE_ID = 1001L;
 	private static final Long SEAT_ID = 12L;
 	private static final Long TRAIN_CAR_ID = 231L;
+	private static final Duration HOLD_TTL = Duration.ofMinutes(10);
 
 	@Nested
 	@DisplayName("단일 좌석 Hold")
@@ -43,7 +45,8 @@ class SeatHoldRepositoryTest {
 
 			// when
 			SeatHoldResult result = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId, departureStopOrder, arrivalStopOrder, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId,
+				departureStopOrder, arrivalStopOrder, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// then
@@ -59,11 +62,11 @@ class SeatHoldRepositoryTest {
 			String pendingBookingId2 = "pending_002";
 
 			// 첫 번째 Hold: 0-1, 1-2 구간
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 2, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 2, TRAIN_CAR_ID, HOLD_TTL);
 
 			// when - 두 번째 Hold: 2-3, 3-4 구간 (겹치지 않음)
 			SeatHoldResult result = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 4, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 4, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// then
@@ -78,11 +81,11 @@ class SeatHoldRepositoryTest {
 			String pendingBookingId2 = "pending_002";
 
 			// 첫 번째 Hold: 0-1, 1-2, 2-3 구간
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 3, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 3, TRAIN_CAR_ID, HOLD_TTL);
 
 			// when - 두 번째 Hold: 2-3, 3-4 구간 (2-3 겹침)
 			SeatHoldResult result = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 4, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 4, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// then
@@ -96,32 +99,32 @@ class SeatHoldRepositoryTest {
 		void various_section_lengths_conflict_test() {
 			// 1. 장거리 먼저 Hold (0-5)
 			SeatHoldResult result1 = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 5, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_0", 0, 5, TRAIN_CAR_ID, HOLD_TTL
 			);
 			assertThat(result1.success()).isTrue();
 
 			// 2. 단거리 시도 - 겹침 (0-2)
 			SeatHoldResult result2 = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_002", 0, 2, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_1", 0, 2, TRAIN_CAR_ID, HOLD_TTL
 			);
 			assertThat(result2.success()).isFalse();
 			assertThat(result2.isConflictWithHold()).isTrue();
 
 			// 3. 단거리 시도 - 겹침 (3-4)
 			SeatHoldResult result3 = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_003", 3, 4, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_2", 3, 4, TRAIN_CAR_ID, HOLD_TTL
 			);
 			assertThat(result3.success()).isFalse();
 
 			// 4. 독립 구간 - 성공 (5-10)
 			SeatHoldResult result4 = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_004", 5, 10, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_3", 5, 10, TRAIN_CAR_ID, HOLD_TTL
 			);
 			assertThat(result4.success()).isTrue();
 
 			// 5. 단거리 시도 - 겹침 (7-8)
 			SeatHoldResult result5 = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_005", 7, 8, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_4", 7, 8, TRAIN_CAR_ID, HOLD_TTL
 			);
 			assertThat(result5.success()).isFalse();
 		}
@@ -137,7 +140,7 @@ class SeatHoldRepositoryTest {
 			String pendingBookingId1 = "pending_001";
 			String pendingBookingId2 = "pending_002";
 
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 3, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 3, TRAIN_CAR_ID, HOLD_TTL);
 
 			// when
 			seatHoldRepository.releaseHold(
@@ -146,7 +149,7 @@ class SeatHoldRepositoryTest {
 
 			// then
 			SeatHoldResult result = seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 0, 3, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 0, 3, TRAIN_CAR_ID, HOLD_TTL
 			);
 			assertThat(result.success()).isTrue();
 		}
@@ -179,7 +182,7 @@ class SeatHoldRepositoryTest {
 						startLatch.await();			// 모든 스레드가 여기서 대기, 동시에 출발
 
 						SeatHoldResult result = seatHoldRepository.tryHold(
-							TRAIN_SCHEDULE_ID, SEAT_ID, "pending_" + index, 0, 3, TRAIN_CAR_ID
+							TRAIN_SCHEDULE_ID, SEAT_ID, "pending_" + index, 0, 3, TRAIN_CAR_ID, HOLD_TTL
 						);
 
 						if (result.success()) {
@@ -225,7 +228,7 @@ class SeatHoldRepositoryTest {
 						startLatch.await();
 
 						SeatHoldResult result = seatHoldRepository.tryHold(
-							TRAIN_SCHEDULE_ID, SEAT_ID, "pending_" + index, index, index + 1, TRAIN_CAR_ID
+							TRAIN_SCHEDULE_ID, SEAT_ID, "pending_" + index, index, index + 1, TRAIN_CAR_ID, HOLD_TTL
 						);
 						if (result.success()) {
 							successCount.incrementAndGet();
@@ -263,7 +266,7 @@ class SeatHoldRepositoryTest {
 
 			// when
 			seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId, departureStopOrder, arrivalStopOrder, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId, departureStopOrder, arrivalStopOrder, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// then
@@ -286,7 +289,7 @@ class SeatHoldRepositoryTest {
 			// Hold 먼저 수행
 			seatHoldRepository.tryHold(
 				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId,
-				departureStopOrder, arrivalStopOrder, TRAIN_CAR_ID
+				departureStopOrder, arrivalStopOrder, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// when
@@ -310,12 +313,12 @@ class SeatHoldRepositoryTest {
 
 			// when - 첫 번째 사용자: 구간 0-1
 			seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 1, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 1, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// 두 번째 사용자: 구간 2-3 (겹치지 않음)
 			seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 3, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 3, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// then
@@ -335,7 +338,7 @@ class SeatHoldRepositoryTest {
 
 			// when
 			seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId, 0, 1, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId, 0, 1, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			long afterHold = System.currentTimeMillis() / 1000; // 초 단위로 변환
@@ -358,7 +361,7 @@ class SeatHoldRepositoryTest {
 
 			// when
 			seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId, 0, 1, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId, 0, 1, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// then
@@ -375,8 +378,8 @@ class SeatHoldRepositoryTest {
 			String pendingBookingId2 = "pending_002";
 			String holdIndexKey = "{schedule:1001}:traincar:231:holding-seats";
 
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 1, TRAIN_CAR_ID);
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 3, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 1, TRAIN_CAR_ID, HOLD_TTL);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 3, TRAIN_CAR_ID, HOLD_TTL);
 
 			// when
 			seatHoldRepository.releaseHold(
@@ -411,7 +414,7 @@ class SeatHoldRepositoryTest {
 		@DisplayName("Hold된 좌석의 겹치는 구간만 점유 수에 포함된다")
 		void getHoldSeatsCount_counts_only_overlapping_sections() {
 			// given
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 1, 3, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 1, 3, TRAIN_CAR_ID, HOLD_TTL);
 
 			// when
 			int count = seatHoldRepository.getHoldSeatsCount(
@@ -426,7 +429,7 @@ class SeatHoldRepositoryTest {
 		@DisplayName("겹치지 않는 구간의 Hold는 점유 수에 포함되지 않는다")
 		void getHoldSeatsCount_excludes_non_overlapping_sections() {
 			// given
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 1, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 1, TRAIN_CAR_ID, HOLD_TTL);
 
 			// when
 			int count = seatHoldRepository.getHoldSeatsCount(
@@ -441,7 +444,7 @@ class SeatHoldRepositoryTest {
 		@DisplayName("같은 좌석이 여러 구간에 Hold되어도 좌석 수는 1이다")
 		void getHoldSeatsCount_deduplicates_same_seat() {
 			// given
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 3, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 3, TRAIN_CAR_ID, HOLD_TTL);
 
 			// when
 			int count = seatHoldRepository.getHoldSeatsCount(
@@ -456,9 +459,9 @@ class SeatHoldRepositoryTest {
 		@DisplayName("여러 좌석이 Hold되면 좌석 수만큼 카운트된다")
 		void getHoldSeatsCount_counts_multiple_seats() {
 			// given
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 2, TRAIN_CAR_ID);
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 13L, "pending_001", 0, 2, TRAIN_CAR_ID);
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 14L, "pending_001", 0, 2, TRAIN_CAR_ID);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 2, TRAIN_CAR_ID, HOLD_TTL);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 13L, "pending_001", 0, 2, TRAIN_CAR_ID, HOLD_TTL);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 14L, "pending_001", 0, 2, TRAIN_CAR_ID, HOLD_TTL);
 
 			// when
 			int count = seatHoldRepository.getHoldSeatsCount(
@@ -473,8 +476,8 @@ class SeatHoldRepositoryTest {
 		@DisplayName("여러 객차의 Hold를 한 번에 조회하여 합산한다")
 		void getHoldSeatsCount_aggregates_multiple_train_cars() {
 			// given
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 2, TRAIN_CAR_ID);
-			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 13L, "pending_002", 0, 2, 234L);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 2, TRAIN_CAR_ID, HOLD_TTL);
+			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 13L, "pending_002", 0, 2, 234L, HOLD_TTL);
 
 			// when
 			int count = seatHoldRepository.getHoldSeatsCount(

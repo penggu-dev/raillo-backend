@@ -8,6 +8,7 @@ import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
 import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
 import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
@@ -16,14 +17,17 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 
 @ServiceTest
 @DisplayName("SeatHoldService 테스트")
@@ -40,6 +44,12 @@ class SeatHoldServiceTest {
 
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
+
+	@Autowired
+	private RedisTemplate<String, String> customStringRedisTemplate;
+
+	@Autowired
+	private SeatHoldKeyGenerator seatHoldKeyGenerator;
 
 	private Train train;
 	private TrainScheduleResult trainScheduleResult;
@@ -82,9 +92,43 @@ class SeatHoldServiceTest {
 					departureStop,
 					arrivalStop,
 					seatIds,
-					trainCarId
+					trainCarId,
+					Duration.ofMinutes(10)
 				)
 			).doesNotThrowAnyException();
+		}
+
+		@Test
+		@DisplayName("Hold TTL은 PendingBooking TTL보다 1분 길게 설정된다")
+		void holdSeats_success_holdTtlHasBuffer() {
+			// given
+			String pendingBookingId = "pending-booking-ttl-001";
+			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
+			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
+			List<Long> seatIds = List.of(seats.get(0).getId());
+			Long trainCarId = seats.get(0).getTrainCar().getId();
+			Duration pendingBookingTtl = Duration.ofSeconds(120);
+
+			// when - PendingBooking TTL 120초 전달 → Hold TTL 180초(+1분 버퍼)
+			seatHoldService.holdSeats(
+				pendingBookingId,
+				trainScheduleId,
+				departureStop,
+				arrivalStop,
+				seatIds,
+				trainCarId,
+				pendingBookingTtl
+			);
+
+			// then - Hold TTL이 PendingBooking TTL + 1분(60초) = 180초
+			String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatIds.get(0), pendingBookingId);
+			String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatIds.get(0));
+			Long holdKeyTtl = customStringRedisTemplate.getExpire(holdKey, TimeUnit.SECONDS);
+			Long holdsKeyTtl = customStringRedisTemplate.getExpire(holdsKey, TimeUnit.SECONDS);
+
+			assertThat(holdKeyTtl).isBetween(170L, 180L);
+			assertThat(holdsKeyTtl).isBetween(170L, 180L);
 		}
 
 		@Test
@@ -110,7 +154,8 @@ class SeatHoldServiceTest {
 					departureStop,
 					arrivalStop,
 					seatIds,
-					trainCarId
+					trainCarId,
+					Duration.ofMinutes(10)
 				)
 			).doesNotThrowAnyException();
 		}
@@ -134,7 +179,8 @@ class SeatHoldServiceTest {
 				departureStop,
 				arrivalStop,
 				seatIds,
-				trainCarId
+				trainCarId,
+				Duration.ofMinutes(10)
 			);
 
 			// when & then - 두 번째 사용자가 같은 좌석 Hold 시도
@@ -145,7 +191,8 @@ class SeatHoldServiceTest {
 					departureStop,
 					arrivalStop,
 					seatIds,
-					trainCarId
+					trainCarId,
+					Duration.ofMinutes(10)
 				)
 			)
 				.isInstanceOf(BusinessException.class)
@@ -170,7 +217,7 @@ class SeatHoldServiceTest {
 			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// 좌석 2번에 먼저 Hold
-			seatHoldRepository.tryHold(trainScheduleId, seat2Id, pendingBookingId1, departureStopOrder, arrivalStopOrder, trainCarId);
+			seatHoldRepository.tryHold(trainScheduleId, seat2Id, pendingBookingId1, departureStopOrder, arrivalStopOrder, trainCarId, Duration.ofMinutes(10));
 
 			// when - 좌석 1, 2, 3 동시 Hold 시도 (2번에서 충돌)
 			assertThatThrownBy(() ->
@@ -180,7 +227,8 @@ class SeatHoldServiceTest {
 					departureStop,
 					arrivalStop,
 					List.of(seat1Id, seat2Id, seat3Id),
-					trainCarId
+					trainCarId,
+					Duration.ofMinutes(10)
 				)
 			)
 				.isInstanceOf(BusinessException.class)
@@ -188,7 +236,7 @@ class SeatHoldServiceTest {
 
 			// then - 좌석 1번도 롤백되어 Hold 가능해야 함
 			SeatHoldResult result = seatHoldRepository.tryHold(
-				trainScheduleId, seat1Id, "pending-booking-003", departureStopOrder, arrivalStopOrder, trainCarId
+				trainScheduleId, seat1Id, "pending-booking-003", departureStopOrder, arrivalStopOrder, trainCarId, Duration.ofMinutes(10)
 			);
 			assertThat(result.success()).isTrue();
 		}
@@ -218,7 +266,8 @@ class SeatHoldServiceTest {
 				departureStop1,
 				arrivalStop1,
 				List.of(seatId),
-				trainCarId
+				trainCarId,
+				Duration.ofMinutes(10)
 			);
 
 			// when & then - 두 번째 사용자도 Hold 성공 (구간이 겹치지 않음)
@@ -229,7 +278,8 @@ class SeatHoldServiceTest {
 					departureStop2,
 					arrivalStop2,
 					List.of(seatId),
-					trainCarId
+					trainCarId,
+					Duration.ofMinutes(10)
 				)
 			).doesNotThrowAnyException();
 		}
@@ -257,7 +307,8 @@ class SeatHoldServiceTest {
 				departureStop,
 				arrivalStop,
 				seatIds,
-				trainCarId
+				trainCarId,
+				Duration.ofMinutes(10)
 			);
 
 			// when & then
@@ -292,7 +343,8 @@ class SeatHoldServiceTest {
 				departureStop,
 				arrivalStop,
 				seatIds,
-				trainCarId
+				trainCarId,
+				Duration.ofMinutes(10)
 			);
 
 			// 첫 번째 사용자 Release
@@ -313,7 +365,8 @@ class SeatHoldServiceTest {
 					departureStop,
 					arrivalStop,
 					seatIds,
-					trainCarId
+					trainCarId,
+					Duration.ofMinutes(10)
 				)
 			).doesNotThrowAnyException();
 		}
@@ -340,7 +393,8 @@ class SeatHoldServiceTest {
 				departureStop,
 				arrivalStop,
 				seatIds,
-				trainCarId
+				trainCarId,
+				Duration.ofMinutes(10)
 			);
 
 			// when & then
@@ -362,7 +416,8 @@ class SeatHoldServiceTest {
 				"new-pending",
 				departureStop.getStopOrder(),
 				arrivalStop.getStopOrder(),
-				trainCarId
+				trainCarId,
+				Duration.ofMinutes(10)
 			);
 			assertThat(result.success()).isTrue();
 		}

@@ -3,6 +3,8 @@ package com.sudo.raillo.booking.application.facade;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -55,10 +57,14 @@ public class PendingBookingFacade {
 
 		// 2. 검증
 		bookingValidator.validateTrainOperating(trainSchedule);
-		bookingValidator.validateDepartureTimeNotPassed(trainSchedule, departureStop);
+		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime departureDateTime = trainSchedule.getDepartureDateTimeAt(departureStop);
+		bookingValidator.validateDepartureTimeNotPassed(departureDateTime, now);
 		bookingValidator.validateSameSchedule(departureStop, arrivalStop);
 		bookingValidator.validateStopSequence(departureStop, arrivalStop);
 		bookingValidator.validatePassengerSeatCount(request.passengerTypes(), request.seatIds());
+
+		Duration pendingBookingTtl = pendingBookingService.calculatePendingBookingTtl(departureDateTime, now);
 
 		List<CarType> carTypes = trainSeatQueryService.getCarTypes(request.seatIds());
 		CarType carType = bookingValidator.validateSeatIdsAndGetSingleCarType(carTypes);
@@ -80,7 +86,8 @@ public class PendingBookingFacade {
 			departureStop,
 			arrivalStop,
 			request.seatIds(),
-			trainCarId
+			trainCarId,
+			pendingBookingTtl
 		);
 
 		try {
@@ -101,7 +108,8 @@ public class PendingBookingFacade {
 				request.passengerTypes(),
 				request.seatIds(),
 				memberNo,
-				totalFare
+				totalFare,
+				pendingBookingTtl
 			);
 
 			return new PendingBookingCreateResponse(pendingBooking.getId());
@@ -121,10 +129,12 @@ public class PendingBookingFacade {
 
 	/**
 	 * 예약 삭제
-	 * 좌석 Hold 해제 → PendingBooking 삭제
+	 * PendingBooking 삭제 (취소 확정) → 좌석 Hold 해제 (best-effort 정리)
 	 */
 	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
 		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);
+
+		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
 
 		pendingBookings.forEach(pendingBooking -> {
 			try {
@@ -146,8 +156,6 @@ public class PendingBookingFacade {
 				log.warn("[좌석 Hold 해제 실패] pendingBookingId={}, error={}", pendingBooking.getId(), e.getMessage());
 			}
 		});
-
-		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
 	}
 
 	private List<Long> extractSeatIds(PendingBooking pendingBooking) {

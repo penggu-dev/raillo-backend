@@ -17,6 +17,8 @@ import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Repository;
 
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.redis.exception.RedisError;
 import com.sudo.raillo.global.redis.exception.RedisException;
 import com.sudo.raillo.global.redis.util.RedisKeyGenerator;
@@ -37,12 +39,21 @@ public class BookingRedisRepository {
 	@Value("${redis.ttl.pending-booking-member-key}")
 	private Duration pendingBookingMemberKeyExpireTime;
 
+	public Duration getPendingBookingExpireTime() {
+		return pendingBookingExpireTime;
+	}
+
 	public void savePendingBooking(PendingBooking pendingBooking) {
+		savePendingBooking(pendingBooking, pendingBookingExpireTime);
+	}
+
+	public void savePendingBooking(PendingBooking pendingBooking, Duration pendingBookingTtl) {
+		Duration normalizedPendingBookingTtl = normalizeTtl(pendingBookingTtl);
 		String key = redisKeyGenerator.generatePendingBookingKey(pendingBooking.getId());
 		customObjectRedisTemplate.opsForValue()
-			.set(key, pendingBooking, pendingBookingExpireTime);
+			.set(key, pendingBooking, normalizedPendingBookingTtl);
 		// PendingBookingMemberKey는 항상 같이 저장
-		savePendingBookingMemberKey(pendingBooking.getId(), pendingBooking.getMemberNo());
+		savePendingBookingMemberKey(pendingBooking.getId(), pendingBooking.getMemberNo(), normalizedPendingBookingTtl);
 	}
 
 	public void deletePendingBooking(String pendingBookingId) {
@@ -128,10 +139,23 @@ public class BookingRedisRepository {
 		return memberKeys;
 	}
 
-	private void savePendingBookingMemberKey(String pendingBookingId, String memberNo) {
+	private void savePendingBookingMemberKey(String pendingBookingId, String memberNo, Duration pendingBookingTtl) {
 		String key = redisKeyGenerator.generatePendingBookingMemberKey(memberNo, pendingBookingId);
 		customObjectRedisTemplate.opsForValue()
-			.set(key, "1", pendingBookingMemberKeyExpireTime); // 임시 더미값 저장
+			.set(key, "1", resolvePendingBookingMemberKeyTtl(pendingBookingTtl)); // 임시 더미값 저장
+	}
+
+	private Duration resolvePendingBookingMemberKeyTtl(Duration pendingBookingTtl) {
+		return pendingBookingMemberKeyExpireTime.compareTo(pendingBookingTtl) < 0
+			? pendingBookingMemberKeyExpireTime
+			: pendingBookingTtl;
+	}
+
+	private Duration normalizeTtl(Duration ttl) {
+		if (ttl == null || ttl.isNegative() || ttl.isZero()) {
+			log.error("[PendingBooking TTL 비정상] ttl={}. redis.ttl.pending-booking 설정값을 확인하세요.", ttl);
+			throw new BusinessException(BookingError.INVALID_PENDING_BOOKING_TTL);
+		}
+		return ttl;
 	}
 }
-

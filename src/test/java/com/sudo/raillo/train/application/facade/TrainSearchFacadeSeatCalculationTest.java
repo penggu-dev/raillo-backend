@@ -21,6 +21,7 @@ import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -363,7 +364,8 @@ class TrainSearchFacadeSeatCalculationTest {
 			pendingBookingId,
 			departureStopOrder,
 			arrivalStopOrder,
-			seat.getTrainCar().getId()
+			seat.getTrainCar().getId(),
+			Duration.ofMinutes(10)
 		));
 	}
 }

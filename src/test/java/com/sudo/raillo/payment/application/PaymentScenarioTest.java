@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -274,9 +275,9 @@ class PaymentScenarioTest {
 
 		// 좌석 Hold
 		seatHoldService.holdSeats(pb1.getId(), trainScheduleResult.trainSchedule().getId(),
-			departureStop, arrivalStop, List.of(seatIds.get(0)), trainCarId);
+			departureStop, arrivalStop, List.of(seatIds.get(0)), trainCarId, Duration.ofMinutes(10));
 		seatHoldService.holdSeats(pb2.getId(), trainScheduleResult.trainSchedule().getId(),
-			departureStop, arrivalStop, List.of(seatIds.get(1)), trainCarId);
+			departureStop, arrivalStop, List.of(seatIds.get(1)), trainCarId, Duration.ofMinutes(10));
 
 		bookingRedisRepository.savePendingBooking(pb1);
 		bookingRedisRepository.savePendingBooking(pb2);
@@ -360,7 +361,8 @@ class PaymentScenarioTest {
 			departureStop,
 			arrivalStop,
 			seatIds,
-			trainCarId
+			trainCarId,
+			Duration.ofMinutes(10)
 		);
 
 		bookingRedisRepository.savePendingBooking(pendingBooking);

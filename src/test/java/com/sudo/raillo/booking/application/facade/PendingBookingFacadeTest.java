@@ -7,7 +7,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -122,7 +124,8 @@ class PendingBookingFacadeTest {
 				anyList(),
 				anyList(),
 				anyString(),
-				any(BigDecimal.class)
+				any(BigDecimal.class),
+				any(Duration.class)
 			);
 
 		// when & then
@@ -142,7 +145,8 @@ class PendingBookingFacadeTest {
 			"other-pending-booking",
 			departureStopOrder,
 			arrivalStopOrder,
-			trainCarId
+			trainCarId,
+			Duration.ofMinutes(10)
 		);
 
 		assertThat(result.success()).isTrue();
@@ -166,6 +170,36 @@ class PendingBookingFacadeTest {
 			pastSchedule.trainSchedule().getId(),
 			pastSchedule.scheduleStops().get(0).getStation().getId(),
 			pastSchedule.scheduleStops().get(2).getStation().getId(),
+			List.of(PassengerType.ADULT),
+			List.of(seats.get(0).getId())
+		);
+
+		// when & then
+		assertThatThrownBy(() -> pendingBookingFacade.createPendingBooking(request, memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", TrainErrorCode.DEPARTURE_TIME_PASSED);
+	}
+
+	@Test
+	@DisplayName("출발 5분 이내 열차를 예약하면 예외가 발생한다")
+	void createPendingBooking_fail_departureWithinFiveMinutes() {
+		// given
+		LocalDateTime departureDateTime = LocalDateTime.now().plusMinutes(4);
+		LocalDateTime arrivalDateTime = departureDateTime.plusHours(1);
+
+		TrainScheduleResult imminentSchedule = trainScheduleTestHelper.builder()
+			.scheduleName("KTX 005 임박")
+			.train(train)
+			.operationDate(departureDateTime.toLocalDate())
+			.addStop("서울", null, departureDateTime.toLocalTime())
+			.addStop("부산", arrivalDateTime.toLocalTime(), null)
+			.build();
+
+		String memberNo = "202601010001";
+		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+			imminentSchedule.trainSchedule().getId(),
+			imminentSchedule.scheduleStops().get(0).getStation().getId(),
+			imminentSchedule.scheduleStops().get(1).getStation().getId(),
 			List.of(PassengerType.ADULT),
 			List.of(seats.get(0).getId())
 		);

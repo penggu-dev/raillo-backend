@@ -20,6 +20,8 @@ import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,7 +59,8 @@ public class PendingBookingService {
 		List<PassengerType> passengerTypes,
 		List<Long> seatIds,
 		String memberNo,
-		BigDecimal totalFare
+		BigDecimal totalFare,
+		Duration pendingBookingTtl
 	) {
 		List<PendingSeatBooking> pendingSeatBookings = createPendingSeatBookings(passengerTypes, seatIds);
 
@@ -71,7 +74,7 @@ public class PendingBookingService {
 			totalFare
 		);
 
-		bookingRedisRepository.savePendingBooking(pendingBooking);
+		bookingRedisRepository.savePendingBooking(pendingBooking, pendingBookingTtl);
 
 		return pendingBooking;
 	}
@@ -145,6 +148,23 @@ public class PendingBookingService {
 
 	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
 		bookingRedisRepository.deletePendingBookings(pendingBookingIds, memberNo);
+	}
+
+	/**
+	 * PendingBooking TTL 계산
+	 * <p>출발까지 남은 시간과 기본 TTL 중 짧은 값을 반환한다.</p>
+	 *
+	 * @param departureDateTime 출발 일시
+	 * @param now 현재 시각
+	 * @return PendingBooking TTL
+	 */
+	public Duration calculatePendingBookingTtl(LocalDateTime departureDateTime, LocalDateTime now) {
+		Duration remainingUntilDeparture = Duration.between(now, departureDateTime);
+		Duration defaultPendingBookingTtl = bookingRedisRepository.getPendingBookingExpireTime();
+
+		return remainingUntilDeparture.compareTo(defaultPendingBookingTtl) < 0
+			? remainingUntilDeparture
+			: defaultPendingBookingTtl;
 	}
 
 	private List<PendingSeatBooking> createPendingSeatBookings(

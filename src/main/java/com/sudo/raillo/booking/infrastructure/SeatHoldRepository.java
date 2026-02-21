@@ -1,12 +1,13 @@
 package com.sudo.raillo.booking.infrastructure;
 
+import java.time.Duration;
+
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
@@ -38,9 +39,6 @@ public class SeatHoldRepository {
 	private final DefaultRedisScript<List> seatReleaseScript;
 	private final DefaultRedisScript<Long> getHoldSeatsCountScript;
 
-	@Value("${redis.ttl.seat-hold:600}")
-	private long seatHoldTTLSeconds;
-
 	/**
 	 * 좌석 임시 점유 시도
 	 *
@@ -52,6 +50,7 @@ public class SeatHoldRepository {
 	 * @param departureStopOrder 출발역 stopOrder
 	 * @param arrivalStopOrder 도착역 stopOrder
 	 * @param trainCarId 객차 ID (Hold Index 키 생성용)
+	 * @param holdTtl Hold TTL
 	 * @return SeatHoldResult 점유 결과 (성공/실패 + 충돌 정보)
 	 */
 	public SeatHoldResult tryHold(
@@ -60,8 +59,10 @@ public class SeatHoldRepository {
 		String pendingBookingId,
 		int departureStopOrder,
 		int arrivalStopOrder,
-		Long trainCarId
+		Long trainCarId,
+		Duration holdTtl
 	) {
+		long holdTtlSeconds = Math.max(1L, holdTtl.toSeconds());
 		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
 		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
 		List<String> sections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
@@ -76,7 +77,7 @@ public class SeatHoldRepository {
 			// - KEYS: [holdKey, holdsKey, holdIndexKey] - Redis 키들
 			// - ARGV: [ttl, pendingBookingId, seatId, section1, section2, ...] - 인자들
 			// - 반환: List<Object> (Lua table이 Java List로 변환됨)
-			Object[] args = buildHoldArgs(pendingBookingId, seatId, sections);
+			Object[] args = buildHoldArgs(pendingBookingId, seatId, sections, holdTtlSeconds);
 
 			@SuppressWarnings("unchecked")  // DefaultRedisScript<List>의 raw type 때문에 필요
 			List<Object> result = customStringRedisTemplate.execute(
@@ -226,15 +227,17 @@ public class SeatHoldRepository {
 	 * @param pendingBookingId 예약 ID (holds 인덱스에 추가할 값)
 	 * @param seatId 좌석 ID (Hold Index 멤버 생성용)
 	 * @param sections 구간 목록 (예: ["0-1", "1-2", "2-3"])
+	 * @param holdTtlSeconds hold TTL (초)
 	 * @return Lua ARGV로 전달할 인자 배열
 	 */
 	private Object[] buildHoldArgs(
 		String pendingBookingId,
 		Long seatId,
-		List<String> sections
+		List<String> sections,
+		long holdTtlSeconds
 	) {
 		Object[] args = new Object[sections.size() + 3];
-		args[0] = String.valueOf(seatHoldTTLSeconds);    // ARGV[1]: TTL
+		args[0] = String.valueOf(holdTtlSeconds);        // ARGV[1]: TTL
 		args[1] = pendingBookingId;                      // ARGV[2]: pendingBookingId
 		args[2] = String.valueOf(seatId);                // ARGV[3]: seatId
 		for (int i = 0; i < sections.size(); i++) {

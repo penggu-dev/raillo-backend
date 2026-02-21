@@ -40,15 +40,20 @@ public record TrainSearchRequest(
 	String departureHour
 ) {
 
+	private static final int BOOKING_CLOSE_MINUTES_BEFORE_DEPARTURE = 5;
+
 	/**
 	 * 출발 희망 시간을 LocalTime으로 변환
-	 * - 당일 검색 시 과거 시간이면 현재 시간으로 조정
+	 * - 당일 검색 시 예약 마감 기준(출발 5분 전)으로 조정하여 예약 불가능한 열차를 제외
 	 */
 	public LocalTime getDepartureTimeFilter() {
 		LocalTime requestTime = LocalTime.of(Integer.parseInt(departureHour), 0);
 
-		if (operationDate.equals(LocalDate.now()) && requestTime.isBefore(LocalTime.now())) {
-			return LocalTime.now();
+		if (operationDate.equals(LocalDate.now())) {
+			LocalTime bookingCloseFilter = LocalTime.now().plusMinutes(BOOKING_CLOSE_MINUTES_BEFORE_DEPARTURE);
+			if (requestTime.isBefore(bookingCloseFilter)) {
+				return bookingCloseFilter;
+			}
 		}
 
 		return requestTime;
