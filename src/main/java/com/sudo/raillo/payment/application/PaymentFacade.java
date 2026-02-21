@@ -22,6 +22,11 @@ import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.TossPaymentClient;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
+import com.sudo.raillo.train.application.service.TrainScheduleService;
+import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.Seat;
+import com.sudo.raillo.train.domain.TrainSchedule;
+import com.sudo.raillo.train.infrastructure.SeatRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +48,8 @@ public class PaymentFacade {
 	private final TossPaymentClient tossPaymentClient;
 	private final PaymentValidator paymentValidator;
 	private final BookingValidator bookingValidator;
+	private final TrainScheduleService trainScheduleService;
+	private final SeatRepository seatRepository;
 
 	/**
 	 * 결제 준비 처리
@@ -158,15 +165,29 @@ public class PaymentFacade {
 			log.error("[PendingBooking 삭제 실패] error={}", e.getMessage(), e);
 		}
 
-		pendingBookings.forEach(pendingBooking ->
+		pendingBookings.forEach(pendingBooking -> {
+			List<Long> seatIds = pendingBooking.getSeatIds();
+			Long trainCarId = getTrainCarId(seatIds);
+			TrainSchedule trainSchedule = trainScheduleService.getTrainSchedule(pendingBooking.getTrainScheduleId());
+			ScheduleStop departureStop = trainScheduleService.getStopStation(trainSchedule, pendingBooking.getDepartureStopId());
+			ScheduleStop arrivalStop = trainScheduleService.getStopStation(trainSchedule, pendingBooking.getArrivalStopId());
+
 			seatHoldService.releaseSeats(
 				pendingBooking.getId(),
 				pendingBooking.getTrainScheduleId(),
-				pendingBooking.getSeatIds()
-			)
-		);
+				seatIds,
+				trainCarId,
+				departureStop.getStopOrder(),
+				arrivalStop.getStopOrder()
+			);
+		});
 
 		log.info("[PendingBooking 삭제 및 Hold 해제 완료] pendingBookingCount={}", pendingBookings.size());
+	}
+
+	private Long getTrainCarId(List<Long> seatIds) {
+		return seatRepository.findAllByIdWithTrainCar(List.of(seatIds.get(0)))
+			.get(0).getTrainCar().getId();
 	}
 
 	/**

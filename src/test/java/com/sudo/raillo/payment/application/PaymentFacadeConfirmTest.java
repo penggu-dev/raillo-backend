@@ -237,12 +237,16 @@ class PaymentFacadeConfirmTest {
 		paymentFacade.confirmPayment(confirmRequest, memberNo);
 
 		// then - Hold가 해제되어 다른 사용자가 같은 좌석을 Hold 할 수 있어야 함
+		Long trainCarId = trainTestHelper.getSeats(
+			trainScheduleResult.trainSchedule().getTrain(), CarType.STANDARD, 1
+			).get(0).getTrainCar().getId();
 		SeatHoldResult result = seatHoldRepository.tryHold(
 			trainScheduleResult.trainSchedule().getId(),
 			seatId,
 			"other-pending-booking",
 			departureStop.getStopOrder(),
 			arrivalStop.getStopOrder(),
+			trainCarId,
 			Duration.ofMinutes(10)
 		);
 		assertThat(result.success()).isTrue();

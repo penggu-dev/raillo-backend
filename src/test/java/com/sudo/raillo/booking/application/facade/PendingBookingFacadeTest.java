@@ -102,12 +102,14 @@ class PendingBookingFacadeTest {
 			.withPendingSeatBookings(List.of(new PendingSeatBooking(seatId, PassengerType.ADULT)))
 			.build();
 
+		Long trainCarId = seats.get(0).getTrainCar().getId();
 		seatHoldService.holdSeats(
 			pendingBooking.getId(),
 			trainScheduleResult.trainSchedule().getId(),
 			departureStop,
 			arrivalStop,
 			List.of(seatId),
+			trainCarId,
 			Duration.ofMinutes(10)
 		);
 		bookingRedisRepository.savePendingBooking(pendingBooking);
@@ -122,6 +124,7 @@ class PendingBookingFacadeTest {
 			"other-pending-booking",
 			departureStop.getStopOrder(),
 			arrivalStop.getStopOrder(),
+			trainCarId,
 			Duration.ofMinutes(10)
 		);
 		assertThat(result.success()).isTrue();

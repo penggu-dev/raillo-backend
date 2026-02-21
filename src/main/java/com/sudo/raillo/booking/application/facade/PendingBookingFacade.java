@@ -162,10 +162,7 @@ public class PendingBookingFacade {
 	 * 같은 CarType의 좌석들은 모두 같은 객차에 속하므로 첫 번째 좌석의 trainCarId 반환
 	 */
 	private Long getTrainCarId(List<Long> seatIds) {
-		List<Seat> seats = seatRepository.findAllByIdWithTrainCar(seatIds);
-		if (seats.isEmpty()) {
-			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
-		}
-		return seats.get(0).getTrainCar().getId();
+		return seatRepository.findAllByIdWithTrainCar(List.of(seatIds.get(0)))
+			.get(0).getTrainCar().getId();
 	}
 }
