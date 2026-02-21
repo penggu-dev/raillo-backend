@@ -23,7 +23,7 @@ class SeatAvailabilityCalculatorTest {
 	private SeatAvailabilityCalculator calculator;
 
 	@Test
-	@DisplayName("일반실 좌석 잔여석을 총 좌석에서 예약 좌석을 뺀 값으로 계산한다")
+	@DisplayName("일반실 좌석 잔여석을 총 좌석에서 확정 좌석을 뺀 값으로 계산한다")
 	void calculateStandardSeats() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -43,7 +43,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("특실 좌석 잔여석을 총 좌석에서 예약 좌석을 뺀 값으로 계산한다")
+	@DisplayName("특실 좌석 잔여석을 총 좌석에서 확정 좌석을 뺀 값으로 계산한다")
 	void calculateFirstClassSeats() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -63,7 +63,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("예약이 없는 경우 전체 좌석 수와 잔여석이 동일하다")
+	@DisplayName("예매가 없는 경우 전체 좌석 수와 잔여석이 동일하다")
 	void calculateWithNoBookings() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -83,7 +83,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("모든 좌석이 예약된 경우 잔여석이 0이 된다")
+	@DisplayName("모든 좌석이 예매된 경우 잔여석이 0이 된다")
 	void calculateWithFullBookings() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -104,7 +104,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("예약 수가 전체 좌석보다 많아도 잔여석은 음수가 되지 않는다")
+	@DisplayName("예매 수가 전체 좌석보다 많아도 잔여석은 음수가 되지 않는다")
 	void neverNegative() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -122,7 +122,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("일반실과 특실 예약이 혼합된 경우 각 좌석 타입별로 정확하게 계산한다")
+	@DisplayName("일반실과 특실 예매가 혼합된 경우 각 좌석 타입별로 정확하게 계산한다")
 	void calculateWithMixedBookings() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -213,7 +213,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("SeatBooking과 Hold를 합산한 남은 좌석이 부족하면 예약 불가능으로 판단한다")
+	@DisplayName("확정 좌석과 예약 좌석을 합산한 남은 좌석이 부족하면 예약 불가능으로 판단한다")
 	void notReservableWithBookingAndHold() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
@@ -237,7 +237,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("SeatBooking과 Hold가 혼합된 경우 CarType별로 정확하게 잔여석을 계산한다")
+	@DisplayName("확정 좌석과 예약 좌석이 혼합된 경우 CarType별로 정확하게 잔여석을 계산한다")
 	void calculateWithBookingAndHoldMixed() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(
