@@ -17,6 +17,8 @@ import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Repository;
 
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.redis.exception.RedisError;
 import com.sudo.raillo.global.redis.exception.RedisException;
 import com.sudo.raillo.global.redis.util.RedisKeyGenerator;
@@ -151,8 +153,8 @@ public class BookingRedisRepository {
 
 	private Duration normalizeTtl(Duration ttl) {
 		if (ttl == null || ttl.isNegative() || ttl.isZero()) {
-			log.warn("[PendingBooking TTL 비정상] ttl={}, 1초로 보정합니다.", ttl);
-			return Duration.ofSeconds(1);
+			log.error("[PendingBooking TTL 비정상] ttl={}. redis.ttl.pending-booking 설정값을 확인하세요.", ttl);
+			throw new BusinessException(BookingError.INVALID_PENDING_BOOKING_TTL);
 		}
 		return ttl;
 	}
