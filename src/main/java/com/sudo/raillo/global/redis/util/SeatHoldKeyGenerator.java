@@ -58,7 +58,7 @@ public class SeatHoldKeyGenerator {
 	 * @param trainCarId 객차 ID
 	 * @return Redis 키
 	 */
-	public String generateHoldIndexKey(Long trainScheduleId, Long trainCarId) {
+	public String generateTrainCarHoldIndexKey(Long trainScheduleId, Long trainCarId) {
 		return String.format(HOLD_INDEX_KEY_FORMAT, trainScheduleId, trainCarId);
 	}
 

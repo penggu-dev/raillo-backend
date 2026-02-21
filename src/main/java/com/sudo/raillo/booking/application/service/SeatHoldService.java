@@ -100,7 +100,7 @@ public class SeatHoldService {
 	 * @param arrivalStopOrder 도착역 stopOrder
 	 * @return Hold 점유 좌석 수
 	 */
-	public int calculateHoldSeatByCarType(
+	public int getHoldSeatsCount(
 		Long trainScheduleId,
 		List<Long> trainCarIds,
 		int departureStopOrder,
@@ -111,12 +111,7 @@ public class SeatHoldService {
 		}
 
 		List<String> searchSections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
-
-		int holdCount = seatHoldRepository.getHoldSeatsCountByCarType(
-			trainScheduleId,
-			trainCarIds,
-			searchSections
-		);
+		int holdCount = seatHoldRepository.getHoldSeatsCount(trainScheduleId, trainCarIds, searchSections);
 
 		log.debug("[Hold 점유 수 계산] trainScheduleId={}, trainCarIds={}, stopOrder={}->{}, holdCount={}",
 			trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder, holdCount);

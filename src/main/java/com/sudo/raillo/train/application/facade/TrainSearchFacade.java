@@ -210,12 +210,12 @@ public class TrainSearchFacade {
 		Map<CarType, Integer> totalSeatsByCarType = seatInfoBatch.getSeatsCountByCarType(trainScheduleId);
 		// SeatBooking 좌석
 		List<SeatBookingInfo> overlappingBookings = overlappingBookingsMap.getOrDefault(trainScheduleId, List.of());
-		// Hold 좌석
-		Map<CarType, Integer> holdSeat = getHoldSeatsByCarType(trainInfo, trainCarIdsBatch);
+		// 열차의 CarType별 Hold 좌석 수 게산
+		Map<CarType, Integer> holdSeatsCountByCarType = getHoldSeatsCountByCarType(trainInfo, trainCarIdsBatch);
 
 		// 좌석 상태 계산 (전체 좌석 - SeatBooking - Hold = 잔여석)
 		SectionSeatStatus sectionStatus = seatAvailabilityCalculator
-			.calculateSectionSeatStatus(overlappingBookings, totalSeatsByCarType, holdSeat, passengerCount);
+			.calculateSectionSeatStatus(overlappingBookings, totalSeatsByCarType, holdSeatsCountByCarType, passengerCount);
 
 		return responseMapper.toResponse(trainInfo, sectionStatus, fare, passengerCount);
 	}
@@ -223,18 +223,18 @@ public class TrainSearchFacade {
 	/**
 	 * CarType별 Hold 점유 좌석 수 조회
 	 */
-	private Map<CarType, Integer> getHoldSeatsByCarType(TrainBasicInfo trainInfo, TrainCarIdsBatch trainCarIdsBatch) {
+	private Map<CarType, Integer> getHoldSeatsCountByCarType(TrainBasicInfo trainInfo, TrainCarIdsBatch trainCarIdsBatch) {
 		Long trainScheduleId = trainInfo.trainScheduleId();
 		int departureStopOrder = trainInfo.departureStopOrder();
 		int arrivalStopOrder = trainInfo.arrivalStopOrder();
 
-		Map<CarType, Integer> holdSeat = new HashMap<>();
+		Map<CarType, Integer> holdSeatsCountByCarType = new HashMap<>();
 		for (CarType carType : CarType.values()) {
 			List<Long> trainCarIds = trainCarIdsBatch.getTrainCarIds(trainScheduleId, carType);
-			int holdCount = seatHoldService.calculateHoldSeatByCarType(
-				trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder);
-			holdSeat.put(carType, holdCount);
+			int holdSeatsCount = seatHoldService
+				.getHoldSeatsCount(trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder);
+			holdSeatsCountByCarType.put(carType, holdSeatsCount);
 		}
-		return holdSeat;
+		return holdSeatsCountByCarType;
 	}
 }

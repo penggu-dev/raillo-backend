@@ -399,7 +399,7 @@ class SeatHoldRepositoryTest {
 		@DisplayName("Hold가 없으면 Hold 점유 수가 0이다")
 		void getHoldSeatsCount_returns_zero_when_no_holds() {
 			// when
-			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+			int count = seatHoldRepository.getHoldSeatsCount(
 				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID), List.of("0-1", "1-2")
 			);
 
@@ -414,7 +414,7 @@ class SeatHoldRepositoryTest {
 			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 1, 3, TRAIN_CAR_ID);
 
 			// when
-			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+			int count = seatHoldRepository.getHoldSeatsCount(
 				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID), List.of("0-1", "1-2")
 			);
 
@@ -429,7 +429,7 @@ class SeatHoldRepositoryTest {
 			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 1, TRAIN_CAR_ID);
 
 			// when
-			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+			int count = seatHoldRepository.getHoldSeatsCount(
 				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID), List.of("2-3")
 			);
 
@@ -444,7 +444,7 @@ class SeatHoldRepositoryTest {
 			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, "pending_001", 0, 3, TRAIN_CAR_ID);
 
 			// when
-			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+			int count = seatHoldRepository.getHoldSeatsCount(
 				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID), List.of("0-1", "1-2", "2-3")
 			);
 
@@ -461,7 +461,7 @@ class SeatHoldRepositoryTest {
 			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 14L, "pending_001", 0, 2, TRAIN_CAR_ID);
 
 			// when
-			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+			int count = seatHoldRepository.getHoldSeatsCount(
 				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID), List.of("0-1", "1-2")
 			);
 
@@ -477,7 +477,7 @@ class SeatHoldRepositoryTest {
 			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, 13L, "pending_002", 0, 2, 234L);
 
 			// when
-			int count = seatHoldRepository.getHoldSeatsCountByCarType(
+			int count = seatHoldRepository.getHoldSeatsCount(
 				TRAIN_SCHEDULE_ID, List.of(TRAIN_CAR_ID, 234L), List.of("0-1", "1-2")
 			);
 

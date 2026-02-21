@@ -69,7 +69,7 @@ public class SeatHoldRepository {
 		log.debug("[좌석 Hold 시도] trainScheduleId={}, seatId={}, trainCarId={}, pendingBookingId={}, sections={}",
 			trainScheduleId, seatId, trainCarId, pendingBookingId, sections);
 
-		String holdIndexKey = seatHoldKeyGenerator.generateHoldIndexKey(trainScheduleId, trainCarId);
+		String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
 
 		try {
 			// Lua 스크립트 실행
@@ -133,7 +133,7 @@ public class SeatHoldRepository {
 		log.debug("[좌석 Hold 해제] trainScheduleId={}, seatId={}, trainCarId={}, pendingBookingId={}",
 			trainScheduleId, seatId, trainCarId, pendingBookingId);
 
-		String holdIndexKey = seatHoldKeyGenerator.generateHoldIndexKey(trainScheduleId, trainCarId);
+		String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
 
 		try {
 			Object[] args = buildReleaseArgs(pendingBookingId, seatId, sections);
@@ -166,14 +166,14 @@ public class SeatHoldRepository {
 	 * @param sections 검색 구간 목록 (예: ["0-1", "1-2"])
 	 * @return Hold 점유 좌석 수
 	 */
-	public int getHoldSeatsCountByCarType(
+	public int getHoldSeatsCount(
 		Long trainScheduleId,
 		List<Long> trainCarIds,
 		List<String> sections
 	) {
 		// KEYS: Hold Index 키 목록 생성
 		List<String> keys = trainCarIds.stream()
-			.map(carId -> seatHoldKeyGenerator.generateHoldIndexKey(trainScheduleId, carId))
+			.map(carId -> seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, carId))
 			.toList();
 
 		Object[] args = buildHoldSeatsCountArgs(sections);

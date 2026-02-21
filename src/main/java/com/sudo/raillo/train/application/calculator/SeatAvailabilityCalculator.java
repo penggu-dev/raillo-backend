@@ -26,14 +26,14 @@ public class SeatAvailabilityCalculator {
 	public SectionSeatStatus calculateSectionSeatStatus(
 		List<SeatBookingInfo> overlappingBookings,
 		Map<CarType, Integer> totalSeats,
-		Map<CarType, Integer> holdSeats,
+		Map<CarType, Integer> holdSeatsCountByCarType,
 		int requestedPassengerCount
 	) {
 		Map<CarType, Long> seatBooking = overlappingBookings.stream()
 			.collect(Collectors.groupingBy(SeatBookingInfo::carType, Collectors.counting()));
 
-		int standardRemaining = calculateRemaining(CarType.STANDARD, totalSeats, seatBooking, holdSeats);
-		int firstClassRemaining = calculateRemaining(CarType.FIRST_CLASS, totalSeats, seatBooking, holdSeats);
+		int standardRemaining = calculateRemaining(CarType.STANDARD, totalSeats, seatBooking, holdSeatsCountByCarType);
+		int firstClassRemaining = calculateRemaining(CarType.FIRST_CLASS, totalSeats, seatBooking, holdSeatsCountByCarType);
 
 		return new SectionSeatStatus(
 			standardRemaining,
@@ -49,11 +49,11 @@ public class SeatAvailabilityCalculator {
 		CarType carType,
 		Map<CarType, Integer> totalSeats,
 		Map<CarType, Long> occupySeatBooking,
-		Map<CarType, Integer> holdSeats
+		Map<CarType, Integer> holdSeatsCountByCarType
 	) {
 		int total = totalSeats.getOrDefault(carType, 0);
 		int seatBooking = occupySeatBooking.getOrDefault(carType, 0L).intValue();
-		int hold = holdSeats.getOrDefault(carType, 0);
-		return Math.max(0, total - seatBooking - hold);
+		int holdCount = holdSeatsCountByCarType.getOrDefault(carType, 0);
+		return Math.max(0, total - seatBooking - holdCount);
 	}
 }
