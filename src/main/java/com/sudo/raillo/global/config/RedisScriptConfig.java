@@ -63,4 +63,19 @@ public class RedisScriptConfig {
 		script.setResultType(List.class);
 		return script;
 	}
+
+	/**
+	 * Hold 점유 좌석 수 계산 스크립트
+	 *
+	 * <p>여러 Hold Index를 조회하여 검색 구간과 겹치는 Hold 좌석 수를 계산</p>
+	 * <p>반환값: Hold 점유 좌석 수 (Long)</p>
+	 */
+	@Bean
+	public DefaultRedisScript<Long> getHoldSeatsCountScript() {
+		DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+		script.setScriptSource(new ResourceScriptSource(
+			new ClassPathResource("scripts/get_hold_seats_count.lua")));
+		script.setResultType(Long.class);
+		return script;
+	}
 }

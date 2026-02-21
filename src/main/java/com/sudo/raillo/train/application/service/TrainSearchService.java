@@ -13,6 +13,7 @@ import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;
+import com.sudo.raillo.train.application.dto.projection.TrainCarIdsBatch;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.domain.StationFare;
@@ -47,14 +48,12 @@ public class TrainSearchService {
 	public Slice<TrainBasicInfo> findTrainBasicInfo(TrainSearchRequest request, Pageable pageable) {
 		LocalTime departureTimeFrom = request.getDepartureTimeFilter();
 
-		Slice<TrainBasicInfo> trainPage = trainScheduleQueryRepository.findTrainBasicInfo(
+		return trainScheduleQueryRepository.findTrainBasicInfo(
 			request.departureStationId(),
 			request.arrivalStationId(),
 			request.operationDate(),
 			departureTimeFrom,
 			pageable);
-
-		return trainPage;
 	}
 
 	/**
@@ -98,5 +97,12 @@ public class TrainSearchService {
 		List<Long> trainScheduleIds, Long departureStationId, Long arrivalStationId) {
 		return seatBookingQueryRepository.findOverlappingBookingsBatch(
 			trainScheduleIds, departureStationId, arrivalStationId);
+	}
+
+	/**
+	 * 여러 스케줄의 CarType별 객차 ID 배치 조회
+	 */
+	public TrainCarIdsBatch getTrainCarIdsBatch(List<Long> trainScheduleIds) {
+		return trainScheduleQueryRepository.findTrainCarIdsBatch(trainScheduleIds);
 	}
 }

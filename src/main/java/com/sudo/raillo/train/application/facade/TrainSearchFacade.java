@@ -1,22 +1,13 @@
 package com.sudo.raillo.train.application.facade;
 
-import java.util.List;
-import java.util.Map;
-
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.train.application.service.CarRecommendationService;
-import com.sudo.raillo.train.application.service.TrainSearchService;
-import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.application.calculator.SeatAvailabilityCalculator;
 import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.SectionSeatStatus;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;
+import com.sudo.raillo.train.application.dto.projection.TrainCarIdsBatch;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
@@ -28,14 +19,23 @@ import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse
 import com.sudo.raillo.train.application.dto.response.TrainSearchResponse;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
 import com.sudo.raillo.train.application.mapper.TrainSearchResponseMapper;
+import com.sudo.raillo.train.application.service.CarRecommendationService;
 import com.sudo.raillo.train.application.service.TrainCalendarService;
+import com.sudo.raillo.train.application.service.TrainSearchService;
+import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.application.validator.TrainSearchValidator;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
-
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 열차 검색 ApplicationService - Facade 패턴
@@ -51,12 +51,13 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional(readOnly = true)
 public class TrainSearchFacade {
 
-	private final TrainSearchValidator trainSearchValidator;
 	private final TrainCalendarService trainCalendarService;
 	private final CarRecommendationService carRecommendationService;
 	private final TrainSearchService trainSearchService;
 	private final TrainSeatQueryService trainSeatQueryService;
+	private final SeatHoldService seatHoldService;
 	private final SeatAvailabilityCalculator seatAvailabilityCalculator;
+	private final TrainSearchValidator trainSearchValidator;
 	private final TrainSearchResponseMapper responseMapper;
 
 	/**
@@ -153,28 +154,28 @@ public class TrainSearchFacade {
 	private List<TrainSearchResponse> processTrainSearchResults(
 		List<TrainBasicInfo> trainInfoSlice,
 		StationFare fare,
-		TrainSearchRequest request) {
+		TrainSearchRequest request
+	) {
 
-		// 1. trainScheduleId 리스트 추출
 		List<Long> trainScheduleIds = trainInfoSlice.stream()
 			.map(TrainBasicInfo::trainScheduleId)
 			.toList();
 
-		log.info("배치 쿼리 시작: {}건의 열차 일괄 처리", trainScheduleIds.size());
-
-		// 2. 배치 쿼리로 모든 데이터 한번에 조회
+		// 1. SeatBooking 배치 조회 (확정 예약)
 		TrainSeatInfoBatch seatInfoBatch = trainSearchService.findTrainSeatInfoBatch(trainScheduleIds);
+		Map<Long, List<SeatBookingInfo>> overlappingBookingsMap = trainSearchService.findOverlappingBookingsBatch(
+			trainScheduleIds, request.departureStationId(), request.arrivalStationId());
 
-		Map<Long, List<SeatBookingInfo>> overlappingBookingsMap =
-			trainSearchService.findOverlappingBookingsBatch(
-				trainScheduleIds, request.departureStationId(), request.arrivalStationId());
+		// 2. Hold 조회용 객차 ID 배치 조회
+		TrainCarIdsBatch trainCarIdsBatch = trainSearchService.getTrainCarIdsBatch(trainScheduleIds);
 
 		// 3. 각 열차별로 배치 조회된 데이터를 사용해 응답 생성
 		List<TrainSearchResponse> results = trainInfoSlice.stream()
 			.map(trainInfo -> {
 				try {
 					return processTrainSearchResult(
-						trainInfo, seatInfoBatch, overlappingBookingsMap, fare, request.passengerCount());
+						trainInfo, seatInfoBatch, overlappingBookingsMap, trainCarIdsBatch, fare, request.passengerCount()
+					);
 				} catch (Exception e) {
 					log.warn("열차 {} 처리 실패: {}", trainInfo.trainNumber(), e.getMessage());
 					return null;
@@ -193,28 +194,47 @@ public class TrainSearchFacade {
 	}
 
 	/**
-	 * 개별 열차 처리
+	 * 개별 열차 좌석 계산 처리
 	 */
 	private TrainSearchResponse processTrainSearchResult(
 		TrainBasicInfo trainInfo,
 		TrainSeatInfoBatch seatInfoBatch,
 		Map<Long, List<SeatBookingInfo>> overlappingBookingsMap,
+		TrainCarIdsBatch trainCarIdsBatch,
 		StationFare fare,
-		int passengerCount) {
-
+		int passengerCount
+	) {
 		Long trainScheduleId = trainInfo.trainScheduleId();
 
-		// 배치 데이터 추출
-		List<SeatBookingInfo> overlappingBookings =
-			overlappingBookingsMap.getOrDefault(trainScheduleId, List.of());
-		Map<CarType, Integer> totalSeatsByCarType =
-			seatInfoBatch.getSeatsCountByCarType(trainScheduleId);
+		// 전체 좌석
+		Map<CarType, Integer> totalSeatsByCarType = seatInfoBatch.getSeatsCountByCarType(trainScheduleId);
+		// SeatBooking 좌석
+		List<SeatBookingInfo> overlappingBookings = overlappingBookingsMap.getOrDefault(trainScheduleId, List.of());
+		// 열차의 CarType별 Hold 좌석 수 게산
+		Map<CarType, Integer> holdSeatsCountByCarType = getHoldSeatsCountByCarType(trainInfo, trainCarIdsBatch);
 
-		// 좌석 상태 계산
-		SectionSeatStatus sectionStatus = seatAvailabilityCalculator.calculateSectionSeatStatus(
-			overlappingBookings, totalSeatsByCarType, passengerCount);
+		// 좌석 상태 계산 (전체 좌석 - SeatBooking - Hold = 잔여석)
+		SectionSeatStatus sectionStatus = seatAvailabilityCalculator
+			.calculateSectionSeatStatus(overlappingBookings, totalSeatsByCarType, holdSeatsCountByCarType, passengerCount);
 
-		// 응답 생성
 		return responseMapper.toResponse(trainInfo, sectionStatus, fare, passengerCount);
+	}
+
+	/**
+	 * CarType별 Hold 점유 좌석 수 조회
+	 */
+	private Map<CarType, Integer> getHoldSeatsCountByCarType(TrainBasicInfo trainInfo, TrainCarIdsBatch trainCarIdsBatch) {
+		Long trainScheduleId = trainInfo.trainScheduleId();
+		int departureStopOrder = trainInfo.departureStopOrder();
+		int arrivalStopOrder = trainInfo.arrivalStopOrder();
+
+		Map<CarType, Integer> holdSeatsCountByCarType = new HashMap<>();
+		for (CarType carType : CarType.values()) {
+			List<Long> trainCarIds = trainCarIdsBatch.getTrainCarIds(trainScheduleId, carType);
+			int holdSeatsCount = seatHoldService
+				.getHoldSeatsCount(trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder);
+			holdSeatsCountByCarType.put(carType, holdSeatsCount);
+		}
+		return holdSeatsCountByCarType;
 	}
 }

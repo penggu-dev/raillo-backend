@@ -1,23 +1,11 @@
 package com.sudo.raillo.train.infrastructure;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.SliceImpl;
-import org.springframework.stereotype.Repository;
-
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
+import com.sudo.raillo.train.application.dto.projection.TrainCarIdsBatch;
+import com.sudo.raillo.train.application.dto.projection.TrainCarIdsProjection;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoProjection;
 import com.sudo.raillo.train.domain.QScheduleStop;
@@ -27,10 +15,22 @@ import com.sudo.raillo.train.domain.QTrainCar;
 import com.sudo.raillo.train.domain.QTrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
-
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
+import org.springframework.stereotype.Repository;
 
 /**
  * 열차 스케줄 커스텀 Repository 구현체
@@ -107,7 +107,9 @@ public class TrainScheduleQueryRepository {
 				depStop2.departureTime,
 				arrStop2.arrivalTime,
 				departureStation.stationName,
-				arrivalStation.stationName))
+				arrivalStation.stationName,
+				depStop2.stopOrder,
+				arrStop2.stopOrder))
 			.from(ts)
 			.join(ts.train, t)
 			.join(depStop2).on(depStop2.trainSchedule.id.eq(ts.id))
@@ -139,7 +141,9 @@ public class TrainScheduleQueryRepository {
 				temp.getDepartureStationName(),
 				temp.getArrivalStationName(),
 				temp.getDepartureTime(),
-				temp.getArrivalTime()
+				temp.getArrivalTime(),
+				temp.getDepartureStopOrder(),
+				temp.getArrivalStopOrder()
 			))
 			.collect(Collectors.toList());
 
@@ -191,6 +195,40 @@ public class TrainScheduleQueryRepository {
 		return new TrainSeatInfoBatch(seatsByCarType, totalSeats);
 	}
 
+	/**
+	 * 여러 스케줄의 CarType별 객차 ID 배치 조회
+	 */
+	public TrainCarIdsBatch findTrainCarIdsBatch(List<Long> trainScheduleIds) {
+		if (trainScheduleIds.isEmpty()) {
+			return new TrainCarIdsBatch(Map.of());
+		}
+
+		QTrainSchedule trainSchedule = QTrainSchedule.trainSchedule;
+		QTrain train = QTrain.train;
+		QTrainCar trainCar = QTrainCar.trainCar;
+
+		List<TrainCarIdsProjection> trainCarIdResult = queryFactory
+			.select(Projections.constructor(TrainCarIdsProjection.class,
+				trainSchedule.id,
+				trainCar.carType,
+				trainCar.id
+			))
+			.from(trainSchedule)
+			.join(trainSchedule.train, train)
+			.join(trainCar).on(trainCar.train.id.eq(train.id))
+			.where(trainSchedule.id.in(trainScheduleIds))
+			.fetch();
+
+		// 결과 변환: scheduleId → carType → trainCarIds
+		Map<Long, Map<CarType, List<Long>>> result = new HashMap<>();
+		for (TrainCarIdsProjection dto : trainCarIdResult) {
+			result.computeIfAbsent(dto.getScheduleId(), k -> new HashMap<>())
+				.computeIfAbsent(dto.getCarType(), k -> new ArrayList<>())
+				.add(dto.getTrainCarId());
+		}
+		return new TrainCarIdsBatch(result);
+	}
+
 	@Getter
 	@AllArgsConstructor
 	public static class TrainBasicInfoWithStops {
@@ -201,5 +239,7 @@ public class TrainScheduleQueryRepository {
 		private LocalTime arrivalTime;
 		private String departureStationName;
 		private String arrivalStationName;
+		private int departureStopOrder;
+		private int arrivalStopOrder;
 	}
 }

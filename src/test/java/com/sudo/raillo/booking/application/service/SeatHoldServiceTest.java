@@ -72,6 +72,7 @@ class SeatHoldServiceTest {
 			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId(), seats.get(1).getId());
+			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// when & then
 			assertThatCode(() ->
@@ -80,7 +81,8 @@ class SeatHoldServiceTest {
 					trainScheduleId,
 					departureStop,
 					arrivalStop,
-					seatIds
+					seatIds,
+					trainCarId
 				)
 			).doesNotThrowAnyException();
 		}
@@ -98,6 +100,7 @@ class SeatHoldServiceTest {
 				seats.get(1).getId(),
 				seats.get(2).getId()
 			);
+			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// when & then
 			assertThatCode(() ->
@@ -106,7 +109,8 @@ class SeatHoldServiceTest {
 					trainScheduleId,
 					departureStop,
 					arrivalStop,
-					seatIds
+					seatIds,
+					trainCarId
 				)
 			).doesNotThrowAnyException();
 		}
@@ -121,6 +125,7 @@ class SeatHoldServiceTest {
 			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId());
+			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// 첫 번째 사용자가 먼저 Hold
 			seatHoldService.holdSeats(
@@ -128,7 +133,8 @@ class SeatHoldServiceTest {
 				trainScheduleId,
 				departureStop,
 				arrivalStop,
-				seatIds
+				seatIds,
+				trainCarId
 			);
 
 			// when & then - 두 번째 사용자가 같은 좌석 Hold 시도
@@ -138,7 +144,8 @@ class SeatHoldServiceTest {
 					trainScheduleId,
 					departureStop,
 					arrivalStop,
-					seatIds
+					seatIds,
+					trainCarId
 				)
 			)
 				.isInstanceOf(BusinessException.class)
@@ -160,9 +167,10 @@ class SeatHoldServiceTest {
 			Long seat1Id = seats.get(0).getId();
 			Long seat2Id = seats.get(1).getId();
 			Long seat3Id = seats.get(2).getId();
+			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// 좌석 2번에 먼저 Hold
-			seatHoldRepository.tryHold(trainScheduleId, seat2Id, pendingBookingId1, departureStopOrder, arrivalStopOrder);
+			seatHoldRepository.tryHold(trainScheduleId, seat2Id, pendingBookingId1, departureStopOrder, arrivalStopOrder, trainCarId);
 
 			// when - 좌석 1, 2, 3 동시 Hold 시도 (2번에서 충돌)
 			assertThatThrownBy(() ->
@@ -171,7 +179,8 @@ class SeatHoldServiceTest {
 					trainScheduleId,
 					departureStop,
 					arrivalStop,
-					List.of(seat1Id, seat2Id, seat3Id)
+					List.of(seat1Id, seat2Id, seat3Id),
+					trainCarId
 				)
 			)
 				.isInstanceOf(BusinessException.class)
@@ -179,7 +188,7 @@ class SeatHoldServiceTest {
 
 			// then - 좌석 1번도 롤백되어 Hold 가능해야 함
 			SeatHoldResult result = seatHoldRepository.tryHold(
-				trainScheduleId, seat1Id, "pending-booking-003", departureStopOrder, arrivalStopOrder
+				trainScheduleId, seat1Id, "pending-booking-003", departureStopOrder, arrivalStopOrder, trainCarId
 			);
 			assertThat(result.success()).isTrue();
 		}
@@ -192,6 +201,7 @@ class SeatHoldServiceTest {
 			String pendingBookingId2 = "pending-booking-002";
 			Long trainScheduleId = trainScheduleResult.trainSchedule().getId();
 			Long seatId = seats.get(0).getId();
+			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// 첫 번째 사용자: 서울 -> 대전 (구간 0-1)
 			ScheduleStop departureStop1 = trainScheduleResult.scheduleStops().get(0);
@@ -207,7 +217,8 @@ class SeatHoldServiceTest {
 				trainScheduleId,
 				departureStop1,
 				arrivalStop1,
-				List.of(seatId)
+				List.of(seatId),
+				trainCarId
 			);
 
 			// when & then - 두 번째 사용자도 Hold 성공 (구간이 겹치지 않음)
@@ -217,7 +228,8 @@ class SeatHoldServiceTest {
 					trainScheduleId,
 					departureStop2,
 					arrivalStop2,
-					List.of(seatId)
+					List.of(seatId),
+					trainCarId
 				)
 			).doesNotThrowAnyException();
 		}
@@ -236,6 +248,7 @@ class SeatHoldServiceTest {
 			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId(), seats.get(1).getId());
+			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// Hold 먼저 수행
 			seatHoldService.holdSeats(
@@ -243,7 +256,8 @@ class SeatHoldServiceTest {
 				trainScheduleId,
 				departureStop,
 				arrivalStop,
-				seatIds
+				seatIds,
+				trainCarId
 			);
 
 			// when & then
@@ -251,7 +265,10 @@ class SeatHoldServiceTest {
 				seatHoldService.releaseSeats(
 					pendingBookingId,
 					trainScheduleId,
-					seatIds
+					seatIds,
+					trainCarId,
+					departureStop.getStopOrder(),
+					arrivalStop.getStopOrder()
 				)
 			).doesNotThrowAnyException();
 		}
@@ -266,6 +283,7 @@ class SeatHoldServiceTest {
 			ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 			ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(2);
 			List<Long> seatIds = List.of(seats.get(0).getId());
+			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// 첫 번째 사용자 Hold
 			seatHoldService.holdSeats(
@@ -273,14 +291,18 @@ class SeatHoldServiceTest {
 				trainScheduleId,
 				departureStop,
 				arrivalStop,
-				seatIds
+				seatIds,
+				trainCarId
 			);
 
 			// 첫 번째 사용자 Release
 			seatHoldService.releaseSeats(
 				pendingBookingId1,
 				trainScheduleId,
-				seatIds
+				seatIds,
+				trainCarId,
+				departureStop.getStopOrder(),
+				arrivalStop.getStopOrder()
 			);
 
 			// when & then - 두 번째 사용자가 같은 좌석 Hold 성공
@@ -290,7 +312,8 @@ class SeatHoldServiceTest {
 					trainScheduleId,
 					departureStop,
 					arrivalStop,
-					seatIds
+					seatIds,
+					trainCarId
 				)
 			).doesNotThrowAnyException();
 		}
@@ -308,6 +331,7 @@ class SeatHoldServiceTest {
 				seats.get(1).getId(),
 				seats.get(2).getId()
 			);
+			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// Hold 먼저 수행
 			seatHoldService.holdSeats(
@@ -315,7 +339,8 @@ class SeatHoldServiceTest {
 				trainScheduleId,
 				departureStop,
 				arrivalStop,
-				seatIds
+				seatIds,
+				trainCarId
 			);
 
 			// when & then
@@ -323,7 +348,10 @@ class SeatHoldServiceTest {
 				seatHoldService.releaseSeats(
 					pendingBookingId,
 					trainScheduleId,
-					seatIds
+					seatIds,
+					trainCarId,
+					departureStop.getStopOrder(),
+					arrivalStop.getStopOrder()
 				)
 			).doesNotThrowAnyException();
 
@@ -333,7 +361,8 @@ class SeatHoldServiceTest {
 				seatIds.get(0),
 				"new-pending",
 				departureStop.getStopOrder(),
-				arrivalStop.getStopOrder()
+				arrivalStop.getStopOrder(),
+				trainCarId
 			);
 			assertThat(result.success()).isTrue();
 		}

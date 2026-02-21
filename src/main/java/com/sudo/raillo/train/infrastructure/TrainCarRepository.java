@@ -1,12 +1,10 @@
 package com.sudo.raillo.train.infrastructure;
 
-import java.util.Collection;
-import java.util.List;
-
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainCar;
+import java.util.Collection;
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TrainCarRepository extends JpaRepository<TrainCar, Long> {
 

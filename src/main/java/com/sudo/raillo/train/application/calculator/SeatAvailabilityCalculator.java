@@ -21,55 +21,39 @@ import lombok.extern.slf4j.Slf4j;
 public class SeatAvailabilityCalculator {
 
 	/**
-	 * 배치로 조회된 데이터를 사용해 구간별 좌석 상태 계산
+	 * 구간별 좌석 상태 계산 (전체 좌석 - SeatBooking - Hold = 잔여석)
 	 */
 	public SectionSeatStatus calculateSectionSeatStatus(
 		List<SeatBookingInfo> overlappingBookings,
 		Map<CarType, Integer> totalSeats,
-		int requestedPassengerCount) {
-
-		// 1. 좌석 타입별 잔여 좌석 계산
-		SeatCalculationResult seatResult = calculateRemainingSeats(
-			totalSeats, overlappingBookings);
-
-		// 2. 예약 가능 여부 판단
-		boolean canReserveStandard = seatResult.standardRemaining() >= requestedPassengerCount;
-		boolean canReserveFirstClass = seatResult.firstClassRemaining() >= requestedPassengerCount;
-
-		return new SectionSeatStatus(
-			seatResult.standardRemaining(),
-			totalSeats.getOrDefault(CarType.STANDARD, 0),
-			seatResult.firstClassRemaining(),
-			totalSeats.getOrDefault(CarType.FIRST_CLASS, 0),
-			canReserveStandard,
-			canReserveFirstClass
-		);
-	}
-
-	/**
-	 * 좌석 타입별 잔여 좌석 계산
-	 */
-	public SeatCalculationResult calculateRemainingSeats(Map<CarType, Integer> totalSeats,
-		List<SeatBookingInfo> overlappingBookings) {
-		// 예매된 좌석 수 계산
-		Map<CarType, Long> bookedSeats = overlappingBookings.stream()
+		Map<CarType, Integer> holdSeatsCountByCarType,
+		int requestedPassengerCount
+	) {
+		Map<CarType, Long> seatBooking = overlappingBookings.stream()
 			.collect(Collectors.groupingBy(SeatBookingInfo::carType, Collectors.counting()));
 
-		int standardTotal = totalSeats.getOrDefault(CarType.STANDARD, 0);
-		int firstClassTotal = totalSeats.getOrDefault(CarType.FIRST_CLASS, 0);
-		int standardBooked = bookedSeats.getOrDefault(CarType.STANDARD, 0L).intValue();
-		int firstClassBooked = bookedSeats.getOrDefault(CarType.FIRST_CLASS, 0L).intValue();
+		int standardRemaining = calculateRemaining(CarType.STANDARD, totalSeats, seatBooking, holdSeatsCountByCarType);
+		int firstClassRemaining = calculateRemaining(CarType.FIRST_CLASS, totalSeats, seatBooking, holdSeatsCountByCarType);
 
-		return new SeatCalculationResult(
-			Math.max(0, standardTotal - standardBooked), standardTotal,
-			Math.max(0, firstClassTotal - firstClassBooked), firstClassTotal
+		return new SectionSeatStatus(
+			standardRemaining,
+			totalSeats.getOrDefault(CarType.STANDARD, 0),
+			firstClassRemaining,
+			totalSeats.getOrDefault(CarType.FIRST_CLASS, 0),
+			standardRemaining >= requestedPassengerCount,
+			firstClassRemaining >= requestedPassengerCount
 		);
 	}
 
-	public record SeatCalculationResult(
-		int standardRemaining,
-		int standardTotal,
-		int firstClassRemaining,
-		int firstClassTotal
-	) {}
+	private int calculateRemaining(
+		CarType carType,
+		Map<CarType, Integer> totalSeats,
+		Map<CarType, Long> occupySeatBooking,
+		Map<CarType, Integer> holdSeatsCountByCarType
+	) {
+		int total = totalSeats.getOrDefault(carType, 0);
+		int seatBooking = occupySeatBooking.getOrDefault(carType, 0L).intValue();
+		int holdCount = holdSeatsCountByCarType.getOrDefault(carType, 0);
+		return Math.max(0, total - seatBooking - holdCount);
+	}
 }

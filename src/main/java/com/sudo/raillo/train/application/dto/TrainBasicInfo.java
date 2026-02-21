@@ -9,6 +9,8 @@ public record TrainBasicInfo(
 	String departureStationName,
 	String arrivalStationName,
 	LocalTime departureTime,
-	LocalTime arrivalTime
+	LocalTime arrivalTime,
+	int departureStopOrder,
+	int arrivalStopOrder
 ) {
 }
