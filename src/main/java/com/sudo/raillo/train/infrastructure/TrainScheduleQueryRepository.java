@@ -1,26 +1,11 @@
 package com.sudo.raillo.train.infrastructure;
 
-import com.querydsl.core.Tuple;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.SliceImpl;
-import org.springframework.stereotype.Repository;
-
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.projection.TrainCarIdsBatch;
+import com.sudo.raillo.train.application.dto.projection.TrainCarIdsProjection;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoProjection;
 import com.sudo.raillo.train.domain.QScheduleStop;
@@ -30,10 +15,22 @@ import com.sudo.raillo.train.domain.QTrainCar;
 import com.sudo.raillo.train.domain.QTrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
-
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
+import org.springframework.stereotype.Repository;
 
 /**
  * 열차 스케줄 커스텀 Repository 구현체
@@ -210,8 +207,12 @@ public class TrainScheduleQueryRepository {
 		QTrain train = QTrain.train;
 		QTrainCar trainCar = QTrainCar.trainCar;
 
-		List<Tuple> rows = queryFactory
-			.select(trainSchedule.id, trainCar.carType, trainCar.id)
+		List<TrainCarIdsProjection> trainCarIdResult = queryFactory
+			.select(Projections.constructor(TrainCarIdsProjection.class,
+				trainSchedule.id,
+				trainCar.carType,
+				trainCar.id
+			))
 			.from(trainSchedule)
 			.join(trainSchedule.train, train)
 			.join(trainCar).on(trainCar.train.id.eq(train.id))
@@ -220,14 +221,10 @@ public class TrainScheduleQueryRepository {
 
 		// 결과 변환: scheduleId → carType → trainCarIds
 		Map<Long, Map<CarType, List<Long>>> result = new HashMap<>();
-		for (Tuple row : rows) {
-			Long scheduleId = row.get(trainSchedule.id);
-			CarType carType = row.get(trainCar.carType);
-			Long trainCarId = row.get(trainCar.id);
-
-			result.computeIfAbsent(scheduleId, k -> new HashMap<>())
-				.computeIfAbsent(carType, k -> new ArrayList<>())
-				.add(trainCarId);
+		for (TrainCarIdsProjection dto : trainCarIdResult) {
+			result.computeIfAbsent(dto.getScheduleId(), k -> new HashMap<>())
+				.computeIfAbsent(dto.getCarType(), k -> new ArrayList<>())
+				.add(dto.getTrainCarId());
 		}
 		return new TrainCarIdsBatch(result);
 	}
