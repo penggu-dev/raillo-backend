@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.Getter;
@@ -47,6 +48,17 @@ public class PendingBooking {
 		this.pendingSeatBookings = pendingSeatBookings;
 		this.totalFare = totalFare;
 		this.createdAt = createdAt;
+	}
+
+	@JsonIgnore
+	public List<Long> getSeatIds() {
+		if (pendingSeatBookings == null) {
+			return List.of();
+		}
+
+		return pendingSeatBookings.stream()
+			.map(PendingSeatBooking::seatId)
+			.toList();
 	}
 
 	public static PendingBooking create(

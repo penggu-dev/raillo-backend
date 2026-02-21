@@ -16,7 +16,6 @@ import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.util.PendingBookingIdGenerator;
 import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.application.service.TrainScheduleService;
@@ -138,7 +137,7 @@ public class PendingBookingFacade {
 
 		pendingBookings.forEach(pendingBooking -> {
 			try {
-				List<Long> seatIds = extractSeatIds(pendingBooking);
+				List<Long> seatIds = pendingBooking.getSeatIds();
 				Long trainCarId = getTrainCarId(seatIds);
 				TrainSchedule trainSchedule = trainScheduleService.getTrainSchedule(pendingBooking.getTrainScheduleId());
 				ScheduleStop departureStop = trainScheduleService.getStopStation(trainSchedule, pendingBooking.getDepartureStopId());
@@ -158,21 +157,12 @@ public class PendingBookingFacade {
 		});
 	}
 
-	private List<Long> extractSeatIds(PendingBooking pendingBooking) {
-		return pendingBooking.getPendingSeatBookings().stream()
-			.map(PendingSeatBooking::seatId)
-			.toList();
-	}
-
 	/**
 	 * 좌석 ID 목록에서 trainCarId 추출
 	 * 같은 CarType의 좌석들은 모두 같은 객차에 속하므로 첫 번째 좌석의 trainCarId 반환
 	 */
 	private Long getTrainCarId(List<Long> seatIds) {
-		List<Seat> seats = seatRepository.findAllByIdWithTrainCar(seatIds);
-		if (seats.isEmpty()) {
-			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
-		}
-		return seats.get(0).getTrainCar().getId();
+		return seatRepository.findAllByIdWithTrainCar(List.of(seatIds.get(0)))
+			.get(0).getTrainCar().getId();
 	}
 }
