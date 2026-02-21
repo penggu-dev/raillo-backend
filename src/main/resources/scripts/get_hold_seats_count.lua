@@ -2,16 +2,16 @@
 -- CarType별 Hold 점유 좌석 수 계산 Lua 스크립트
 --
 -- KEYS[1..N]: Hold Index 키들 (예: {schedule:1785}:traincar:231:holding-seats)
--- ARGV[1]: currentTime (Unix timestamp, 초 단위)
--- ARGV[2..M]: 검색 구간 sections (예: "0-1", "1-2", "2-3")
+-- ARGV[1..M]: 검색 구간 sections (예: "0-1", "1-2", "2-3")
 --
 -- 반환값: Hold 점유 좌석 수 (중복 제거된)
 
-local currentTime = tonumber(ARGV[1])
+-- Redis 서버 시각 사용 (Java 서버와 clock skew 방지)
+local currentTime = tonumber(redis.call("TIME")[1])
 
 -- 검색 구간 Set 생성
 local searchSections = {}
-for i = 2, #ARGV do
+for i = 1, #ARGV do
     searchSections[ARGV[i]] = true
 end
 

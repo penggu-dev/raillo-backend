@@ -189,6 +189,7 @@ public class SeatHoldRepository {
 		} catch (Exception e) {
 			log.error("[Hold 점유 수 조회 오류] trainScheduleId={}, trainCarIds={}, error={}",
 				trainScheduleId, trainCarIds, e.getMessage(), e);
+			// Hold는 검색 정확도 보조 데이터이므로 레디스 오류 시 0 반환하여 검색 가용성 유지
 			return 0;
 		}
 	}
@@ -245,17 +246,16 @@ public class SeatHoldRepository {
 	/**
 	 * Hold 좌석 수 조회 스크립트 인자 배열 구성
 	 *
-	 * <p>ARGV 형식: [currentTime, section1, section2, ...]</p>
+	 * <p>ARGV 형식: [section1, section2, ...]</p>
+	 * <p>currentTime은 Lua 내부에서 redis.call("TIME")으로 직접 조회 (clock skew 방지)</p>
 	 *
 	 * @param sections 검색 구간 목록
 	 * @return Lua ARGV로 전달할 인자 배열
 	 */
 	private static Object[] buildHoldSeatsCountArgs(List<String> sections) {
-		long currentTime = System.currentTimeMillis() / 1000;
-		Object[] args = new Object[sections.size() + 1];
-		args[0] = String.valueOf(currentTime);
+		Object[] args = new Object[sections.size()];
 		for (int i = 0; i < sections.size(); i++) {
-			args[i + 1] = sections.get(i);
+			args[i] = sections.get(i);
 		}
 		return args;
 	}
