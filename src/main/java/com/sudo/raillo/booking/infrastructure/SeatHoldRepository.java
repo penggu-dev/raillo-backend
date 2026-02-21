@@ -172,13 +172,7 @@ public class SeatHoldRepository {
 			.map(carId -> seatHoldKeyGenerator.generateHoldIndexKey(trainScheduleId, carId))
 			.toList();
 
-		// ARGV: [currentTime, section1, section2, ...]
-		long currentTime = System.currentTimeMillis() / 1000;
-		Object[] args = new Object[sections.size() + 1];
-		args[0] = String.valueOf(currentTime);
-		for (int i = 0; i < sections.size(); i++) {
-			args[i + 1] = sections.get(i);
-		}
+		Object[] args = buildHoldSeatsCountArgs(sections);
 
 		try {
 			Long count = customStringRedisTemplate.execute(
@@ -252,6 +246,24 @@ public class SeatHoldRepository {
 		args[4] = String.valueOf(trainCarId);            // ARGV[5]: trainCarId
 		for (int i = 0; i < sections.size(); i++) {
 			args[i + 5] = sections.get(i);               // ARGV[6...]: sections
+		}
+		return args;
+	}
+
+	/**
+	 * Hold 좌석 수 조회 스크립트 인자 배열 구성
+	 *
+	 * <p>ARGV 형식: [currentTime, section1, section2, ...]</p>
+	 *
+	 * @param sections 검색 구간 목록
+	 * @return Lua ARGV로 전달할 인자 배열
+	 */
+	private static Object[] buildHoldSeatsCountArgs(List<String> sections) {
+		long currentTime = System.currentTimeMillis() / 1000;
+		Object[] args = new Object[sections.size() + 1];
+		args[0] = String.valueOf(currentTime);
+		for (int i = 0; i < sections.size(); i++) {
+			args[i + 1] = sections.get(i);
 		}
 		return args;
 	}
