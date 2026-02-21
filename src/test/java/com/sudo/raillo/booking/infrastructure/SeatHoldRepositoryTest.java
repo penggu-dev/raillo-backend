@@ -46,7 +46,7 @@ class SeatHoldRepositoryTest {
 			// when
 			SeatHoldResult result = seatHoldRepository.tryHold(
 				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId,
-				departureStopOrder, arrivalStopOrder, TRAIN_CAR_ID, HOLD_TTL, HOLD_TTL
+				departureStopOrder, arrivalStopOrder, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// then
@@ -313,12 +313,12 @@ class SeatHoldRepositoryTest {
 
 			// when - 첫 번째 사용자: 구간 0-1
 			seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 1, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 1, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// 두 번째 사용자: 구간 2-3 (겹치지 않음)
 			seatHoldRepository.tryHold(
-				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 3, TRAIN_CAR_ID
+				TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 3, TRAIN_CAR_ID, HOLD_TTL
 			);
 
 			// then
