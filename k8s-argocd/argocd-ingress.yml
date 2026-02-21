@@ -11,10 +11,10 @@ spec:
   # ingress에서 인증처리
   tls:
     - hosts:
-        - argo.raillo.shop
+        - argo.raillo.store
       secretName: argo-raillo-com-tls  # 해당 host에 해당 이름으로 인증서에 secret 생성
   rules:
-    - host: argo.raillo.shop
+    - host: argo.raillo.store
       http:
         paths:
           - path: /
