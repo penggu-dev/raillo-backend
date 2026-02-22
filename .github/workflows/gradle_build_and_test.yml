@@ -14,16 +14,6 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    environment: dev
-
-    env:
-      DB_URL: ${{ secrets.DB_URL }}
-      DB_PW: ${{ secrets.DB_PW }}
-      DB_USERNAME: ${{ secrets.DB_USERNAME }}
-      JWT_KEY: ${{ secrets.JWT_KEY }}
-      MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
-      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -31,14 +21,14 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'gradle'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3.1.0
 
       - name: Build and Test with Gradle
         run: |
-          ./gradlew build
-          ./gradlew --info test
+          ./gradlew build --info
 
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1

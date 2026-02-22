@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: raillo-backend
-          image: 134125630963.dkr.ecr.ap-northeast-2.amazonaws.com/raillo-backend:latest
+          image: 052104148083.dkr.ecr.ap-northeast-2.amazonaws.com/raillo-backend:latest
           ports:
             - containerPort: 8080  # spring의 포트번호와 일치
           resources:
@@ -61,16 +61,16 @@ spec:
                 secretKeyRef:
                   name: raillo-secrets
                   key: MAIL_PASSWORD
-            - name: STATION_FARE_FILENAME
+            - name: TOSS_CLIENT_KEY
               valueFrom:
                 secretKeyRef:
                   name: raillo-secrets
-                  key: STATION_FARE_FILENAME
-            - name: TRAIN_SCHEDULE_FILENAME
+                  key: TOSS_CLIENT_KEY
+            - name: TOSS_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: raillo-secrets
-                  key: TRAIN_SCHEDULE_FILENAME
+                  key: TOSS_SECRET_KEY
           # 컨테이너 상태 확인을 통해 롤링업데이트 최적화
           readinessProbe:
             httpGet:
