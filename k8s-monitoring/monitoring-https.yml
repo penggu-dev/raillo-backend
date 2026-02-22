@@ -10,6 +10,6 @@ spec:
   issuerRef: # ClusterIssuer 는 기존 것을 재사용
     name: raillo-issuer
     kind: ClusterIssuer  # 어떤 인증 기관에서 어떤 인증서 종류를 발급받을 것인지에 대한 정의
-  commonName: monitoring.raillo.shop
+  commonName: monitoring.raillo.store
   dnsNames:
-    - monitoring.raillo.shop  # Ingress 의 host 이름과 일치
+    - monitoring.raillo.store  # Ingress 의 host 이름과 일치

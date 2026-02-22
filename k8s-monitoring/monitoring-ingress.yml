@@ -10,10 +10,10 @@ spec:
   # ingress에서 인증처리
   tls:
     - hosts:
-        - monitoring.raillo.shop
+        - monitoring.raillo.store
       secretName: monitoring-raillo-com-tls  # 해당 host에 해당 이름으로 인증서에 secret 생성
   rules:
-    - host: monitoring.raillo.shop
+    - host: monitoring.raillo.store
       http:
         paths:
           - path: /

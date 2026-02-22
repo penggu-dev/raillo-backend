@@ -9,7 +9,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/goorm-sudo/raillo-backend
+    repoURL: https://github.com/raillo-temp/raillo-backend.git
     targetRevision: main
     path: k8s # Argo CD는 내부적으로 Git repo를 clone 한 뒤 path에 지정된 상대 경로에서 YAML 파일을 찾기 때문에 /를 빼야함
   destination:
