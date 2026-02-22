@@ -207,7 +207,7 @@ public class SeatHoldRepository {
 	 * @param sections 검색 구간 목록 (예: ["0-1", "1-2"])
 	 */
 	public Set<Long> findSeatIdsOnHold(Long trainScheduleId, Long trainCarId, List<String> sections) {
-		String holdIndexKey = seatHoldKeyGenerator.generateHoldIndexKey(trainScheduleId, trainCarId);
+		String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
 		long currentTime = System.currentTimeMillis() / 1000;
 
 		Set<String> members = customStringRedisTemplate.opsForZSet()
