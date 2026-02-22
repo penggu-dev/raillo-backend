@@ -13,12 +13,10 @@ RUN chmod +x gradlew
 RUN ./gradlew bootJar
 
 # Stage 2: 실행용 (표준 JDK 환경에 빌드 결과물만 포함하여 이미지 최적화)
-FROM eclipse-temurin:17-jdk
+FROM eclipse-temurin:17-jdk-alpine
 
 # 1. 타임존 데이터 설치
-RUN apt-get update && \
-    apt-get install -y tzdata && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache tzdata
 # 2. 시스템 타임존을 Asia/Seoul로 설정
 ENV TZ=Asia/Seoul
 # 3. JVM도 명시적으로 Asia/Seoul로 고정
