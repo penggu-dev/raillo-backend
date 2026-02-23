@@ -1,0 +1,68 @@
+name: Auto Assign PR Author and Reviewers
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  assign-and-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign author and request reviewers
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prAuthor = context.payload.pull_request.user.login;
+            const prNumber = context.payload.pull_request.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // PR 작성자를 담당자(assignee)로 지정
+            await github.rest.issues.addAssignees({
+              owner,
+              repo,
+              issue_number: prNumber,
+              assignees: [prAuthor]
+            });
+
+            // 브랜치명에서 라벨 자동 지정
+            const branchName = context.payload.pull_request.head.ref;
+            const labelMap = {
+              'feature': '✨ feature',
+              'bug': '🐞 bug',
+              'refactor': '♻️ refactor',
+              'chore': '⚙️ chore',
+              'test': '✅ test',
+              'docs': '📝 docs',
+              'revert': '💫 revert',
+              'release': '🚀 release'
+            };
+
+            const prefix = branchName.split('/')[0];
+            const label = labelMap[prefix];
+
+            if (label) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: [label]
+              });
+            }
+
+            // PR 작성자를 제외한 팀원에게 리뷰 요청
+            const teamMembers = ['Ogu1208', 'Jimin730', 'chanwonlee'];
+            const reviewers = teamMembers.filter(m => m.toLowerCase() !== prAuthor.toLowerCase());
+
+            if (reviewers.length > 0) {
+              await github.rest.pulls.requestReviewers({
+                owner,
+                repo,
+                pull_number: prNumber,
+                reviewers
+              });
+            }
