@@ -1,0 +1,112 @@
+package com.sudo.raillo.train.domain;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+import com.sudo.raillo.train.domain.status.OperationStatus;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(
+	name = "train_schedule",
+	indexes = {
+		// 1. 열차 예약 검색용 복합 인덱스 (날짜 + 운행상태 + 출발시간)
+		// ex) 6월 20일 예약 가능한 열차 조회 (시간순 정렬)
+		@Index(name = "idx_schedule_basic_filter",
+			columnList = "operation_date, operation_status, departure_time"),
+
+		// 2. 캘린더 전용 인덱스 (날짜별 운행 여부 조회)
+		@Index(name = "idx_schedule_calendar",
+			columnList = "operation_date, operation_status"),
+
+		// 3. 열차별 날짜 검색 (관리자용, 특정 열차 스케줄 조회)
+		@Index(name = "idx_schedule_train_date",
+			columnList = "train_id, operation_date"),
+	}
+)
+public class TrainSchedule {
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "train_schedule_id")
+	private Long id;
+
+	private String scheduleName;
+
+	private LocalDate operationDate;
+
+	private LocalTime departureTime;
+
+	private LocalTime arrivalTime;
+
+	@Enumerated(EnumType.STRING)
+	private OperationStatus operationStatus;
+
+	private int delayMinutes;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "train_id")
+	private Train train;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "departure_station_id")
+	private Station departureStation;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "arrival_station_id")
+	private Station arrivalStation;
+
+	/* 비즈니스 메서드 */
+	public void updateOperationStatus(OperationStatus status) {
+		this.operationStatus = status;
+	}
+
+	/**
+	 * 열차 전체 지연 시간 추가 및 상태 업데이트
+	 *
+	 * 지연 상태 기준
+	 * - 5분 미만: ACTIVE
+	 * - 5분 이상: DELAYED
+	 * - 20분 이상: 예약 시 지연 안내
+	 */
+	public void addDelay(int minutes) {
+		this.delayMinutes += minutes;
+
+		if (this.delayMinutes >= 5) {
+			this.operationStatus = OperationStatus.DELAYED;
+		}
+	}
+
+	public void recoverDelay() {
+		this.delayMinutes = 0;
+		this.operationStatus = OperationStatus.ACTIVE;
+	}
+
+	public LocalDateTime getDepartureDateTimeAt(ScheduleStop stop) {
+		LocalDate date = operationDate;
+
+		// 정차역 출발시간이 열차 출발시간보다 이르면 자정을 넘긴 것이므로 다음날로 처리
+		if (stop.getDepartureTime().isBefore(departureTime)) {
+			date = date.plusDays(1);
+		}
+		return LocalDateTime.of(date, stop.getDepartureTime());
+	}
+}

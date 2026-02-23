@@ -1,0 +1,41 @@
+name: Build and Test with Gradle
+
+on:
+  push:
+    branches: [ "develop" ]
+  pull_request:
+    branches: [ "develop" ]
+
+permissions:
+  contents: read
+  checks: write
+  issues: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3.1.0
+
+      - name: Build and Test with Gradle
+        run: |
+          ./gradlew build --info
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        with:
+          files: build/test-results/**/*.xml
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v3
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'

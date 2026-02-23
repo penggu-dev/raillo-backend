@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>결제 실패</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+            background: #f5f6f8;
+        }
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 16px;
+        }
+        .max-w {
+            width: 100%;
+            max-width: 680px;
+        }
+        h2 { margin: 16px 0 8px; font-size: 22px; color: #dc2626; }
+        .response-section {
+            margin-top: 28px;
+            background: #fff;
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+        }
+        .row {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .label { font-size: 14px; font-weight: 500; color: #6b7280; }
+        .value { font-size: 15px; color: #111827; word-break: break-all; }
+        .btn {
+            margin-top: 28px;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 15px;
+            background: #3182f6;
+            color: white;
+            text-decoration: none;
+            text-align: center;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="max-w" style="display:flex; flex-direction:column; align-items:center;">
+        <img src="https://static.toss.im/lotties/error-spot-apng.png" width="120" height="120" />
+        <h2>결제에 실패했어요</h2>
+
+        <div class="response-section">
+            <div class="row">
+                <span class="label">에러 코드</span>
+                <span class="value" th:text="${errorCode}"></span>
+            </div>
+            <div class="row">
+                <span class="label">에러 메시지</span>
+                <span class="value" th:text="${errorMessage}"></span>
+            </div>
+            <div class="row" th:if="${orderId}">
+                <span class="label">주문번호</span>
+                <span class="value" th:text="${orderId}"></span>
+            </div>
+        </div>
+
+        <a class="btn" href="/test/payments" style="width:100%;">다시 시도하기</a>
+    </div>
+</div>
+</body>
+</html>

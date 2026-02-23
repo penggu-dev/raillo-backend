@@ -24,44 +24,66 @@ repositories {
 }
 
 dependencies {
+    // Spring Boot Starters
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    compileOnly 'org.projectlombok:lombok'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
+
+    // Database
     runtimeOnly 'com.mysql:mysql-connector-j'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // Development Tools
+    developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
+    compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    // Test Dependencies
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'com.h2database:h2'
+    testImplementation 'com.github.codemonstur:embedded-redis:1.4.3'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.batch:spring-batch-test'
+    testImplementation 'com.icegreen:greenmail:2.1.3'
+    testImplementation 'com.icegreen:greenmail-junit5:2.1.3'
 
-    /* JWT */
-    // https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-api
-    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
-    // https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-impl
-    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
-    // https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt-jackson
-    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.2'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.2'
 
-    /* QueryDSL */
+    // QueryDSL
     implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
     annotationProcessor "com.querydsl:querydsl-apt:${dependencyManagement.importedProperties['querydsl.version']}:jakarta"
     annotationProcessor "jakarta.annotation:jakarta.annotation-api"
     annotationProcessor "jakarta.persistence:jakarta.persistence-api"
 
+    // swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
+
+    // Actuator & Prometheus
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
 }
 
-/* QueryDSL 설정부 */
+// QueryDSL 설정부
 def querydslSrcDir = layout.buildDirectory.dir("generated/querydsl").get().asFile
 
 sourceSets {
-    main.java.srcDirs += [ querydslSrcDir ]
+    main.java.srcDirs += [querydslSrcDir]
 }
 
 tasks.withType(JavaCompile) {
@@ -72,4 +94,3 @@ tasks.withType(JavaCompile) {
 clean {
     delete file(querydslSrcDir)
 }
-

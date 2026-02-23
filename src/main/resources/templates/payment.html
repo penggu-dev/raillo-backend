@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Toss Payments Test</title>
+    <script src="https://js.tosspayments.com/v2/standard"></script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+            background: #f5f6f8;
+            padding: 40px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 520px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        .field {
+            margin-bottom: 16px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: #555;
+        }
+
+        .field input {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        #pay-button {
+            width: 100%;
+            margin-top: 20px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            background: #3182f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        #pay-button:hover {
+            background: #2563eb;
+        }
+
+        #payment-method,
+        #agreement {
+            margin-top: 24px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>토스 결제 테스트</h2>
+
+    <!-- 입력 영역 -->
+    <div class="field">
+        <label for="orderId">Order ID</label>
+        <input id="orderId" type="text"/>
+    </div>
+
+    <div class="field">
+        <label for="amount">결제 금액 (KRW)</label>
+        <input id="amount" type="number" min="100"/>
+    </div>
+
+    <!-- 결제 위젯 -->
+    <div id="payment-method"></div>
+    <div id="agreement"></div>
+
+    <button id="pay-button">결제하기</button>
+</div>
+
+<script th:inline="javascript">
+    const clientKey = [[${clientKey}]];
+
+    const main = async () => {
+        const tossPayments = TossPayments(clientKey);
+
+        const widgets = tossPayments.widgets({
+            customerKey: "test-customer-key",
+        });
+
+        const amountInput = document.getElementById("amount");
+
+        // 초기 금액 설정
+        await widgets.setAmount({
+            currency: "KRW",
+            value: Number(amountInput.value),
+        });
+
+        await Promise.all([
+            widgets.renderPaymentMethods({
+                selector: "#payment-method",
+                variantKey: "DEFAULT",
+            }),
+            widgets.renderAgreement({
+                selector: "#agreement",
+                variantKey: "AGREEMENT",
+            }),
+        ]);
+
+        // 💡 금액 변경 시 위젯 금액도 즉시 반영
+        amountInput.addEventListener("change", async () => {
+            await widgets.setAmount({
+                currency: "KRW",
+                value: Number(amountInput.value),
+            });
+        });
+
+        document.getElementById("pay-button").addEventListener("click", async () => {
+            try {
+                const orderId = document.getElementById("orderId").value;
+
+                await widgets.requestPayment({
+                    orderId: orderId,
+                    orderName: "토스 결제 테스트",
+                    successUrl: "http://localhost:8080/test/payments/confirm",
+                    failUrl: "http://localhost:8080/test/payments/fail",
+                });
+            } catch (e) {
+                console.error("결제 요청 실패", e);
+            }
+        });
+    };
+
+    main();
+</script>
+
+</body>
+</html>

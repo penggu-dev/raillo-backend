@@ -5,6 +5,11 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+### Environment ###
+.env
+.env-local
+.env-prod
+
 ### STS ###
 .apt_generated
 .classpath
@@ -36,5 +41,13 @@ out/
 ### VS Code ###
 .vscode/
 
-### dev.yml
-application-dev.yml
+### AI docs ###
+CLAUDE.md
+GEMINI.md
+.claude/
+.gemini/
+
+### K6 Test ###
+package.json
+package-lock.json
+node_modules

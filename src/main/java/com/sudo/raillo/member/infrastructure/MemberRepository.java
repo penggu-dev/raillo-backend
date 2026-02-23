@@ -1,0 +1,33 @@
+package com.sudo.raillo.member.infrastructure;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.sudo.raillo.member.domain.Member;
+
+public interface MemberRepository extends JpaRepository<Member, Long> {
+
+	@Query("SELECT m FROM Member m WHERE m.memberDetail.memberNo = :memberNo")
+	Optional<Member> findByMemberNo (String memberNo);
+
+	@Query("SELECT m FROM Member m WHERE m.name = :name AND m.phoneNumber = :phoneNumber AND m.role = 'MEMBER'")
+	Optional<Member> findMemberByNameAndPhoneNumber(String name, String phoneNumber);
+
+	List<Member> findByNameAndPhoneNumber(String name, String phoneNumber);
+
+	boolean existsByMemberDetailEmail(String email);
+
+	boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
+
+	@Modifying
+	@Query(value = "delete from member where id in (:memberIds)", nativeQuery = true)
+	void deleteAllByIdInBatch(@Param("memberIds") List<Long> memberIds);
+
+	@Query(value = "SELECT * FROM member m WHERE m.member_no = :memberNo", nativeQuery = true)
+	Optional<Member> findByMemberNoIgnoreIsDeleted(@Param("memberNo") String memberNo);
+}

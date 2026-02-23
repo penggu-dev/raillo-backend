@@ -1,0 +1,265 @@
+package com.sudo.raillo.booking.infrastructure;
+
+import java.time.Duration;
+
+import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.stereotype.Repository;
+
+/**
+ * 좌석 임시 점유(Hold) Redis Repository
+ *
+ * <p>Lua 스크립트를 사용하여 좌석 구간 충돌 검사 및 임시 점유를 원자적으로 처리</p>
+ *
+ * <h3>Lua 스크립트 실행 흐름</h3>
+ * <ol>
+ *   <li>RedisTemplate.execute(script, keys, args) 호출</li>
+ *   <li>Lua 스크립트가 Redis 서버에서 원자적으로 실행</li>
+ *   <li>결과를 List&lt;Object&gt;로 반환 (Lua table → Java List)</li>
+ *   <li>SeatHoldResult.fromLuaResult()로 파싱</li>
+ * </ol>
+ *
+ * @see com.sudo.raillo.global.config.RedisScriptConfig - 스크립트 Bean 등록
+ * @see SeatHoldResult - 스크립트 결과 파싱
+ */
+@Slf4j
+@Repository
+@RequiredArgsConstructor
+public class SeatHoldRepository {
+
+	private final RedisTemplate<String, String> customStringRedisTemplate;
+	private final SeatHoldKeyGenerator seatHoldKeyGenerator;
+	private final DefaultRedisScript<List> seatHoldScript;
+	private final DefaultRedisScript<List> seatReleaseScript;
+	private final DefaultRedisScript<Long> getHoldSeatsCountScript;
+
+	/**
+	 * 좌석 임시 점유 시도
+	 *
+	 * <p>Lua 스크립트로 충돌 검사 + Hold 생성을 원자적으로 처리</p>
+	 *
+	 * @param trainScheduleId 열차 스케줄 ID
+	 * @param seatId 좌석 ID
+	 * @param pendingBookingId 예약 ID (Hold 키 식별자)
+	 * @param departureStopOrder 출발역 stopOrder
+	 * @param arrivalStopOrder 도착역 stopOrder
+	 * @param trainCarId 객차 ID (Hold Index 키 생성용)
+	 * @param holdTtl Hold TTL
+	 * @return SeatHoldResult 점유 결과 (성공/실패 + 충돌 정보)
+	 */
+	public SeatHoldResult tryHold(
+		Long trainScheduleId,
+		Long seatId,
+		String pendingBookingId,
+		int departureStopOrder,
+		int arrivalStopOrder,
+		Long trainCarId,
+		Duration holdTtl
+	) {
+		long holdTtlSeconds = Math.max(1L, holdTtl.toSeconds());
+		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
+		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
+		List<String> sections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
+
+		log.debug("[좌석 Hold 시도] trainScheduleId={}, seatId={}, trainCarId={}, pendingBookingId={}, sections={}",
+			trainScheduleId, seatId, trainCarId, pendingBookingId, sections);
+
+		String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
+
+		try {
+			// Lua 스크립트 실행
+			// - KEYS: [holdKey, holdsKey, holdIndexKey] - Redis 키들
+			// - ARGV: [ttl, pendingBookingId, seatId, section1, section2, ...] - 인자들
+			// - 반환: List<Object> (Lua table이 Java List로 변환됨)
+			Object[] args = buildHoldArgs(pendingBookingId, seatId, sections, holdTtlSeconds);
+
+			@SuppressWarnings("unchecked")  // DefaultRedisScript<List>의 raw type 때문에 필요
+			List<Object> result = customStringRedisTemplate.execute(
+				seatHoldScript,
+				List.of(holdKey, holdsKey, holdIndexKey),
+				args
+			);
+
+			// Lua 결과 파싱 (타입 캐스팅 + 예외 처리 포함)
+			SeatHoldResult holdResult = SeatHoldResult.fromLuaResult(result);
+
+			if (holdResult.success()) {
+				log.info("[좌석 Hold 성공] trainScheduleId={}, seatId={}, pendingBookingId={}",
+					trainScheduleId, seatId, pendingBookingId);
+			} else {
+				log.warn("[좌석 Hold 실패] trainScheduleId={}, seatId={}, status={}, conflictSection={}",
+					trainScheduleId, seatId, holdResult.status(), holdResult.conflictSection());
+			}
+
+			return holdResult;
+
+		} catch (Exception e) {
+			log.error("[좌석 Hold 스크립트 오류] trainScheduleId={}, seatId={}, error={}",
+				trainScheduleId, seatId, e.getMessage(), e);
+			throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
+		}
+	}
+
+	/**
+	 * 좌석 점유 해제
+	 *
+	 * <p>예약 취소 시 또는 TTL 만료 전 수동 해제가 필요할 때 사용.
+	 * Hold가 이미 없어도 에러 발생하지 않음 (멱등성)</p>
+	 *
+	 * @param trainScheduleId 열차 스케줄 ID
+	 * @param seatId 좌석 ID
+	 * @param pendingBookingId 예약 ID
+	 * @param trainCarId 객차 ID (Hold Index 키 생성용)
+	 * @param departureStopOrder 출발역 stopOrder (sections 생성용)
+	 * @param arrivalStopOrder 도착역 stopOrder (sections 생성용)
+	 */
+	public void releaseHold(
+		Long trainScheduleId,
+		Long seatId,
+		String pendingBookingId,
+		Long trainCarId,
+		int departureStopOrder,
+		int arrivalStopOrder
+	) {
+		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
+		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
+		List<String> sections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
+
+		log.debug("[좌석 Hold 해제] trainScheduleId={}, seatId={}, trainCarId={}, pendingBookingId={}",
+			trainScheduleId, seatId, trainCarId, pendingBookingId);
+
+		String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
+
+		try {
+			Object[] args = buildReleaseArgs(pendingBookingId, seatId, sections);
+
+			customStringRedisTemplate.execute(
+				seatReleaseScript,
+				List.of(holdKey, holdsKey, holdIndexKey),
+				args
+			);
+
+			log.info("[좌석 Hold 해제 완료] trainScheduleId={}, seatId={}, pendingBookingId={}",
+				trainScheduleId, seatId, pendingBookingId);
+
+		} catch (Exception e) {
+			log.error("[좌석 Hold 해제 오류] trainScheduleId={}, seatId={}, error={}",
+				trainScheduleId, seatId, e.getMessage(), e);
+			throw new BusinessException(BookingError.SEAT_HOLD_RELEASE_FAILED);
+		}
+	}
+
+
+	/**
+	 * CarType별 Hold 점유 좌석 수 계산 (Lua 스크립트 사용)
+	 *
+	 * <p>여러 객차의 Hold Index를 한 번에 조회하여 Hold 점유 좌석 수를 계산</p>
+	 * <p>Lua 스크립트에서 section 필터링 및 seatId 중복 제거를 수행</p>
+	 *
+	 * @param trainScheduleId 스케줄 ID
+	 * @param trainCarIds 조회할 객차 ID 목록 (동일 CarType)
+	 * @param sections 검색 구간 목록 (예: ["0-1", "1-2"])
+	 * @return Hold 점유 좌석 수
+	 */
+	public int getHoldSeatsCount(
+		Long trainScheduleId,
+		List<Long> trainCarIds,
+		List<String> sections
+	) {
+		// KEYS: Hold Index 키 목록 생성
+		List<String> keys = trainCarIds.stream()
+			.map(carId -> seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, carId))
+			.toList();
+
+		Object[] args = buildHoldSeatsCountArgs(sections);
+
+		try {
+			Long count = customStringRedisTemplate.execute(
+				getHoldSeatsCountScript,
+				keys,
+				args
+			);
+			return count.intValue();
+
+		} catch (Exception e) {
+			log.error("[Hold 점유 수 조회 오류] trainScheduleId={}, trainCarIds={}, error={}",
+				trainScheduleId, trainCarIds, e.getMessage(), e);
+			// Hold는 검색 정확도 보조 데이터이므로 레디스 오류 시 0 반환하여 검색 가용성 유지
+			return 0;
+		}
+	}
+
+	/**
+	 * Release 스크립트 인자 배열 구성
+	 *
+	 * <p>ARGV 형식: [pendingBookingId, seatId, section1, section2, ...]</p>
+	 *
+	 * @param pendingBookingId 예약 ID
+	 * @param seatId 좌석 ID
+	 * @param sections 구간 목록
+	 * @return Lua ARGV로 전달할 인자 배열
+	 */
+	private Object[] buildReleaseArgs(
+		String pendingBookingId,
+		Long seatId,
+		List<String> sections
+	) {
+		Object[] args = new Object[sections.size() + 2];
+		args[0] = pendingBookingId;                      // ARGV[1]: pendingBookingId
+		args[1] = String.valueOf(seatId);                // ARGV[2]: seatId
+		for (int i = 0; i < sections.size(); i++) {
+			args[i + 2] = sections.get(i);               // ARGV[3...]: sections
+		}
+		return args;
+	}
+
+	/**
+	 * Hold 스크립트 인자 배열 구성
+	 *
+	 * <p>ARGV 형식: [ttl, pendingBookingId, seatId, section1, section2, ...]</p>
+	 *
+	 * @param pendingBookingId 예약 ID (holds 인덱스에 추가할 값)
+	 * @param seatId 좌석 ID (Hold Index 멤버 생성용)
+	 * @param sections 구간 목록 (예: ["0-1", "1-2", "2-3"])
+	 * @param holdTtlSeconds hold TTL (초)
+	 * @return Lua ARGV로 전달할 인자 배열
+	 */
+	private Object[] buildHoldArgs(
+		String pendingBookingId,
+		Long seatId,
+		List<String> sections,
+		long holdTtlSeconds
+	) {
+		Object[] args = new Object[sections.size() + 3];
+		args[0] = String.valueOf(holdTtlSeconds);        // ARGV[1]: TTL
+		args[1] = pendingBookingId;                      // ARGV[2]: pendingBookingId
+		args[2] = String.valueOf(seatId);                // ARGV[3]: seatId
+		for (int i = 0; i < sections.size(); i++) {
+			args[i + 3] = sections.get(i);               // ARGV[4...]: sections
+		}
+		return args;
+	}
+
+	/**
+	 * Hold 좌석 수 조회 스크립트 인자 배열 구성
+	 *
+	 * <p>ARGV 형식: [section1, section2, ...]</p>
+	 * <p>currentTime은 Lua 내부에서 redis.call("TIME")으로 직접 조회 (clock skew 방지)</p>
+	 *
+	 * @param sections 검색 구간 목록
+	 * @return Lua ARGV로 전달할 인자 배열
+	 */
+	private static Object[] buildHoldSeatsCountArgs(List<String> sections) {
+		Object[] args = new Object[sections.size()];
+		for (int i = 0; i < sections.size(); i++) {
+			args[i] = sections.get(i);
+		}
+		return args;
+	}
+}

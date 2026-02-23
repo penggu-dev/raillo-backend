@@ -1,0 +1,118 @@
+package com.sudo.raillo.train.infrastructure;
+
+import static com.sudo.raillo.booking.domain.QBooking.booking;
+import static com.sudo.raillo.booking.domain.QSeatBooking.seatBooking;
+import static com.sudo.raillo.train.domain.QSeat.seat;
+import static com.sudo.raillo.train.domain.QTrainCar.trainCar;
+
+import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
+import com.sudo.raillo.train.application.dto.projection.QSeatProjection;
+import com.sudo.raillo.train.application.dto.projection.SeatProjection;
+import com.sudo.raillo.train.domain.QScheduleStop;
+import java.util.List;
+import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Repository;
+
+@Repository
+@RequiredArgsConstructor
+@Slf4j
+public class SeatQueryRepository {
+
+	private final JPAQueryFactory queryFactory;
+
+	/**
+	 * 특정 객차의 모든 좌석 상세 정보 및 예매 상태 조회
+	 * - LEFT JOIN으로 예매 정보 연결 (PendingBooking으로 예약된 좌석도 포함)
+	 * - stopOrder 기반으로 해당 구간에서의 예매 상태 판단
+	 * - 좌석별 방향성, 특별 메시지 등 부가 정보 포함
+	 */
+	public TrainCarSeatInfo findTrainCarSeatDetail(Long trainCarId, Long trainScheduleId, Long departureStationId,
+												   Long arrivalStationId) {
+
+		// 1. 객차 기본 정보 조회
+		Tuple carInfo = queryFactory.select(
+				trainCar.carNumber,
+				trainCar.carType,
+				trainCar.seatArrangement,
+				trainCar.totalSeats,
+				trainCar.seatRowCount)
+			.from(trainCar)
+			.where(trainCar.id.eq(trainCarId))
+			.fetchOne();
+
+		// seatRowCount 로 middleRow 계산
+		Integer seatRowCount = carInfo.get(trainCar.seatRowCount);
+		int middleRow = (seatRowCount != null) ? (seatRowCount + 1) / 2 : 8; // 중간 지점 계산
+
+		// 2. 객차 내 모든 좌석 상세 정보 조회 (예매 상태 포함)
+		// stopOrder 기반 구간 겹침을 위한 ScheduleStop 조인
+		QScheduleStop bookedDepartureStop = new QScheduleStop("bookedDepartureStop");
+		QScheduleStop bookedArrivalStop = new QScheduleStop("bookedArrivalStop");
+		QScheduleStop searchDepartureStop = new QScheduleStop("searchDepartureStop");
+		QScheduleStop searchArrivalStop = new QScheduleStop("searchArrivalStop");
+
+		List<SeatProjection> seatProjections = queryFactory.select(
+				new QSeatProjection(seat.id,
+					seat.seatRow.stringValue().concat(seat.seatColumn),
+					seat.seatType,
+					// directionCode
+					new CaseBuilder().when(seat.seatRow.loe(middleRow)) // 중간 이하 : 순방향
+						.then("009")  // 순방향
+						.otherwise("010"), // 역방향
+					// isBooked
+					new CaseBuilder().when(seatBooking.id.isNotNull()).then(true).otherwise(false),
+					// specialMessage
+					new CaseBuilder().when(seat.seatRow.between(middleRow, middleRow + 1))
+						.then(new CaseBuilder().when(seat.seatRow.eq(middleRow))
+							.then("KTX 4인동반석 순방향 좌석 입니다. 맞은편 좌석에 다른 승객이 승차할 수 있습니다.")
+							.when(seat.seatRow.eq(middleRow + 1))
+							.then("KTX 4인동반석 역방향 좌석 입니다. 맞은편 좌석에 다른 승객이 승차할 수 있습니다.")
+							.otherwise(""))
+						.otherwise("")))
+			.from(seat)
+			.leftJoin(seatBooking).on(
+				seatBooking.seat.id.eq(seat.id)
+					.and(seatBooking.trainSchedule.id.eq(trainScheduleId))
+					.and(seatBooking.seat.isNotNull())  // 실제 예매 좌석
+			)
+			.leftJoin(seatBooking.booking, booking)
+			// 기존 예매 정보 left join
+			.leftJoin(booking.departureStop, bookedDepartureStop)
+			.leftJoin(booking.arrivalStop, bookedArrivalStop)
+			// 검색 구간 정보 left join
+			.leftJoin(searchDepartureStop).on(
+				searchDepartureStop.trainSchedule.id.eq(trainScheduleId)
+					.and(searchDepartureStop.station.id.eq(departureStationId))
+			)
+			.leftJoin(searchArrivalStop).on(
+				searchArrivalStop.trainSchedule.id.eq(trainScheduleId)
+					.and(searchArrivalStop.station.id.eq(arrivalStationId))
+			)
+			.where(
+				seat.trainCar.id.eq(trainCarId),
+				// stopOrder 기반 구간 겹침 조건
+				// 구간 겹침: NOT(예약종료 <= 검색시작 OR 예약시작 >= 검색종료)
+				// = 예약종료 > 검색시작 AND 예약시작 < 검색종료
+				booking.id.isNull().or(
+					bookedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)
+						.and(bookedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
+				)
+			)
+			.orderBy(seat.seatRow.asc(), seat.seatColumn.asc())
+			.fetch();
+
+		// 3. 잔여 좌석 수 계산
+		long remainingSeats = seatProjections.stream()
+			.mapToLong(projection -> projection.isAvailable() ? 1 : 0)
+			.sum();
+
+		return new TrainCarSeatInfo(String.valueOf(carInfo.get(trainCar.carNumber)), carInfo.get(trainCar.carType),
+			carInfo.get(trainCar.seatArrangement), Optional.ofNullable(carInfo.get(trainCar.totalSeats)).orElse(0),
+			(int)remainingSeats, seatProjections);
+	}
+}
