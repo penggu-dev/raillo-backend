@@ -131,24 +131,14 @@ public class TossPaymentClient {
 	private void handleErrorResponse(ClientHttpResponse res, String operation) throws IOException {
 		int statusCode = res.getStatusCode().value();
 
-		// 진단 로그 — body 파싱 전에 먼저 찍어야 함
-		// Content-Type 없음(null) → 과거 application/octet-stream 버그의 직접 단서
-		// bodyBytes = 0 → body 소실, > 0 → body 정상 수신
-		log.warn("[TOSS] {} 에러 응답: httpStatus={}, responseImpl={}, Content-Type={}, Content-Length={}",
-			operation, statusCode,
-			res.getClass().getSimpleName(),
-			res.getHeaders().getContentType(),
-			res.getHeaders().getContentLength());
-
 		byte[] rawBytes = res.getBody().readAllBytes();
-		log.warn("[TOSS] {} 에러 body: bytes={}", operation, rawBytes.length);
-
 		String raw = new String(rawBytes, StandardCharsets.UTF_8);
-		log.warn("[TOSS] {} 응답 헤더: traceId={}, server={}, date={}",
-			operation,
-			res.getHeaders().getFirst("x-tosspayments-trace-id"),
-			res.getHeaders().getFirst("server"),
-			res.getHeaders().getFirst("date"));
+
+		log.warn("[TOSS] {} 에러 응답: httpStatus={}, Content-Type={}, bytes={}, traceId={}",
+			operation, statusCode,
+			res.getHeaders().getContentType(),
+			rawBytes.length,
+			res.getHeaders().getFirst("x-tosspayments-trace-id"));
 
 		if (rawBytes.length == 0) {
 			String message = "토스 에러 응답 본문이 비어 있습니다. (httpStatus=" + statusCode + ")";
