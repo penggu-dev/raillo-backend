@@ -121,12 +121,12 @@ public class TrainSearchFacade {
 		ScheduleStop arrivalStop = trainScheduleService.getStopStation(trainSchedule, request.arrivalStationId());
 
 		// 4. 잔여 좌석이 있는 객차 목록 조회 (확정 좌석 기준)
-		List<TrainCarInfo> availableCarsWithoutHold = trainSeatQueryService.getAvailableTrainCars(
+		List<TrainCarInfo> carsWithConfirmedAvailability = trainSeatQueryService.getAvailableTrainCars(
 			request.trainScheduleId(), request.departureStationId(), request.arrivalStationId());
 
 		// 5. Hold 좌석 차감 적용
-		List<TrainCarInfo> availableCars = applyHoldToTrainCars(
-			availableCarsWithoutHold, request.trainScheduleId(), departureStop.getStopOrder(), arrivalStop.getStopOrder());
+		List<TrainCarInfo> availableCars = deductHoldSeats(
+			carsWithConfirmedAvailability, request.trainScheduleId(), departureStop.getStopOrder(), arrivalStop.getStopOrder());
 
 		// 6. 승객 수에 맞는 추천 객차 선택 (Application Service 책임)
 		String recommendedCarNumber = carRecommendationService.selectRecommendedCar(availableCars, request.passengerCount());
@@ -255,7 +255,7 @@ public class TrainSearchFacade {
 	 * 객차별 Hold 좌석 차감 적용
 	 * Hold 차감 후 잔여석이 0인 객차는 목록에서 제외
 	 */
-	private List<TrainCarInfo> applyHoldToTrainCars(
+	private List<TrainCarInfo> deductHoldSeats(
 		List<TrainCarInfo> availableCars,
 		Long trainScheduleId,
 		int departureStopOrder,
