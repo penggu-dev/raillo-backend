@@ -130,8 +130,45 @@ public class TossPaymentClient {
 
 	private void handleErrorResponse(ClientHttpResponse res, String operation) throws IOException {
 		int statusCode = res.getStatusCode().value();
-		String raw = new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
-		TossErrorResponseV1 error = objectMapper.readValue(raw, TossErrorResponseV1.class);
+
+		// 진단 로그 — body 파싱 전에 먼저 찍어야 함
+		// Content-Type 없음(null) → 과거 application/octet-stream 버그의 직접 단서
+		// bodyBytes = 0 → body 소실, > 0 → body 정상 수신
+		log.warn("[TOSS] {} 에러 응답: httpStatus={}, responseImpl={}, Content-Type={}, Content-Length={}",
+			operation, statusCode,
+			res.getClass().getSimpleName(),
+			res.getHeaders().getContentType(),
+			res.getHeaders().getContentLength());
+
+		byte[] rawBytes = res.getBody().readAllBytes();
+		log.warn("[TOSS] {} 에러 body: bytes={}", operation, rawBytes.length);
+
+		String raw = new String(rawBytes, StandardCharsets.UTF_8);
+		log.warn("[TOSS] {} 응답 헤더: traceId={}, server={}, date={}",
+			operation,
+			res.getHeaders().getFirst("x-tosspayments-trace-id"),
+			res.getHeaders().getFirst("server"),
+			res.getHeaders().getFirst("date"));
+
+		if (rawBytes.length == 0) {
+			String message = "토스 에러 응답 본문이 비어 있습니다. (httpStatus=" + statusCode + ")";
+			if (res.getStatusCode().is5xxServerError()) {
+				log.error("[TOSS] {} 실패 ({}): {}", operation, statusCode, message);
+			} else {
+				log.warn("[TOSS] {} 실패 ({}): {}", operation, statusCode, message);
+			}
+			throw new TossPaymentException(statusCode, "EMPTY_ERROR_BODY", message);
+		}
+
+		TossErrorResponseV1 error;
+		try {
+			error = objectMapper.readValue(raw, TossErrorResponseV1.class);
+		} catch (IOException e) {
+			String bodySnippet = truncateForLog(raw);
+			String message = "토스 에러 응답 파싱 실패 (httpStatus=" + statusCode + ")";
+			log.error("[TOSS] {} 실패 ({}): {} bodySnippet={}", operation, statusCode, message, bodySnippet, e);
+			throw new TossPaymentException(statusCode, "UNPARSABLE_ERROR_BODY", message + ", body=" + bodySnippet);
+		}
 
 		if (res.getStatusCode().is5xxServerError()) {
 			log.error("[TOSS] {} 실패 (5xx): httpStatus={}, code={}, message={}",
@@ -142,5 +179,13 @@ public class TossPaymentClient {
 		}
 
 		throw new TossPaymentException(statusCode, error.code(), error.message());
+	}
+
+	private String truncateForLog(String raw) {
+		String normalized = raw.replaceAll("\\s+", " ").trim();
+		if (normalized.length() <= 500) {
+			return normalized;
+		}
+		return normalized.substring(0, 500) + "...(truncated)";
 	}
 }
