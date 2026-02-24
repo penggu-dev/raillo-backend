@@ -1,9 +1,11 @@
 package com.sudo.raillo.train.application.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
+import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
@@ -23,6 +25,7 @@ import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainCar;
 import com.sudo.raillo.train.domain.type.CarType;
+import com.sudo.raillo.train.exception.TrainErrorCode;
 import com.sudo.raillo.train.infrastructure.TrainCarRepository;
 import java.time.Duration;
 import java.util.Collection;
@@ -299,6 +302,38 @@ public class TrainSearchFacadeCarAndSeatTest {
 			.sum();
 		// 8석 - 확정 6석 - Hold 2석 = 0석
 		assertThat(totalRemainingSeats).isEqualTo(0);
+	}
+
+	@DisplayName("Hold 차감 후 모든 객차의 잔여석이 0이면 NO_AVAILABLE_CARS 예외가 발생한다")
+	@Test
+	void getAvailableTrainCars_throws_when_all_cars_exhausted_by_hold() {
+		// given
+		// 일반실: 24석, 특실: 12석
+		Train train = trainTestHelper.createSmallTestTrain();
+		TrainScheduleResult scheduleResult = trainScheduleTestHelper.createDefault(train);
+
+		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
+		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
+		Long trainScheduleId = scheduleResult.trainSchedule().getId();
+
+		ScheduleStop departureStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleResult, "서울");
+		ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleResult, "부산");
+
+		List<Seat> holdStandardSeats = trainTestHelper.getSeats(train, CarType.STANDARD, 24);
+		List<Seat> holdFirstClassSeats = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, 12);
+		// 일반실 24석을 Hold로 점유
+		holdSeats(holdStandardSeats, trainScheduleId, departureStop, arrivalStop);
+		// 특실 12석을 Hold로 점유
+		holdSeats(holdFirstClassSeats, trainScheduleId, departureStop, arrivalStop);
+
+		TrainCarListRequest request = new TrainCarListRequest(
+			trainScheduleId, seoul.getId(), busan.getId(), 1
+		);
+
+		// when & then
+		assertThatThrownBy(() -> trainSearchFacade.getAvailableTrainCars(request))
+			.isInstanceOf(BusinessException.class)
+			.hasMessageContaining(TrainErrorCode.NO_AVAILABLE_CARS.getMessage());
 	}
 
 	@DisplayName("SeatBooking과 Hold가 함께 존재하면 둘 다 차감된다")
