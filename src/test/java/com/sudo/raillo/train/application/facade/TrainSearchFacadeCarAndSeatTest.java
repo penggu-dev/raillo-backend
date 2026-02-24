@@ -296,12 +296,9 @@ public class TrainSearchFacadeCarAndSeatTest {
 		TrainCarListResponse response = trainSearchFacade.getAvailableTrainCars(request);
 
 		// then
-		int totalRemainingSeats = response.carInfos().stream()
-			.filter(car -> car.carType() == CarType.STANDARD)
-			.mapToInt(TrainCarInfo::remainingSeats)
-			.sum();
-		// 8석 - 확정 6석 - Hold 2석 = 0석
-		assertThat(totalRemainingSeats).isEqualTo(0);
+		assertThat(response.carInfos().stream()
+			.noneMatch(car -> car.carType() == CarType.STANDARD)).isTrue();
+		assertThat(response.totalCarCount()).isEqualTo(1);
 	}
 
 	@DisplayName("Hold 차감 후 모든 객차의 잔여석이 0이면 NO_AVAILABLE_CARS 예외가 발생한다")
