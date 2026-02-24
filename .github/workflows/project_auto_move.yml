@@ -14,7 +14,7 @@ jobs:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
             const issueNodeId = context.payload.issue.node_id;
-            const org = 'raillo-temp';
+            const org = context.repo.owner;
             const projectNumber = 2;
 
             // 이슈가 속한 프로젝트 아이템 ID 조회
