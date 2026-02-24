@@ -174,7 +174,7 @@ class TossPaymentClientTest {
 				.isInstanceOf(TossPaymentException.class)
 				.hasFieldOrPropertyWithValue("httpStatus", 500)
 				.hasFieldOrPropertyWithValue("errorCode", "EMPTY_ERROR_BODY")
-				.hasMessageContaining("에러 응답 본문이 비어");
+				.hasMessage("토스 에러 응답 본문이 비어 있습니다. (httpStatus=500)");
 
 			server.verify();
 		}
