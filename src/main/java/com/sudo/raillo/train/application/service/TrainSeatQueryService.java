@@ -52,6 +52,12 @@ public class TrainSeatQueryService {
 			request.departureStationId(),
 			request.arrivalStationId()
 		);
+		if (carSeatInfo.departureStopOrder() == null || carSeatInfo.arrivalStopOrder() == null) {
+			throw new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND);
+		}
+		if (carSeatInfo.departureStopOrder() >= carSeatInfo.arrivalStopOrder()) {
+			throw new BusinessException(TrainErrorCode.INVALID_ROUTE);
+		}
 
 		log.info("열차 객차 좌석 상세 조회 완료: 객차={}, 전체좌석={}, 잔여좌석={}",
 			carSeatInfo.carNumber(), carSeatInfo.totalSeats(), carSeatInfo.remainingSeats());

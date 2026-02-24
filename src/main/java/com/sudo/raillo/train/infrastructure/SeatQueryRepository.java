@@ -8,12 +8,10 @@ import static com.sudo.raillo.train.domain.QTrainCar.trainCar;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
 import com.sudo.raillo.train.application.dto.projection.QSeatProjection;
 import com.sudo.raillo.train.application.dto.projection.SeatProjection;
 import com.sudo.raillo.train.domain.QScheduleStop;
-import com.sudo.raillo.train.exception.TrainErrorCode;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -131,13 +129,6 @@ public class SeatQueryRepository {
 
 		Integer departureStopOrder = carInfo.get(carInfoDepartureStop.stopOrder);
 		Integer arrivalStopOrder = carInfo.get(carInfoArrivalStop.stopOrder);
-
-		if (departureStopOrder == null || arrivalStopOrder == null) {
-			throw new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND);
-		}
-		if (departureStopOrder >= arrivalStopOrder) {
-			throw new BusinessException(TrainErrorCode.INVALID_ROUTE);
-		}
 
 		return new TrainCarSeatInfo(
 			String.valueOf(carInfo.get(trainCar.carNumber)),
