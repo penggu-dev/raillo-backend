@@ -21,10 +21,13 @@ import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageRespon
 import com.sudo.raillo.train.application.mapper.TrainSearchResponseMapper;
 import com.sudo.raillo.train.application.service.CarRecommendationService;
 import com.sudo.raillo.train.application.service.TrainCalendarService;
+import com.sudo.raillo.train.application.service.TrainScheduleService;
 import com.sudo.raillo.train.application.service.TrainSearchService;
 import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.application.validator.TrainSearchValidator;
+import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.StationFare;
+import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
 import java.util.HashMap;
@@ -54,6 +57,7 @@ public class TrainSearchFacade {
 	private final TrainCalendarService trainCalendarService;
 	private final CarRecommendationService carRecommendationService;
 	private final TrainSearchService trainSearchService;
+	private final TrainScheduleService trainScheduleService;
 	private final TrainSeatQueryService trainSeatQueryService;
 	private final SeatHoldService seatHoldService;
 	private final SeatAvailabilityCalculator seatAvailabilityCalculator;
@@ -111,11 +115,20 @@ public class TrainSearchFacade {
 		// 2. 열차 스케줄 기본 정보 조회
 		TrainScheduleBasicInfo scheduleInfo = trainSearchService.getTrainScheduleBasicInfo(request.trainScheduleId());
 
-		// 3. 잔여 좌석이 있는 객차 목록 조회
-		List<TrainCarInfo> availableCars = trainSeatQueryService.getAvailableTrainCars(
+		// 3. 구간 stopOrder 조회
+		TrainSchedule trainSchedule = trainScheduleService.getTrainSchedule(request.trainScheduleId());
+		ScheduleStop departureStop = trainScheduleService.getStopStation(trainSchedule, request.departureStationId());
+		ScheduleStop arrivalStop = trainScheduleService.getStopStation(trainSchedule, request.arrivalStationId());
+
+		// 4. 잔여 좌석이 있는 객차 목록 조회 (확정 좌석 기준)
+		List<TrainCarInfo> carsWithConfirmedAvailability = trainSeatQueryService.getAvailableTrainCars(
 			request.trainScheduleId(), request.departureStationId(), request.arrivalStationId());
 
-		// 4. 승객 수에 맞는 추천 객차 선택 (Application Service 책임)
+		// 5. Hold 좌석 차감 적용
+		List<TrainCarInfo> availableCars = deductHoldSeats(
+			carsWithConfirmedAvailability, request.trainScheduleId(), departureStop.getStopOrder(), arrivalStop.getStopOrder());
+
+		// 6. 승객 수에 맞는 추천 객차 선택 (Application Service 책임)
 		String recommendedCarNumber = carRecommendationService.selectRecommendedCar(availableCars, request.passengerCount());
 
 		log.info("열차 객차 목록 조회 완료: {}개 객차, 추천 객차={}, 열차={}-{}",
@@ -236,5 +249,37 @@ public class TrainSearchFacade {
 			holdSeatsCountByCarType.put(carType, holdSeatsCount);
 		}
 		return holdSeatsCountByCarType;
+	}
+
+	/**
+	 * 객차별 Hold 좌석 차감 적용
+	 * Hold 차감 후 잔여석이 0인 객차는 목록에서 제외
+	 */
+	private List<TrainCarInfo> deductHoldSeats(
+		List<TrainCarInfo> availableCars,
+		Long trainScheduleId,
+		int departureStopOrder,
+		int arrivalStopOrder
+	) {
+		List<TrainCarInfo> adjustedCars = availableCars.stream()
+			.map(car -> {
+				int holdSeats = seatHoldService.getHoldSeatsCount(
+					trainScheduleId,
+					List.of(car.id()),
+					departureStopOrder,
+					arrivalStopOrder
+				);
+				// 음수 방지
+				int remainingSeats = Math.max(0, car.remainingSeats() - holdSeats);
+				return car.withRemainingSeats(remainingSeats);
+			})
+			.filter(car -> car.remainingSeats() > 0)
+			.toList();
+
+		if (adjustedCars.isEmpty()) {
+			throw new BusinessException(TrainErrorCode.NO_AVAILABLE_CARS);
+		}
+
+		return adjustedCars;
 	}
 }
