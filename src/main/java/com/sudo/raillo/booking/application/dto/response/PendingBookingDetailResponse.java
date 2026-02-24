@@ -1,5 +1,6 @@
 package com.sudo.raillo.booking.application.dto.response;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -32,6 +33,9 @@ public record PendingBookingDetailResponse(
 
 	@Schema(description = "운행일", example = "2025-07-01")
 	LocalDate operationDate,
+
+	@Schema(description = "총 운임", example = "10000")
+	BigDecimal totalFare,
 
 	@Schema(description = "예약 좌석 정보")
 	List<PendingSeatBookingDetail> seats
