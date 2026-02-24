@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Assign author and request reviewers
         uses: actions/github-script@v7
+        env:
+          TEAM_MEMBERS: ${{ vars.TEAM_MEMBERS }}
         with:
           script: |
             const prAuthor = context.payload.pull_request.user.login;
@@ -55,14 +57,27 @@ jobs:
             }
 
             // PR 작성자를 제외한 팀원에게 리뷰 요청
-            const teamMembers = ['Ogu1208', 'Jimin730', 'chanwonlee'];
+            if (!process.env.TEAM_MEMBERS?.trim()) {
+              core.warning('Repository variable TEAM_MEMBERS가 비어 있어 리뷰어 요청을 건너뜁니다.');
+              return;
+            }
+
+            const teamMembers = process.env.TEAM_MEMBERS
+              .split(',')
+              .map(member => member.trim())
+              .filter(Boolean);
+
             const reviewers = teamMembers.filter(m => m.toLowerCase() !== prAuthor.toLowerCase());
 
             if (reviewers.length > 0) {
-              await github.rest.pulls.requestReviewers({
-                owner,
-                repo,
-                pull_number: prNumber,
-                reviewers
-              });
+              try {
+                await github.rest.pulls.requestReviewers({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  reviewers
+                });
+              } catch (error) {
+                core.warning(`리뷰어 요청 실패: ${error.message}`);
+              }
             }
