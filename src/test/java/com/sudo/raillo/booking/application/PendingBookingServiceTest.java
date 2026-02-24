@@ -129,6 +129,7 @@ class PendingBookingServiceTest {
 			.getStationName());
 		assertThat(detail1.arrivalStationName()).isEqualTo(trainScheduleResult.scheduleStops().get(1).getStation()
 			.getStationName());
+		assertThat(detail1.totalFare()).isEqualByComparingTo(BigDecimal.valueOf(50000));
 		assertThat(detail1.seats()).hasSize(1);
 		assertThat(detail1.seats().get(0).passengerType()).isEqualTo(PassengerType.ADULT);
 
@@ -139,6 +140,7 @@ class PendingBookingServiceTest {
 			.orElseThrow();
 
 		assertThat(detail2.seats()).hasSize(2);
+		assertThat(detail2.totalFare()).isEqualByComparingTo(BigDecimal.valueOf(75000));
 		assertThat(detail2.seats())
 			.extracting(PendingSeatBookingDetail::passengerType)
 			.containsExactlyInAnyOrder(PassengerType.ADULT, PassengerType.CHILD);
@@ -195,6 +197,7 @@ class PendingBookingServiceTest {
 		assertThat(detail1.trainName()).isEqualTo(train.getTrainName());
 		assertThat(detail1.departureStationName()).isEqualTo("서울");
 		assertThat(detail1.arrivalStationName()).isEqualTo("부산");
+		assertThat(detail1.totalFare()).isEqualByComparingTo(BigDecimal.valueOf(50000));
 		assertThat(detail1.seats()).hasSize(1);
 		assertThat(detail1.seats().get(0).passengerType()).isEqualTo(PassengerType.ADULT);
 
@@ -208,6 +211,7 @@ class PendingBookingServiceTest {
 		assertThat(detail2.trainName()).isEqualTo(otherTrain.getTrainName());
 		assertThat(detail2.departureStationName()).isEqualTo("서울");
 		assertThat(detail2.arrivalStationName()).isEqualTo("대전");
+		assertThat(detail2.totalFare()).isEqualByComparingTo(BigDecimal.valueOf(75000));
 		assertThat(detail2.seats()).hasSize(2);
 		assertThat(detail2.seats())
 			.extracting(PendingSeatBookingDetail::passengerType)
