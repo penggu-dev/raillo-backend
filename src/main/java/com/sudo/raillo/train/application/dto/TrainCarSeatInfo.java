@@ -14,6 +14,8 @@ public record TrainCarSeatInfo(
 	String seatArrangement,
 	int totalSeats,
 	int remainingSeats,
+	Integer departureStopOrder,
+	Integer arrivalStopOrder,
 	List<SeatProjection> seats
 ) {
 	/**

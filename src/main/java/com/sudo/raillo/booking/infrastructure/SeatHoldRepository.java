@@ -1,11 +1,12 @@
 package com.sudo.raillo.booking.infrastructure;
 
-import java.time.Duration;
-
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
+import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -196,6 +197,44 @@ public class SeatHoldRepository {
 	}
 
 	/**
+	 * 특정 객차의 구간에 Hold된 좌석 ID 목록 조회
+	 * <p>Hold Index (Sorted Set)에서 만료되지 않은 멤버를 조회하여 검색 구간과 겹치는 seatId를 수집</p>
+	 * <p>예) trainScheduleId=10, trainCarId=7인 객차에서 ["0-1", "1-2"] 구간과 겹치는 Hold 좌석 ID를 반환한다.</p>
+	 *
+	 * @param trainScheduleId 열차 스케줄 ID
+	 * @param trainCarId 객차 ID
+	 * @param sections 검색 구간 목록 (예: ["0-1", "1-2"])
+	 */
+	public Set<Long> findSeatIdsOnHold(Long trainScheduleId, Long trainCarId, List<String> sections) {
+		String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
+	    // 조회 단순성을 위해 Redis TIME 조회를 추가하지 않고 Java 서버 시각을 사용한다
+	    // clock skew가 있어도 만료 경계에서의 일시적 노출 차이만 발생하며 실제 충돌 판정은 Lua(서버 시각)에서 보장된다
+		long currentTime = System.currentTimeMillis() / 1000;
+
+		Set<String> members = customStringRedisTemplate.opsForZSet()
+			.rangeByScore(holdIndexKey, currentTime, Double.MAX_VALUE);
+
+		// hold가 없으면 조기 반환
+		if (members == null || members.isEmpty()) {
+			return Set.of();
+		}
+
+		Set<Long> seatIdsOnHold = new HashSet<>();
+		for (String member : members) {
+			// sections 파싱
+			int colonIndex = getValidColonIndex(member);
+			long seatId = Long.parseLong(member.substring(0, colonIndex));
+			String section = member.substring(colonIndex + 1);
+
+			// 겹치는 구간에 포함되는 경우 추가
+			if (sections.contains(section)) {
+				seatIdsOnHold.add(seatId);
+			}
+		}
+		return seatIdsOnHold;
+	}
+
+	/**
 	 * Release 스크립트 인자 배열 구성
 	 *
 	 * <p>ARGV 형식: [pendingBookingId, seatId, section1, section2, ...]</p>
@@ -261,5 +300,21 @@ public class SeatHoldRepository {
 			args[i] = sections.get(i);
 		}
 		return args;
+	}
+
+	/**
+	 * Hold Index 멤버 문자열이 "seatId:section" 형식인지 검증하고 유효한 구분자 ':' 위치를 반환한다.
+	 *
+	 * @param member Hold Index 멤버 문자열
+	 * @return 유효한 ':' 인덱스
+	 * @throws BusinessException 멤버 형식이 잘못된 경우
+	 */
+	private int getValidColonIndex(String member) {
+		int colonIndex = member.indexOf(':');
+		if (colonIndex <= 0 || colonIndex == member.length() - 1) {
+			log.error("[Hold Index 멤버 파싱 오류] 잘못된 포맷. member={}", member);
+			throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
+		}
+		return colonIndex;
 	}
 }

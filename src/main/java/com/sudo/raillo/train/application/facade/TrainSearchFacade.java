@@ -6,7 +6,9 @@ import com.sudo.raillo.train.application.calculator.SeatAvailabilityCalculator;
 import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.SectionSeatStatus;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
+import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;
+import com.sudo.raillo.train.application.dto.projection.SeatProjection;
 import com.sudo.raillo.train.application.dto.projection.TrainCarIdsBatch;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
@@ -33,6 +35,8 @@ import com.sudo.raillo.train.exception.TrainErrorCode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -155,7 +159,20 @@ public class TrainSearchFacade {
 			request.trainCarId(), request.trainScheduleId(),
 			request.departureStationId(), request.arrivalStationId());
 
-		return trainSeatQueryService.getTrainCarSeatDetail(request);
+		// 1. 객차 좌석 상세 조회
+		TrainCarSeatInfo carSeatInfo = trainSeatQueryService.getTrainCarSeatDetail(request);
+
+		// 2. Hold된 seatId 조회
+		Set<Long> holdSeats = seatHoldService.getSeatIdsOnHold(
+			request.trainScheduleId(),
+			request.trainCarId(),
+			carSeatInfo.departureStopOrder(),
+			carSeatInfo.arrivalStopOrder()
+		);
+
+		// 3. hold를 반영해 좌석 가용 상태 계산 후 응답 생성
+		Set<Long> availableSeatIds = calculateAvailableSeatIds(carSeatInfo, holdSeats);
+		return responseMapper.mapToSeatDetailResponse(carSeatInfo, availableSeatIds);
 	}
 
 	// ===== Private Helper Methods =====
@@ -281,5 +298,12 @@ public class TrainSearchFacade {
 		}
 
 		return adjustedCars;
+	}
+
+	private Set<Long> calculateAvailableSeatIds(TrainCarSeatInfo carSeatInfo, Set<Long> holdSeats) {
+		return carSeatInfo.seats().stream()
+			.filter(seat -> seat.isAvailable() && !holdSeats.contains(seat.getSeatId()))
+			.map(SeatProjection::getSeatId)
+			.collect(Collectors.toSet());
 	}
 }

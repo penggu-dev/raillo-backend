@@ -27,21 +27,37 @@ public class SeatQueryRepository {
 
 	/**
 	 * 특정 객차의 모든 좌석 상세 정보 및 예매 상태 조회
-	 * - LEFT JOIN으로 예매 정보 연결 (PendingBooking으로 예약된 좌석도 포함)
+	 * - LEFT JOIN으로 예매 정보 연결
 	 * - stopOrder 기반으로 해당 구간에서의 예매 상태 판단
 	 * - 좌석별 방향성, 특별 메시지 등 부가 정보 포함
 	 */
-	public TrainCarSeatInfo findTrainCarSeatDetail(Long trainCarId, Long trainScheduleId, Long departureStationId,
-												   Long arrivalStationId) {
+	public TrainCarSeatInfo findTrainCarSeatDetail(
+		Long trainCarId,
+		Long trainScheduleId,
+		Long departureStationId,
+		Long arrivalStationId
+	) {
+		// 1. 객차 기본 정보 + 검색 구간 stopOrder 조회
+		QScheduleStop carInfoDepartureStop = new QScheduleStop("carInfoDepartureStop");
+		QScheduleStop carInfoArrivalStop = new QScheduleStop("carInfoArrivalStop");
 
-		// 1. 객차 기본 정보 조회
 		Tuple carInfo = queryFactory.select(
 				trainCar.carNumber,
 				trainCar.carType,
 				trainCar.seatArrangement,
 				trainCar.totalSeats,
-				trainCar.seatRowCount)
+				trainCar.seatRowCount,
+				carInfoDepartureStop.stopOrder,
+				carInfoArrivalStop.stopOrder)
 			.from(trainCar)
+			.leftJoin(carInfoDepartureStop).on(
+				carInfoDepartureStop.trainSchedule.id.eq(trainScheduleId)
+					.and(carInfoDepartureStop.station.id.eq(departureStationId))
+			)
+			.leftJoin(carInfoArrivalStop).on(
+				carInfoArrivalStop.trainSchedule.id.eq(trainScheduleId)
+					.and(carInfoArrivalStop.station.id.eq(arrivalStationId))
+			)
 			.where(trainCar.id.eq(trainCarId))
 			.fetchOne();
 
@@ -111,8 +127,18 @@ public class SeatQueryRepository {
 			.mapToLong(projection -> projection.isAvailable() ? 1 : 0)
 			.sum();
 
-		return new TrainCarSeatInfo(String.valueOf(carInfo.get(trainCar.carNumber)), carInfo.get(trainCar.carType),
-			carInfo.get(trainCar.seatArrangement), Optional.ofNullable(carInfo.get(trainCar.totalSeats)).orElse(0),
-			(int)remainingSeats, seatProjections);
+		Integer departureStopOrder = carInfo.get(carInfoDepartureStop.stopOrder);
+		Integer arrivalStopOrder = carInfo.get(carInfoArrivalStop.stopOrder);
+
+		return new TrainCarSeatInfo(
+			String.valueOf(carInfo.get(trainCar.carNumber)),
+			carInfo.get(trainCar.carType),
+			carInfo.get(trainCar.seatArrangement),
+			Optional.ofNullable(carInfo.get(trainCar.totalSeats)).orElse(0),
+			(int)remainingSeats,
+			departureStopOrder,
+			arrivalStopOrder,
+			seatProjections
+		);
 	}
 }
