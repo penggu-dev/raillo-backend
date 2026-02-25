@@ -1,10 +1,9 @@
 package com.sudo.raillo.booking.infrastructure;
 
-import java.time.Duration;
-
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -208,6 +207,8 @@ public class SeatHoldRepository {
 	 */
 	public Set<Long> findSeatIdsOnHold(Long trainScheduleId, Long trainCarId, List<String> sections) {
 		String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
+	    // 조회 단순성을 위해 Redis TIME 조회를 추가하지 않고 Java 서버 시각을 사용한다
+	    // clock skew가 있어도 만료 경계에서의 일시적 노출 차이만 발생하며 실제 충돌 판정은 Lua(서버 시각)에서 보장된다
 		long currentTime = System.currentTimeMillis() / 1000;
 
 		Set<String> members = customStringRedisTemplate.opsForZSet()
