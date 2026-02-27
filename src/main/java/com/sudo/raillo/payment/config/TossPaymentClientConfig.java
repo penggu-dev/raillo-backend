@@ -10,6 +10,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Configuration
 @EnableConfigurationProperties(TossPaymentProperties.class)
 public class TossPaymentClientConfig {
@@ -23,6 +26,12 @@ public class TossPaymentClientConfig {
 			.baseUrl(properties.baseUrl())
 			.defaultHeader(HttpHeaders.AUTHORIZATION, "Basic " + encodedSecretKey)
 			.defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+			.requestInterceptor((request, body, execution) -> {
+				log.info("[TOSS] → 요청 URI: {} {}", request.getMethod(), request.getURI());
+				log.info("[TOSS] → 요청 헤더: {}", request.getHeaders());
+				log.info("[TOSS] → 요청 body: {}", new String(body, StandardCharsets.UTF_8));
+				return execution.execute(request, body);
+			})
 			.build();
 	}
 }
