@@ -1,5 +1,7 @@
 package com.sudo.raillo.train.application.service;
 
+import java.util.List;
+
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
@@ -29,5 +31,9 @@ public class TrainScheduleService {
 	public ScheduleStop getStopStation(TrainSchedule trainSchedule, Long stationId) {
 		return scheduleStopRepository.findByTrainScheduleIdAndStationId(trainSchedule.getId(), stationId)
 			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
+	}
+
+	public List<ScheduleStop> getScheduleStops(List<Long> stopIds) {
+		return scheduleStopRepository.findAllById(stopIds);
 	}
 }
