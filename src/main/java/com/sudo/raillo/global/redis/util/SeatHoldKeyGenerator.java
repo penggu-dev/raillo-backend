@@ -14,15 +14,15 @@ public class SeatHoldKeyGenerator {
 
 	/**
 	 * Redis Cluster 환경을 고려한 Hash Tag 적용
-	 * 동일 좌석의 모든 키가 같은 슬롯에 위치하도록 보장
+	 * 동일 스케줄의 모든 키가 같은 슬롯에 위치하도록 {schedule:scheduleId} 해시태그로 통일
 	 */
-	private static final String SEAT_HOLD_KEY_FORMAT = "{seat:%d:%d}:hold:%s";
-	private static final String SEAT_HOLDS_KEY_FORMAT = "{seat:%d:%d}:holds";
+	private static final String SEAT_HOLD_KEY_FORMAT = "{schedule:%d}:seat:%d:hold:%s";
+	private static final String SEAT_HOLDS_KEY_FORMAT = "{schedule:%d}:seat:%d:holds";
 	private static final String HOLD_INDEX_KEY_FORMAT = "{schedule:%d}:traincar:%d:holding-seats";
 
 	/**
 	 * 좌석 임시 점유 키 생성
-	 * 예: {seat:1001:12}:hold:pending_abc123
+	 * 예: {schedule:1001}:seat:12:hold:pending_abc123
 	 *
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @param seatId 좌석 ID
@@ -35,7 +35,7 @@ public class SeatHoldKeyGenerator {
 	/**
 	 * 좌석 Hold 목록 인덱스 키 생성
 	 *
-	 * <p>예: {@code {seat:1001:12}:holds}</p>
+	 * <p>예: {@code {schedule:1001}:seat:12:holds}</p>
 	 * <p>해당 좌석의 현재 Hold 목록(pendingBookingId들)을 저장하는 Set의 키</p>
 	 * <p>KEYS 명령 대신 SMEMBERS로 Hold 목록을 조회하기 위한 인덱스 역할</p>
 	 *

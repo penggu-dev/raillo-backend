@@ -1,8 +1,8 @@
 -- seat_hold.lua
 -- 좌석 임시 점유 Lua 스크립트
 --
--- KEYS[1]: hold key      (예: {seat:1001:12}:hold:pending_abc123)
--- KEYS[2]: holds key     (예: {seat:1001:12}:holds) - Hold 목록 인덱스
+-- KEYS[1]: hold key      (예: {schedule:1001}:seat:12:hold:pending_abc123)
+-- KEYS[2]: holds key     (예: {schedule:1001}:seat:12:holds) - Hold 목록 인덱스
 -- KEYS[3]: holdIndexKey  (예: {schedule:1785}:traincar:231:holding-seats) - Hold Index
 --
 -- ARGV[1]: ttl (seconds)
