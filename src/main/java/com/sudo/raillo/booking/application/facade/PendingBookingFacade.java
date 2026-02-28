@@ -1,11 +1,13 @@
 package com.sudo.raillo.booking.application.facade;
 
-import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.global.exception.error.BusinessException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +23,8 @@ import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.application.service.TrainScheduleService;
 import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.domain.ScheduleStop;
-import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.infrastructure.SeatRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,7 +42,6 @@ public class PendingBookingFacade {
 	private final BookingValidator bookingValidator;
 	private final PendingBookingIdGenerator pendingBookingIdGenerator;
 	private final TrainScheduleService trainScheduleService;
-	private final SeatRepository seatRepository;
 
 	/**
 	 * 예약 생성
@@ -78,7 +77,7 @@ public class PendingBookingFacade {
 
 		// 4. 좌석 Hold
 		String pendingBookingId = pendingBookingIdGenerator.generate();
-		Long trainCarId = getTrainCarId(request.seatIds());
+		Long trainCarId = trainSeatQueryService.getTrainCarId(request.seatIds());
 		seatHoldService.holdSeats(
 			pendingBookingId,
 			request.trainScheduleId(),
@@ -135,13 +134,21 @@ public class PendingBookingFacade {
 
 		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
 
+		List<Long> allStopIds = pendingBookings.stream()
+			.flatMap(pendingBooking ->
+				Stream.of(pendingBooking.getDepartureStopId(), pendingBooking.getArrivalStopId()))
+			.toList();
+
+		Map<Long, ScheduleStop> stopMap = trainScheduleService.getScheduleStops(allStopIds)
+			.stream()
+			.collect(Collectors.toMap(ScheduleStop::getId, Function.identity()));
+
 		pendingBookings.forEach(pendingBooking -> {
 			try {
 				List<Long> seatIds = pendingBooking.getSeatIds();
-				Long trainCarId = getTrainCarId(seatIds);
-				TrainSchedule trainSchedule = trainScheduleService.getTrainSchedule(pendingBooking.getTrainScheduleId());
-				ScheduleStop departureStop = trainScheduleService.getStopStation(trainSchedule, pendingBooking.getDepartureStopId());
-				ScheduleStop arrivalStop = trainScheduleService.getStopStation(trainSchedule, pendingBooking.getArrivalStopId());
+				Long trainCarId = trainSeatQueryService.getTrainCarId(seatIds);
+				ScheduleStop departureStop = stopMap.get(pendingBooking.getDepartureStopId());
+				ScheduleStop arrivalStop = stopMap.get(pendingBooking.getArrivalStopId());
 
 				seatHoldService.releaseSeats(
 					pendingBooking.getId(),
@@ -157,12 +164,4 @@ public class PendingBookingFacade {
 		});
 	}
 
-	/**
-	 * 좌석 ID 목록에서 trainCarId 추출
-	 * 같은 CarType의 좌석들은 모두 같은 객차에 속하므로 첫 번째 좌석의 trainCarId 반환
-	 */
-	private Long getTrainCarId(List<Long> seatIds) {
-		return seatRepository.findAllByIdWithTrainCar(List.of(seatIds.get(0)))
-			.get(0).getTrainCar().getId();
-	}
 }
