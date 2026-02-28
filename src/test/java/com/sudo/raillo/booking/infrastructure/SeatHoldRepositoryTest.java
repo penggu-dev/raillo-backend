@@ -262,7 +262,7 @@ class SeatHoldRepositoryTest {
 			String pendingBookingId = "pending_001";
 			int departureStopOrder = 0;
 			int arrivalStopOrder = 3;  // 구간: 0-1, 1-2, 2-3
-			String holdIndexKey = "{schedule:1001}:traincar:231:holding-seats";
+			String trainCarHoldIndexKey = "{schedule:1001}:traincar:231:holding-seats";
 
 			// when
 			seatHoldRepository.tryHold(
@@ -270,7 +270,7 @@ class SeatHoldRepositoryTest {
 			);
 
 			// then
-			Set<String> members = customStringRedisTemplate.opsForZSet().range(holdIndexKey, 0, -1);
+			Set<String> members = customStringRedisTemplate.opsForZSet().range(trainCarHoldIndexKey, 0, -1);
 			assertThat(members).hasSize(3);
 			assertThat(members.contains("12:0-1")).isTrue();
 			assertThat(members.contains("12:1-2")).isTrue();
@@ -284,7 +284,7 @@ class SeatHoldRepositoryTest {
 			String pendingBookingId = "pending_001";
 			int departureStopOrder = 0;
 			int arrivalStopOrder = 3;
-			String holdIndexKey = "{schedule:1001}:traincar:231:holding-seats";
+			String trainCarHoldIndexKey = "{schedule:1001}:traincar:231:holding-seats";
 
 			// Hold 먼저 수행
 			seatHoldRepository.tryHold(
@@ -299,7 +299,7 @@ class SeatHoldRepositoryTest {
 			);
 
 			// then
-			Set<String> members = customStringRedisTemplate.opsForZSet().range(holdIndexKey, 0, -1);
+			Set<String> members = customStringRedisTemplate.opsForZSet().range(trainCarHoldIndexKey, 0, -1);
 			assertThat(members).hasSize(0);
 		}
 
@@ -309,7 +309,7 @@ class SeatHoldRepositoryTest {
 			// given
 			String pendingBookingId1 = "pending_001";
 			String pendingBookingId2 = "pending_002";
-			String holdIndexKey = "{schedule:1001}:traincar:231:holding-seats";
+			String trainCarHoldIndexKey = "{schedule:1001}:traincar:231:holding-seats";
 
 			// when - 첫 번째 사용자: 구간 0-1
 			seatHoldRepository.tryHold(
@@ -322,7 +322,7 @@ class SeatHoldRepositoryTest {
 			);
 
 			// then
-			Set<String> members = customStringRedisTemplate.opsForZSet().range(holdIndexKey, 0, -1);
+			Set<String> members = customStringRedisTemplate.opsForZSet().range(trainCarHoldIndexKey, 0, -1);
 			assertThat(members).hasSize(2);
 			assertThat(members.contains("12:0-1")).isTrue();
 			assertThat(members.contains("12:2-3")).isTrue();
@@ -333,7 +333,7 @@ class SeatHoldRepositoryTest {
 		void hold_index_score_is_expiry_time() {
 			// given
 			String pendingBookingId = "pending_001";
-			String holdIndexKey = "{schedule:1001}:traincar:231:holding-seats";
+			String trainCarHoldIndexKey = "{schedule:1001}:traincar:231:holding-seats";
 			long beforeHold = System.currentTimeMillis() / 1000; // 초 단위로 변환
 
 			// when
@@ -344,7 +344,7 @@ class SeatHoldRepositoryTest {
 			long afterHold = System.currentTimeMillis() / 1000; // 초 단위로 변환
 
 			// then
-			Double score = customStringRedisTemplate.opsForZSet().score(holdIndexKey, "12:0-1");
+			Double score = customStringRedisTemplate.opsForZSet().score(trainCarHoldIndexKey, "12:0-1");
 			long expectedMinScore = beforeHold + 600; // 600초 (10분)
 			long expectedMaxScore = afterHold + 600;
 
@@ -357,7 +357,7 @@ class SeatHoldRepositoryTest {
 		void hold_index_ttl_is_double_of_hold_ttl() {
 			// given
 			String pendingBookingId = "pending_001";
-			String holdIndexKey = "{schedule:1001}:traincar:231:holding-seats";
+			String trainCarHoldIndexKey = "{schedule:1001}:traincar:231:holding-seats";
 
 			// when
 			seatHoldRepository.tryHold(
@@ -365,7 +365,7 @@ class SeatHoldRepositoryTest {
 			);
 
 			// then
-			Long ttl = customStringRedisTemplate.getExpire(holdIndexKey);
+			Long ttl = customStringRedisTemplate.getExpire(trainCarHoldIndexKey);
 			assertThat(ttl).isGreaterThan(1190L);  // 약간의 오차 허용
 			assertThat(ttl).isLessThanOrEqualTo(1200L);
 		}
@@ -376,7 +376,7 @@ class SeatHoldRepositoryTest {
 			// given
 			String pendingBookingId1 = "pending_001";
 			String pendingBookingId2 = "pending_002";
-			String holdIndexKey = "{schedule:1001}:traincar:231:holding-seats";
+			String trainCarHoldIndexKey = "{schedule:1001}:traincar:231:holding-seats";
 
 			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId1, 0, 1, TRAIN_CAR_ID, HOLD_TTL);
 			seatHoldRepository.tryHold(TRAIN_SCHEDULE_ID, SEAT_ID, pendingBookingId2, 2, 3, TRAIN_CAR_ID, HOLD_TTL);
@@ -387,7 +387,7 @@ class SeatHoldRepositoryTest {
 			);
 
 			// then
-			Set<String> members = customStringRedisTemplate.opsForZSet().range(holdIndexKey, 0, -1);
+			Set<String> members = customStringRedisTemplate.opsForZSet().range(trainCarHoldIndexKey, 0, -1);
 			assertThat(members).hasSize(1);
 			assertThat(members.contains("12:2-3")).isTrue();
 			assertThat(members.contains("12:0-1")).isFalse();

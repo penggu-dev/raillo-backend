@@ -3,7 +3,7 @@
 --
 -- KEYS[1]: hold key      (예: {schedule:1001}:seat:12:hold:pending_abc123)
 -- KEYS[2]: holds key     (예: {schedule:1001}:seat:12:holds) - Hold 목록 인덱스
--- KEYS[3]: holdIndexKey  (예: {schedule:1785}:traincar:231:holding-seats) - Hold Index
+-- KEYS[3]: trainCarHoldIndexKey  (예: {schedule:1785}:traincar:231:holding-seats) - Hold Index
 --
 -- ARGV[1]: ttl (seconds)
 -- ARGV[2]: pendingBookingId (holds Set에 추가할 값)
@@ -15,8 +15,8 @@
 -- 실패: {0, "CONFLICT_WITH_HOLD", "충돌구간"}
 
 local holdKey = KEYS[1]
-local holdsKey = KEYS[2]
-local holdIndexKey = KEYS[3]
+local seatHoldIndexKey = KEYS[2]
+local trainCarHoldIndexKey = KEYS[3]
 local ttl = tonumber(ARGV[1])
 local pendingBookingId = ARGV[2]
 local seatId = ARGV[3]
@@ -29,7 +29,7 @@ end
 
 -- 1. HOLD 충돌 검사 (다른 사용자의 임시 점유와 겹치는지)
 -- holds Set에서 현재 Hold 목록 조회 (KEYS 명령 대신 SMEMBERS 사용)
-local holdIds = redis.call("SMEMBERS", holdsKey)
+local holdIds = redis.call("SMEMBERS", seatHoldIndexKey)
 
 for _, holdId in ipairs(holdIds) do
     -- 자기 자신은 제외 (재시도 케이스 대응)
@@ -42,7 +42,7 @@ for _, holdId in ipairs(holdIds) do
 
         -- 만료된 Hold 키 정리 (Lazy Cleanup)
         if redis.call("EXISTS", otherHoldKey) == 0 then
-            redis.call("SREM", holdsKey, holdId)
+            redis.call("SREM", seatHoldIndexKey, holdId)
         else
             -- 유효한 Hold 키인 경우 충돌 검사
             for _, s in ipairs(sections) do
@@ -61,8 +61,8 @@ end
 redis.call("EXPIRE", holdKey, ttl)
 
 -- 3. holds 인덱스에 추가 (TTL 동일하게 설정)
-redis.call("SADD", holdsKey, pendingBookingId)
-redis.call("EXPIRE", holdsKey, ttl)
+redis.call("SADD", seatHoldIndexKey, pendingBookingId)
+redis.call("EXPIRE", seatHoldIndexKey, ttl)
 
 -- 4. Hold Index에 compound 멤버 등록
 local currentTime = redis.call("TIME")[1]
@@ -70,8 +70,8 @@ local expiryTime = currentTime + ttl
 
 for _, s in ipairs(sections) do
     local member = seatId .. ":" .. s  -- "42:0-1" 형태
-    redis.call("ZADD", holdIndexKey, expiryTime, member)
+    redis.call("ZADD", trainCarHoldIndexKey, expiryTime, member)
 end
-redis.call("EXPIRE", holdIndexKey, ttl * 2)
+redis.call("EXPIRE", trainCarHoldIndexKey, ttl * 2)
 
 return {1, "HOLD_SUCCESS"}

@@ -65,17 +65,17 @@ public class SeatHoldRepository {
 	) {
 		long holdTtlSeconds = Math.max(1L, holdTtl.toSeconds());
 		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
-		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
+		String seatHoldIndexKey = seatHoldKeyGenerator.generateSeatHoldIndexKey(trainScheduleId, seatId);
 		List<String> sections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
 
 		log.debug("[좌석 Hold 시도] trainScheduleId={}, seatId={}, trainCarId={}, pendingBookingId={}, sections={}",
 			trainScheduleId, seatId, trainCarId, pendingBookingId, sections);
 
-		String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
+		String trainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
 
 		try {
 			// Lua 스크립트 실행
-			// - KEYS: [holdKey, holdsKey, holdIndexKey] - Redis 키들
+			// - KEYS: [holdKey, seatHoldIndexKey, trainCarHoldIndexKey] - Redis 키들
 			// - ARGV: [ttl, pendingBookingId, seatId, section1, section2, ...] - 인자들
 			// - 반환: List<Object> (Lua table이 Java List로 변환됨)
 			Object[] args = buildHoldArgs(pendingBookingId, seatId, sections, holdTtlSeconds);
@@ -83,7 +83,7 @@ public class SeatHoldRepository {
 			@SuppressWarnings("unchecked")  // DefaultRedisScript<List>의 raw type 때문에 필요
 			List<Object> result = customStringRedisTemplate.execute(
 				seatHoldScript,
-				List.of(holdKey, holdsKey, holdIndexKey),
+				List.of(holdKey, seatHoldIndexKey, trainCarHoldIndexKey),
 				args
 			);
 
@@ -129,20 +129,20 @@ public class SeatHoldRepository {
 		int arrivalStopOrder
 	) {
 		String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatId, pendingBookingId);
-		String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatId);
+		String seatHoldIndexKey = seatHoldKeyGenerator.generateSeatHoldIndexKey(trainScheduleId, seatId);
 		List<String> sections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
 
 		log.debug("[좌석 Hold 해제] trainScheduleId={}, seatId={}, trainCarId={}, pendingBookingId={}",
 			trainScheduleId, seatId, trainCarId, pendingBookingId);
 
-		String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
+		String trainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
 
 		try {
 			Object[] args = buildReleaseArgs(pendingBookingId, seatId, sections);
 
 			customStringRedisTemplate.execute(
 				seatReleaseScript,
-				List.of(holdKey, holdsKey, holdIndexKey),
+				List.of(holdKey, seatHoldIndexKey, trainCarHoldIndexKey),
 				args
 			);
 
@@ -206,13 +206,13 @@ public class SeatHoldRepository {
 	 * @param sections 검색 구간 목록 (예: ["0-1", "1-2"])
 	 */
 	public Set<Long> findSeatIdsOnHold(Long trainScheduleId, Long trainCarId, List<String> sections) {
-		String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
+		String trainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(trainScheduleId, trainCarId);
 	    // 조회 단순성을 위해 Redis TIME 조회를 추가하지 않고 Java 서버 시각을 사용한다
 	    // clock skew가 있어도 만료 경계에서의 일시적 노출 차이만 발생하며 실제 충돌 판정은 Lua(서버 시각)에서 보장된다
 		long currentTime = System.currentTimeMillis() / 1000;
 
 		Set<String> members = customStringRedisTemplate.opsForZSet()
-			.rangeByScore(holdIndexKey, currentTime, Double.MAX_VALUE);
+			.rangeByScore(trainCarHoldIndexKey, currentTime, Double.MAX_VALUE);
 
 		// hold가 없으면 조기 반환
 		if (members == null || members.isEmpty()) {

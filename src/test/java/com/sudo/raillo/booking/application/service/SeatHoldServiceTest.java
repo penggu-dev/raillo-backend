@@ -123,12 +123,12 @@ class SeatHoldServiceTest {
 
 			// then - Hold TTL이 PendingBooking TTL + 1분(60초) = 180초
 			String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatIds.get(0), pendingBookingId);
-			String holdsKey = seatHoldKeyGenerator.generateHoldsKey(trainScheduleId, seatIds.get(0));
+			String seatHoldIndexKey = seatHoldKeyGenerator.generateSeatHoldIndexKey(trainScheduleId, seatIds.get(0));
 			Long holdKeyTtl = customStringRedisTemplate.getExpire(holdKey, TimeUnit.SECONDS);
-			Long holdsKeyTtl = customStringRedisTemplate.getExpire(holdsKey, TimeUnit.SECONDS);
+			Long seatHoldIndexKeyTtl = customStringRedisTemplate.getExpire(seatHoldIndexKey, TimeUnit.SECONDS);
 
 			assertThat(holdKeyTtl).isBetween(170L, 180L);
-			assertThat(holdsKeyTtl).isBetween(170L, 180L);
+			assertThat(seatHoldIndexKeyTtl).isBetween(170L, 180L);
 		}
 
 		@Test

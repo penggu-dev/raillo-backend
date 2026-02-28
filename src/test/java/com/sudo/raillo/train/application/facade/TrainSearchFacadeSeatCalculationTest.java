@@ -324,16 +324,16 @@ class TrainSearchFacadeSeatCalculationTest {
 
 		// seats[0]: 만료된 Hold
 		Seat expiredSeat = seats.get(0);
-		String expiredHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
+		String expiredTrainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
 			trainScheduleId, expiredSeat.getTrainCar().getId());
-		customStringRedisTemplate.opsForZSet().add(expiredHoldIndexKey, expiredSeat.getId() + ":0-1", expiredScore);
+		customStringRedisTemplate.opsForZSet().add(expiredTrainCarHoldIndexKey, expiredSeat.getId() + ":0-1", expiredScore);
 
 		// seats[1..4]: 유효한 Hold (4석)
 		for (int i = 1; i < seats.size(); i++) {
 			Seat seat = seats.get(i);
-			String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
+			String trainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
 				trainScheduleId, seat.getTrainCar().getId());
-			customStringRedisTemplate.opsForZSet().add(holdIndexKey, seat.getId() + ":0-1", validScore);
+			customStringRedisTemplate.opsForZSet().add(trainCarHoldIndexKey, seat.getId() + ":0-1", validScore);
 		}
 
 		// when

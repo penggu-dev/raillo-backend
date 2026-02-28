@@ -17,8 +17,8 @@ public class SeatHoldKeyGenerator {
 	 * 동일 스케줄의 모든 키가 같은 슬롯에 위치하도록 {schedule:scheduleId} 해시태그로 통일
 	 */
 	private static final String SEAT_HOLD_KEY_FORMAT = "{schedule:%d}:seat:%d:hold:%s";
-	private static final String SEAT_HOLDS_KEY_FORMAT = "{schedule:%d}:seat:%d:holds";
-	private static final String HOLD_INDEX_KEY_FORMAT = "{schedule:%d}:traincar:%d:holding-seats";
+	private static final String SEAT_HOLD_INDEX_KEY_FORMAT = "{schedule:%d}:seat:%d:holds";
+	private static final String TRAINCAR_HOLD_INDEX_KEY_FORMAT = "{schedule:%d}:traincar:%d:holding-seats";
 
 	/**
 	 * 좌석 임시 점유 키 생성
@@ -43,8 +43,8 @@ public class SeatHoldKeyGenerator {
 	 * @param seatId 좌석 ID
 	 * @return Redis 키
 	 */
-	public String generateHoldsKey(Long trainScheduleId, Long seatId) {
-		return String.format(SEAT_HOLDS_KEY_FORMAT, trainScheduleId, seatId);
+	public String generateSeatHoldIndexKey(Long trainScheduleId, Long seatId) {
+		return String.format(SEAT_HOLD_INDEX_KEY_FORMAT, trainScheduleId, seatId);
 	}
 
 	/**
@@ -59,7 +59,7 @@ public class SeatHoldKeyGenerator {
 	 * @return Redis 키
 	 */
 	public String generateTrainCarHoldIndexKey(Long trainScheduleId, Long trainCarId) {
-		return String.format(HOLD_INDEX_KEY_FORMAT, trainScheduleId, trainCarId);
+		return String.format(TRAINCAR_HOLD_INDEX_KEY_FORMAT, trainScheduleId, trainCarId);
 	}
 
 	/**

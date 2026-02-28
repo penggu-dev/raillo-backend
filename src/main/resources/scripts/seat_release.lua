@@ -3,7 +3,7 @@
 --
 -- KEYS[1]: hold key      (예: {schedule:1001}:seat:12:hold:pending_abc123)
 -- KEYS[2]: holds key     (예: {schedule:1001}:seat:12:holds) - Hold 목록 인덱스
--- KEYS[3]: holdIndexKey  (예: {schedule:1785}:traincar:231:holding-seats) - Hold Index
+-- KEYS[3]: trainCarHoldIndexKey  (예: {schedule:1785}:traincar:231:holding-seats) - Hold Index
 --
 -- ARGV[1]: pendingBookingId (holds Set에서 제거할 값)
 -- ARGV[2]: seatId
@@ -14,8 +14,8 @@
 -- 키 없음: {1, "ALREADY_RELEASED"} (이미 만료되었거나 해제됨 - 성공으로 처리)
 
 local holdKey = KEYS[1]
-local holdsKey = KEYS[2]
-local holdIndexKey = KEYS[3]
+local seatHoldIndexKey = KEYS[2]
+local trainCarHoldIndexKey = KEYS[3]
 local pendingBookingId = ARGV[1]
 local seatId = ARGV[2]
 
@@ -29,12 +29,12 @@ end
 local deleted = redis.call("DEL", holdKey)
 
 -- 2. holds 인덱스에서 제거
-redis.call("SREM", holdsKey, pendingBookingId)
+redis.call("SREM", seatHoldIndexKey, pendingBookingId)
 
 -- 3. Hold Index 정리
 for _, s in ipairs(sections) do
     local member = seatId .. ":" .. s
-    redis.call("ZREM", holdIndexKey, member)
+    redis.call("ZREM", trainCarHoldIndexKey, member)
 end
 
 if deleted == 1 then
