@@ -72,4 +72,13 @@ public class TrainSeatQueryService {
 	public List<CarType> getCarTypes(List<Long> seatIds) {
 		return seatRepository.findCarTypes(seatIds);
 	}
+
+	/**
+	 * 좌석 ID 목록에서 trainCarId 추출
+	 * 같은 CarType의 좌석들은 모두 같은 객차에 속하므로 첫 번째 좌석의 trainCarId 반환
+	 */
+	public Long getTrainCarId(List<Long> seatIds) {
+		return seatRepository.findAllByIdWithTrainCar(List.of(seatIds.get(0)))
+			.get(0).getTrainCar().getId();
+	}
 }
