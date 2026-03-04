@@ -99,7 +99,7 @@ class SeatHoldServiceTest {
 		}
 
 		@Test
-		@DisplayName("Hold TTL은 PendingBooking TTL보다 1분 길게 설정된다")
+		@DisplayName("Seat Hold TTL은 PendingBooking TTL보다 1분 길게 설정된다")
 		void holdSeats_success_holdTtlHasBuffer() {
 			// given
 			String pendingBookingId = "pending-booking-ttl-001";
@@ -122,12 +122,12 @@ class SeatHoldServiceTest {
 			);
 
 			// then - Hold TTL이 PendingBooking TTL + 1분(60초) = 180초
-			String holdKey = seatHoldKeyGenerator.generateHoldKey(trainScheduleId, seatIds.get(0), pendingBookingId);
+			String seatHoldKey = seatHoldKeyGenerator.generateSeatHoldKey(trainScheduleId, seatIds.get(0), pendingBookingId);
 			String seatHoldIndexKey = seatHoldKeyGenerator.generateSeatHoldIndexKey(trainScheduleId, seatIds.get(0));
-			Long holdKeyTtl = customStringRedisTemplate.getExpire(holdKey, TimeUnit.SECONDS);
+			Long seatHoldKeyTtl = customStringRedisTemplate.getExpire(seatHoldKey, TimeUnit.SECONDS);
 			Long seatHoldIndexKeyTtl = customStringRedisTemplate.getExpire(seatHoldIndexKey, TimeUnit.SECONDS);
 
-			assertThat(holdKeyTtl).isBetween(170L, 180L);
+			assertThat(seatHoldKeyTtl).isBetween(170L, 180L);
 			assertThat(seatHoldIndexKeyTtl).isBetween(170L, 180L);
 		}
 
@@ -161,7 +161,7 @@ class SeatHoldServiceTest {
 		}
 
 		@Test
-		@DisplayName("다른 사용자가 Hold 중인 좌석 점유 시도 시 충돌 예외가 발생한다")
+		@DisplayName("다른 사용자가 Seat Hold 중인 좌석 점유 시도 시 충돌 예외가 발생한다")
 		void holdSeats_conflictWithHold_fail() {
 			// given
 			String pendingBookingId1 = "pending-booking-001";
@@ -183,7 +183,7 @@ class SeatHoldServiceTest {
 				Duration.ofMinutes(10)
 			);
 
-			// when & then - 두 번째 사용자가 같은 좌석 Hold 시도
+			// when & then - 두 번째 사용자가 같은 좌석 Seat Hold 시도
 			assertThatThrownBy(() ->
 				seatHoldService.holdSeats(
 					pendingBookingId2,
@@ -217,7 +217,7 @@ class SeatHoldServiceTest {
 			Long trainCarId = seats.get(0).getTrainCar().getId();
 
 			// 좌석 2번에 먼저 Hold
-			seatHoldRepository.tryHold(trainScheduleId, seat2Id, pendingBookingId1, departureStopOrder, arrivalStopOrder, trainCarId, Duration.ofMinutes(10));
+			seatHoldRepository.trySeatHold(trainScheduleId, seat2Id, pendingBookingId1, departureStopOrder, arrivalStopOrder, trainCarId, Duration.ofMinutes(10));
 
 			// when - 좌석 1, 2, 3 동시 Hold 시도 (2번에서 충돌)
 			assertThatThrownBy(() ->
@@ -235,14 +235,14 @@ class SeatHoldServiceTest {
 				.hasMessage(BookingError.SEAT_CONFLICT_WITH_HOLD.getMessage());
 
 			// then - 좌석 1번도 롤백되어 Hold 가능해야 함
-			SeatHoldResult result = seatHoldRepository.tryHold(
+			SeatHoldResult result = seatHoldRepository.trySeatHold(
 				trainScheduleId, seat1Id, "pending-booking-003", departureStopOrder, arrivalStopOrder, trainCarId, Duration.ofMinutes(10)
 			);
 			assertThat(result.success()).isTrue();
 		}
 
 		@Test
-		@DisplayName("겹치지 않는 구간은 같은 좌석이라도 Hold 가능하다")
+		@DisplayName("겹치지 않는 구간은 같은 좌석이라도 Seat Hold 가능하다")
 		void holdSeats_nonOverlappingSections_success() {
 			// given
 			String pendingBookingId1 = "pending-booking-001";
@@ -325,7 +325,7 @@ class SeatHoldServiceTest {
 		}
 
 		@Test
-		@DisplayName("점유 해제 후 같은 좌석을 다시 Hold 할 수 있다")
+		@DisplayName("점유 해제 후 같은 좌석을 다시 Seat Hold 할 수 있다")
 		void releaseSeats_thenHoldAgain_success() {
 			// given
 			String pendingBookingId1 = "pending-booking-001";
@@ -357,7 +357,7 @@ class SeatHoldServiceTest {
 				arrivalStop.getStopOrder()
 			);
 
-			// when & then - 두 번째 사용자가 같은 좌석 Hold 성공
+			// when & then - 두 번째 사용자가 같은 좌석 Seat Hold 성공
 			assertThatCode(() ->
 				seatHoldService.holdSeats(
 					pendingBookingId2,
@@ -410,7 +410,7 @@ class SeatHoldServiceTest {
 			).doesNotThrowAnyException();
 
 			// 해제 후 다시 Hold 가능 확인
-			SeatHoldResult result = seatHoldRepository.tryHold(
+			SeatHoldResult result = seatHoldRepository.trySeatHold(
 				trainScheduleId,
 				seatIds.get(0),
 				"new-pending",

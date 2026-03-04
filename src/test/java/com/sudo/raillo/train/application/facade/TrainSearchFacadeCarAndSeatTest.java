@@ -223,7 +223,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 			.toList();
 	}
 
-	@DisplayName("Hold가 있는 경우 객차 잔여석에서 차감된다")
+	@DisplayName("Seat Hold가 있는 경우 객차 잔여석에서 차감된다")
 	@Test
 	void getAvailableTrainCars_hold_reduces_remaining_seats() {
 		// given
@@ -259,7 +259,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 		assertThat(totalRemainingSeats).isEqualTo(94);
 	}
 
-	@DisplayName("Hold 차감 후 잔여석이 0인 객차는 목록에서 제외된다")
+	@DisplayName("Seat Hold 차감 후 잔여석이 0인 객차는 목록에서 제외된다")
 	@Test
 	void getAvailableTrainCars_filters_out_zero_remaining_cars_due_to_hold() {
 		// given
@@ -301,7 +301,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 		assertThat(response.totalCarCount()).isEqualTo(1);
 	}
 
-	@DisplayName("Hold 차감 후 모든 객차의 잔여석이 0이면 NO_AVAILABLE_CARS 예외가 발생한다")
+	@DisplayName("Seat Hold 차감 후 모든 객차의 잔여석이 0이면 NO_AVAILABLE_CARS 예외가 발생한다")
 	@Test
 	void getAvailableTrainCars_throws_when_all_cars_exhausted_by_hold() {
 		// given
@@ -333,7 +333,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 			.hasMessageContaining(TrainErrorCode.NO_AVAILABLE_CARS.getMessage());
 	}
 
-	@DisplayName("SeatBooking과 Hold가 함께 존재하면 둘 다 차감된다")
+	@DisplayName("SeatBooking과 Seat Hold가 함께 존재하면 둘 다 차감된다")
 	@Test
 	void getAvailableTrainCars_deducts_seatBooking_and_hold_together() {
 		// given
@@ -432,7 +432,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 		int arrivalStopOrder = arrivalStop.getStopOrder();
 
 		seats.forEach(seat -> assertThat(
-			seatHoldRepository.tryHold(
+			seatHoldRepository.trySeatHold(
 				trainScheduleId,
 				seat.getId(),
 				pendingBookingId,

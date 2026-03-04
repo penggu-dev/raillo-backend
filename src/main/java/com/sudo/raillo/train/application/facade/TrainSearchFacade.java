@@ -128,7 +128,7 @@ public class TrainSearchFacade {
 		List<TrainCarInfo> carsWithConfirmedAvailability = trainSeatQueryService.getAvailableTrainCars(
 			request.trainScheduleId(), request.departureStationId(), request.arrivalStationId());
 
-		// 5. Hold 좌석 차감 적용
+		// 5. Seat Hold 좌석 차감 적용
 		List<TrainCarInfo> availableCars = deductHoldSeats(
 			carsWithConfirmedAvailability, request.trainScheduleId(), departureStop.getStopOrder(), arrivalStop.getStopOrder());
 
@@ -162,7 +162,7 @@ public class TrainSearchFacade {
 		// 1. 객차 좌석 상세 조회
 		TrainCarSeatInfo carSeatInfo = trainSeatQueryService.getTrainCarSeatDetail(request);
 
-		// 2. Hold된 seatId 조회
+		// 2. Seat Hold된 seatId 조회
 		Set<Long> holdSeats = seatHoldService.getSeatIdsOnHold(
 			request.trainScheduleId(),
 			request.trainCarId(),
@@ -170,7 +170,7 @@ public class TrainSearchFacade {
 			carSeatInfo.arrivalStopOrder()
 		);
 
-		// 3. hold를 반영해 좌석 가용 상태 계산 후 응답 생성
+		// 3. Seat Hold를 반영해 좌석 가용 상태 계산 후 응답 생성
 		Set<Long> availableSeatIds = calculateAvailableSeatIds(carSeatInfo, holdSeats);
 		return responseMapper.mapToSeatDetailResponse(carSeatInfo, availableSeatIds);
 	}
@@ -196,7 +196,7 @@ public class TrainSearchFacade {
 		Map<Long, List<SeatBookingInfo>> overlappingBookingsMap = trainSearchService.findOverlappingBookingsBatch(
 			trainScheduleIds, request.departureStationId(), request.arrivalStationId());
 
-		// 2. Hold 조회용 객차 ID 배치 조회
+		// 2. Seat Hold 조회용 객차 ID 배치 조회
 		TrainCarIdsBatch trainCarIdsBatch = trainSearchService.getTrainCarIdsBatch(trainScheduleIds);
 
 		// 3. 각 열차별로 배치 조회된 데이터를 사용해 응답 생성
@@ -240,10 +240,10 @@ public class TrainSearchFacade {
 		Map<CarType, Integer> totalSeatsByCarType = seatInfoBatch.getSeatsCountByCarType(trainScheduleId);
 		// SeatBooking 좌석
 		List<SeatBookingInfo> overlappingBookings = overlappingBookingsMap.getOrDefault(trainScheduleId, List.of());
-		// 열차의 CarType별 Hold 좌석 수 게산
+		// 열차의 CarType별 Seat Hold 좌석 수 계산
 		Map<CarType, Integer> holdSeatsCountByCarType = getHoldSeatsCountByCarType(trainInfo, trainCarIdsBatch);
 
-		// 좌석 상태 계산 (전체 좌석 - SeatBooking - Hold = 잔여석)
+		// 좌석 상태 계산 (전체 좌석 - SeatBooking - Seat Hold = 잔여석)
 		SectionSeatStatus sectionStatus = seatAvailabilityCalculator
 			.calculateSectionSeatStatus(overlappingBookings, totalSeatsByCarType, holdSeatsCountByCarType, passengerCount);
 
@@ -251,7 +251,7 @@ public class TrainSearchFacade {
 	}
 
 	/**
-	 * CarType별 Hold 점유 좌석 수 조회
+	 * CarType별 Seat Hold 점유 좌석 수 조회
 	 */
 	private Map<CarType, Integer> getHoldSeatsCountByCarType(TrainBasicInfo trainInfo, TrainCarIdsBatch trainCarIdsBatch) {
 		Long trainScheduleId = trainInfo.trainScheduleId();
@@ -269,8 +269,8 @@ public class TrainSearchFacade {
 	}
 
 	/**
-	 * 객차별 Hold 좌석 차감 적용
-	 * Hold 차감 후 잔여석이 0인 객차는 목록에서 제외
+	 * 객차별 Seat Hold 좌석 차감 적용
+	 * Seat Hold 차감 후 잔여석이 0인 객차는 목록에서 제외
 	 */
 	private List<TrainCarInfo> deductHoldSeats(
 		List<TrainCarInfo> availableCars,

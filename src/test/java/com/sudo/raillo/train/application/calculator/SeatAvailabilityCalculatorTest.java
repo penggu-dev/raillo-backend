@@ -189,7 +189,7 @@ class SeatAvailabilityCalculatorTest {
 	}
 
 	@Test
-	@DisplayName("Hold 점유가 있으면 잔여석에서 차감된다")
+	@DisplayName("Seat Hold 점유가 있으면 잔여석에서 차감된다")
 	void holdSeatsReduceRemaining() {
 		// given
 		Map<CarType, Integer> totalSeats = Map.of(

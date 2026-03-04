@@ -7,7 +7,7 @@ import java.util.stream.IntStream;
 import org.springframework.stereotype.Component;
 
 /**
- * 좌석 Hold 관련 Redis 키 생성기
+ * Seat Hold 관련 Redis 키 생성기
  */
 @Component
 public class SeatHoldKeyGenerator {
@@ -21,23 +21,23 @@ public class SeatHoldKeyGenerator {
 	private static final String TRAINCAR_HOLD_INDEX_KEY_FORMAT = "{schedule:%d}:traincar:%d:holding-seats";
 
 	/**
-	 * 좌석 임시 점유 키 생성
+	 * Seat Hold 키 생성
 	 * 예: {schedule:1001}:seat:12:hold:pending_abc123
 	 *
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @param seatId 좌석 ID
 	 * @param pendingBookingId 예약 ID
 	 */
-	public String generateHoldKey(Long trainScheduleId, Long seatId, String pendingBookingId) {
+	public String generateSeatHoldKey(Long trainScheduleId, Long seatId, String pendingBookingId) {
 		return String.format(SEAT_HOLD_KEY_FORMAT, trainScheduleId, seatId, pendingBookingId);
 	}
 
 	/**
-	 * 좌석 Hold 목록 인덱스 키 생성
+	 * Seat Hold Index 키 생성
 	 *
 	 * <p>예: {@code {schedule:1001}:seat:12:holds}</p>
-	 * <p>해당 좌석의 현재 Hold 목록(pendingBookingId들)을 저장하는 Set의 키</p>
-	 * <p>KEYS 명령 대신 SMEMBERS로 Hold 목록을 조회하기 위한 인덱스 역할</p>
+	 * <p>해당 좌석의 현재 Seat Hold 목록(pendingBookingId들)을 저장하는 Set의 키</p>
+	 * <p>KEYS 명령 대신 SMEMBERS로 Seat Hold 목록을 조회하기 위한 인덱스 역할</p>
 	 *
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @param seatId 좌석 ID
@@ -48,10 +48,10 @@ public class SeatHoldKeyGenerator {
 	}
 
 	/**
-	 * Hold Index 키 생성
+	 * TrainCar Hold Index 키 생성
 	 *
 	 * <p>예: {@code {schedule:1785}:traincar:231:holding-seats}</p>
-	 * <p>특정 객차의 Hold 좌석을 빠르게 조회하기 위한 Sorted Set 인덱스</p>
+	 * <p>특정 객차의 Seat Hold 좌석을 빠르게 조회하기 위한 Sorted Set 인덱스</p>
 	 * <p>멤버 형식: "seatId:section" (예: "42:0-1"), Score: 만료 시각 (Unix Timestamp)</p>
 	 *
 	 * @param trainScheduleId 열차 스케줄 ID

@@ -154,8 +154,8 @@ public class PaymentFacade {
 	}
 
 	/**
-	 * PendingBooking 삭제 및 Hold 해제
-	 * <p>예매가 완료된 PendingBooking에 대해 삭제 및 좌석 Hold 해제를 수행합니다.</p>
+	 * PendingBooking 삭제 및 Seat Hold 해제
+	 * <p>예매가 완료된 PendingBooking에 대해 삭제 및 Seat Hold 해제를 수행합니다.</p>
 	 */
 	private void cleanupPendingBookings(List<PendingBooking> pendingBookings) {
 		List<String> pendingBookingIds = pendingBookings.stream()

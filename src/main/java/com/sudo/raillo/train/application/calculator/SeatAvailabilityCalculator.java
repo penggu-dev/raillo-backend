@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SeatAvailabilityCalculator {
 
 	/**
-	 * 구간별 좌석 상태 계산 (전체 좌석 - SeatBooking - Hold = 잔여석)
+	 * 구간별 좌석 상태 계산 (전체 좌석 - SeatBooking - Seat Hold = 잔여석)
 	 */
 	public SectionSeatStatus calculateSectionSeatStatus(
 		List<SeatBookingInfo> overlappingBookings,
