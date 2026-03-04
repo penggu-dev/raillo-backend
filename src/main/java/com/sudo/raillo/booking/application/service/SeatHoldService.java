@@ -15,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * 좌석 임시 점유 서비스
+ * Seat Hold 서비스
  *
  * 비즈니스 로직과 Redis 작업 조율
  */
@@ -27,21 +27,21 @@ public class SeatHoldService {
 	private final SeatHoldRepository seatHoldRepository;
 	private final SeatHoldKeyGenerator seatHoldKeyGenerator;
 
-	private static final Duration HOLD_TTL_BUFFER = Duration.ofMinutes(1);
+	private static final Duration SEAT_HOLD_TTL_BUFFER = Duration.ofMinutes(1);
 
 	/**
-	 * 좌석 임시 점유 시도
+	 * Seat Hold 시도
 	 * PendingBooking 생성 전에 호출하여 충돌 검사 수행
 	 *
-	 * <p>Hold TTL은 PendingBooking TTL보다 1분 길게 설정하여
-	 * PendingBooking이 만료되기 전에 Hold가 먼저 사라지는 것을 방지한다.</p>
+	 * <p>Seat Hold TTL은 PendingBooking TTL보다 1분 길게 설정하여
+	 * PendingBooking이 만료되기 전에 Seat Hold가 먼저 사라지는 것을 방지한다.</p>
 	 *
-	 * @param pendingBookingId 미리 생성한 UUID (Hold 키 식별자)
+	 * @param pendingBookingId 미리 생성한 UUID (Seat Hold 키 식별자)
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @param departureStop 출발 정차역
 	 * @param arrivalStop 도착 정차역
 	 * @param seatIds 점유할 좌석 ID 목록
-	 * @param trainCarId 객차 ID (Hold Index 키 생성용)
+	 * @param trainCarId 객차 ID (TrainCar Hold Index 키 생성용)
 	 * @param pendingBookingTtl PendingBooking TTL
 	 * @throws BusinessException 좌석 충돌 시 예외 발생
 	 */
@@ -60,18 +60,18 @@ public class SeatHoldService {
 		log.info("[좌석 Hold 요청] pendingBookingId={}, trainScheduleId={}, trainCarId={}, stopOrder={}->{}, seatCount={}",
 			pendingBookingId, trainScheduleId, trainCarId, departureStopOrder, arrivalStopOrder, seatIds.size());
 
-		Duration holdTtl = pendingBookingTtl.plus(HOLD_TTL_BUFFER);
-		tryHoldSeats(trainScheduleId, seatIds, pendingBookingId, departureStopOrder, arrivalStopOrder, trainCarId, holdTtl);
+		Duration seatHoldTtl = pendingBookingTtl.plus(SEAT_HOLD_TTL_BUFFER);
+		tryHoldSeats(trainScheduleId, seatIds, pendingBookingId, departureStopOrder, arrivalStopOrder, trainCarId, seatHoldTtl);
 	}
 
 	/**
-	 * 좌석 점유 해제
+	 * Seat Hold 해제
 	 * TTL 만료 전 수동 해제 필요 시 사용
 	 *
 	 * @param pendingBookingId 예약 ID
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @param seatIds pendingBooking에 속하는 좌석 ID 리스트
-	 * @param trainCarId 객차 ID (Hold Index 키 생성용)
+	 * @param trainCarId 객차 ID (TrainCar Hold Index 키 생성용)
 	 * @param departureStopOrder 출발역 stopOrder
 	 * @param arrivalStopOrder 도착역 stopOrder
 	 */
@@ -88,7 +88,7 @@ public class SeatHoldService {
 
 		for (Long seatId : seatIds) {
 			try {
-				seatHoldRepository.releaseHold(
+				seatHoldRepository.releaseSeatHold(
 					trainScheduleId,
 					seatId,
 					pendingBookingId,
@@ -103,16 +103,16 @@ public class SeatHoldService {
 	}
 
 	/**
-	 * CarType별 Hold 점유 좌석 수 계산 (Lua 스크립트 기반)
+	 * CarType별 Seat Hold 점유 좌석 수 계산 (Lua 스크립트 기반)
 	 *
-	 * <p>전달받은 trainCarIds에 대해 Lua 스크립트로 Hold Index를 조회하여 Hold 좌석 수를 계산</p>
+	 * <p>전달받은 trainCarIds에 대해 Lua 스크립트로 TrainCar Hold Index를 조회하여 Seat Hold 좌석 수를 계산</p>
 	 * <p>Lua 내부에서 section 필터링 + seatId 중복 제거를 수행</p>
 	 *
 	 * @param trainScheduleId 스케줄 ID
 	 * @param trainCarIds 조회할 객차 ID 목록 (동일 CarType, Facade에서 RDB 조회 후 전달)
 	 * @param departureStopOrder 출발역 stopOrder
 	 * @param arrivalStopOrder 도착역 stopOrder
-	 * @return Hold 점유 좌석 수
+	 * @return Seat Hold 점유 좌석 수
 	 */
 	public int getHoldSeatsCount(
 		Long trainScheduleId,
@@ -125,16 +125,16 @@ public class SeatHoldService {
 		}
 
 		List<String> searchSections = seatHoldKeyGenerator.generateSections(departureStopOrder, arrivalStopOrder);
-		int holdCount = seatHoldRepository.getHoldSeatsCount(trainScheduleId, trainCarIds, searchSections);
+		int seatHoldCount = seatHoldRepository.getHoldSeatsCount(trainScheduleId, trainCarIds, searchSections);
 
-		log.debug("[Hold 점유 수 계산] trainScheduleId={}, trainCarIds={}, stopOrder={}->{}, holdCount={}",
-			trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder, holdCount);
+		log.debug("[Seat Hold 점유 수 계산] trainScheduleId={}, trainCarIds={}, stopOrder={}->{}, seatHoldCount={}",
+			trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder, seatHoldCount);
 
-		return holdCount;
+		return seatHoldCount;
 	}
 
 	/**
-	 * 특정 객차에서 Hold된 개별 좌석 ID 목록 조회
+	 * 특정 객차에서 Seat Hold된 개별 좌석 ID 목록 조회
 	 *
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @param trainCarId 객차 ID
@@ -152,9 +152,9 @@ public class SeatHoldService {
 	}
 
 	/**
-	 * 여러 좌석 동시 임시 점유 시도
+	 * 여러 좌석 동시 Seat Hold 시도
 	 *
-	 * <p>모든 좌석에 대해 순차적으로 Hold를 시도하고,
+	 * <p>모든 좌석에 대해 순차적으로 Seat Hold를 시도하고,
 	 * 하나라도 실패하면 이미 성공한 좌석들을 롤백함</p>
 	 */
 	private void tryHoldSeats(
@@ -164,7 +164,7 @@ public class SeatHoldService {
 		int departureStopOrder,
 		int arrivalStopOrder,
 		Long trainCarId,
-		Duration holdTtl
+		Duration seatHoldTtl
 	) {
 		log.info("[다중 좌석 Hold 시도] trainScheduleId={}, seatIds={}, pendingBookingId={}",
 			trainScheduleId, seatIds, pendingBookingId);
@@ -173,8 +173,8 @@ public class SeatHoldService {
 
 		try {
 			for (Long seatId : seatIds) {
-				SeatHoldResult result = seatHoldRepository.tryHold(
-					trainScheduleId, seatId, pendingBookingId, departureStopOrder, arrivalStopOrder, trainCarId, holdTtl);
+				SeatHoldResult result = seatHoldRepository.trySeatHold(
+					trainScheduleId, seatId, pendingBookingId, departureStopOrder, arrivalStopOrder, trainCarId, seatHoldTtl);
 
 				if (!result.success()) {
 					rollbackHolds(

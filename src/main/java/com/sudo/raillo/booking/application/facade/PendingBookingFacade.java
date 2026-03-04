@@ -45,7 +45,7 @@ public class PendingBookingFacade {
 
 	/**
 	 * 예약 생성
-	 * 조회 → 검증 → 운임 계산 → 좌석 Hold -> DB 충돌 검증 →  → PendingBooking 저장
+	 * 조회 → 검증 → 운임 계산 → Seat Hold -> DB 충돌 검증 → PendingBooking 저장
 	 */
 	public PendingBookingCreateResponse createPendingBooking(PendingBookingCreateRequest request, String memberNo) {
 		// 1. 조회
@@ -75,7 +75,7 @@ public class PendingBookingFacade {
 			carType
 		);
 
-		// 4. 좌석 Hold
+		// 4. Seat Hold
 		String pendingBookingId = pendingBookingIdGenerator.generate();
 		Long trainCarId = trainSeatQueryService.getTrainCarId(request.seatIds());
 		seatHoldService.holdSeats(
@@ -97,7 +97,7 @@ public class PendingBookingFacade {
 				request.seatIds()
 			);
 
-			// 6. PendingBooking 저장 (Hold 이후 실패 시 보상 로직)
+			// 6. PendingBooking 저장 (Seat Hold 이후 실패 시 보상 로직)
 			PendingBooking pendingBooking = pendingBookingService.createPendingBooking(
 				pendingBookingId,
 				trainSchedule,
@@ -112,7 +112,7 @@ public class PendingBookingFacade {
 
 			return new PendingBookingCreateResponse(pendingBooking.getId());
 		} catch (Exception e) {
-			log.error("[PendingBooking 저장 실패 - Hold 롤백] pendingBookingId={}, error={}", pendingBookingId, e.getMessage());
+			log.error("[PendingBooking 저장 실패 - Seat Hold 롤백] pendingBookingId={}, error={}", pendingBookingId, e.getMessage());
 			seatHoldService.releaseSeats(
 				pendingBookingId,
 				request.trainScheduleId(),
@@ -127,7 +127,7 @@ public class PendingBookingFacade {
 
 	/**
 	 * 예약 삭제
-	 * PendingBooking 삭제 (취소 확정) → 좌석 Hold 해제 (best-effort 정리)
+	 * PendingBooking 삭제 (취소 확정) → Seat Hold 해제 (best-effort 정리)
 	 */
 	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
 		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);

@@ -150,7 +150,7 @@ public class BookingValidator {
 
 	/**
 	 * 결제 준비 시 좌석 충돌 검증
-	 * <p>Redis Hold 구간과 DB SeatBooking 구간 비교</p>
+	 * <p>Seat Hold 구간과 DB SeatBooking 구간 비교</p>
 	 * @param pendingBookings 결제할 PendingBooking 목록
 	 */
 	public void validateSeatConflicts(List<PendingBooking> pendingBookings) {

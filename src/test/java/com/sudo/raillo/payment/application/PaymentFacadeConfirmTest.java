@@ -211,7 +211,7 @@ class PaymentFacadeConfirmTest {
 	}
 
 	@Test
-	@DisplayName("결제 승인 성공 시 좌석 Hold가 해제된다")
+	@DisplayName("결제 승인 성공 시 Seat Hold가 해제된다")
 	void confirmPayment_holdReleasedAfterSuccess() {
 		// given
 		BigDecimal amount = BigDecimal.valueOf(50000);
@@ -240,7 +240,7 @@ class PaymentFacadeConfirmTest {
 		Long trainCarId = trainTestHelper.getSeats(
 			trainScheduleResult.trainSchedule().getTrain(), CarType.STANDARD, 1
 			).get(0).getTrainCar().getId();
-		SeatHoldResult result = seatHoldRepository.tryHold(
+		SeatHoldResult result = seatHoldRepository.trySeatHold(
 			trainScheduleResult.trainSchedule().getId(),
 			seatId,
 			"other-pending-booking",
@@ -383,7 +383,7 @@ class PaymentFacadeConfirmTest {
 			.withTotalFare(fare)
 			.build();
 
-		// 실제 플로우처럼 좌석 Hold 먼저 설정 (PendingBookingFacade가 하는 일)
+		// 실제 플로우처럼 Seat Hold 먼저 설정 (PendingBookingFacade가 하는 일)
 		seatHoldService.holdSeats(
 			pendingBooking.getId(),
 			trainScheduleResult.trainSchedule().getId(),
