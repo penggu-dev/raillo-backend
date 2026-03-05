@@ -20,8 +20,8 @@
 
 사용법:
     pip install pymysql
-    python test-scripts/generate_seat_conflict_data.py           # 생성
-    python test-scripts/generate_seat_conflict_data.py --cleanup # 삭제
+    python test/db-scripts/generate_seat_conflict_data.py           # 생성
+    python test/db-scripts/generate_seat_conflict_data.py --cleanup # 삭제
 
 전제 조건:
     - generate_members.py 먼저 실행 (member 데이터 필요)
