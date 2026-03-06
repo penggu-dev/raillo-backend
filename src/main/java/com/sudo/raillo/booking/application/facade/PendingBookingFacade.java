@@ -14,11 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
+import com.sudo.raillo.booking.application.metrics.BookingMetrics;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.util.PendingBookingIdGenerator;
+import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.application.service.TrainScheduleService;
 import com.sudo.raillo.train.application.service.TrainSeatQueryService;
@@ -42,10 +45,10 @@ public class PendingBookingFacade {
 	private final BookingValidator bookingValidator;
 	private final PendingBookingIdGenerator pendingBookingIdGenerator;
 	private final TrainScheduleService trainScheduleService;
+	private final BookingMetrics bookingMetrics;
 
 	/**
-	 * 예약 생성
-	 * 조회 → 검증 → 운임 계산 → Seat Hold -> DB 충돌 검증 → PendingBooking 저장
+	 * 예약 생성 조회 → 검증 → 운임 계산 → Seat Hold -> DB 충돌 검증 → PendingBooking 저장
 	 */
 	public PendingBookingCreateResponse createPendingBooking(PendingBookingCreateRequest request, String memberNo) {
 		// 1. 조회
@@ -78,15 +81,22 @@ public class PendingBookingFacade {
 		// 4. Seat Hold
 		String pendingBookingId = pendingBookingIdGenerator.generate();
 		Long trainCarId = trainSeatQueryService.getTrainCarId(request.seatIds());
-		seatHoldService.holdSeats(
-			pendingBookingId,
-			request.trainScheduleId(),
-			departureStop,
-			arrivalStop,
-			request.seatIds(),
-			trainCarId,
-			pendingBookingTtl
-		);
+		try {
+			seatHoldService.holdSeats(
+				pendingBookingId,
+				request.trainScheduleId(),
+				departureStop,
+				arrivalStop,
+				request.seatIds(),
+				trainCarId,
+				pendingBookingTtl
+			);
+		} catch (BusinessException e) {
+			if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_HOLD) {
+				bookingMetrics.incrementSeatConflict();
+			}
+			throw e;
+		}
 
 		try {
 			// 5. DB 충돌 검증
@@ -110,8 +120,12 @@ public class PendingBookingFacade {
 				pendingBookingTtl
 			);
 
+			bookingMetrics.incrementPendingBookingCreated();
 			return new PendingBookingCreateResponse(pendingBooking.getId());
 		} catch (Exception e) {
+			if (e instanceof BusinessException be && be.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_SOLD) {
+				bookingMetrics.incrementSeatConflict();
+			}
 			log.error("[PendingBooking 저장 실패 - Seat Hold 롤백] pendingBookingId={}, error={}", pendingBookingId, e.getMessage());
 			seatHoldService.releaseSeats(
 				pendingBookingId,
@@ -126,13 +140,13 @@ public class PendingBookingFacade {
 	}
 
 	/**
-	 * 예약 삭제
-	 * PendingBooking 삭제 (취소 확정) → Seat Hold 해제 (best-effort 정리)
+	 * 예약 삭제 PendingBooking 삭제 (취소 확정) → Seat Hold 해제 (best-effort 정리)
 	 */
 	public void deletePendingBookings(List<String> pendingBookingIds, String memberNo) {
 		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);
 
 		pendingBookingService.deletePendingBookings(pendingBookingIds, memberNo);
+		bookingMetrics.incrementPendingBookingDeleted(pendingBookingIds.size());
 
 		List<Long> allStopIds = pendingBookings.stream()
 			.flatMap(pendingBooking ->
@@ -163,5 +177,4 @@ public class PendingBookingFacade {
 			}
 		});
 	}
-
 }
