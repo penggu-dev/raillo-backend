@@ -14,9 +14,10 @@
     OrderSeatBooking   × --pending
 
 좌석 배분 전략:
-  전체 좌석을 절반으로 분리
-    선점 좌석 (50%) → SeatBooking 생성에 사용
-    잔여 좌석 (50%) → K6에서 좌석 조회 API로 직접 확인 후 예약 시도
+  TrainCar → Seat 경로로 실제 좌석 로드 (스케줄 조인 없음)
+  Trip은 train_id 기준으로 매칭하여 seat가 속한 train의 스케줄 구간만 사용
+    선점 좌석 (객차당 20%) → SeatBooking 생성에 사용
+    잔여 좌석 (80%)        → K6에서 좌석 조회 API로 직접 확인 후 예약 시도
 
 사용법:
     pip install pymysql
@@ -34,6 +35,7 @@ import os
 import random
 import sys
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -70,31 +72,33 @@ def load_members(cursor):
 def load_trips(cursor):
     """
     모든 인접 정차 구간 조회 (스케줄당 여러 구간)
-    반환: [(schedule_id, dep_stop_id, arr_stop_id, dep_order, arr_order, dep_station_id, arr_station_id), ...]
+    반환: [(schedule_id, dep_stop_id, arr_stop_id, dep_order, arr_order, dep_station_id, arr_station_id, train_id), ...]
     """
     cursor.execute("""
         SELECT s1.train_schedule_id,
                s1.schedule_stop_id, s2.schedule_stop_id,
                s1.stop_order,       s2.stop_order,
-               s1.station_id,       s2.station_id
+               s1.station_id,       s2.station_id,
+               ts.train_id
         FROM schedule_stop s1
         JOIN schedule_stop s2
           ON s1.train_schedule_id = s2.train_schedule_id
          AND s2.stop_order = s1.stop_order + 1
+        JOIN train_schedule ts ON s1.train_schedule_id = ts.train_schedule_id
     """)
     return cursor.fetchall()  # 모든 인접 구간 반환
 
 
-def load_all_seats(cursor):
+def load_train_seats(cursor):
     """
-    전체 좌석 목록 (스케줄 조인 없이 단순 조회)
-    반환: [(seat_id, car_type), ...]
+    Train 기반으로 실제 좌석 목록 조회 (스케줄 조인 없음 → 행 수 = 전체 좌석 수)
+    반환: [(train_id, seat_id, car_type, train_car_id), ...]
     """
     cursor.execute("""
-        SELECT s.seat_id, tc.car_type
-        FROM seat s
-        JOIN train_car tc ON s.train_car_id = tc.train_car_id
-        ORDER BY s.seat_id
+        SELECT tc.train_id, s.seat_id, tc.car_type, tc.train_car_id
+        FROM train_car tc
+        JOIN seat s ON s.train_car_id = tc.train_car_id
+        ORDER BY tc.train_car_id, s.seat_id
     """)
     return cursor.fetchall()
 
@@ -103,13 +107,21 @@ def load_all_seats(cursor):
 # 좌석 배분
 # ──────────────────────────────────────────────────────
 
-def split_seats(all_seats):
+def split_seats_20pct_per_car(train_seats, ratio=0.2):
     """
-    전체 좌석을 절반으로 분할
-    pre_booked : SeatBooking으로 삽입 (선점) → [(seat_id, car_type), ...]
+    객차(train_car_id)별로 그룹화하여 각 객차의 ratio(기본 20%) 좌석을 선점 좌석으로 선택
+    pre_booked : SeatBooking으로 삽입 (선점) → [(train_id, seat_id, car_type), ...]
     """
-    mid = max(1, len(all_seats) // 2)
-    return all_seats[:mid]
+    car_groups = defaultdict(list)
+    for train_id, seat_id, car_type, train_car_id in train_seats:
+        car_groups[train_car_id].append((train_id, seat_id, car_type))
+
+    pre_booked = []
+    for car_id in sorted(car_groups.keys()):
+        seats = car_groups[car_id]
+        count = max(1, int(len(seats) * ratio))
+        pre_booked.extend(seats[:count])
+    return pre_booked
 
 
 # ──────────────────────────────────────────────────────
@@ -140,17 +152,22 @@ def fetch_last_ids(cursor, table, pk_col, count):
 def insert_ordered_phase(cursor, conn, count, members, trips, pre_booked):
     """
     Order(ORDERED) → Payment(PAID) → Booking → SeatBooking
-    pre_booked: [(seat_id, car_type), ...]  (전체 좌석의 50%)
-    trips: [(schedule_id, dep_stop_id, arr_stop_id, dep_order, arr_order, dep_station_id, arr_station_id), ...]
+    pre_booked: [(train_id, seat_id, car_type), ...]  (객차당 20%)
+    trips: [(schedule_id, dep_stop_id, arr_stop_id, dep_order, arr_order, dep_station_id, arr_station_id, train_id), ...]
     """
     if not pre_booked:
-        print("[오류] seat 데이터가 없습니다. Seat/TrainCar 테이블을 확인하세요.", file=sys.stderr)
+        print("[오류] seat 데이터가 없습니다. TrainCar/Seat 테이블을 확인하세요.", file=sys.stderr)
         sys.exit(1)
     if not trips:
         print("[오류] schedule_stop 데이터가 없습니다.", file=sys.stderr)
         sys.exit(1)
 
     now = datetime.now()
+
+    # train_id → trips 인덱스 (seat의 train과 일치하는 schedule trip 선택용)
+    trips_by_train = defaultdict(list)
+    for row in trips:
+        trips_by_train[row[7]].append(row)  # row[7] = train_id
 
     # ── 1. Order (ORDERED) ─────────────────────────
     print("[Phase 1 - 1/4] Order(ORDERED) 삽입...")
@@ -163,9 +180,10 @@ def insert_ordered_phase(cursor, conn, count, members, trips, pre_booked):
     meta = []    # (member_id, order_code, schedule_id, dep_stop_id, arr_stop_id, dep_order, arr_order, dep_station_id, arr_station_id, seat_id, car_type, created_at)
 
     for i in range(count):
-        row = trips[i % len(trips)]
-        sid, dep_stop_id, arr_stop_id, dep_order, arr_order, dep_station_id, arr_station_id = row
-        seat_id, car_type = pre_booked[i % len(pre_booked)]
+        train_id, seat_id, car_type = pre_booked[i % len(pre_booked)]
+        candidate_trips = trips_by_train.get(train_id, [])
+        row = random.choice(candidate_trips) if candidate_trips else trips[i % len(trips)]
+        sid, dep_stop_id, arr_stop_id, dep_order, arr_order, dep_station_id, arr_station_id, _ = row
         member_id  = members[i % len(members)]
         order_code = short_code()
         created_at = now - timedelta(days=random.randint(0, 365))
@@ -244,7 +262,7 @@ def insert_ordered_phase(cursor, conn, count, members, trips, pre_booked):
 
 def insert_pending_phase(cursor, conn, count, members, trips, pre_booked):
     # OrderSeatBooking.seat_id는 일반 컬럼 (FK 아님) → 아무 seat_id나 사용 가능 (배경 데이터)
-    any_seat_ids = [seat_id for seat_id, _ in pre_booked]
+    any_seat_ids = [seat_id for _, seat_id, _ in pre_booked]
     now = datetime.now()
 
     # ── 1. Order (PENDING) ────────────────────────
@@ -379,9 +397,9 @@ def main():
 
     # ── 사전 조회 ──────────────────────────────────
     print("[사전 조회] 기존 데이터 로드 중...")
-    members   = load_members(cursor)
-    trips     = load_trips(cursor)
-    all_seats = load_all_seats(cursor)
+    members     = load_members(cursor)
+    trips       = load_trips(cursor)
+    train_seats = load_train_seats(cursor)
 
     if not members:
         print("[오류] member 없음 → generate_members.py 먼저 실행하세요.", file=sys.stderr)
@@ -389,20 +407,20 @@ def main():
     if not trips:
         print("[오류] schedule_stop 데이터 없음.", file=sys.stderr)
         sys.exit(1)
-    if not all_seats:
-        print("[오류] seat 데이터 없음. Seat/TrainCar 테이블을 확인하세요.", file=sys.stderr)
+    if not train_seats:
+        print("[오류] seat 데이터 없음. TrainCar/Seat 테이블을 확인하세요.", file=sys.stderr)
         sys.exit(1)
 
     trips = list(trips)
     random.shuffle(trips)    # 구간 순서 섞어서 다양한 stop_order 배정
 
-    pre_booked = split_seats(all_seats)
+    pre_booked = split_seats_20pct_per_car(train_seats)
 
     unique_schedules = len({row[0] for row in trips})
-    print(f"  members       : {len(members):,}")
-    print(f"  trip 구간 수   : {len(trips):,}  (스케줄 {unique_schedules:,}개)")
-    print(f"  전체 좌석      : {len(all_seats):,}")
-    print(f"  선점 좌석 (50%): {len(pre_booked):,}")
+    print(f"  members            : {len(members):,}")
+    print(f"  trip 구간 수        : {len(trips):,}  (스케줄 {unique_schedules:,}개)")
+    print(f"  전체 좌석           : {len(train_seats):,}")
+    print(f"  선점 좌석 (20%/객차): {len(pre_booked):,}")
 
     # ── Phase 1: 완료된 예약 ──────────────────────
     print(f"\n[Phase 1] 완료 예약 데이터 {args.ordered:,}개 생성")
