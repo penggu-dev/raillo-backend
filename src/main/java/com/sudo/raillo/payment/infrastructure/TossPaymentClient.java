@@ -16,6 +16,7 @@ import com.sudo.raillo.payment.infrastructure.dto.TossPaymentCancelResponse;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
+import com.sudo.raillo.payment.infrastructure.metrics.TossApiMetrics;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 
@@ -31,6 +32,7 @@ public class TossPaymentClient {
 
 	private final RestClient tossPaymentRestClient;
 	private final ObjectMapper objectMapper;
+	private final TossApiMetrics tossApiMetrics;
 
 	/**
 	 * 토스페이먼츠 결제 승인 API 호출
@@ -52,7 +54,7 @@ public class TossPaymentClient {
 				.body(request)
 				.exchange((req, res) -> {
 					if (res.getStatusCode().isError()) {
-						handleErrorResponse(res, "결제 승인");
+						handleErrorResponse(res, "confirm");
 					}
 					return res.bodyTo(TossPaymentConfirmResponse.class);
 				});
@@ -66,6 +68,8 @@ public class TossPaymentClient {
 			throw e;
 		} catch (Exception e) {
 			log.error("[TOSS] 결제 승인 중 알 수 없는 예외 발생", e);
+			// http_status=0: HTTP 응답을 정상적으로 수신하지 못한 경우 (타임아웃, 네트워크 오류, 응답 파싱 실패 등)
+			tossApiMetrics.incrementFailure("confirm", 0, "CLIENT_ERROR");
 			throw new BusinessException(
 				PaymentError.PAYMENT_SYSTEM_ERROR,
 				"결제 승인 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
@@ -103,7 +107,7 @@ public class TossPaymentClient {
 				.body(request)
 				.exchange((req, res) -> {
 					if (res.getStatusCode().isError()) {
-						handleErrorResponse(res, "결제 취소");
+						handleErrorResponse(res, "cancel");
 					}
 					return res.bodyTo(TossPaymentCancelResponse.class);
 				});
@@ -117,6 +121,8 @@ public class TossPaymentClient {
 			throw e;
 		} catch (Exception e) {
 			log.error("[TOSS] 결제 취소 중 알 수 없는 예외 발생", e);
+			// http_status=0: HTTP 응답을 정상적으로 수신하지 못한 경우 (타임아웃, 네트워크 오류, 응답 파싱 실패 등)
+			tossApiMetrics.incrementFailure("cancel", 0, "CLIENT_ERROR");
 			throw new BusinessException(
 				PaymentError.PAYMENT_SYSTEM_ERROR,
 				"결제 취소 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
@@ -134,7 +140,7 @@ public class TossPaymentClient {
 		byte[] rawBytes = res.getBody().readAllBytes();
 		String raw = new String(rawBytes, StandardCharsets.UTF_8);
 
-		log.warn("[TOSS] {} 에러 응답: httpStatus={}, Content-Type={}, bytes={}, traceId={}",
+		log.info("[TOSS] {} 에러 응답: httpStatus={}, Content-Type={}, bytes={}, traceId={}",
 			operation, statusCode,
 			res.getHeaders().getContentType(),
 			rawBytes.length,
@@ -147,6 +153,7 @@ public class TossPaymentClient {
 			} else {
 				log.warn("[TOSS] {} 실패 ({}): {}", operation, statusCode, message);
 			}
+			tossApiMetrics.incrementFailure(operation, statusCode, "EMPTY_ERROR_BODY");
 			throw new TossPaymentException(statusCode, "EMPTY_ERROR_BODY", message);
 		}
 
@@ -157,6 +164,7 @@ public class TossPaymentClient {
 			String bodySnippet = truncateForLog(raw);
 			String message = "토스 에러 응답 파싱 실패 (httpStatus=" + statusCode + ")";
 			log.error("[TOSS] {} 실패 ({}): {} bodySnippet={}", operation, statusCode, message, bodySnippet, e);
+			tossApiMetrics.incrementFailure(operation, statusCode, "UNPARSABLE_ERROR_BODY");
 			throw new TossPaymentException(statusCode, "UNPARSABLE_ERROR_BODY", message + ", body=" + bodySnippet);
 		}
 
@@ -168,6 +176,7 @@ public class TossPaymentClient {
 				operation, statusCode, error.code(), error.message());
 		}
 
+		tossApiMetrics.incrementFailure(operation, statusCode, error.code());
 		throw new TossPaymentException(statusCode, error.code(), error.message());
 	}
 

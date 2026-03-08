@@ -26,11 +26,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
+import com.sudo.raillo.payment.infrastructure.metrics.TossApiMetrics;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.dto.TossCancelDetail;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentCancelResponse;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 @RestClientTest(TossPaymentClient.class)
 @Import(TossPaymentClientTest.TestConfig.class)
@@ -50,6 +54,16 @@ class TossPaymentClientTest {
 				.defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 				.build();
 		}
+
+		@Bean
+		public MeterRegistry meterRegistry() {
+			return new SimpleMeterRegistry();
+		}
+
+		@Bean
+		public TossApiMetrics tossApiMetrics(MeterRegistry meterRegistry) {
+			return new TossApiMetrics(meterRegistry);
+		}
 	}
 
 	@Autowired
@@ -60,6 +74,9 @@ class TossPaymentClientTest {
 
 	@Autowired
 	private ObjectMapper objectMapper;
+
+	@Autowired
+	private MeterRegistry meterRegistry;
 
 	@Nested
 	@DisplayName("confirmPayment")
@@ -103,7 +120,7 @@ class TossPaymentClientTest {
 		}
 
 		@Test
-		@DisplayName("4xx 응답 시 TossPaymentException으로 변환된다")
+		@DisplayName("4xx 응답 시 TossPaymentException으로 변환되고 toss_api_failure_total 카운터가 증가한다")
 		void fail_4xx() {
 			// given
 			PaymentConfirmRequest request = new PaymentConfirmRequest(
@@ -120,6 +137,9 @@ class TossPaymentClientTest {
 				.andExpect(method(POST))
 				.andRespond(withBadRequest().body(errorBody).contentType(MediaType.APPLICATION_JSON));
 
+			double before = meterRegistry.counter("toss_api_failure_total",
+				"operation", "confirm", "http_status", "400", "toss_code", "REJECT_CARD_PAYMENT").count();
+
 			// when & then
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
 				.isInstanceOf(TossPaymentException.class)
@@ -127,11 +147,15 @@ class TossPaymentClientTest {
 				.hasFieldOrPropertyWithValue("errorCode", "REJECT_CARD_PAYMENT")
 				.hasMessageContaining("카드 결제가 거절되었습니다.");
 
+			double after = meterRegistry.counter("toss_api_failure_total",
+				"operation", "confirm", "http_status", "400", "toss_code", "REJECT_CARD_PAYMENT").count();
+			assertThat(after).isEqualTo(before + 1);
+
 			server.verify();
 		}
 
 		@Test
-		@DisplayName("5xx 응답 시 TossPaymentException으로 변환된다")
+		@DisplayName("5xx 응답 시 TossPaymentException으로 변환되고 toss_api_failure_total 카운터가 증가한다")
 		void fail_5xx() {
 			// given
 			PaymentConfirmRequest request = new PaymentConfirmRequest(
@@ -148,6 +172,9 @@ class TossPaymentClientTest {
 				.andExpect(method(POST))
 				.andRespond(withServerError().body(errorBody).contentType(MediaType.APPLICATION_JSON));
 
+			double before = meterRegistry.counter("toss_api_failure_total",
+				"operation", "confirm", "http_status", "500", "toss_code", "PROVIDER_ERROR").count();
+
 			// when & then
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
 				.isInstanceOf(TossPaymentException.class)
@@ -155,11 +182,15 @@ class TossPaymentClientTest {
 				.hasFieldOrPropertyWithValue("errorCode", "PROVIDER_ERROR")
 				.hasMessageContaining("일시적인 오류가 발생했습니다.");
 
+			double after = meterRegistry.counter("toss_api_failure_total",
+				"operation", "confirm", "http_status", "500", "toss_code", "PROVIDER_ERROR").count();
+			assertThat(after).isEqualTo(before + 1);
+
 			server.verify();
 		}
 
 		@Test
-		@DisplayName("5xx 응답 본문이 비어 있어도 TossPaymentException으로 변환된다")
+		@DisplayName("5xx 응답 본문이 비어 있어도 TossPaymentException으로 변환되고 EMPTY_ERROR_BODY 메트릭이 기록된다")
 		void fail_5xx_emptyBody() {
 			// given
 			PaymentConfirmRequest request = new PaymentConfirmRequest(
@@ -169,6 +200,9 @@ class TossPaymentClientTest {
 				.andExpect(method(POST))
 				.andRespond(withServerError());
 
+			double before = meterRegistry.counter("toss_api_failure_total",
+				"operation", "confirm", "http_status", "500", "toss_code", "EMPTY_ERROR_BODY").count();
+
 			// when & then
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
 				.isInstanceOf(TossPaymentException.class)
@@ -176,11 +210,15 @@ class TossPaymentClientTest {
 				.hasFieldOrPropertyWithValue("errorCode", "EMPTY_ERROR_BODY")
 				.hasMessage("토스 에러 응답 본문이 비어 있습니다. (httpStatus=500)");
 
+			double after = meterRegistry.counter("toss_api_failure_total",
+				"operation", "confirm", "http_status", "500", "toss_code", "EMPTY_ERROR_BODY").count();
+			assertThat(after).isEqualTo(before + 1);
+
 			server.verify();
 		}
 
 		@Test
-		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_SYSTEM_ERROR BusinessException으로 래핑된다")
+		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_SYSTEM_ERROR BusinessException으로 래핑되고 CLIENT_ERROR 메트릭이 기록된다")
 		void fail_unexpectedException() {
 			// given
 			PaymentConfirmRequest request = new PaymentConfirmRequest(
@@ -191,11 +229,18 @@ class TossPaymentClientTest {
 				.andExpect(method(POST))
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
+			double before = meterRegistry.counter("toss_api_failure_total",
+				"operation", "confirm", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
+
 			// when & then
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
 				.hasMessageContaining("결제 승인 처리 중 알 수 없는 오류가 발생했습니다");
+
+			double after = meterRegistry.counter("toss_api_failure_total",
+				"operation", "confirm", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
+			assertThat(after).isEqualTo(before + 1);
 
 			server.verify();
 		}
@@ -318,7 +363,7 @@ class TossPaymentClientTest {
 		}
 
 		@Test
-		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_SYSTEM_ERROR BusinessException으로 래핑된다")
+		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_SYSTEM_ERROR BusinessException으로 래핑되고 CLIENT_ERROR 메트릭이 기록된다")
 		void fail_unexpectedException() {
 			// given
 			String paymentKey = "toss_pk_cancel_123";
@@ -328,11 +373,18 @@ class TossPaymentClientTest {
 				.andExpect(method(POST))
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
+			double before = meterRegistry.counter("toss_api_failure_total",
+				"operation", "cancel", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
+
 			// when & then
 			assertThatThrownBy(() -> tossPaymentClient.cancelPayment(paymentKey, request))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
 				.hasMessageContaining("결제 취소 처리 중 알 수 없는 오류가 발생했습니다");
+
+			double after = meterRegistry.counter("toss_api_failure_total",
+				"operation", "cancel", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
+			assertThat(after).isEqualTo(before + 1);
 
 			server.verify();
 		}
