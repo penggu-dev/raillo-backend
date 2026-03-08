@@ -19,10 +19,15 @@
     선점 좌석 (객차당 20%) → SeatBooking 생성에 사용
     잔여 좌석 (80%)        → K6에서 좌석 조회 API로 직접 확인 후 예약 시도
 
+   [주의] --focus-schedule-id 없이 실행하면 SeatBooking이 전체 스케줄에 분산되어
+         특정 스케줄 기준 점유율이 매우 낮아집니다. 특정 노선 충돌 테스트가 목적이라면
+         반드시 --focus-schedule-id를 사용해야함
+
 사용법:
     pip install pymysql
-    python test/db-scripts/generate_seat_conflict_data.py           # 생성
-    python test/db-scripts/generate_seat_conflict_data.py --cleanup # 삭제
+          python test/db-scripts/generate_seat_conflict_data.py                              # 전체 랜덤 분산
+          python test/db-scripts/generate_seat_conflict_data.py --focus-schedule-id {ID}     # 특정 스케줄 집중 선점 후 랜덤 분산
+          python test/db-scripts/generate_seat_conflict_data.py --cleanup                    # 데이터 삭제
 
 전제 조건:
     - generate_members.py 먼저 실행 (member 데이터 필요)
@@ -101,6 +106,50 @@ def load_train_seats(cursor):
         ORDER BY tc.train_car_id, s.seat_id
     """)
     return cursor.fetchall()
+
+
+def load_focus_data(cursor, schedule_id):
+    """
+    집중 선점용: 특정 스케줄의 Train 좌석 및 해당 스케줄 구간 조회
+    반환: (train_seats, trips)
+      train_seats : [(train_id, seat_id, car_type, train_car_id), ...]
+      trips       : [(schedule_id, dep_stop_id, arr_stop_id, dep_order, arr_order,
+                      dep_station_id, arr_station_id, train_id), ...]
+    """
+    cursor.execute(
+        "SELECT train_id FROM train_schedule WHERE train_schedule_id = %s",
+        (schedule_id,)
+    )
+    row = cursor.fetchone()
+    if not row:
+        return [], []
+    train_id = row[0]
+
+    cursor.execute("""
+        SELECT tc.train_id, s.seat_id, tc.car_type, tc.train_car_id
+        FROM train_car tc
+        JOIN seat s ON s.train_car_id = tc.train_car_id
+        WHERE tc.train_id = %s
+        ORDER BY tc.train_car_id, s.seat_id
+    """, (train_id,))
+    train_seats = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT s1.train_schedule_id,
+               s1.schedule_stop_id, s2.schedule_stop_id,
+               s1.stop_order,       s2.stop_order,
+               s1.station_id,       s2.station_id,
+               ts.train_id
+        FROM schedule_stop s1
+        JOIN schedule_stop s2
+          ON s1.train_schedule_id = s2.train_schedule_id
+         AND s2.stop_order = s1.stop_order + 1
+        JOIN train_schedule ts ON s1.train_schedule_id = ts.train_schedule_id
+        WHERE s1.train_schedule_id = %s
+    """, (schedule_id,))
+    trips = cursor.fetchall()
+
+    return train_seats, trips
 
 
 # ──────────────────────────────────────────────────────
@@ -368,8 +417,10 @@ def cleanup(conn):
 
 def main():
     parser = argparse.ArgumentParser(description="좌석 충돌 정합성 테스트 데이터 생성")
-    parser.add_argument("--ordered",  type=int, default=200_000, help="완료 예약 수 (기본 200,000)")
-    parser.add_argument("--pending",  type=int, default=100_000, help="배경 PENDING 수 (기본 100,000)")
+    parser.add_argument("--ordered",          type=int, default=200_000, help="완료 예약 수 (기본 200,000)")
+    parser.add_argument("--pending",          type=int, default=100_000, help="배경 PENDING 수 (기본 100,000)")
+    parser.add_argument("--focus-schedule-id",type=int, default=None,
+                        help="집중 선점할 스케줄 ID. 해당 스케줄의 객차당 20%% 좌석을 우선 선점 후 나머지를 랜덤 분산")
     parser.add_argument("--batch",    type=int, default=500)
     parser.add_argument("--host",     default=os.environ.get("DB_HOST", "localhost"))
     parser.add_argument("--port",     type=int, default=int(os.environ.get("DB_PORT", "3306")))
@@ -423,8 +474,25 @@ def main():
     print(f"  선점 좌석 (20%/객차): {len(pre_booked):,}")
 
     # ── Phase 1: 완료된 예약 ──────────────────────
-    print(f"\n[Phase 1] 완료 예약 데이터 {args.ordered:,}개 생성")
-    insert_ordered_phase(cursor, conn, args.ordered, members, trips, pre_booked)
+    focused_count = 0
+    if args.focus_schedule_id:
+        print(f"\n[집중 선점] 스케줄 {args.focus_schedule_id} 데이터 로드 중...")
+        focus_train_seats, focus_trips = load_focus_data(cursor, args.focus_schedule_id)
+        if not focus_train_seats or not focus_trips:
+            print(f"[오류] focus-schedule-id {args.focus_schedule_id}를 찾을 수 없습니다.", file=sys.stderr)
+            sys.exit(1)
+        focus_pre_booked = split_seats_20pct_per_car(focus_train_seats)
+        focused_count = len(focus_pre_booked)
+        print(f"  스케줄 좌석        : {len(focus_train_seats):,}석")
+        print(f"  집중 선점 좌석     : {focused_count:,}석 (객차당 20%)")
+        print(f"  집중 구간 수       : {len(focus_trips):,}개")
+        print(f"\n[Phase 1 - 집중] 스케줄 {args.focus_schedule_id} 선점 데이터 {focused_count:,}개 생성")
+        insert_ordered_phase(cursor, conn, focused_count, members, focus_trips, focus_pre_booked)
+
+    remaining_ordered = args.ordered - focused_count
+    if remaining_ordered > 0:
+        print(f"\n[Phase 1 - 랜덤] 완료 예약 데이터 {remaining_ordered:,}개 생성")
+        insert_ordered_phase(cursor, conn, remaining_ordered, members, trips, pre_booked)
 
     # ── Phase 2: 배경 데이터 ──────────────────────
     print(f"\n[Phase 2] 배경 PENDING 데이터 {args.pending:,}개 생성")
@@ -434,6 +502,9 @@ def main():
     conn.close()
     print(f"\n[완료]")
     print(f"  SeatBooking / Booking / Order(ORDERED) / Payment(PAID) : 각 {args.ordered:,}개")
+    if args.focus_schedule_id:
+        print(f"    ├── 집중 선점 (스케줄 {args.focus_schedule_id}): {focused_count:,}개")
+        print(f"    └── 랜덤 분산                           : {args.ordered - focused_count:,}개")
     print(f"  Order(PENDING) / OrderBooking / OrderSeatBooking        : 각 {args.pending:,}개")
 
 
