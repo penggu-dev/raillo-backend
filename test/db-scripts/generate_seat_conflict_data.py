@@ -6,7 +6,7 @@
     Order    (ORDERED) × --ordered  (기본 200,000)
     Payment  (PAID)    × --ordered
     Booking  (BOOKED)  × --ordered
-    SeatBooking        × --ordered  ← 충돌 감지 핵심
+    SeatBooking        × --ordered  좌석 충돌 선점 데이터
 
   [Phase 2 - 배경 데이터]
     Order    (PENDING) × --pending  (기본 100,000)
