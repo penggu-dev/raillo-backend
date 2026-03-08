@@ -6,6 +6,10 @@ import java.util.Base64;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -27,11 +31,19 @@ public class TossPaymentClientConfig {
 			.defaultHeader(HttpHeaders.AUTHORIZATION, "Basic " + encodedSecretKey)
 			.defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 			.requestInterceptor((request, body, execution) -> {
-				log.info("[TOSS] → 요청 URI: {} {}", request.getMethod(), request.getURI());
-				log.info("[TOSS] → 요청 헤더: {}", request.getHeaders());
-				log.info("[TOSS] → 요청 body: {}", new String(body, StandardCharsets.UTF_8));
+				log.debug("[TOSS] → {} {}", request.getMethod(), request.getURI());
+				log.debug("[TOSS] → headers: {}", maskSensitiveHeaders(request.getHeaders()));
+				log.debug("[TOSS] → body: {}", new String(body, StandardCharsets.UTF_8));
 				return execution.execute(request, body);
 			})
 			.build();
+	}
+
+	private Map<String, List<String>> maskSensitiveHeaders(HttpHeaders headers) {
+		Map<String, List<String>> masked = new LinkedHashMap<>(headers);
+		if (masked.containsKey(HttpHeaders.AUTHORIZATION)) {
+			masked.put(HttpHeaders.AUTHORIZATION, List.of("Basic ***"));
+		}
+		return masked;
 	}
 }
