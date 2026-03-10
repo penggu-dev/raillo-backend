@@ -21,7 +21,7 @@
 
    [주의] --focus-schedule-id 없이 실행하면 SeatBooking이 전체 스케줄에 분산되어
          특정 스케줄 기준 점유율이 매우 낮아집니다. 특정 노선 충돌 테스트가 목적이라면
-         반드시 --focus-schedule-id를 사용해야함
+         반드시 --focus-schedule-id를 사용해야합니다.
 
 사용법:
     pip install pymysql
