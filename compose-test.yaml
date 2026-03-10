@@ -30,7 +30,7 @@ services:
           memory: 1G # application server 메모리 용량
 
   mysql:
-    image: 'chanwon2/raillo-test-db:latest'
+    image: 'ogu1208/raillo-test-db:latest'
     environment:
       - 'MYSQL_DATABASE=raillo'
       - 'MYSQL_PASSWORD=secret'
