@@ -11,7 +11,7 @@ spec:
   source:
     repoURL: https://github.com/penggu-dev/raillo-backend.git
     targetRevision: main
-    path: k8s # Argo CD는 내부적으로 Git repo를 clone 한 뒤 path에 지정된 상대 경로에서 YAML 파일을 찾기 때문에 /를 빼야함
+    path: k8s/k8s-application # Argo CD는 내부적으로 Git repo를 clone 한 뒤 path에 지정된 상대 경로에서 YAML 파일을 찾기 때문에 /를 빼야함
   destination:
     # https://kubernetes.default.svc: Argo CD 자체가 설치된 클러스터의 내부 주소
     server: https://kubernetes.default.svc
