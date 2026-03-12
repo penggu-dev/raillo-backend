@@ -10,8 +10,8 @@ spring:
 
   data:
     redis:
-      host: redis-service   # k8s의 redis 서비스명
-      port: 6379            # redis port
+      host: ${REDIS_HOST}
+      port: 6379
 
   datasource:
     url: ${DB_URL}
