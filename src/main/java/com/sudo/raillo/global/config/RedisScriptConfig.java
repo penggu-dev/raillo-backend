@@ -35,7 +35,7 @@ import org.springframework.scripting.support.ResourceScriptSource;
 public class RedisScriptConfig {
 
 	/**
-	 * 좌석 임시 점유 스크립트
+	 * Seat Hold 스크립트
 	 *
 	 * <p>반환값: {@code {성공여부(1/0), 상태문자열, [충돌구간]}}</p>
 	 * <p>예: {@code {1, "HOLD_SUCCESS"}} 또는 {@code {0, "CONFLICT_WITH_HOLD", "1-2"}}</p>
@@ -50,9 +50,9 @@ public class RedisScriptConfig {
 	}
 
 	/**
-	 * 좌석 점유 해제 스크립트
+	 * Seat Hold 해제 스크립트
 	 *
-	 * <p>Hold 키 삭제 및 holds 인덱스에서 제거</p>
+	 * <p>Seat Hold 키 삭제 및 Seat Hold Index에서 제거</p>
 	 * <p>반환값: {@code {1, "RELEASE_SUCCESS"}}</p>
 	 */
 	@Bean
@@ -65,10 +65,10 @@ public class RedisScriptConfig {
 	}
 
 	/**
-	 * Hold 점유 좌석 수 계산 스크립트
+	 * Seat Hold 점유 좌석 수 계산 스크립트
 	 *
-	 * <p>여러 Hold Index를 조회하여 검색 구간과 겹치는 Hold 좌석 수를 계산</p>
-	 * <p>반환값: Hold 점유 좌석 수 (Long)</p>
+	 * <p>여러 TrainCar Hold Index를 조회하여 검색 구간과 겹치는 Seat Hold 좌석 수를 계산</p>
+	 * <p>반환값: Seat Hold 점유 좌석 수 (Long)</p>
 	 */
 	@Bean
 	public DefaultRedisScript<Long> getHoldSeatsCountScript() {

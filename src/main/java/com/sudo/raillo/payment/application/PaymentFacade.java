@@ -23,13 +23,18 @@ import com.sudo.raillo.payment.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.TossPaymentClient;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
 import com.sudo.raillo.train.application.service.TrainScheduleService;
+import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.domain.ScheduleStop;
-import com.sudo.raillo.train.domain.Seat;
-import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.infrastructure.SeatRepository;
+
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,11 +50,11 @@ public class PaymentFacade {
 	private final PendingBookingService pendingBookingService;
 	private final SeatHoldService seatHoldService;
 	private final BookingService bookingService;
+	private final TrainScheduleService trainScheduleService;
+	private final TrainSeatQueryService trainSeatQueryService;
 	private final TossPaymentClient tossPaymentClient;
 	private final PaymentValidator paymentValidator;
 	private final BookingValidator bookingValidator;
-	private final TrainScheduleService trainScheduleService;
-	private final SeatRepository seatRepository;
 
 	/**
 	 * 결제 준비 처리
@@ -73,7 +78,6 @@ public class PaymentFacade {
 
 		return new PaymentPrepareResponse(order.getOrderCode(), order.getTotalAmount());
 	}
-
 
 	/**
 	 * 결제 승인 처리
@@ -150,8 +154,8 @@ public class PaymentFacade {
 	}
 
 	/**
-	 * PendingBooking 삭제 및 Hold 해제
-	 * <p>예매가 완료된 PendingBooking에 대해 삭제 및 좌석 Hold 해제를 수행합니다.</p>
+	 * PendingBooking 삭제 및 Seat Hold 해제
+	 * <p>예매가 완료된 PendingBooking에 대해 삭제 및 Seat Hold 해제를 수행합니다.</p>
 	 */
 	private void cleanupPendingBookings(List<PendingBooking> pendingBookings) {
 		List<String> pendingBookingIds = pendingBookings.stream()
@@ -165,12 +169,20 @@ public class PaymentFacade {
 			log.error("[PendingBooking 삭제 실패] error={}", e.getMessage(), e);
 		}
 
+		List<Long> allStopIds = pendingBookings.stream()
+			.flatMap(pendingBooking ->
+				Stream.of(pendingBooking.getDepartureStopId(), pendingBooking.getArrivalStopId()))
+			.toList();
+
+		Map<Long, ScheduleStop> stopMap = trainScheduleService.getScheduleStops(allStopIds)
+				.stream()
+				.collect(Collectors.toMap(ScheduleStop::getId, Function.identity()));
+
 		pendingBookings.forEach(pendingBooking -> {
 			List<Long> seatIds = pendingBooking.getSeatIds();
-			Long trainCarId = getTrainCarId(seatIds);
-			TrainSchedule trainSchedule = trainScheduleService.getTrainSchedule(pendingBooking.getTrainScheduleId());
-			ScheduleStop departureStop = trainScheduleService.getStopStation(trainSchedule, pendingBooking.getDepartureStopId());
-			ScheduleStop arrivalStop = trainScheduleService.getStopStation(trainSchedule, pendingBooking.getArrivalStopId());
+			Long trainCarId = trainSeatQueryService.getTrainCarId(seatIds);
+			ScheduleStop departureStop = stopMap.get(pendingBooking.getDepartureStopId());
+			ScheduleStop arrivalStop = stopMap.get(pendingBooking.getArrivalStopId());
 
 			seatHoldService.releaseSeats(
 				pendingBooking.getId(),
@@ -183,11 +195,6 @@ public class PaymentFacade {
 		});
 
 		log.info("[PendingBooking 삭제 및 Hold 해제 완료] pendingBookingCount={}", pendingBookings.size());
-	}
-
-	private Long getTrainCarId(List<Long> seatIds) {
-		return seatRepository.findAllByIdWithTrainCar(List.of(seatIds.get(0)))
-			.get(0).getTrainCar().getId();
 	}
 
 	/**

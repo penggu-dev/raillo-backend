@@ -1,5 +1,11 @@
 package com.sudo.raillo.train.application.mapper;
 
+import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
+import com.sudo.raillo.train.application.dto.projection.SeatProjection;
+import com.sudo.raillo.train.application.dto.response.SeatDetail;
+import com.sudo.raillo.train.application.dto.response.TrainCarSeatDetailResponse;
+import java.util.List;
+import java.util.Set;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.train.application.dto.SectionSeatStatus;
@@ -26,8 +32,8 @@ public class TrainSearchResponseMapper {
 		TrainBasicInfo trainInfo,
 		SectionSeatStatus sectionStatus,
 		StationFare fare,
-		int passengerCount) {
-
+		int passengerCount
+	) {
 		// 1. 좌석 타입별 정보 생성 (일반실 / 특실)
 		SeatTypeInfo standardSeatInfo = SeatTypeInfo.of(
 			sectionStatus.standardRemaining(),
@@ -60,4 +66,32 @@ public class TrainSearchResponseMapper {
 		);
 	}
 
+	public TrainCarSeatDetailResponse mapToSeatDetailResponse(
+		TrainCarSeatInfo carSeatInfo,
+		Set<Long> availableSeatIds
+	) {
+		List<SeatDetail> seatDetails = carSeatInfo.seats().stream()
+			.map(seat -> toSeatDetail(seat, availableSeatIds.contains(seat.getSeatId())))
+			.toList();
+
+		return new TrainCarSeatDetailResponse(
+			carSeatInfo.carNumber(),
+			carSeatInfo.carType(),
+			carSeatInfo.totalSeats(),
+			availableSeatIds.size(),
+			carSeatInfo.getLayoutType(),
+			seatDetails
+		);
+	}
+
+	private SeatDetail toSeatDetail(SeatProjection seat, boolean isAvailable) {
+		return new SeatDetail(
+			seat.getSeatId(),
+			seat.getSeatNumber(),
+			isAvailable,
+			seat.getSeatDirection(),
+			seat.getSeatType(),
+			seat.getSpecialMessage()
+		);
+	}
 }

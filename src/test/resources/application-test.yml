@@ -55,6 +55,14 @@ cors:
 cookie:
   domain: .test
 
+payment:
+  toss:
+    api:
+      base-url: https://api.tosspayments.com
+      client-key: test_ck_stub
+      secret-key: test_sk_stub
+      version: v1
+
 # redis TTL
 redis:
   ttl:

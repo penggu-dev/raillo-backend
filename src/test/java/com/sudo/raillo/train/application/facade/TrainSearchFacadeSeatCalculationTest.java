@@ -60,7 +60,7 @@ class TrainSearchFacadeSeatCalculationTest {
 	private RedisTemplate<String, String> customStringRedisTemplate;
 
 	@Test
-	@DisplayName("SeatBooking과 Hold가 모두 잔여석에 반영된다")
+	@DisplayName("SeatBooking과 Seat Hold가 모두 잔여석에 반영된다")
 	void searchTrains_reflects_both_seatBooking_and_hold() {
 		// given
 		LocalDate searchDate = LocalDate.now().plusDays(1);
@@ -92,7 +92,7 @@ class TrainSearchFacadeSeatCalculationTest {
 			.addSeats(standardSeats, PassengerType.ADULT)
 			.build();
 
-		// Hold: 일반실 5석, 특실 3석 임시 점유
+		// Seat Hold: 일반실 5석, 특실 3석
 		List<Seat> holdStandardSeats = trainTestHelper.getAvailableSeats(
 			scheduleResult.trainSchedule(), CarType.STANDARD, 5);
 		List<Seat> holdFirstClassSeats = trainTestHelper.getAvailableSeats(
@@ -119,7 +119,7 @@ class TrainSearchFacadeSeatCalculationTest {
 	}
 
 	@Test
-	@DisplayName("Hold만 있는 경우에도 잔여석에 반영된다")
+	@DisplayName("Seat Hold만 있는 경우에도 잔여석에 반영된다")
 	void searchTrains_reflects_hold_only() {
 		// given
 		LocalDate searchDate = LocalDate.now().plusDays(1);
@@ -141,7 +141,7 @@ class TrainSearchFacadeSeatCalculationTest {
 		ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleResult, "부산");
 		Long trainScheduleId = scheduleResult.trainSchedule().getId();
 
-		// Hold: 일반실 8석 임시 점유
+		// Seat Hold: 일반실 8석
 		List<Seat> holdStandardSeats = trainTestHelper.getSeats(train, CarType.STANDARD, 8);
 		holdSeats(holdStandardSeats, trainScheduleId, departureStop, arrivalStop);
 
@@ -163,7 +163,7 @@ class TrainSearchFacadeSeatCalculationTest {
 	}
 
 	@Test
-	@DisplayName("SeatBooking과 Hold 합산으로 인원 수용이 불가능하면 예약 불가로 판단한다")
+	@DisplayName("SeatBooking과 Seat Hold 합산으로 인원 수용이 불가능하면 예약 불가로 판단한다")
 	void searchTrains_not_reservable_when_combined_insufficient() {
 		// given
 		LocalDate searchDate = LocalDate.now().plusDays(1);
@@ -214,7 +214,7 @@ class TrainSearchFacadeSeatCalculationTest {
 	}
 
 	@Test
-	@DisplayName("Hold 구간이 검색 구간과 겹치지 않으면 잔여석에 반영되지 않는다")
+	@DisplayName("Seat Hold 구간이 검색 구간과 겹치지 않으면 잔여석에 반영되지 않는다")
 	void searchTrains_hold_non_overlapping_section_not_counted() {
 		// given
 		LocalDate searchDate = LocalDate.now().plusDays(1);
@@ -256,7 +256,7 @@ class TrainSearchFacadeSeatCalculationTest {
 	}
 
 	@Test
-	@DisplayName("Hold 구간이 검색 구간과 겹치면 잔여석에 반영된다")
+	@DisplayName("Seat Hold 구간이 검색 구간과 겹치면 잔여석에 반영된다")
 	void searchTrains_hold_overlapping_section_is_counted() {
 		// given
 		LocalDate searchDate = LocalDate.now().plusDays(1);
@@ -297,7 +297,7 @@ class TrainSearchFacadeSeatCalculationTest {
 	}
 
 	@Test
-	@DisplayName("만료된 Hold는 잔여석에 반영되지 않는다")
+	@DisplayName("만료된 Seat Hold는 잔여석에 반영되지 않는다")
 	void searchTrains_expired_hold_not_counted() {
 		// given
 		LocalDate searchDate = LocalDate.now().plusDays(1);
@@ -324,16 +324,16 @@ class TrainSearchFacadeSeatCalculationTest {
 
 		// seats[0]: 만료된 Hold
 		Seat expiredSeat = seats.get(0);
-		String expiredHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
+		String expiredTrainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
 			trainScheduleId, expiredSeat.getTrainCar().getId());
-		customStringRedisTemplate.opsForZSet().add(expiredHoldIndexKey, expiredSeat.getId() + ":0-1", expiredScore);
+		customStringRedisTemplate.opsForZSet().add(expiredTrainCarHoldIndexKey, expiredSeat.getId() + ":0-1", expiredScore);
 
 		// seats[1..4]: 유효한 Hold (4석)
 		for (int i = 1; i < seats.size(); i++) {
 			Seat seat = seats.get(i);
-			String holdIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
+			String trainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
 				trainScheduleId, seat.getTrainCar().getId());
-			customStringRedisTemplate.opsForZSet().add(holdIndexKey, seat.getId() + ":0-1", validScore);
+			customStringRedisTemplate.opsForZSet().add(trainCarHoldIndexKey, seat.getId() + ":0-1", validScore);
 		}
 
 		// when
@@ -358,7 +358,7 @@ class TrainSearchFacadeSeatCalculationTest {
 		int departureStopOrder = departureStop.getStopOrder();
 		int arrivalStopOrder = arrivalStop.getStopOrder();
 
-		seats.forEach(seat -> seatHoldRepository.tryHold(
+		seats.forEach(seat -> seatHoldRepository.trySeatHold(
 			trainScheduleId,
 			seat.getId(),
 			pendingBookingId,

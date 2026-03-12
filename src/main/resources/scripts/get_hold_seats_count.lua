@@ -1,10 +1,10 @@
 -- get_hold_seats_count.lua
--- CarType별 Hold 점유 좌석 수 계산 Lua 스크립트
+-- CarType별 Seat Hold 점유 좌석 수 계산 Lua 스크립트
 --
--- KEYS[1..N]: Hold Index 키들 (예: {schedule:1785}:traincar:231:holding-seats)
+-- KEYS[1..N]: TrainCar Hold Index 키들 (예: {schedule:1785}:traincar:231:holding-seats)
 -- ARGV[1..M]: 검색 구간 sections (예: "0-1", "1-2", "2-3")
 --
--- 반환값: Hold 점유 좌석 수 (중복 제거된)
+-- 반환값: Seat Hold 점유 좌석 수 (중복 제거된)
 
 -- Redis 서버 시각 사용 (Java 서버와 clock skew 방지)
 local currentTime = tonumber(redis.call("TIME")[1])
@@ -18,9 +18,9 @@ end
 -- seatId 중복 제거용 Set
 local uniqueSeats = {}
 
--- 각 Hold Index 키에 대해 조회
+-- 각 TrainCar Hold Index 키에 대해 조회
 for _, key in ipairs(KEYS) do
-    -- 만료되지 않은 Hold 멤버 조회
+    -- 만료되지 않은 TrainCar Hold Index 멤버 조회
     local members = redis.call("ZRANGEBYSCORE", key, currentTime, "+inf")
 
     for _, member in ipairs(members) do

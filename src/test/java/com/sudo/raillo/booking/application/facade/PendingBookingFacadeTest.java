@@ -86,7 +86,7 @@ class PendingBookingFacadeTest {
 	}
 
 	@Test
-	@DisplayName("예약 삭제 시 좌석 Hold가 해제된다")
+	@DisplayName("예약 삭제 시 Seat Hold가 해제된다")
 	void deletePendingBookings_success_holdReleased() {
 		// given
 		String memberNo = "202601010001";
@@ -118,7 +118,7 @@ class PendingBookingFacadeTest {
 		pendingBookingFacade.deletePendingBookings(List.of(pendingBooking.getId()), memberNo);
 
 		// then - Hold가 해제되어 다른 사용자가 같은 좌석을 Hold 할 수 있어야 함
-		SeatHoldResult result = seatHoldRepository.tryHold(
+		SeatHoldResult result = seatHoldRepository.trySeatHold(
 			trainScheduleResult.trainSchedule().getId(),
 			seatId,
 			"other-pending-booking",
@@ -152,7 +152,7 @@ class PendingBookingFacadeTest {
 	}
 
 	@Test
-	@DisplayName("PendingBooking 저장 실패 시 Hold가 롤백된다")
+	@DisplayName("PendingBooking 저장 실패 시 Seat Hold가 롤백된다")
 	void createPendingBooking_saveFail_holdRollback() {
 		// given
 		String memberNo = "202601010001";
@@ -189,7 +189,7 @@ class PendingBookingFacadeTest {
 		int arrivalStopOrder = trainScheduleResult.scheduleStops().get(2).getStopOrder();
 		Long trainCarId = seats.get(0).getTrainCar().getId();
 
-		SeatHoldResult result = seatHoldRepository.tryHold(
+		SeatHoldResult result = seatHoldRepository.trySeatHold(
 			trainScheduleResult.trainSchedule().getId(),
 			seats.get(0).getId(),
 			"other-pending-booking",

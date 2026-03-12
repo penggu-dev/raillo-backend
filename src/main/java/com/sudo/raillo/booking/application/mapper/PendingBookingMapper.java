@@ -40,6 +40,7 @@ public class PendingBookingMapper {
 			departureStopInfo.departureTime(),
 			arrivalStopInfo.arrivalTime(),
 			trainScheduleInfo.operationDate(),
+			pendingBooking.getTotalFare(),
 			seatDetails
 		);
 	}

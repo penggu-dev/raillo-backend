@@ -159,6 +159,27 @@ class TossPaymentClientTest {
 		}
 
 		@Test
+		@DisplayName("5xx 응답 본문이 비어 있어도 TossPaymentException으로 변환된다")
+		void fail_5xx_emptyBody() {
+			// given
+			PaymentConfirmRequest request = new PaymentConfirmRequest(
+				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
+
+			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
+				.andExpect(method(POST))
+				.andRespond(withServerError());
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
+				.isInstanceOf(TossPaymentException.class)
+				.hasFieldOrPropertyWithValue("httpStatus", 500)
+				.hasFieldOrPropertyWithValue("errorCode", "EMPTY_ERROR_BODY")
+				.hasMessage("토스 에러 응답 본문이 비어 있습니다. (httpStatus=500)");
+
+			server.verify();
+		}
+
+		@Test
 		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_SYSTEM_ERROR BusinessException으로 래핑된다")
 		void fail_unexpectedException() {
 			// given
