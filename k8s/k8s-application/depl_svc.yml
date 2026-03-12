@@ -29,48 +29,9 @@ spec:
             requests:
               cpu: "0.5"
               memory: "512Mi"
-          env:
-            # name값과 yml의 ${변수} 의 변수명과 일치해야함
-            - name: DB_URL
-              valueFrom:
-                secretKeyRef:
-                  name: raillo-secrets
-                  key: DB_URL
-            - name: DB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: raillo-secrets
-                  key: DB_USERNAME
-            - name: DB_PW
-              valueFrom:
-                secretKeyRef:
-                  name: raillo-secrets
-                  key: DB_PW
-            - name: JWT_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: raillo-secrets
-                  key: JWT_KEY
-            - name: MAIL_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: raillo-secrets
-                  key: MAIL_USERNAME
-            - name: MAIL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: raillo-secrets
-                  key: MAIL_PASSWORD
-            - name: TOSS_CLIENT_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: raillo-secrets
-                  key: TOSS_CLIENT_KEY
-            - name: TOSS_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: raillo-secrets
-                  key: TOSS_SECRET_KEY
+          envFrom:
+          - secretRef:
+              name: raillo-secrets
           # 컨테이너 상태 확인을 통해 롤링업데이트 최적화
           readinessProbe:
             httpGet:
