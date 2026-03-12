@@ -52,7 +52,7 @@ spring:
       enabled: false
 
 cors:
-  allowed-origins: https://www.raillo.shop
+  allowed-origins: https://www.raillo.store
   allowed-methods: GET, POST, PUT, DELETE
   allowed-headers: Access-Control-Allow-Origin, Content-type, Access-Control-Allow-Headers, Authorization, X-Requested-With
 
@@ -60,7 +60,15 @@ jwt:
   secret: ${JWT_KEY}
 
 cookie:
-  domain: .raillo.shop
+  domain: .raillo.store
+
+payment:
+  toss:
+    api:
+      base-url: https://api.tosspayments.com
+      client-key: ${TOSS_CLIENT_KEY}
+      secret-key: ${TOSS_SECRET_KEY}
+      version: v1
 
 # Prometheus
 management:
