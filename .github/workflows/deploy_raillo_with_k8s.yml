@@ -29,7 +29,7 @@ jobs:
 
       # Cluster 세팅
       - name: update cluster infomation
-        run: aws eks update-kubeconfig --name raillo-eks --region ap-northeast-2
+        run: aws eks update-kubeconfig --name raillo-cluster --region ap-northeast-2
 
       - name: Login to ECR
         id: login-ecr
