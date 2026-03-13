@@ -264,4 +264,54 @@ class BookingMetricsTest {
 		double holdAfter = meterRegistry.counter("seat_conflict_total", "conflict_type", "hold").count();
 		assertThat(holdAfter).isEqualTo(holdBefore);
 	}
+
+	@Test
+	@DisplayName("예약 생성 성공 시 예약 생성 타이머와 seat_hold 타이머가 기록된다")
+	void createPendingBooking_success_recordsBothTimers() {
+		// given
+		double pendingBookingBefore = meterRegistry.timer("pending_booking_duration_seconds").count();
+		double seatHoldBefore = meterRegistry.timer("seat_hold_duration_seconds").count();
+
+		// when
+		pendingBookingFacade.createPendingBooking(
+			new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+				List.of(PassengerType.ADULT), List.of(seatId)),
+			"202601010001"
+		);
+
+		// then
+		double pendingBookingAfter = meterRegistry.timer("pending_booking_duration_seconds").count();
+		double seatHoldAfter = meterRegistry.timer("seat_hold_duration_seconds").count();
+		assertThat(pendingBookingAfter).isEqualTo(pendingBookingBefore + 1);
+		assertThat(seatHoldAfter).isEqualTo(seatHoldBefore + 1);
+	}
+
+	@Test
+	@DisplayName("좌석 충돌로 예약 실패해도 pending_booking 타이머와 seat_hold 타이머는 기록된다")
+	void createPendingBooking_holdConflict_stillRecordsBothTimers() {
+		// given
+		pendingBookingFacade.createPendingBooking(
+			new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+				List.of(PassengerType.ADULT), List.of(seatId)),
+			"202601010001"
+		);
+
+		double pendingBookingBefore = meterRegistry.timer("pending_booking_duration_seconds").count();
+		double seatHoldBefore = meterRegistry.timer("seat_hold_duration_seconds").count();
+
+		// when
+		assertThatThrownBy(() ->
+			pendingBookingFacade.createPendingBooking(
+				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+					List.of(PassengerType.ADULT), List.of(seatId)),
+				"202601010002"
+			)
+		).isInstanceOf(BusinessException.class);
+
+		// then
+		double pendingBookingAfter = meterRegistry.timer("pending_booking_duration_seconds").count();
+		double seatHoldAfter = meterRegistry.timer("seat_hold_duration_seconds").count();
+		assertThat(pendingBookingAfter).isEqualTo(pendingBookingBefore + 1);
+		assertThat(seatHoldAfter).isEqualTo(seatHoldBefore + 1);
+	}
 }
