@@ -1,7 +1,7 @@
 package com.sudo.raillo.booking.application.metrics;
 
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
 
@@ -17,19 +17,19 @@ public class BookingMetricsAspect {
 
 	private final BookingMetrics bookingMetrics;
 
-	@Around("execution(* com.sudo.raillo.booking.application.facade.PendingBookingFacade.createPendingBooking(..))")
-	public Object measurePendingBookingCreation(ProceedingJoinPoint joinPoint) throws Throwable {
-		try {
-			Object result = joinPoint.proceed();
-			bookingMetrics.incrementPendingBookingCreated();
-			return result;
-		} catch (BusinessException e) {
-			if(e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_HOLD) {
-				bookingMetrics.incrementSeatConflictHold();
-			} else if(e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_SOLD) {
-				bookingMetrics.incrementSeatConflictSold();
-			}
-			throw e;
+	@AfterReturning("execution(* com.sudo.raillo.booking.application.facade.PendingBookingFacade.createPendingBooking(..))")
+	public void countPendingBookingCreated() {
+		bookingMetrics.incrementPendingBookingCreated();
+	}
+
+	@AfterThrowing(
+		pointcut = "execution(* com.sudo.raillo.booking.application.facade.PendingBookingFacade.createPendingBooking(..))",
+		throwing = "e")
+	public void countSeatConflict(BusinessException e) {
+		if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_HOLD) {
+			bookingMetrics.incrementSeatConflictHold();
+		} else if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_SOLD) {
+			bookingMetrics.incrementSeatConflictSold();
 		}
 	}
 }
