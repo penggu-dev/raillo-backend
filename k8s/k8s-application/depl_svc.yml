@@ -22,6 +22,12 @@ spec:
           labelSelector:
             matchLabels:
               app: raillo-backend
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: raillo-backend
       containers:
         - name: raillo-backend
           image: 052104148083.dkr.ecr.ap-northeast-2.amazonaws.com/raillo-backend:latest
