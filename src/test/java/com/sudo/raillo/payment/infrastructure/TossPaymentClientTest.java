@@ -17,7 +17,6 @@ import org.springframework.boot.test.autoconfigure.web.client.RestClientTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -28,9 +27,13 @@ import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
+import com.sudo.raillo.payment.infrastructure.metrics.TossApiMetrics;
 import com.sudo.raillo.payment.infrastructure.dto.TossCancelDetail;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentCancelResponse;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 @RestClientTest(TossPaymentClient.class)
 @Import(TossPaymentClientTest.TestConfig.class)
@@ -49,6 +52,16 @@ class TossPaymentClientTest {
 				.defaultHeader(HttpHeaders.AUTHORIZATION, "Basic " + encodedSecretKey)
 				.defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 				.build();
+		}
+
+		@Bean
+		public MeterRegistry meterRegistry() {
+			return new SimpleMeterRegistry();
+		}
+
+		@Bean
+		public TossApiMetrics tossApiMetrics(MeterRegistry meterRegistry) {
+			return new TossApiMetrics(meterRegistry);
 		}
 	}
 
