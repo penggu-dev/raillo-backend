@@ -11,7 +11,7 @@ on:
 
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   update_release_draft:
@@ -20,5 +20,32 @@ jobs:
       - uses: release-drafter/release-drafter@v7
         with:
           publish: ${{ github.event_name == 'push' }}   # push(머지)시에만 실제 publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  fill_pr_body:
+    needs: update_release_draft # release drafter 플로우 완료 후 실행
+    if: github.event_name == 'pull_request' && github.event.action == 'opened' && github.head_ref == 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get draft release and fill PR body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const draft = releases.data.find(r => r.draft);
+            if (!draft?.body) return;
+
+            const changesOnly = draft.body.split('**Full Changelog**')[0].trim();
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              body: changesOnly,
+            });
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
