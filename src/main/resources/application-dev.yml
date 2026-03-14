@@ -18,9 +18,9 @@ spring:
       port: 6379
 
   datasource:
-    url: jdbc:mysql://localhost:3306/raillo
-    username: sa
-    password: secret
+    url: ${TEST_DB_URL}
+    username: ${TEST_DB_USERNAME}
+    password: ${TEST_DB_PW}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:

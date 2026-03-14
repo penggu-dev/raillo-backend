@@ -1,13 +1,4 @@
 services:
-  mysql:
-    image: 'chanwon2/raillo-test-db:latest'
-    environment:
-      - 'MYSQL_DATABASE=raillo'
-      - 'MYSQL_PASSWORD=secret'
-      - 'MYSQL_ROOT_PASSWORD=secret'
-      - 'MYSQL_USER=sa'
-    ports:
-      - '3306:3306'
   redis:
     image: 'redis:latest'
     ports:
