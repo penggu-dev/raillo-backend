@@ -46,6 +46,7 @@ services:
       - "8081:8080"
     volumes:
       - ./test/wiremock/mappings:/home/wiremock/mappings
+
     command: --global-response-templating --verbose
 
   redis-exporter:
@@ -94,6 +95,8 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=true
+    volumes:
+      - ./test/grafana/dashboards:/tmp/custom-dashboards
     depends_on:
       - prometheus
     user: root
@@ -128,6 +131,9 @@ services:
         echo "Downloading Dashboards..."
         wget -O /var/lib/grafana/dashboards/springboot.json https://grafana.com/api/dashboards/11378/revisions/latest/download
         wget -O /var/lib/grafana/dashboards/redis.json https://grafana.com/api/dashboards/11835/revisions/latest/download
+
+        echo "Copying custom dashboards..."
+        cp /tmp/custom-dashboards/*.json /var/lib/grafana/dashboards/ 2>/dev/null || true
         
         for file in /var/lib/grafana/dashboards/*.json; do
           sed -i 's/\$${DS_PROMETHEUS}/prometheus/g' "$$file"
