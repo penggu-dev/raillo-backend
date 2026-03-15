@@ -41,7 +41,7 @@
         },
         "targets": [
           {
-            "expr": "rate(payment_confirm_success_total{application=\"raillo-backend\"}[1m]) / (rate(payment_confirm_success_total{application=\"raillo-backend\"}[1m]) + sum(rate(payment_confirm_failure_total{application=\"raillo-backend\"}[1m]))) * 100",
+            "expr": "sum(rate(payment_confirm_success_total{application=\"raillo-backend\"}[1m])) / (sum(rate(payment_confirm_success_total{application=\"raillo-backend\"}[1m])) + sum(rate(payment_confirm_failure_total{application=\"raillo-backend\"}[1m]))) * 100",
             "legendFormat": "성공률",
             "refId": "A"
           }
