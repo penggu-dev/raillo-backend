@@ -20,8 +20,10 @@ services:
     environment:
       - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_DATA_REDIS_HOST=redis
+      - PAYMENT_TOSS_API_BASE_URL=http://wiremock:8080
     depends_on:
       - redis
+      - wiremock
     deploy:
       resources:
         limits:
@@ -36,6 +38,15 @@ services:
       redis-server
       --maxmemory 512mb
     # Redis 메모리 용량
+
+  wiremock:
+    image: wiremock/wiremock:latest
+    container_name: wiremock
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./test/wiremock/mappings:/home/wiremock/mappings
+    command: --global-response-templating --verbose
 
   redis-exporter:
     image: oliver006/redis_exporter
