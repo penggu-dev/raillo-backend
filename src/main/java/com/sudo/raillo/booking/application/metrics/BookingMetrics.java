@@ -14,7 +14,7 @@ public class BookingMetrics {
 	private final Counter pendingCreatedCounter;
 	private final Counter seatConflictHoldCounter;
 	private final Counter seatConflictSoldCounter;
-	private final Timer pendingBookingCreatedTimer;
+	private final Timer pendingBookingTimer;
 	private final Timer seatHoldTimer;
 
 	public BookingMetrics(MeterRegistry meterRegistry) {
@@ -32,7 +32,7 @@ public class BookingMetrics {
 			.tag("conflict_type", "sold")
 			.register(meterRegistry);
 
-		this.pendingBookingCreatedTimer = Timer.builder("pending_booking_duration_seconds")
+		this.pendingBookingTimer = Timer.builder("pending_booking_duration_seconds")
 			.description("예약 생성 전체 소요 시간")
 			.publishPercentileHistogram(true)
 			.register(meterRegistry);

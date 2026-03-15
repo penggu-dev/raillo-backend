@@ -39,7 +39,7 @@ public class BookingMetricsAspect {
 
 	@Around("execution(* com.sudo.raillo.booking.application.facade.PendingBookingFacade.createPendingBooking(..))")
 	public Object timePendingBookingCreation(ProceedingJoinPoint joinPoint) throws Throwable {
-		return recordTime(joinPoint, bookingMetrics.getPendingBookingCreatedTimer());
+		return recordTime(joinPoint, bookingMetrics.getPendingBookingTimer());
 	}
 
 	@Around("execution(* com.sudo.raillo.booking.application.service.SeatHoldService.holdSeats(..))")
