@@ -4,31 +4,26 @@ import static org.assertj.core.api.Assertions.*;
 
 import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
 import com.sudo.raillo.booking.application.facade.PendingBookingFacade;
-import com.sudo.raillo.booking.application.service.SeatHoldService;
-import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import com.sudo.raillo.support.fixture.PendingBookingFixture;
 import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
-import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,12 +38,6 @@ class BookingMetricsTest {
 	private MemberRepository memberRepository;
 
 	@Autowired
-	private SeatHoldService seatHoldService;
-
-	@Autowired
-	private BookingRedisRepository bookingRedisRepository;
-
-	@Autowired
 	private TrainTestHelper trainTestHelper;
 
 	@Autowired
@@ -60,12 +49,19 @@ class BookingMetricsTest {
 	@Autowired
 	private MeterRegistry meterRegistry;
 
-	@Test
-	@DisplayName("예약 생성 성공 시 pending_created 카운터가 증가한다")
-	void createPendingBooking_incrementsPendingCreatedMetric() {
-		// given
+	private Member member;
+	private TrainScheduleResult scheduleResult;
+	private List<Seat> seats;
+	private Long scheduleId;
+	private Long departureStationId;
+	private Long arrivalStationId;
+	private Long seatId;
+
+	@BeforeEach
+	void setup() {
+		member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createCustomKTX(3, 2);
-		TrainScheduleResult scheduleResult = trainScheduleTestHelper.builder()
+		scheduleResult = trainScheduleTestHelper.builder()
 			.scheduleName("KTX 001 경부선")
 			.train(train)
 			.operationDate(LocalDate.now().plusDays(1))
@@ -73,16 +69,26 @@ class BookingMetricsTest {
 			.addStop("대전", LocalTime.of(7, 0), LocalTime.of(7, 5))
 			.addStop("부산", LocalTime.of(9, 0), null)
 			.build();
-		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
+		seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 30000, 50000);
 
+		scheduleId = scheduleResult.trainSchedule().getId();
+		departureStationId = scheduleResult.scheduleStops().get(0).getStation().getId();
+		arrivalStationId = scheduleResult.scheduleStops().get(2).getStation().getId();
+		seatId = seats.get(0).getId();
+	}
+
+	@Test
+	@DisplayName("예약 생성 성공 시 pending_booking_created_total 카운터가 증가한다")
+	void createPendingBooking_incrementsPendingCreatedMetric() {
+		// given
 		String memberNo = "202601010001";
 		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
-			scheduleResult.trainSchedule().getId(),
-			scheduleResult.scheduleStops().get(0).getStation().getId(),
-			scheduleResult.scheduleStops().get(2).getStation().getId(),
+			scheduleId,
+			departureStationId,
+			arrivalStationId,
 			List.of(PassengerType.ADULT),
-			List.of(seats.get(0).getId())
+			List.of(seatId)
 		);
 
 		double before = meterRegistry.counter("pending_booking_created_total").count();
@@ -96,120 +102,9 @@ class BookingMetricsTest {
 	}
 
 	@Test
-	@DisplayName("예약 삭제 성공 시 pending_deleted 카운터가 삭제 건수만큼 증가한다")
-	void deletePendingBookings_incrementsPendingDeletedMetric() {
+	@DisplayName("같은 좌석에 대해 Seat Hold 충돌이 발생하면 tag가 hold인 seat_conflict 카운터가 증가한다")
+	void createPendingBooking_holdConflict_incrementSeatConflictHoldMetric() {
 		// given
-		Train train = trainTestHelper.createCustomKTX(3, 2);
-		TrainScheduleResult scheduleResult = trainScheduleTestHelper.builder()
-			.scheduleName("KTX 001 경부선")
-			.train(train)
-			.operationDate(LocalDate.now().plusDays(1))
-			.addStop("서울", null, LocalTime.of(5, 0))
-			.addStop("대전", LocalTime.of(7, 0), LocalTime.of(7, 5))
-			.addStop("부산", LocalTime.of(9, 0), null)
-			.build();
-		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
-		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 30000, 50000);
-
-		String memberNo = "202601010001";
-		ScheduleStop departureStop = scheduleResult.scheduleStops().get(0);
-		ScheduleStop arrivalStop = scheduleResult.scheduleStops().get(2);
-		Long seatId = seats.get(0).getId();
-
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(memberNo)
-			.withTrainScheduleId(scheduleResult.trainSchedule().getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(new PendingSeatBooking(seatId, PassengerType.ADULT)))
-			.build();
-
-		Long trainCarId = seats.get(0).getTrainCar().getId();
-		seatHoldService.holdSeats(
-			pendingBooking.getId(),
-			scheduleResult.trainSchedule().getId(),
-			departureStop,
-			arrivalStop,
-			List.of(seatId),
-			trainCarId,
-			Duration.ofMinutes(10)
-		);
-		bookingRedisRepository.savePendingBooking(pendingBooking);
-
-		double before = meterRegistry.counter("pending_booking_deleted_total").count();
-
-		// when
-		pendingBookingFacade.deletePendingBookings(List.of(pendingBooking.getId()), memberNo);
-
-		// then
-		double after = meterRegistry.counter("pending_booking_deleted_total").count();
-		assertThat(after).isEqualTo(before + 1);
-	}
-
-	@Test
-	@DisplayName("예약 퍼널 시나리오: 생성 10건, 취소 3건, 결제 확정 3건이면 expired는 Grafana에서 4건으로 계산된다")
-	void bookingFunnel_created10_deleted3_confirmed3_expired4() {
-		// given
-		Member member = memberRepository.save(MemberFixture.create());
-		String memberNo = member.getMemberDetail().getMemberNo();
-
-		Train train = trainTestHelper.createRealisticTrain(1, 1, 6, 4);
-		TrainScheduleResult scheduleResult = trainScheduleTestHelper.createDefault(train);
-		List<Seat> allSeats = trainTestHelper.getSeats(train, CarType.STANDARD, 10);
-
-		Long departureStationId = scheduleResult.scheduleStops().get(0).getStation().getId();
-		Long arrivalStationId = scheduleResult.scheduleStops().get(1).getStation().getId();
-		Long scheduleId = scheduleResult.trainSchedule().getId();
-
-		double createdBefore = meterRegistry.counter("pending_booking_created_total").count();
-		double deletedBefore = meterRegistry.counter("pending_booking_deleted_total").count();
-
-		// when
-		// Facade를 통해 10건 생성 (좌석별 1건씩)
-		String[] pendingIds = new String[10];
-		for (int i = 0; i < 10; i++) {
-			PendingBookingCreateRequest request = new PendingBookingCreateRequest(
-				scheduleId, departureStationId, arrivalStationId,
-				List.of(PassengerType.ADULT),
-				List.of(allSeats.get(i).getId())
-			);
-			pendingIds[i] = pendingBookingFacade.createPendingBooking(request, memberNo).pendingBookingId();
-		}
-
-		// 3건 취소
-		for (int i = 0; i < 3; i++) {
-			pendingBookingFacade.deletePendingBookings(List.of(pendingIds[i]), memberNo);
-		}
-
-		// then
-		double created = meterRegistry.counter("pending_booking_created_total").count() - createdBefore;
-		double deleted = meterRegistry.counter("pending_booking_deleted_total").count() - deletedBefore;
-
-		assertThat(created).isEqualTo(10);
-		assertThat(deleted).isEqualTo(3);
-	}
-
-	@Test
-	@DisplayName("같은 좌석에 대해 Seat Hold 충돌이 발생하면 seat_conflict 카운터가 증가한다")
-	void createPendingBooking_holdConflict_incrementsSeatConflictMetric() {
-		// given
-		Train train = trainTestHelper.createCustomKTX(3, 2);
-		TrainScheduleResult scheduleResult = trainScheduleTestHelper.builder()
-			.scheduleName("KTX 001 경부선")
-			.train(train)
-			.operationDate(LocalDate.now().plusDays(1))
-			.addStop("서울", null, LocalTime.of(5, 0))
-			.addStop("대전", LocalTime.of(7, 0), LocalTime.of(7, 5))
-			.addStop("부산", LocalTime.of(9, 0), null)
-			.build();
-		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
-		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 30000, 50000);
-
-		Long scheduleId = scheduleResult.trainSchedule().getId();
-		Long departureStationId = scheduleResult.scheduleStops().get(0).getStation().getId();
-		Long arrivalStationId = scheduleResult.scheduleStops().get(2).getStation().getId();
-		Long seatId = seats.get(0).getId();
-
 		// 첫 번째 사용자가 좌석 Hold
 		pendingBookingFacade.createPendingBooking(
 			new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
@@ -217,7 +112,7 @@ class BookingMetricsTest {
 			"202601010001"
 		);
 
-		double before = meterRegistry.counter("seat_conflict_hold_total").count();
+		double before = meterRegistry.counter("seat_conflict_total", "conflict_type", "hold").count();
 
 		// when
 		assertThatThrownBy(() ->
@@ -231,43 +126,26 @@ class BookingMetricsTest {
 			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_HOLD);
 
 		// then
-		double after = meterRegistry.counter("seat_conflict_hold_total").count();
+		double after = meterRegistry.counter("seat_conflict_total", "conflict_type", "hold").count();
 		assertThat(after).isEqualTo(before + 1);
 	}
 
 	@Test
-	@DisplayName("이미 확정된 좌석에 예약을 시도하면 seat_conflict 카운터가 증가한다")
-	void createPendingBooking_soldConflict_incrementsSeatConflictMetric() {
+	@DisplayName("이미 확정된 좌석에 예약을 시도하면 tag가 sold인 seat_conflict 카운터가 증가한다")
+	void createPendingBooking_soldConflict_incrementSeatConflictSoldMetric() {
 		// given
-		Member member = memberRepository.save(MemberFixture.create());
-		Train train = trainTestHelper.createCustomKTX(3, 2);
-		TrainScheduleResult scheduleResult = trainScheduleTestHelper.builder()
-			.scheduleName("KTX 001 경부선")
-			.train(train)
-			.operationDate(LocalDate.now().plusDays(1))
-			.addStop("서울", null, LocalTime.of(5, 0))
-			.addStop("대전", LocalTime.of(7, 0), LocalTime.of(7, 5))
-			.addStop("부산", LocalTime.of(9, 0), null)
-			.build();
-		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 30000, 50000);
-
 		// 좌석을 확정 예매 (DB에 SeatBooking 저장)
-		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 		bookingTestHelper.builder(member, scheduleResult)
 			.addSeat(seats.get(0), PassengerType.ADULT)
 			.build();
 
-		Long scheduleId = scheduleResult.trainSchedule().getId();
-		Long departureStationId = scheduleResult.scheduleStops().get(0).getStation().getId();
-		Long arrivalStationId = scheduleResult.scheduleStops().get(2).getStation().getId();
-
-		double before = meterRegistry.counter("seat_conflict_hold_total").count();
+		double before = meterRegistry.counter("seat_conflict_total", "conflict_type", "sold").count();
 
 		// when
 		assertThatThrownBy(() ->
 			pendingBookingFacade.createPendingBooking(
 				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
-					List.of(PassengerType.ADULT), List.of(seats.get(0).getId())),
+					List.of(PassengerType.ADULT), List.of(seatId)),
 				"202601010099"
 			)
 		).isInstanceOf(BusinessException.class)
@@ -275,7 +153,194 @@ class BookingMetricsTest {
 			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_SOLD);
 
 		// then
-		double after = meterRegistry.counter("seat_conflict_hold_total").count();
+		double after = meterRegistry.counter("seat_conflict_total", "conflict_type", "sold").count();
 		assertThat(after).isEqualTo(before + 1);
+	}
+
+	@Test
+	@DisplayName("Hold 충돌로 예약 실패 시 pending_booking_created_total 카운터는 증가하지 않는다")
+	void createPendingBooking_holdConflict_doesNotIncrementPendingBookingCreated() {
+		// given
+		pendingBookingFacade.createPendingBooking(
+			new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+				List.of(PassengerType.ADULT), List.of(seatId)),
+			"202601010001"
+		);
+
+		double before = meterRegistry.counter("pending_booking_created_total").count();
+
+		// when
+		assertThatThrownBy(() ->
+			pendingBookingFacade.createPendingBooking(
+				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+					List.of(PassengerType.ADULT), List.of(seatId)),
+				"202601010002"
+			)
+		).isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException) e).getErrorCode())
+			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_HOLD);
+
+		// then
+		double after = meterRegistry.counter("pending_booking_created_total").count();
+		assertThat(after).isEqualTo(before);
+	}
+
+	@Test
+	@DisplayName("Sold 충돌로 예약 실패 시 pending_booking_created_total 카운터는 증가하지 않는다")
+	void createPendingBooking_soldConflict_doesNotIncrementPendingBookingCreated() {
+		// given
+		bookingTestHelper.builder(member, scheduleResult)
+			.addSeat(seats.get(0), PassengerType.ADULT)
+			.build();
+
+		double before = meterRegistry.counter("pending_booking_created_total").count();
+
+		// when
+		assertThatThrownBy(() ->
+			pendingBookingFacade.createPendingBooking(
+				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+					List.of(PassengerType.ADULT), List.of(seatId)),
+				"202601010001"
+			)
+		).isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException) e).getErrorCode())
+			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_SOLD);
+
+		// then
+		double after = meterRegistry.counter("pending_booking_created_total").count();
+		assertThat(after).isEqualTo(before);
+	}
+
+	@Test
+	@DisplayName("Hold 충돌 발생 시 seat_conflict의 sold 카운터는 증가하지 않는다")
+	void createPendingBooking_holdConflict_doesNotIncrementSoldCounter() {
+		// given
+		pendingBookingFacade.createPendingBooking(
+			new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+				List.of(PassengerType.ADULT), List.of(seatId)),
+			"202601010001"
+		);
+
+		double soldBefore = meterRegistry.counter("seat_conflict_total", "conflict_type", "sold").count();
+
+		// when
+		assertThatThrownBy(() ->
+			pendingBookingFacade.createPendingBooking(
+				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+					List.of(PassengerType.ADULT), List.of(seatId)),
+				"202601010002"
+			)
+		).isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException) e).getErrorCode())
+			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_HOLD);
+
+		// then
+		double soldAfter = meterRegistry.counter("seat_conflict_total", "conflict_type", "sold").count();
+		assertThat(soldAfter).isEqualTo(soldBefore);
+	}
+
+	@Test
+	@DisplayName("Sold 충돌 발생 시 seat_conflict의 hold 카운터는 증가하지 않는다")
+	void createPendingBooking_soldConflict_doesNotIncrementHoldCounter() {
+		// given
+		bookingTestHelper.builder(member, scheduleResult)
+			.addSeat(seats.get(0), PassengerType.ADULT)
+			.build();
+
+		double holdBefore = meterRegistry.counter("seat_conflict_total", "conflict_type", "hold").count();
+
+		// when
+		assertThatThrownBy(() ->
+			pendingBookingFacade.createPendingBooking(
+				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+					List.of(PassengerType.ADULT), List.of(seatId)),
+				"202601010099"
+			)
+		).isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException) e).getErrorCode())
+			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_SOLD);
+
+		// then
+		double holdAfter = meterRegistry.counter("seat_conflict_total", "conflict_type", "hold").count();
+		assertThat(holdAfter).isEqualTo(holdBefore);
+	}
+
+	@Test
+	@DisplayName("예약 생성 성공 시 예약 생성 타이머와 seat_hold 타이머가 기록된다")
+	void createPendingBooking_success_recordsBothTimers() {
+		// given
+		double pendingBookingBefore = meterRegistry.timer("pending_booking_duration_seconds").count();
+		double seatHoldBefore = meterRegistry.timer("seat_hold_duration_seconds").count();
+
+		// when
+		pendingBookingFacade.createPendingBooking(
+			new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+				List.of(PassengerType.ADULT), List.of(seatId)),
+			"202601010001"
+		);
+
+		// then
+		double pendingBookingAfter = meterRegistry.timer("pending_booking_duration_seconds").count();
+		double seatHoldAfter = meterRegistry.timer("seat_hold_duration_seconds").count();
+		assertThat(pendingBookingAfter).isEqualTo(pendingBookingBefore + 1);
+		assertThat(seatHoldAfter).isEqualTo(seatHoldBefore + 1);
+	}
+
+	@Test
+	@DisplayName("hold 좌석 충돌로 예약 실패해도 pending_booking 타이머와 seat_hold 타이머는 기록된다")
+	void createPendingBooking_holdConflict_stillRecordsBothTimers() {
+		// given
+		pendingBookingFacade.createPendingBooking(
+			new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+				List.of(PassengerType.ADULT), List.of(seatId)),
+			"202601010001"
+		);
+
+		double pendingBookingBefore = meterRegistry.timer("pending_booking_duration_seconds").count();
+		double seatHoldBefore = meterRegistry.timer("seat_hold_duration_seconds").count();
+
+		// when
+		assertThatThrownBy(() ->
+			pendingBookingFacade.createPendingBooking(
+				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+					List.of(PassengerType.ADULT), List.of(seatId)),
+				"202601010002"
+			)
+		).isInstanceOf(BusinessException.class);
+
+		// then
+		double pendingBookingAfter = meterRegistry.timer("pending_booking_duration_seconds").count();
+		double seatHoldAfter = meterRegistry.timer("seat_hold_duration_seconds").count();
+		assertThat(pendingBookingAfter).isEqualTo(pendingBookingBefore + 1);
+		assertThat(seatHoldAfter).isEqualTo(seatHoldBefore + 1);
+	}
+
+	@Test
+	@DisplayName("sold 좌석 충돌로 예약 실패해도 pending_booking 타이머와 seat_hold 타이머는 기록된다")
+	void createPendingBooking_soldConflict_stillRecordsBothTimers() {
+		// given
+		bookingTestHelper.builder(member, scheduleResult)
+			.addSeat(seats.get(0), PassengerType.ADULT)
+			.build();
+
+		double pendingBookingBefore = meterRegistry.timer("pending_booking_duration_seconds").count();
+		double seatHoldBefore = meterRegistry.timer("seat_hold_duration_seconds").count();
+
+		// when
+		assertThatThrownBy(() ->
+			pendingBookingFacade.createPendingBooking(
+				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
+					List.of(PassengerType.ADULT), List.of(seatId)),
+				"202601010002"
+			)
+		).isInstanceOf(BusinessException.class)
+			.extracting(e -> ((BusinessException) e).getErrorCode())
+			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_SOLD);
+
+		// then
+		double pendingBookingAfter = meterRegistry.timer("pending_booking_duration_seconds").count();
+		double seatHoldAfter = meterRegistry.timer("seat_hold_duration_seconds").count();
+		assertThat(pendingBookingAfter).isEqualTo(pendingBookingBefore + 1);
+		assertThat(seatHoldAfter).isEqualTo(seatHoldBefore + 1);
 	}
 }
