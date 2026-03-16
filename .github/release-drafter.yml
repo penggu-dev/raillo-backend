@@ -29,7 +29,6 @@ version-resolver: # 라벨별 버전 증가 규칙
   default: patch # 라벨이 없으면 패치 버전 증가
 
 exclude-labels: # 릴리즈 노트에서 제외할 라벨
-  - '🚀 release'
   - '💫 revert'
 
 change-template: '- $TITLE (#$NUMBER) - @$AUTHOR' # PR 표기 템플릿.
