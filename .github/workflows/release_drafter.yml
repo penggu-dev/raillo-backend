@@ -20,6 +20,7 @@ jobs:
       - uses: release-drafter/release-drafter@v7
         with:
           publish: ${{ github.event_name == 'push' }}   # push(머지)시에만 실제 publish
+          commitish: main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
