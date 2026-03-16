@@ -1,0 +1,92 @@
+name: Fill PR Body
+
+on:
+  pull_request:
+    types: [opened]
+    branches:
+      - main
+
+jobs:
+  fill_pr_body:
+    if: github.head_ref == 'develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Build and fill PR body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+
+            execSync('git fetch origin main develop');
+
+            const mergeCommits = execSync(
+              'git log origin/main..origin/develop --merges --format=%H'
+            ).toString().trim().split('\n').filter(Boolean);
+
+            if (mergeCommits.length === 0) return;
+
+            const prMap = new Map();
+            for (const sha of mergeCommits) {
+              const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: sha,
+              });
+              for (const pr of prs) {
+                if (pr.base.ref === 'develop') prMap.set(pr.number, pr);
+              }
+            }
+
+            const prs = [...prMap.values()];
+
+            const excludeLabels = ['🚀 release', '💫 revert'];
+
+            const categories = [
+              { title: '✨ 새로운 기능', labels: ['✨ feature'], items: [] },
+              { title: '🐛 버그 수정', labels: ['🐞 bug'], items: [] },
+              { title: '♻️ 리팩토링', labels: ['♻️ refactor'], items: [] },
+              { title: '그 외', labels: ['⚙️ chore', '📝 docs', '✅ test'], items: [] },
+            ];
+
+            for (const pr of prs) {
+              const labels = pr.labels.map(l => l.name);
+              if (labels.some(l => excludeLabels.includes(l))) continue;
+
+              const line = `- ${pr.title} (#${pr.number}) - @${pr.user.login}`;
+
+              let matched = false;
+              for (const cat of categories) {
+                if (labels.some(l => cat.labels.includes(l))) {
+                  cat.items.push(line);
+                  matched = true;
+                  break;
+                }
+              }
+              if (!matched) categories[categories.length - 1].items.push(line);
+            }
+
+            let body = '## 변경사항\n\n';
+            for (const cat of categories) {
+              if (cat.items.length > 0) {
+                body += `### ${cat.title}\n\n${cat.items.join('\n')}\n\n`;
+              }
+            }
+
+            body += '## 체크리스트\n\n';
+            body += '- [ ] 버전 라벨을 선택했습니다. (`⭐️ major` / `⭐️ minor` / `⭐️ patch`)\n';
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              body: body.trim(),
+            });
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

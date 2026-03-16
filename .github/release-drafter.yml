@@ -29,17 +29,17 @@ version-resolver: # 라벨별 버전 증가 규칙
   default: patch # 라벨이 없으면 패치 버전 증가
 
 exclude-labels: # 릴리즈 노트에서 제외할 라벨
-  - "🚀 release"
-  - "💫 revert"
+  - '🚀 release'
+  - '💫 revert'
 
-change-template: "- $TITLE (#NUMBER) - @$AUTHOR" # PR 표기 템플릿.
+change-template: '- $TITLE (#$NUMBER) - @$AUTHOR' # PR 표기 템플릿.
 change-title-escapes: '\\<*_&' # 특수문자 이스케이프 처리 (마크다운 깨짐 방지)
 
 template: | # Release Drafter가 생성할 릴리즈 본문 구조 정의
-  ## 변경사항
+  ## 🧚 변경사항
 
   $CHANGES 
 
-  **Full Changelog**: $PREVIOUS_TAG...$RESOLVED_VERSION 
+  **Full Changelog**:  [$PREVIOUS_TAG ~ $RESOLVED_VERSION](https://github.com/penggu-dev/raillo-backend/compare/$PREVIOUS_TAG...$RESOLVED_VERSION)
   
   $CONTRIBUTORS
