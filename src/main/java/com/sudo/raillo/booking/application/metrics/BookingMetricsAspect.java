@@ -1,8 +1,6 @@
 package com.sudo.raillo.booking.application.metrics;
 
 import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.annotation.AfterReturning;
-import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
@@ -21,25 +19,23 @@ public class BookingMetricsAspect {
 
 	private final BookingMetrics bookingMetrics;
 
-	@AfterReturning("execution(* com.sudo.raillo.booking.application.facade.PendingBookingFacade.createPendingBooking(..))")
-	public void countPendingBookingCreated() {
-		bookingMetrics.incrementPendingBookingCreated();
-	}
-
-	@AfterThrowing(
-		pointcut = "execution(* com.sudo.raillo.booking.application.facade.PendingBookingFacade.createPendingBooking(..))",
-		throwing = "e")
-	public void countSeatConflict(BusinessException e) {
-		if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_HOLD) {
-			bookingMetrics.incrementSeatConflictHold();
-		} else if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_SOLD) {
-			bookingMetrics.incrementSeatConflictSold();
-		}
-	}
-
 	@Around("execution(* com.sudo.raillo.booking.application.facade.PendingBookingFacade.createPendingBooking(..))")
-	public Object timePendingBookingCreation(ProceedingJoinPoint joinPoint) throws Throwable {
-		return recordTime(joinPoint, bookingMetrics.getPendingBookingTimer());
+	public Object measurePendingBookingCreation(ProceedingJoinPoint joinPoint) throws Throwable {
+		Sample sample = Timer.start();
+		try {
+			Object result = joinPoint.proceed();
+			bookingMetrics.incrementPendingBookingCreated();
+			return result;
+		} catch (BusinessException e) {
+			if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_HOLD) {
+				bookingMetrics.incrementSeatConflictHold();
+			} else if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_SOLD) {
+				bookingMetrics.incrementSeatConflictSold();
+			}
+			throw e;
+		} finally {
+			sample.stop(bookingMetrics.getPendingBookingTimer());
+		}
 	}
 
 	@Around("execution(* com.sudo.raillo.booking.application.service.SeatHoldService.holdSeats(..))")
