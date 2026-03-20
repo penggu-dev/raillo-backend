@@ -4,12 +4,16 @@ import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
 
@@ -193,6 +197,47 @@ public class SeatHoldRepository {
 				trainScheduleId, trainCarIds, e.getMessage(), e);
 			// Seat Hold는 검색 정확도 보조 데이터이므로 레디스 오류 시 0 반환하여 검색 가용성 유지
 			return 0;
+		}
+	}
+
+	/**
+	 * Pipeline을 사용한 Seat Hold 점유 좌석 수 배치 조회
+	 *
+	 * <p>여러 건의 Hold 수 조회를 Redis Pipeline으로 묶어 한 번의 네트워크 왕복으로 처리</p>
+	 *
+	 * @param keysList 각 쿼리별 TrainCar Hold Index 키 목록
+	 * @param sectionsList 각 쿼리별 검색 구간 목록
+	 * @return 각 쿼리별 Seat Hold 점유 좌석 수
+	 */
+	public List<Integer> getHoldSeatsCountBatch(
+		List<List<String>> keysList,
+		List<List<String>> sectionsList
+	) {
+		try {
+			List<Object> results = customStringRedisTemplate.executePipelined(new SessionCallback<>() {
+				@Override
+				@SuppressWarnings("unchecked")
+				public Object execute(RedisOperations operations) throws DataAccessException {
+					for (int i = 0; i < keysList.size(); i++) {
+						List<String> keys = keysList.get(i);
+						Object[] args = buildHoldSeatsCountArgs(sectionsList.get(i));
+						operations.execute(getHoldSeatsCountScript, keys, args);
+					}
+					return null;
+				}
+			});
+
+			List<Integer> counts = new ArrayList<>(results.size());
+			for (Object result : results) {
+				counts.add(result instanceof Long l ? l.intValue() : 0);
+			}
+			return counts;
+
+		} catch (Exception e) {
+			log.error("[Seat Hold 점유 수 배치 조회 오류] queryCount={}, error={}",
+				keysList.size(), e.getMessage(), e);
+			// 오류 시 모두 0 반환하여 검색 가용성 유지
+			return keysList.stream().map(k -> 0).toList();
 		}
 	}
 
