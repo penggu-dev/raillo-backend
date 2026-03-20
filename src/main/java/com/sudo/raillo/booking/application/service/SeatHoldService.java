@@ -1,5 +1,6 @@
 package com.sudo.raillo.booking.application.service;
 
+import com.sudo.raillo.booking.application.dto.HoldCountQuery;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
 import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
@@ -131,6 +132,39 @@ public class SeatHoldService {
 			trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder, seatHoldCount);
 
 		return seatHoldCount;
+	}
+
+	/**
+	 * Pipeline을 사용한 Seat Hold 점유 좌석 수 배치 조회
+	 *
+	 * <p>여러 건의 Hold 수 조회를 Redis Pipeline으로 묶어 한 번의 네트워크 왕복으로 처리</p>
+	 *
+	 * @param queries Hold 수 조회 요청 목록
+	 * @return 각 쿼리별 Seat Hold 점유 좌석 수 (입력 순서와 동일)
+	 */
+	public List<Integer> getHoldSeatsCountBatch(List<HoldCountQuery> queries) {
+		if (queries.isEmpty()) {
+			return List.of();
+		}
+
+		List<List<String>> keysList = new ArrayList<>(queries.size());
+		List<List<String>> sectionsList = new ArrayList<>(queries.size());
+
+		for (HoldCountQuery query : queries) {
+			List<String> keys = query.trainCarIds().stream()
+				.map(carId -> seatHoldKeyGenerator.generateTrainCarHoldIndexKey(query.trainScheduleId(), carId))
+				.toList();
+			keysList.add(keys);
+
+			List<String> sections = seatHoldKeyGenerator.generateSections(
+				query.departureStopOrder(), query.arrivalStopOrder());
+			sectionsList.add(sections);
+		}
+
+		List<Integer> results = seatHoldRepository.getHoldSeatsCountBatch(keysList, sectionsList);
+
+		log.debug("[Seat Hold 점유 수 배치 조회] queryCount={}, results={}", queries.size(), results);
+		return results;
 	}
 
 	/**
