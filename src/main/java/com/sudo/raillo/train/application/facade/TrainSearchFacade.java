@@ -1,5 +1,6 @@
 package com.sudo.raillo.train.application.facade;
 
+import com.sudo.raillo.booking.application.dto.HoldCountQuery;
 import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.calculator.SeatAvailabilityCalculator;
@@ -32,6 +33,7 @@ import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainErrorCode;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -199,12 +201,17 @@ public class TrainSearchFacade {
 		// 2. Seat Hold 조회용 객차 ID 배치 조회
 		TrainCarIdsBatch trainCarIdsBatch = trainSearchService.getTrainCarIdsBatch(trainScheduleIds);
 
-		// 3. 각 열차별로 배치 조회된 데이터를 사용해 응답 생성
+		// 3. Seat Hold 점유 좌석 수 Pipeline 배치 조회
+		CarType[] carTypes = CarType.values();
+		Map<Long, Map<CarType, Integer>> holdSeatsMap = getHoldSeatsCountBatchByCarType(
+			trainInfoSlice, trainCarIdsBatch, carTypes);
+
+		// 4. 각 열차별로 배치 조회된 데이터를 사용해 응답 생성
 		List<TrainSearchResponse> results = trainInfoSlice.stream()
 			.map(trainInfo -> {
 				try {
 					return processTrainSearchResult(
-						trainInfo, seatInfoBatch, overlappingBookingsMap, trainCarIdsBatch, fare, request.passengerCount()
+						trainInfo, seatInfoBatch, overlappingBookingsMap, holdSeatsMap, fare, request.passengerCount()
 					);
 				} catch (Exception e) {
 					log.warn("열차 {} 처리 실패: {}", trainInfo.trainNumber(), e.getMessage());
@@ -230,7 +237,7 @@ public class TrainSearchFacade {
 		TrainBasicInfo trainInfo,
 		TrainSeatInfoBatch seatInfoBatch,
 		Map<Long, List<SeatBookingInfo>> overlappingBookingsMap,
-		TrainCarIdsBatch trainCarIdsBatch,
+		Map<Long, Map<CarType, Integer>> holdSeatsMap,
 		StationFare fare,
 		int passengerCount
 	) {
@@ -240,8 +247,8 @@ public class TrainSearchFacade {
 		Map<CarType, Integer> totalSeatsByCarType = seatInfoBatch.getSeatsCountByCarType(trainScheduleId);
 		// SeatBooking 좌석
 		List<SeatBookingInfo> overlappingBookings = overlappingBookingsMap.getOrDefault(trainScheduleId, List.of());
-		// 열차의 CarType별 Seat Hold 좌석 수 계산
-		Map<CarType, Integer> holdSeatsCountByCarType = getHoldSeatsCountByCarType(trainInfo, trainCarIdsBatch);
+		// 열차의 CarType별 Seat Hold 좌석 수 (Pipeline 배치 조회 결과)
+		Map<CarType, Integer> holdSeatsCountByCarType = holdSeatsMap.getOrDefault(trainScheduleId, Map.of());
 
 		// 좌석 상태 계산 (전체 좌석 - SeatBooking - Seat Hold = 잔여석)
 		SectionSeatStatus sectionStatus = seatAvailabilityCalculator
@@ -251,25 +258,45 @@ public class TrainSearchFacade {
 	}
 
 	/**
-	 * CarType별 Seat Hold 점유 좌석 수 조회
+	 * 전체 열차의 CarType별 Seat Hold 점유 좌석 수를 Pipeline으로 배치 조회
+	 *
+	 * <p>열차 N개 × CarType 2개 = 2N개의 Lua 스크립트 호출을 Pipeline 1회로 처리</p>
 	 */
-	private Map<CarType, Integer> getHoldSeatsCountByCarType(TrainBasicInfo trainInfo, TrainCarIdsBatch trainCarIdsBatch) {
-		Long trainScheduleId = trainInfo.trainScheduleId();
-		int departureStopOrder = trainInfo.departureStopOrder();
-		int arrivalStopOrder = trainInfo.arrivalStopOrder();
-
-		Map<CarType, Integer> holdSeatsCountByCarType = new HashMap<>();
-		for (CarType carType : CarType.values()) {
-			List<Long> trainCarIds = trainCarIdsBatch.getTrainCarIds(trainScheduleId, carType);
-			int holdSeatsCount = seatHoldService
-				.getHoldSeatsCount(trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder);
-			holdSeatsCountByCarType.put(carType, holdSeatsCount);
+	private Map<Long, Map<CarType, Integer>> getHoldSeatsCountBatchByCarType(
+		List<TrainBasicInfo> trainInfoList,
+		TrainCarIdsBatch trainCarIdsBatch,
+		CarType[] carTypes
+	) {
+		// 쿼리 수집: 열차별 × CarType별
+		List<HoldCountQuery> queries = new ArrayList<>();
+		for (TrainBasicInfo trainInfo : trainInfoList) {
+			for (CarType carType : carTypes) {
+				List<Long> trainCarIds = trainCarIdsBatch.getTrainCarIds(trainInfo.trainScheduleId(), carType);
+				queries.add(new HoldCountQuery(
+					trainInfo.trainScheduleId(), trainCarIds,
+					trainInfo.departureStopOrder(), trainInfo.arrivalStopOrder()
+				));
+			}
 		}
-		return holdSeatsCountByCarType;
+
+		// Pipeline 배치 조회
+		List<Integer> results = seatHoldService.getHoldSeatsCountBatch(queries);
+
+		// 결과 매핑: (trainScheduleId, carType) → holdCount
+		Map<Long, Map<CarType, Integer>> holdSeatsMap = new HashMap<>();
+		int index = 0;
+		for (TrainBasicInfo trainInfo : trainInfoList) {
+			Map<CarType, Integer> carTypeMap = new HashMap<>();
+			for (CarType carType : carTypes) {
+				carTypeMap.put(carType, results.get(index++));
+			}
+			holdSeatsMap.put(trainInfo.trainScheduleId(), carTypeMap);
+		}
+		return holdSeatsMap;
 	}
 
 	/**
-	 * 객차별 Seat Hold 좌석 차감 적용
+	 * 객차별 Seat Hold 좌석 차감 적용 (Pipeline 배치 조회)
 	 * Seat Hold 차감 후 잔여석이 0인 객차는 목록에서 제외
 	 */
 	private List<TrainCarInfo> deductHoldSeats(
@@ -278,20 +305,21 @@ public class TrainSearchFacade {
 		int departureStopOrder,
 		int arrivalStopOrder
 	) {
-		List<TrainCarInfo> adjustedCars = availableCars.stream()
-			.map(car -> {
-				int holdSeats = seatHoldService.getHoldSeatsCount(
-					trainScheduleId,
-					List.of(car.id()),
-					departureStopOrder,
-					arrivalStopOrder
-				);
-				// 음수 방지
-				int remainingSeats = Math.max(0, car.remainingSeats() - holdSeats);
-				return car.withRemainingSeats(remainingSeats);
-			})
-			.filter(car -> car.remainingSeats() > 0)
+		// 객차별 Hold 수 조회를 Pipeline으로 배치 처리
+		List<HoldCountQuery> queries = availableCars.stream()
+			.map(car -> new HoldCountQuery(trainScheduleId, List.of(car.id()), departureStopOrder, arrivalStopOrder))
 			.toList();
+
+		List<Integer> holdCounts = seatHoldService.getHoldSeatsCountBatch(queries);
+
+		List<TrainCarInfo> adjustedCars = new ArrayList<>();
+		for (int i = 0; i < availableCars.size(); i++) {
+			TrainCarInfo car = availableCars.get(i);
+			int remainingSeats = Math.max(0, car.remainingSeats() - holdCounts.get(i));
+			if (remainingSeats > 0) {
+				adjustedCars.add(car.withRemainingSeats(remainingSeats));
+			}
+		}
 
 		if (adjustedCars.isEmpty()) {
 			throw new BusinessException(TrainErrorCode.NO_AVAILABLE_CARS);
