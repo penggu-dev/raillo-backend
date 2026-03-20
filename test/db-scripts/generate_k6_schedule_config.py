@@ -79,6 +79,10 @@ def load_env_file(env_path=".env"):
     if "TEST_DB_PW" in env_vars:
         result["password"] = env_vars["TEST_DB_PW"]
 
+    # 호스트에서 직접 실행 시 host.docker.internal → localhost 치환
+    if result.get("host") == "host.docker.internal":
+        result["host"] = "localhost"
+
     print(f"[설정] .env 파일 로드 완료: {env_path}")
     return result
 
