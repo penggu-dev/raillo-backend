@@ -1,3 +1,8 @@
+server:
+  tomcat:
+    threads:
+      max: ${TOMCAT_THREADS_MAX:200}
+
 spring:
   config:
     activate:
@@ -20,6 +25,8 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PW}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${HIKARI_MAXIMUM_POOL_SIZE:10}
   jpa:
     hibernate:
       ddl-auto: update
