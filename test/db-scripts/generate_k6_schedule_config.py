@@ -22,6 +22,7 @@ DB에서 좌석 범위를 조회하여 k6가 읽을 JSON 파일을 생성합니�
     --password         DB 비밀번호 (기본값: 1234)
     --output           출력 파일 경로 (기본값: k6/schedule-config.json)
     --cleanup          테스트 결제/예약 데이터 삭제 후 실행 (기본값: false)
+    --env-from         .env 파일에서 DB 설정 로드 (기본값: false)
 """
 
 import argparse
@@ -32,6 +33,54 @@ from datetime import date, timedelta
 
 import pymysql
 import requests
+
+
+def load_env_file(env_path=".env"):
+    """
+    .env 파일을 읽어서 DB 접속 정보를 dict로 반환
+
+    .env의 TEST_DB_URL (JDBC URL)에서 host, port, db를 파싱하고,
+    TEST_DB_USERNAME, TEST_DB_PW에서 user, password를 읽는다.
+    """
+    if not os.path.isfile(env_path):
+        print(f"[오류] .env 파일을 찾을 수 없습니다: {env_path}", file=sys.stderr)
+        sys.exit(1)
+
+    env_vars = {}
+    with open(env_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            env_vars[key.strip()] = value.strip().strip("'\"")
+
+    result = {}
+
+    # TEST_DB_URL 파싱: jdbc:mysql://host:port/dbname?...
+    db_url = env_vars.get("TEST_DB_URL", "")
+    if db_url:
+        # "jdbc:mysql://" 이후 부분에서 host, port, db 추출
+        after_protocol = db_url.split("://", 1)[-1]       # host:port/dbname?...
+        host_port_db = after_protocol.split("?", 1)[0]    # host:port/dbname
+        host_port, _, db_name = host_port_db.partition("/")
+        if ":" in host_port:
+            result["host"], port_str = host_port.split(":", 1)
+            result["port"] = int(port_str)
+        else:
+            result["host"] = host_port
+        if db_name:
+            result["db"] = db_name
+
+    if "TEST_DB_USERNAME" in env_vars:
+        result["user"] = env_vars["TEST_DB_USERNAME"]
+    if "TEST_DB_PW" in env_vars:
+        result["password"] = env_vars["TEST_DB_PW"]
+
+    print(f"[설정] .env 파일 로드 완료: {env_path}")
+    return result
 
 
 def cleanup_test_data(conn):
@@ -207,7 +256,18 @@ def main():
     parser.add_argument("--output", default="k6/schedule-config.json")
     parser.add_argument("--cleanup", action="store_true", default=False,
                         help="테스트 결제/예약 데이터 삭제 후 실행 (기본값: false)")
+    parser.add_argument("--env-from", action="store_true", default=False,
+                        help=".env 파일에서 DB 설정 로드 (기본값: false)")
     args = parser.parse_args()
+
+    # --env-from: .env 파일에서 DB 설정 로드
+    if args.env_from:
+        env_db = load_env_file()
+        args.host = env_db.get("host", args.host)
+        args.port = env_db.get("port", args.port)
+        args.db = env_db.get("db", args.db)
+        args.user = env_db.get("user", args.user)
+        args.password = env_db.get("password", args.password)
 
     # 0. --cleanup: 이전 테스트 데이터 정리
     if args.cleanup:
