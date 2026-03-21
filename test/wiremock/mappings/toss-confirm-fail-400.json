@@ -1,0 +1,119 @@
+{
+  "mappings": [
+    {
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/v1/payments/confirm",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": {
+              "expression": "$.paymentKey",
+              "contains": "ERR_REJECT_CARD_PAYMENT"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 403,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "code": "REJECT_CARD_PAYMENT",
+          "message": "한도초과 혹은 잔액부족으로 결제에 실패했습니다."
+        }
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/v1/payments/confirm",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": {
+              "expression": "$.paymentKey",
+              "contains": "ERR_INVALID_CARD_NUMBER"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "code": "INVALID_CARD_NUMBER",
+          "message": "카드번호를 다시 확인해주세요."
+        }
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/v1/payments/confirm",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": {
+              "expression": "$.paymentKey",
+              "contains": "ERR_ALREADY_PROCESSED_PAYMENT"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "code": "ALREADY_PROCESSED_PAYMENT",
+          "message": "이미 처리된 결제 입니다."
+        }
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/v1/payments/confirm",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": {
+              "expression": "$.paymentKey",
+              "contains": "ERR_REJECT_ACCOUNT_PAYMENT"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 403,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "code": "REJECT_ACCOUNT_PAYMENT",
+          "message": "잔액부족으로 결제에 실패했습니다."
+        }
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/v1/payments/confirm",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": {
+              "expression": "$.paymentKey",
+              "contains": "ERR_EXCEED_MAX_DAILY_PAYMENT_COUNT"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 400,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "code": "EXCEED_MAX_DAILY_PAYMENT_COUNT",
+          "message": "하루 결제 가능 횟수를 초과했습니다."
+        }
+      }
+    }
+  ]
+}
