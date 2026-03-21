@@ -1,0 +1,334 @@
+{
+    "id": null,
+    "uid": "payment-metrics",
+    "title": "Payment Metrics",
+    "tags": ["payment", "raillo"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "5s",
+    "time": {
+      "from": "now-15m",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "type": "row",
+        "title": "결제 현황 (Overview)",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+        "collapsed": false
+      },
+      {
+        "type": "gauge",
+        "title": "결제 성공률",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 6, "w": 8, "x": 0, "y": 1 },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "orange", "value": 90 },
+                { "color": "green", "value": 99 }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(payment_confirm_success_total{application=\"raillo-backend\"}[1m])) / (sum(rate(payment_confirm_success_total{application=\"raillo-backend\"}[1m])) + sum(rate(payment_confirm_failure_total{application=\"raillo-backend\"}[1m]))) * 100",
+            "legendFormat": "성공률",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          },
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "type": "stat",
+        "title": "총 결제 준비",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 6, "w": 8, "x": 8, "y": 1 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "blue", "value": null }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "targets": [
+          {
+            "expr": "payment_prepare_total{application=\"raillo-backend\"}",
+            "legendFormat": "결제 준비",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          },
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "type": "stat",
+        "title": "총 결제 승인",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 6, "w": 8, "x": 16, "y": 1 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "targets": [
+          {
+            "expr": "payment_confirm_success_total{application=\"raillo-backend\"}",
+            "legendFormat": "승인 성공",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          },
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "type": "row",
+        "title": "결제 처리량 (Throughput)",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+        "collapsed": false
+      },
+      {
+        "type": "timeseries",
+        "title": "결제 준비 RPS",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "pointSize": 5,
+              "showPoints": "auto"
+            },
+            "unit": "reqps"
+          },
+          "overrides": []
+        },
+        "targets": [
+          {
+            "expr": "rate(payment_prepare_total{application=\"raillo-backend\"}[1m])",
+            "legendFormat": "prepare RPS",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "결제 승인 성공/실패 RPS",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "pointSize": 5,
+              "showPoints": "auto"
+            },
+            "unit": "reqps"
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "성공" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "실패" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+            }
+          ]
+        },
+        "targets": [
+          {
+            "expr": "rate(payment_confirm_success_total{application=\"raillo-backend\"}[1m])",
+            "legendFormat": "성공",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(payment_confirm_failure_total{application=\"raillo-backend\"}[1m]))",
+            "legendFormat": "실패",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "type": "row",
+        "title": "실패 분석 (Failure Analysis)",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+        "collapsed": false
+      },
+      {
+        "type": "timeseries",
+        "title": "실패 원인별 RPS",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 30,
+              "stacking": { "mode": "normal" },
+              "showPoints": "auto"
+            },
+            "unit": "reqps"
+          },
+          "overrides": []
+        },
+        "targets": [
+          {
+            "expr": "sum by (reason) (rate(payment_confirm_failure_total{application=\"raillo-backend\"}[1m]))",
+            "legendFormat": "{{reason}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "type": "piechart",
+        "title": "실패 원인 분포",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" }
+          },
+          "overrides": []
+        },
+        "targets": [
+          {
+            "expr": "sum by (reason, error_code) (increase(payment_confirm_failure_total{application=\"raillo-backend\"}[5m]))",
+            "legendFormat": "{{reason}} / {{error_code}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "donut",
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          }
+        }
+      },
+      {
+        "type": "row",
+        "title": "Toss API 인프라",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
+        "collapsed": false
+      },
+      {
+        "type": "timeseries",
+        "title": "Toss API 응답시간 (P50/P95/P99)",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "auto"
+            },
+            "unit": "s"
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "P50" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "P95" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "P99" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+            }
+          ]
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\"}[1m]))",
+            "legendFormat": "P50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\"}[1m]))",
+            "legendFormat": "P95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\"}[1m]))",
+            "legendFormat": "P99",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "type": "barchart",
+        "title": "Toss 에러코드 Top 5",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" }
+          },
+          "overrides": []
+        },
+        "targets": [
+          {
+            "expr": "topk(5, sum by (toss_code) (increase(toss_api_failure_total{application=\"raillo-backend\"}[5m])))",
+            "legendFormat": "{{toss_code}}",
+            "refId": "A",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "showValue": "always",
+          "barWidth": 0.7
+        }
+      }
+    ]
+}

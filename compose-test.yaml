@@ -20,8 +20,10 @@ services:
     environment:
       - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_DATA_REDIS_HOST=redis
+      - PAYMENT_TOSS_API_BASE_URL=http://wiremock:8080
     depends_on:
       - redis
+      - wiremock
     deploy:
       resources:
         limits:
@@ -36,6 +38,16 @@ services:
       redis-server
       --maxmemory 512mb
     # Redis 메모리 용량
+
+  wiremock:
+    image: wiremock/wiremock:latest
+    container_name: wiremock
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./test/wiremock/mappings:/home/wiremock/mappings
+
+    command: --global-response-templating --verbose
 
   redis-exporter:
     image: oliver006/redis_exporter
@@ -83,6 +95,8 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=true
+    volumes:
+      - ./test/grafana/dashboards:/tmp/custom-dashboards
     depends_on:
       - prometheus
     user: root
@@ -117,6 +131,9 @@ services:
         echo "Downloading Dashboards..."
         wget -O /var/lib/grafana/dashboards/springboot.json https://grafana.com/api/dashboards/11378/revisions/latest/download
         wget -O /var/lib/grafana/dashboards/redis.json https://grafana.com/api/dashboards/11835/revisions/latest/download
+
+        echo "Copying custom dashboards..."
+        cp /tmp/custom-dashboards/*.json /var/lib/grafana/dashboards/ 2>/dev/null || true
         
         for file in /var/lib/grafana/dashboards/*.json; do
           sed -i 's/\$${DS_PROMETHEUS}/prometheus/g' "$$file"
