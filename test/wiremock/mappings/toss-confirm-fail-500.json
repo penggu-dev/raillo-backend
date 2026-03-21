@@ -1,0 +1,50 @@
+{
+  "mappings": [
+    {
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/v1/payments/confirm",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": {
+              "expression": "$.paymentKey",
+              "contains": "ERR_FAILED_INTERNAL_SYSTEM_PROCESSING"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 500,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "code": "FAILED_INTERNAL_SYSTEM_PROCESSING",
+          "message": "내부 시스템 처리 작업이 실패했습니다. 잠시 후 다시 시도해주세요."
+        }
+      }
+    },
+    {
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPathPattern": "/v1/payments/confirm",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": {
+              "expression": "$.paymentKey",
+              "contains": "ERR_NOT_FOUND_PAYMENT_SESSION"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 404,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "code": "NOT_FOUND_PAYMENT_SESSION",
+          "message": "결제 시간이 만료되어 결제 진행 데이터가 존재하지 않습니다."
+        }
+      }
+    }
+  ]
+}

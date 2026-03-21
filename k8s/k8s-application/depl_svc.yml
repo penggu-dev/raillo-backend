@@ -43,6 +43,8 @@ spec:
               cpu: "0.5"
               memory: "512Mi"
           envFrom:
+          - configMapRef:
+              name: raillo-config
           - secretRef:
               name: raillo-secrets
           # 컨테이너 상태 확인을 통해 롤링업데이트 최적화

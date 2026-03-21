@@ -52,3 +52,4 @@ GEMINI.md
 package.json
 package-lock.json
 node_modules
+k6/schedule-config.json
