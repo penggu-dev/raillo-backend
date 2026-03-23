@@ -17,8 +17,8 @@
 
 사용법:
     pip install pymysql
-    python test/db-scripts/generate_schedule_preoccupy.py --schedule-ids 1 2 3 4 5
-    python test/db-scripts/generate_schedule_preoccupy.py --cleanup
+    python qa/db-scripts/generate_schedule_preoccupy.py --schedule-ids 1 2 3 4 5
+    python qa/db-scripts/generate_schedule_preoccupy.py --cleanup
 
 전제 조건:
     - generate_members.py 먼저 실행 (member 데이터 필요)
