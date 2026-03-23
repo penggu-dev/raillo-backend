@@ -27,7 +27,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0' # application server cpu 코어 수
+          cpus: '1.0' # application server cpu 코어 수
           memory: 1G # application server 메모리 용량
 
   redis:
@@ -45,7 +45,7 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - ./test/wiremock/mappings:/home/wiremock/mappings
+      - ./qa/wiremock/mappings:/home/wiremock/mappings
 
     command: --global-response-templating --verbose
 
@@ -96,7 +96,7 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=true
     volumes:
-      - ./test/grafana/dashboards:/tmp/custom-dashboards
+      - ./qa/grafana/dashboards:/tmp/custom-dashboards
     depends_on:
       - prometheus
     user: root
