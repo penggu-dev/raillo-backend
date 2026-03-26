@@ -3,7 +3,7 @@ Member 테스트 데이터 생성 스크립트
 
 사용법:
     pip install pymysql bcrypt faker (패키지 설치 필요)
-    python test/db-scripts/generate_members.py
+    python qa/db-scripts/generate_members.py
 
 옵션:
     --total   생성할 회원 수 (기본값: 10000)

@@ -25,9 +25,9 @@
 
 사용법:
     pip install pymysql
-          python test/db-scripts/generate_seat_conflict_data.py                              # 전체 랜덤 분산
-          python test/db-scripts/generate_seat_conflict_data.py --focus-schedule-id {ID}     # 특정 스케줄 집중 선점 후 랜덤 분산
-          python test/db-scripts/generate_seat_conflict_data.py --cleanup                    # 데이터 삭제
+          python qa/db-scripts/generate_seat_conflict_data.py                              # 전체 랜덤 분산
+          python qa/db-scripts/generate_seat_conflict_data.py --focus-schedule-id {ID}     # 특정 스케줄 집중 선점 후 랜덤 분산
+          python qa/db-scripts/generate_seat_conflict_data.py --cleanup                    # 데이터 삭제
 
 전제 조건:
     - generate_members.py 먼저 실행 (member 데이터 필요)

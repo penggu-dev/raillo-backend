@@ -7,16 +7,16 @@ import { check, sleep } from 'k6';
 //
 // 사전 준비:
 //   1. docker compose -f compose-test.yaml up -d
-//   2. python test/db-scripts/generate_members.py --total 100 --batch 100
+//   2. python qa/db-scripts/generate_members.py --total 100 --batch 100
 //   3. DB에 train_schedule, train_car, seat 데이터 존재 확인
-//   4. (선택) python test/db-scripts/generate_schedule_preoccupy.py --schedule-ids <ID>
+//   4. (선택) python qa/db-scripts/generate_schedule_preoccupy.py --schedule-ids <ID>
 //
 // 실행:
 //   1. 스케줄 설정 자동 생성 (서버가 떠있어야 함):
-//      python3 test/db-scripts/generate_k6_schedule_config.py
+//      python3 qa/db-scripts/generate_k6_schedule_config.py
 //
 //   2. k6 테스트 실행:
-//      K6_WEB_DASHBOARD=true k6 run k6/payment-metrics-test.js
+//      K6_WEB_DASHBOARD=true k6 run qa/k6/payment-metrics-test.js
 //
 // schedule-config.json 없이도 실행 가능 (SCHEDULES 기본값 사용)
 // ================================================================================
@@ -33,21 +33,21 @@ const MEMBER_NO_START = 202603030001;
 const MEMBER_PASSWORD = 'Test1234!';
 
 // 스케줄 목록 — schedule-config.json에서 자동 로드하거나 수동으로 지정
-// 자동 생성: python3 test/db-scripts/generate_k6_schedule_config.py
-// → train search API 호출 → DB에서 좌석 범위 조회 → k6/schedule-config.json 생성
+// 자동 생성: python3 qa/db-scripts/generate_k6_schedule_config.py
+// → train search API 호출 → DB에서 좌석 범위 조회 → qa/k6/schedule-config.json 생성
 //
 // 여러 스케줄에 분산하면 좌석 충돌이 줄어들고 더 많은 결제 메트릭을 수집할 수 있음
 // 각 VU의 매 iteration마다 이 중 하나를 랜덤으로 선택하여 예약 시도
 let SCHEDULES;
+let SCHEDULE_CONFIG_MODE = 'file';
 try {
     // generate_k6_schedule_config.py가 생성한 JSON 파일을 읽어옴
     // k6의 open()은 init 단계에서만 호출 가능 (setup/default 함수 밖)
     const configFile = open('./schedule-config.json');
     SCHEDULES = JSON.parse(configFile);
-    console.log(`[Config] schedule-config.json 로드 완료: ${SCHEDULES.length}개 스케줄`);
 } catch (e) {
     // JSON 파일이 없으면 기본값 사용 (수동 설정)
-    console.warn('[Config] schedule-config.json 없음 → 기본 스케줄 사용');
+    SCHEDULE_CONFIG_MODE = 'default';
     SCHEDULES = [
         { scheduleId: 10323, departureStation: 2, arrivalStation: 18, seatStart: 223775, seatEnd: 224187 },
     ];
@@ -94,6 +94,11 @@ export const options = {
 export function setup() {
     const tokens = [];
     console.log(`[Setup] ${VU}명의 토큰 발급 시작 ...`);
+    if (SCHEDULE_CONFIG_MODE === 'file') {
+        console.log(`[Config] schedule-config.json 로드 완료: ${SCHEDULES.length}개 스케줄`);
+    } else {
+        console.warn('[Config] schedule-config.json 없음 → 기본 스케줄 사용');
+    }
 
     for (let i = 0; i < VU; i++) {
         // MEMBER_NO_START부터 순서대로 멤버 번호 생성
@@ -107,7 +112,7 @@ export function setup() {
         if (res.status === 200) {
             try {
                 const body = JSON.parse(res.body);
-                tokens.push({ token: body.result.accessToken, memberNo: memberNo });
+                tokens.push({ token: body.result.accessToken });
             } catch (e) {
                 console.error(`[Setup] 파싱 에러: ${memberNo}`);
                 tokens.push(null);
@@ -282,7 +287,9 @@ function pickRandomSeats(count, seatStart, seatEnd) {
     }
 
     // 랜덤 좌석: 중복 없이 count개를 뽑을 때까지 반복
-    while (seats.length < count) {
+    const totalRange = seatEnd - seatStart + 1;
+    const maxPick = Math.min(count, totalRange);
+    while (seats.length < maxPick) {
         const seatId = randomIntBetween(seatStart, seatEnd);
         if (seats.indexOf(seatId) === -1) {  // 중복 체크
             seats.push(seatId);
