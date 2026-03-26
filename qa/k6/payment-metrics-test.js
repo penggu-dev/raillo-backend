@@ -33,7 +33,7 @@ const MEMBER_NO_START = 202603030001;
 const MEMBER_PASSWORD = 'Test1234!';
 
 // 스케줄 목록 — schedule-config.json에서 자동 로드하거나 수동으로 지정
-// 자동 생성: python3 test/db-scripts/generate_k6_schedule_config.py
+// 자동 생성: python3 qa/db-scripts/generate_k6_schedule_config.py
 // → train search API 호출 → DB에서 좌석 범위 조회 → qa/k6/schedule-config.json 생성
 //
 // 여러 스케줄에 분산하면 좌석 충돌이 줄어들고 더 많은 결제 메트릭을 수집할 수 있음
@@ -112,7 +112,7 @@ export function setup() {
         if (res.status === 200) {
             try {
                 const body = JSON.parse(res.body);
-                tokens.push({ token: body.result.accessToken, memberNo: memberNo });
+                tokens.push({ token: body.result.accessToken });
             } catch (e) {
                 console.error(`[Setup] 파싱 에러: ${memberNo}`);
                 tokens.push(null);
@@ -287,7 +287,9 @@ function pickRandomSeats(count, seatStart, seatEnd) {
     }
 
     // 랜덤 좌석: 중복 없이 count개를 뽑을 때까지 반복
-    while (seats.length < count) {
+    const totalRange = seatEnd - seatStart + 1;
+    const maxPick = Math.min(count, totalRange);
+    while (seats.length < maxPick) {
         const seatId = randomIntBetween(seatStart, seatEnd);
         if (seats.indexOf(seatId) === -1) {  // 중복 체크
             seats.push(seatId);
