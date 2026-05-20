@@ -2,8 +2,6 @@ package com.sudo.raillo.member.docs;
 
 import com.sudo.raillo.global.exception.error.ErrorResponse;
 import com.sudo.raillo.global.success.SuccessResponse;
-import com.sudo.raillo.member.application.dto.request.GuestRegisterRequest;
-import com.sudo.raillo.member.application.dto.response.GuestRegisterResponse;
 import com.sudo.raillo.member.application.dto.response.MemberInfoResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,13 +16,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 @Tag(name = "Members", description = "👤 회원 API - 회원 정보 조회, 수정, 탈퇴, 관리 API")
 public interface MemberControllerDoc {
-
-	@Operation(method = "POST", summary = "비회원 등록", description = "비회원 정보를 등록합니다.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "201", description = "비회원 정보 등록이 성공적으로 완료되었습니다."),
-		@ApiResponse(responseCode = "409", description = "이미 동일한 비회원 정보가 존재합니다.", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-	})
-	SuccessResponse<GuestRegisterResponse> guestRegister(GuestRegisterRequest request);
 
 	@Operation(method = "DELETE", summary = "회원 삭제", description = "로그인 되어 있는 회원을 삭제하여 탈퇴처리 합니다.",
 		security = {@SecurityRequirement(name = "bearerAuth")})
