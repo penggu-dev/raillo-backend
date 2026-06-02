@@ -74,10 +74,11 @@
 - **Coverage** : JaCoCo
 
 ## 👤 유저 플로우
-<img width="2048" height="768" alt="image" src="https://github.com/user-attachments/assets/2528fea4-aa10-4d9c-8668-689abda8dab0" />
+<img width="2048" alt="Raillo-User-Flow" src="https://github.com/user-attachments/assets/24a2ccee-0ba5-4f78-a54f-b57e31b38c1c" />
 
 ## 🏗️ 아키텍처
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/4d7799a3-846c-41f6-aba7-e50da9a1503e" />
+<img width="1920" alt="Raillo-Server-Architecture" src="https://github.com/user-attachments/assets/9d587d24-37e9-46d5-8f97-f1c7ea152bcc" />
+
 
 ### 도메인 주도 설계 (DDD)
 ```
