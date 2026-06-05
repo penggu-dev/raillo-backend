@@ -1,20 +1,14 @@
 package com.sudo.raillo.member.application;
 
-import java.util.List;
-
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.auth.application.AuthService;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.member.application.dto.request.GuestRegisterRequest;
-import com.sudo.raillo.member.application.dto.response.GuestRegisterResponse;
 import com.sudo.raillo.member.application.dto.response.MemberInfoResponse;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.domain.MemberDetail;
-import com.sudo.raillo.member.domain.Role;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 
@@ -29,30 +23,7 @@ public class MemberService {
 
 	private final MemberRepository memberRepository;
 	private final BookingRepository bookingRepository;
-	private final PasswordEncoder passwordEncoder;
 	private final AuthService authService;
-
-	/**
-	 * 비회원 등록
-	 * */
-	public GuestRegisterResponse guestRegister(GuestRegisterRequest request) {
-		// 중복 체크
-		List<Member> foundMembers = memberRepository.findByNameAndPhoneNumber(request.name(), request.phoneNumber());
-
-		foundMembers.stream()
-			.filter(member -> passwordEncoder.matches(request.password(), member.getPassword()))
-			.findFirst()
-			.ifPresent(member -> {
-				throw new BusinessException(MemberError.DUPLICATE_GUEST_INFO);
-			});
-
-		String encodedPassword = passwordEncoder.encode(request.password());
-
-		Member member = Member.createGuest(request.name(), encodedPassword, request.phoneNumber());
-		memberRepository.save(member);
-
-		return new GuestRegisterResponse(request.name(), Role.GUEST);
-	}
 
 	/**
 	 * 회원 삭제

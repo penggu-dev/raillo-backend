@@ -6,16 +6,12 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import com.sudo.raillo.auth.application.AuthService;
 import com.sudo.raillo.auth.application.dto.response.TokenResponse;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.member.application.dto.request.GuestRegisterRequest;
-import com.sudo.raillo.member.application.dto.response.GuestRegisterResponse;
 import com.sudo.raillo.member.application.dto.response.MemberInfoResponse;
 import com.sudo.raillo.member.domain.Member;
-import com.sudo.raillo.member.domain.Role;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,48 +31,6 @@ class MemberServiceTest {
 
 	@Autowired
 	private PasswordEncoder passwordEncoder;
-
-	@Test
-	@DisplayName("비회원 등록에 성공한다.")
-	void guestRegister_success() {
-		//given
-		GuestRegisterRequest request = new GuestRegisterRequest("김이름", "01012341234", "testPwd");
-
-		//when
-		GuestRegisterResponse response = memberService.guestRegister(request);
-
-		//then
-		List<Member> members = memberRepository.findByNameAndPhoneNumber(request.name(), request.phoneNumber());
-
-		assertThat(members).isNotEmpty();
-
-		Member savedGuestMember = members.stream()
-			.filter(member -> passwordEncoder.matches(request.password(), member.getPassword()))
-			.findFirst()
-			.orElseThrow(() -> new AssertionError("등록된 회원을 찾을 수 없습니다."));
-
-		assertThat(response.name()).isEqualTo(request.name());
-		assertThat(response.role()).isEqualTo(Role.GUEST);
-
-		assertThat(savedGuestMember.getName()).isEqualTo(request.name());
-		assertThat(savedGuestMember.getPhoneNumber()).isEqualTo(request.phoneNumber());
-		assertThat(passwordEncoder.matches(request.password(), savedGuestMember.getPassword())).isTrue();
-		assertThat(savedGuestMember.getRole()).isEqualTo(Role.GUEST);
-	}
-
-	@Test
-	@DisplayName("중복된 비회원 정보로 비회원 등록에 실패한다.")
-	void guestRegister_fail() {
-		//given
-		GuestRegisterRequest request = new GuestRegisterRequest("김이름", "01012341234", "testPwd");
-		memberService.guestRegister(request);
-
-		//when & then
-		assertThatExceptionOfType(BusinessException.class)
-			.isThrownBy(() -> memberService.guestRegister(request))
-			.satisfies(exception ->
-				assertThat(exception.getErrorCode()).isEqualTo(MemberError.DUPLICATE_GUEST_INFO));
-	}
 
 	@Test
 	@DisplayName("회원 삭제에 성공한다.")

@@ -4,22 +4,17 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.auth.security.jwt.TokenExtractor;
 import com.sudo.raillo.global.success.SuccessResponse;
 import com.sudo.raillo.member.application.MemberService;
-import com.sudo.raillo.member.application.dto.request.GuestRegisterRequest;
-import com.sudo.raillo.member.application.dto.response.GuestRegisterResponse;
 import com.sudo.raillo.member.application.dto.response.MemberInfoResponse;
 import com.sudo.raillo.member.docs.MemberControllerDoc;
 import com.sudo.raillo.member.success.MemberSuccess;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -29,13 +24,6 @@ public class MemberController implements MemberControllerDoc {
 
 	private final MemberService memberService;
 	private final TokenExtractor tokenExtractor;
-
-	@PostMapping("/guest/register")
-	public SuccessResponse<GuestRegisterResponse> guestRegister(@RequestBody @Valid GuestRegisterRequest request) {
-		GuestRegisterResponse response = memberService.guestRegister(request);
-
-		return SuccessResponse.of(MemberSuccess.GUEST_REGISTER_SUCCESS, response);
-	}
 
 	@DeleteMapping("/members")
 	public SuccessResponse<?> memberDelete(

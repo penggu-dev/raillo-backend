@@ -73,20 +73,6 @@ public class Member extends BaseEntity {
 		return member;
 	}
 
-	// 비회원 등록 정적 팩토리 메서드
-	public static Member createGuest(
-		String name,
-		String password,
-		String phoneNumber
-	) {
-		Member member = new Member();
-		member.name = name;
-		member.password = password;
-		member.phoneNumber = phoneNumber;
-		member.role = Role.GUEST;
-		return member;
-	}
-
 	public void updatePhoneNumber(String newPhoneNumber) {
 		validateNewPhoneNumber(newPhoneNumber);
 		this.phoneNumber = newPhoneNumber;

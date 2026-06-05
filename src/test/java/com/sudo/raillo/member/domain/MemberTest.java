@@ -40,25 +40,6 @@ class MemberTest {
 	}
 
 	@Test
-	@DisplayName("비회원 생성 시 역할이 GUEST이고 회원 상세 정보가 없다")
-	void createGuest() {
-		// given
-		String name = "비회원";
-		String password = "guestPassword";
-		String phoneNumber = "010-9999-9999";
-
-		// when
-		Member guest = Member.createGuest(name, password, phoneNumber);
-
-		// then
-		assertThat(guest.getName()).isEqualTo(name);
-		assertThat(guest.getPassword()).isEqualTo(password);
-		assertThat(guest.getPhoneNumber()).isEqualTo(phoneNumber);
-		assertThat(guest.getRole()).isEqualTo(Role.GUEST);
-		assertThat(guest.getMemberDetail()).isNull();
-	}
-
-	@Test
 	@DisplayName("전화번호를 새로운 번호로 변경할 수 있다")
 	void updatePhoneNumber() {
 		// given

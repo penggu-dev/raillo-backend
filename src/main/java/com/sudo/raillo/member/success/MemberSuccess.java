@@ -11,9 +11,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum MemberSuccess implements SuccessCode {
 
-	// 비회원
-	GUEST_REGISTER_SUCCESS(HttpStatus.CREATED, "비회원 정보 등록이 성공적으로 완료되었습니다."),
-
 	// 회원
 	MEMBER_DELETE_SUCCESS(HttpStatus.OK, "회원 탈퇴가 성공적으로 완료되었습니다."),
 	MEMBER_INFO_SUCCESS(HttpStatus.OK, "회원 정보 조회에 성공했습니다."),
