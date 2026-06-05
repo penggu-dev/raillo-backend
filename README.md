@@ -25,6 +25,7 @@
 ## 📋 목차
 - [프로젝트 개요](#-프로젝트-개요)
 - [기술 스택](#-기술-스택)
+- [유저 플로우](#-유저-플로우)
 - [아키텍처](#-아키텍처)
 - [주요 기능](#-주요-기능)
 - [모니터링 & 운영](#-모니터링--운영)
@@ -36,10 +37,8 @@
 실제 서비스의 핵심 기능들을 최대한 유사하게 구현하여 현업에서 사용되는 기술 스택과 설계 패턴을 학습하고 적용한 프로젝트입니다.
 
 ### 📅 진행 기간
-- 1차 (기획 및 개발) : 2025. 05. 28. ~ 2025. 07. 01.
-- 2차 (클라이언트 요구사항 반영) : 2025. 07. 02. ~ 2025. 07. 15.
-- 3차 (카카오 API 통합) : 2025. 07. 16. ~ 2025. 08. 08.
-- 지속 개선 : 2025. 08. 09. ~ endless
+- v1 : 2025. 05. 28. ~ 2025. 08. 08.
+- v2 : 2025. 10. 11. ~ now
 
 ### 🎯 핵심 목표
 - **실제 서비스와 유사한 핵심 기능 구현** : 실제 코레일에서 제공하는 회원 인증 및 주요 예매 흐름을 최대한 비슷하게 구현
@@ -50,12 +49,11 @@
 ### Backend
 [![backend](https://skillicons.dev/icons?i=java,spring,redis,mysql,gradle)](https://skillicons.dev)
 - **Language** : Java
-- **Framework** : Spring Boot, Spring Security, Spring Batch
+- **Framework** : Spring Boot, Spring Security
 - **ORM** : Spring Data JPA, QueryDSL
 - **DB** : MySQL (Production), H2 (Test)
 - **Cache** : Redis
 - **Authentication** : JWT
-- **File Processing** : Apache POI
 - **Build Tool** : Gradle
 
 ### Infrastructure & DevOps
@@ -75,19 +73,32 @@
 - **Email Testing** : GreenMail
 - **Coverage** : JaCoCo
 
+## 👤 유저 플로우
+<img width="2048" alt="Raillo-User-Flow" src="https://github.com/user-attachments/assets/24a2ccee-0ba5-4f78-a54f-b57e31b38c1c" />
+
 ## 🏗️ 아키텍처
-<img width="1920" alt="Raillo-Server-Architecture" src="https://github.com/user-attachments/assets/d5ca3e3d-c5bc-497a-aa31-83c1ba7fb65e" />
+<img width="1920" alt="Raillo-Server-Architecture" src="https://github.com/user-attachments/assets/9d587d24-37e9-46d5-8f97-f1c7ea152bcc" />
+
 
 ### 도메인 주도 설계 (DDD)
 ```
-src/main/java/com/sudo/railo/
-├── auth/       # 인증 도메인
-├── booking/    # 예약 도메인  
-├── global/     # 공통 기능
-├── member/     # 회원 도메인
-├── payment/    # 결제 도메인
-└── train/      # 열차 도메인
+src/main/java/com/sudo/raillo/
+├── auth/       # 인증
+├── booking/    # 예약·예매
+├── member/     # 회원
+├── order/      # 주문
+├── payment/    # 결제
+├── train/      # 열차
+└── global/     # 공통 인프라
 ```
+
+### Layer 아키텍처
+```
+Controller → Facade → Service → Repository
+```
+- **Facade** : 도메인 단일 진입점으로 여러 Service를 조합하며, Facade → Facade 호출은 금지
+- **Service** : 비즈니스 로직과 트랜잭션 경계 담당
+- **Validator / Calculator / Generator** : 검증, 계산, 식별자 생성 등 책임이 분리된 보조 컴포넌트
 
 ## 🚀 주요 특징
 ### 🔑 Auth 도메인
@@ -101,72 +112,69 @@ src/main/java/com/sudo/railo/
 - **만료 회원 일괄 삭제** : 만료된 회원 데이터 정리를 위한 Spring Batch 활용
 
 ### 🎫 Booking 도메인
-- **장바구니 시스템** : 예약 후 결제 전 임시 저장 및 관리 기능
-- **좌석 예약 관리** : 승객 유형별 좌석 배정 및 예약 상태 관리
-- **요금 계산** : 거리별, 승객 유형별, 차량 등급별 요금 자동 계산
+- **장바구니 시스템**: 예약 후 결제 전 임시 저장 및 관리 기능
+- **좌석 예약 관리**: 승객 유형별 좌석 배정 및 예약 상태 관리
+- **요금 계산**: 거리별, 승객 유형별, 차량 등급별 요금 자동 계산
+- **Redis Lua 스크립트 기반 좌석 선점**: 좌석 구간 충돌 검사와 임시 좌석 점유를 Lua 스크립트로 원자적 처리하여 동시 예약 방지
+- **좌석 점유 인덱스 최적화**: 좌석별, 객차별 다중 인덱스 구조로 좌석 조회 성능과 정확성 확보
+- **TTL 기반 자동 만료**: 일정 시간 내 결제하지 않은 임시 예약과 좌석 점유는 자동으로 해제되어 좌석을 예매 가능 상태로 전환
+
+### 📦 Order 도메인
+- **주문 통합 관리**: 예약과 결제를 연결하는 주문 단위 관리
+- **주문 상태 라이프사이클 관리**: 결제 대기 → 결제 완료 → 취소까지의 주문 상태 흐름을 도메인 단에서 일관되게 관리
+- **결제 흐름 일관성 보장:** 주문 단계별 상태 검증으로 중복 결제와 잘못된 상태 전이 차단
 
 ### 💵 Payment 도메인
-- **결제 수단 확장을 위한 유연한 구조** : 절차를 분리함으로써 추후 결제 수단 확장 용이함
-- **결제 키 생성** : 고유한 결제 식별자 자동 생성
-- **결제 검증** : 금액 검증 및 중복 결제 방지
-- **자동 티켓 발급** : 결제 완료 시 티켓 생성
-- **취소 및 환불** : 결제 취소 및 환불 처리 시스템
+- **Toss Payments 기반 결제 연동**: Toss Payments의 결제 UI를 통해 결제 플로우를 안정적으로 처리
+- **결제 키 생성**: 고유한 결제 식별자 자동 생성
+- **금액 다중 검증 및 중복결제 방지**: 결제 단계별 금액을 비교 검증하고, 이미 처리된 주문에 대한 재결제 시도 차단
+- **자동 티켓 발급**: 결제 완료 시 티켓 생성
+- **취소 및 환불**: 결제 취소 및 환불 처리 시스템
 
 ### 🚅 Train 도메인
-- **실제 데이터 활용** : 코레일의 실제 운영 스케줄 Excel 파일을 파싱하여 데이터 구축
-- **엑셀 데이터 파싱** : Apache POI를 활용한 복잡한 스케줄 데이터 자동 파싱
-- **열차 검색 최적화** : 배치 쿼리를 활용한 대용량 스케줄 검색 성능 최적화
-- **좌석 현황 관리** : 실시간 좌석 예약 현황 및 여유석 정보 제공
-- **역 간 요금 시스템** : 구간별 세분화된 요금 체계 구현
+- **실제 데이터 활용**: 코레일의 실제 운영 스케줄 Excel 파일을 파싱하여 데이터 구축
+- **열차 검색 최적화**: 배치 쿼리를 활용한 대용량 스케줄 검색 성능 최적화
+- **운행 캘린더 캐싱**: Redis 캐시로 반복 조회되는 운행 캘린더 응답 최적화
+- **좌석 현황 관리**: 실시간 좌석 예약 현황 및 여유석 정보 제공
+- **역 간 요금 시스템**: 구간별 세분화된 요금 체계 구현
 
 ## 📊 모니터링 & 운영
-- `GitHub Actions`와 `ArgoCD`를 활용해 코드 변경 시 자동 빌드, 배포, 클러스터 적용
-- `AWS EKS` 기반에서 모든 구성요소를 컨테이너로 관리
-- `Prometheus`, `Grafana`등을 도입하여 노드 별 서비스 상태, 리소스 사용량을 실시간으로 수집 및 가시화
-- 여러 `Node Group`과 분산된 백엔드 및 Redis로 구성되어 고가용성 확보
-- `RDS`, `Route53`, `LB` 등 `AWS 서비스`를 사용하여 데이터 관리와 트래픽 분산 및 도메인 운영 지원
+### 인프라 & 배포
+- GitHub Actions와 ArgoCD를 활용해 GitOps 기반 CI/CD 환경 구성
+- Public / Private 서브넷을 분리하고, ALB를 통해서만 내부 서비스에 접근하도록 네트워크 구성
+- `topologySpreadConstraints` 기반 Pod 분산 배치와 다중 Replica 운영을 통해 고가용성을 확보하고, `readinessProbe` 기반 Rolling Update로 무중단 배포 구성
+- Spring Boot 애플리케이션은 Kubernetes(EKS) 기반으로 운영하고, Redis와 DB는 AWS 관리형 서비스(ElastiCache, RDS)로 구성
+
+### 관측 (Observability)
+- Spring Boot Actuator + Micrometer → Prometheus → Grafana 기반 메트릭 파이프라인 구축
+- Node·JVM·HTTP 요청·애플리케이션 메트릭을 실시간 수집 및 시각화
+- 예매, 좌석 충돌, 결제 흐름 등 비즈니스 도메인 기반 커스텀 메트릭을 설계하고 Grafana 대시보드로 시각화
+- AOP 기반 계측을 적용해 비즈니스 로직 수정 없이 메트릭 수집
 
 ## 🧪 테스트
-### 로컬 테스트 환경 구축
-- 로컬에서 운영환경과 비슷한 환경 구축 후 스트레스 테스트 진행
-- Spring Boot, LB, Redis, Prometheus, Grafana, AWS RDS 이용
+### 자동화 테스트 전략
+- **도메인 단위 테스트** : Entity, VO, Calculator, Validator의 핵심 규칙을 빠르게 검증
+- **서비스 통합 테스트** : `@ServiceTest` 기반으로 H2와 Embedded Redis를 사용해 DB/Redis 연동 흐름 검증
+- **동시성 테스트** : 좌석 선점, 중복 예매, 결제 승인처럼 충돌 가능성이 높은 흐름을 별도 시나리오로 검증
+- **테스트 데이터 구성** : Fixture와 Test Helper를 분리해 단위 테스트와 통합 테스트의 데이터 준비 책임을 구분
+- **BDD 스타일** : `given / when / then` 주석과 한국어 `@DisplayName`으로 테스트 의도를 명확하게 표현
 
-### K6를 이용한 부하 테스트
-- K6로 API 호출 -> 로드밸런서 -> Spring Boot Application -> DB
-- 부하 테스트 목표 설정 (예: Target TPS 500, Avg Latency 800ms 이하)
-- 부하 테스트 진행 후 병목 지점 파악, 성능 개선
-- 개선한 시스템이 어느 정도 트래픽까지를 견딜 수 있는지 테스트 과정 반복
+### Test Helper 클래스
+서비스 통합 테스트에서는 반복되는 DB 저장 로직을 Test Helper로 분리해 테스트 본문이 검증 의도에 집중하도록 구성한다.
 
-## 📌 주요 엔드포인트
-```http
-# Auth
-POST /auth/signup
-POST /auth/login
-POST /auth/logout
-POST /auth/emails/verify
-POST /auth/reissue
+- **Fixture** : DB 저장 없이 순수 도메인 객체를 생성할 때 사용
+- **Test Helper** : DB 저장이 필요한 통합 테스트 데이터를 구성할 때 사용
 
-# Booking
-GET /api/v1/booking
-GET /api/v1/booking/{bookingId}
-POST /api/v1/booking
-DELETE /api/v1/booking
-GET /api/v1/booking/ticket
+| Helper | 역할 |
+|--------|------|
+| `TrainTestHelper` | 테스트용 열차, 객차, 좌석 생성 및 예약 가능한 좌석 조회 |
+| `TrainScheduleTestHelper` | 기본/커스텀 운행 스케줄, 정차역, 역 간 요금 생성 |
+| `BookingTestHelper` | 확정 예매, 좌석 예매, 티켓 발급까지 포함한 예매 데이터 구성 |
+| `OrderTestHelper` | 주문, OrderBooking, OrderSeatBooking 데이터 구성 |
 
-# Member
-DELETE /api/v1/members
-GET /api/v1/members/me
-PUT /api/v1/members/password
-
-# Payment
-GET /api/v1/payments
-POST /api/v1/payments/{paymentKey}/cancel
-POST /api/v1/payments/bank-account
-POST /api/v1/payments/card
-
-# Train
-GET /api/v1/trains/calendar
-POST /api/v1/trains/cars
-POST /api/v1/trains/search
-POST /api/v1/trains/seats
-```
+### 로컬 부하 테스트 환경 (`compose-test.yaml`)
+운영 환경과 유사한 스택을 Docker Compose로 띄워, 외부 비용·제약 없이 반복 가능한 부하 테스트 환경 구축
+- **Spring Boot** (CPU/메모리 제한으로 운영 Pod 스펙 모사)
+- **Redis** + **redis-exporter** (좌석 선점, 캐시, 메트릭 수집)
+- **WireMock** : Toss Payments 외부 API 모킹 → 결제 흐름까지 전체 부하 테스트
+- **Prometheus** + **Grafana** : Spring Boot Actuator / Redis 메트릭 실시간 수집·시각화 (`qa/grafana/dashboards`)
