@@ -144,7 +144,7 @@ Java 17, Spring Boot 3.5.0, MySQL (prod/dev), H2 (test), Redis, QueryDSL 5.0.0 (
 **팀 표준 워크플로우. `superpowers` 시리즈를 모든 작업의 기본으로 사용한다.** 프로젝트 커스텀 skill(`/test`, `/pr`, `/issue`, `/validator`, `/api-doc` 등)은 superpowers와 결합해 사용한다.
 
 1. **요구사항 탐색** — `superpowers:brainstorming` (새 기능/컴포넌트/동작 변경 전)
-2. **계획** — `superpowers:writing-plans` (이슈 받은 직후, 코드 작성 전). 이슈 기반 구현 가이드는 `docs/{issue-number}-{slug}.md`에 저장
+2. **계획** — `superpowers:writing-plans` (이슈 받은 직후, 코드 작성 전)
 3. **TDD** — `superpowers:test-driven-development` (Validator/Calculator/Service/Facade 구현 시)
 4. **테스트 작성** — `/test <대상>` (프로젝트의 BDD/Fixture/Helper 컨벤션 자동 적용)
 5. **검증** — `superpowers:verification-before-completion` ("완료" 선언 전 `./gradlew test` 등 증거 확보)
@@ -153,8 +153,6 @@ Java 17, Spring Boot 3.5.0, MySQL (prod/dev), H2 (test), Redis, QueryDSL 5.0.0 (
 **버그 발생 시** → 가장 먼저 `superpowers:systematic-debugging`.
 **코드리뷰 받았을 때** → `superpowers:receiving-code-review`로 맹목적 적용을 방지.
 **병렬 작업 가능 시** → `superpowers:dispatching-parallel-agents`.
-
-> 자유 형식 구현 가이드는 `superpowers:writing-plans`만 사용한다. 이슈를 입력으로 받는 별도의 planner skill은 두지 않는다.
 
 ## Situational References
 
