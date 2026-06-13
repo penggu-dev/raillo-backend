@@ -30,7 +30,7 @@
 - [주요 기능](#-주요-기능)
 - [모니터링 & 운영](#-모니터링--운영)
 - [테스트](#-테스트)
-- [주요 엔드포인트](#-주요-엔드포인트)
+- [Claude Code 가이드](#-claude-code-가이드)
 
 ## 📖 프로젝트 개요
 **Raillo**는 코레일(KORAIL) 예매 시스템을 클론코딩한 기차 예약 플랫폼으로,  
@@ -71,7 +71,6 @@
 - **Test Utils** : AssertJ
 - **Performance Testing** : K6
 - **Email Testing** : GreenMail
-- **Coverage** : JaCoCo
 
 ## 👤 유저 플로우
 <img width="2048" alt="Raillo-User-Flow" src="https://github.com/user-attachments/assets/24a2ccee-0ba5-4f78-a54f-b57e31b38c1c" />
@@ -109,7 +108,7 @@ Controller → Facade → Service → Repository
 ### 👤 Member 도메인
 - **고유 회원번호 시스템** : Redis 기반 일일 증분 카운터를 활용한 회원번호 자동 생성 (`yyyyMMddCCCC` 형식)
 - **Soft-Delete** : 실제 회원 삭제가 아닌 비활성화 처리
-- **만료 회원 일괄 삭제** : 만료된 회원 데이터 정리를 위한 Spring Batch 활용
+- **만료 회원 일괄 삭제** : 만료된 회원 데이터 정리를 위한 배치 처리 활용
 
 ### 🎫 Booking 도메인
 - **장바구니 시스템**: 예약 후 결제 전 임시 저장 및 관리 기능
@@ -178,3 +177,45 @@ Controller → Facade → Service → Repository
 - **Redis** + **redis-exporter** (좌석 선점, 캐시, 메트릭 수집)
 - **WireMock** : Toss Payments 외부 API 모킹 → 결제 흐름까지 전체 부하 테스트
 - **Prometheus** + **Grafana** : Spring Boot Actuator / Redis 메트릭 실시간 수집·시각화 (`qa/grafana/dashboards`)
+
+## 🤖 Claude Code 가이드
+팀이 Claude Code(AI 페어 프로그래밍)를 일관된 컨벤션으로 사용하기 위해 다음 문서·도구를 함께 제공한다.
+
+### CLAUDE.md
+프로젝트 루트의 [`CLAUDE.md`](./CLAUDE.md)는 매 Claude Code 세션에 자동 로드되는 핵심 컨텍스트로, 빌드/테스트 명령, 패키지 구조, Layer 규칙, 예외 처리, 테스트 컨벤션 등을 포함한다.
+
+### 상세 문서 (`docs/`)
+| 문서 | 내용 |
+|---|---|
+| [`seat-hold-architecture.md`](./docs/seat-hold-architecture.md) | Redis Lua 기반 좌석 동시 선점 아키텍처, Hold Index, Train Search 통합 |
+| [`seat-conflict-validation.md`](./docs/seat-conflict-validation.md) | 4-Layer 좌석 충돌 방어 (Lua → SQL → Re-validation → TTL) |
+| [`domain-model.md`](./docs/domain-model.md) | 엔티티 관계도, Booking Flow, 한국어 도메인 용어 |
+| [`testing-guide.md`](./docs/testing-guide.md) | Helper/Fixture 사용 예제와 `@ServiceTest` 상세 |
+| [`deployment.md`](./docs/deployment.md) | K8s, ArgoCD, Docker, CI/CD 배포 상세 |
+
+### 커스텀 Skills (`.claude/skills/`)
+팀 컨벤션을 코드화한 Claude Code 커스텀 skill. 자연어 요청 시 자동 invoke 되거나 `/{name}` 으로 명시 호출한다.
+
+| Skill | 용도 |
+|---|---|
+| `/issue` | 팀 Issue 컨벤션에 맞춘 제목·본문·라벨 텍스트 생성 |
+| `/branch` | 이슈 번호 기반 브랜치명 자동 생성 |
+| `/commit` | 브랜치명에서 이슈 추출 후 커밋 메시지 생성 (`Co-Authored-By` 금지) |
+| `/pr` | 변경사항 분석 후 팀 PR 템플릿으로 PR 생성 (사용자 검수 후 실행) |
+| `/test` | 도메인/서비스/Validator 테스트 자동 작성 (BDD, `@DisplayName` 한국어) |
+| `/validator` | `application/validator/{Domain}Validator.java` 클래스/메서드 생성 |
+| `/api-doc` | Controller 기반 Swagger `{Domain}ControllerDoc` 인터페이스 생성 |
+
+### 표준 개발 워크플로우 (superpowers 기반)
+팀은 [`superpowers`](https://github.com/obra/superpowers) 시리즈를 기본 워크플로우로 사용한다.
+
+1. `superpowers:brainstorming` — 요구사항/디자인 탐색
+2. `superpowers:writing-plans` — 구현 계획 수립
+3. `superpowers:test-driven-development` — TDD 구현
+4. `/test <대상>` — 프로젝트 컨벤션 기반 테스트 작성
+5. `superpowers:verification-before-completion` — `./gradlew test` 등 증거 기반 검증
+6. `/pr` — PR 생성 (사용자 검수 후 실행)
+
+- **버그 발생 시** → `superpowers:systematic-debugging` 우선
+- **코드리뷰 받았을 때** → `superpowers:receiving-code-review`로 맹목적 적용 방지
+- **병렬 작업 가능 시** → `superpowers:dispatching-parallel-agents`
