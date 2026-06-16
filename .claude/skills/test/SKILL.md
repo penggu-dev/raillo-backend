@@ -61,4 +61,4 @@ description: 테스트 대상 코드를 분석하고 프로젝트 테스트 컨�
 ## References
 
 - [docs/testing-guide.md](../../../docs/testing-guide.md) — TrainTestHelper / TrainScheduleTestHelper / BookingTestHelper / OrderTestHelper의 빌더 사용 예제, Fixture 목록, `@ServiceTest`가 제공하는 Extension 상세. Helper 사용 패턴이 모호할 때 이 문서를 먼저 읽는다.
-- 루트 [CLAUDE.md](../../../CLAUDE.md)의 Layer Rules, Exception 3종, Transaction 규칙은 테스트 대상 코드를 이해할 때 함께 참고한다.
+- 루트 [AGENTS.md](../../../AGENTS.md)의 Layer Rules, Exception 3종, Transaction 규칙은 테스트 대상 코드를 이해할 때 함께 참고한다.
