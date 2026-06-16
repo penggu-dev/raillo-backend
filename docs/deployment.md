@@ -2,11 +2,11 @@
 
 ## Environments
 
-| Environment | Database | Redis | Profile |
-|-------------|----------|-------|---------|
-| Local Dev | MySQL (docker-compose) | Redis (docker-compose) | `dev` |
+| Environment | Database | Redis                       | Profile |
+|-------------|----------|-----------------------------|---------|
+| Local Dev | MySQL (docker-compose) | Redis (docker-compose)      | `dev` |
 | Test | H2 (in-memory) | Embedded Redis (port 63790) | `test` |
-| Production | AWS RDS (MySQL) | K8s Redis Pod | `prod` |
+| Production | AWS RDS (MySQL) | ElastiCache (Valkey)        | `prod` |
 
 ## Local Development
 
