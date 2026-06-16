@@ -43,9 +43,10 @@ out/
 .vscode/
 
 ### AI docs ###
-CLAUDE.md
+# CLAUDE.md, .claude/skills, .claude/rules → 팀 공유 (커밋 대상)
+# 개인 권한 설정만 ignore
+.claude/settings.local.json
 GEMINI.md
-.claude/
 .gemini/
 
 ### K6 Test ###
