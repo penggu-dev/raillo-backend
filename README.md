@@ -30,7 +30,7 @@
 - [주요 기능](#-주요-기능)
 - [모니터링 & 운영](#-모니터링--운영)
 - [테스트](#-테스트)
-- [Claude Code 가이드](#-claude-code-가이드)
+- [AI 코딩 에이전트 가이드](#-ai-코딩-에이전트-가이드)
 
 ## 📖 프로젝트 개요
 **Raillo**는 코레일(KORAIL) 예매 시스템을 클론코딩한 기차 예약 플랫폼으로,  
@@ -178,11 +178,8 @@ Controller → Facade → Service → Repository
 - **WireMock** : Toss Payments 외부 API 모킹 → 결제 흐름까지 전체 부하 테스트
 - **Prometheus** + **Grafana** : Spring Boot Actuator / Redis 메트릭 실시간 수집·시각화 (`qa/grafana/dashboards`)
 
-## 🤖 Claude Code 가이드
-팀이 Claude Code(AI 페어 프로그래밍)를 일관된 컨벤션으로 사용하기 위해 다음 문서·도구를 함께 제공한다.
-
-### CLAUDE.md
-프로젝트 루트의 [`CLAUDE.md`](./CLAUDE.md)는 매 Claude Code 세션에 자동 로드되는 핵심 컨텍스트로, 빌드/테스트 명령, 패키지 구조, Layer 규칙, 예외 처리, 테스트 컨벤션 등을 포함한다.
+## 🤖 AI 코딩 에이전트 가이드
+팀은 Claude Code·Codex 등 AI 코딩 에이전트를 일관된 컨벤션으로 사용하기 위해 다음 문서·도구를 함께 제공한다. 어떤 도구를 쓰든 동일한 결과가 나오도록 단일 컨텍스트(`AGENTS.md`)를 공유한다.
 
 ### 상세 문서 (`docs/`)
 | 문서 | 내용 |
@@ -194,7 +191,6 @@ Controller → Facade → Service → Repository
 | [`deployment.md`](./docs/deployment.md) | K8s, ArgoCD, Docker, CI/CD 배포 상세 |
 
 ### 커스텀 Skills (`.claude/skills/`)
-팀 컨벤션을 코드화한 Claude Code 커스텀 skill. 자연어 요청 시 자동 invoke 되거나 `/{name}` 으로 명시 호출한다.
 
 | Skill | 용도 |
 |---|---|
