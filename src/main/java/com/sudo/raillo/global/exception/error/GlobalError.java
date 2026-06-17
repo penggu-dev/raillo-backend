@@ -18,6 +18,7 @@ public enum GlobalError implements ErrorCode {
 	UNAUTHORIZED_ACCESS("인증이 필요합니다.", HttpStatus.UNAUTHORIZED, "GLOBAL_006"),
 	FORBIDDEN_ACCESS("접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "GLOBAL_007"),
 	INVALID_YN_VALUE("Y 또는 N 값만 허용됩니다.", HttpStatus.BAD_REQUEST, "GLOBAL_008"),
+	REQUEST_BODY_MISSING("요청 본문이 필요합니다. JSON 형식의 데이터를 포함해주세요.", HttpStatus.BAD_REQUEST, "GLOBAL_009"),
 
 	// 5xx 서버 에러
 	INTERNAL_SERVER_ERROR("내부 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "GLOBAL_501"),
