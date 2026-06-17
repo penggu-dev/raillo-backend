@@ -11,12 +11,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum TokenError implements ErrorCode {
 
-	INVALID_REFRESH_TOKEN("유효하지 않은 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED, "T_002"),
-	ALREADY_LOGOUT("이미 로그아웃된 토큰입니다.", HttpStatus.FORBIDDEN, "T_004"),
-	INVALID_PASSWORD("비밀번호가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED, "T_005"),
-	AUTHORITY_NOT_FOUND("권한 정보가 없는 토큰입니다.", HttpStatus.UNAUTHORIZED, "T_006"),
-	NOT_EQUALS_REFRESH_TOKEN("리프레시 토큰이 일치하지 않습니다.", HttpStatus.UNAUTHORIZED, "T_007"),
-	INVALID_TEMPORARY_TOKEN_USAGE("임시토큰으로 해당 요청에 접근할 수 없습니다.", HttpStatus.UNAUTHORIZED, "T_008");
+	INVALID_REFRESH_TOKEN("유효하지 않은 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED, "TOKEN_001"),
+	ALREADY_LOGOUT("이미 로그아웃된 토큰입니다.", HttpStatus.FORBIDDEN, "TOKEN_002"),
+	INVALID_PASSWORD("비밀번호가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED, "TOKEN_003"),
+	AUTHORITY_NOT_FOUND("권한 정보가 없는 토큰입니다.", HttpStatus.UNAUTHORIZED, "TOKEN_004"),
+	NOT_EQUALS_REFRESH_TOKEN("리프레시 토큰이 일치하지 않습니다.", HttpStatus.UNAUTHORIZED, "TOKEN_005"),
+	INVALID_TEMPORARY_TOKEN_USAGE("임시토큰으로 해당 요청에 접근할 수 없습니다.", HttpStatus.UNAUTHORIZED, "TOKEN_006");
 
 	private final String message;
 	private final HttpStatus status;

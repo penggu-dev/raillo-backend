@@ -116,7 +116,7 @@ public class BookingValidator {
 			.toList();
 
 		if (!notFoundIds.isEmpty()) {
-			log.warn("[임시 예약 만료] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
+			log.warn("[예약 만료] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
 			throw new BusinessException(BookingError.PENDING_BOOKING_EXPIRED);
 		}
 	}
