@@ -11,11 +11,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public enum PaymentError implements ErrorCode {
 
-	// 예약 관련 에러
-	BOOKING_NOT_FOUND("예약을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "P_001"),
-	BOOKING_ACCESS_DENIED("예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "P_002"),
-	BOOKING_NOT_PAYABLE("결제할 수 없는 예약 상태입니다.", HttpStatus.BAD_REQUEST, "P_003"),
-
 	// 결제 관련 에러
 	PAYMENT_NOT_FOUND("결제 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "P_004"),
 	PAYMENT_ACCESS_DENIED("결제에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "P_005"),
@@ -24,18 +19,14 @@ public enum PaymentError implements ErrorCode {
 	PAYMENT_NOT_APPROVABLE("승인할 수 없는 결제 상태입니다.", HttpStatus.BAD_REQUEST, "P_008"),
 	PAYMENT_NOT_REFUNDABLE("환불할 수 없는 결제 상태입니다.", HttpStatus.BAD_REQUEST, "P_013"),
 	PAYMENT_CANNOT_FAIL("실패 처리할 수 없는 결제 상태입니다.", HttpStatus.BAD_REQUEST, "P_014"),
-	PAYMENT_PROCESS_FAILED("결제 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "P_009"),
 
 	// 금액 관련 에러
-	INVALID_PAYMENT_AMOUNT("유효하지 않은 결제 금액입니다.", HttpStatus.BAD_REQUEST, "P_010"),
 	PAYMENT_AMOUNT_MISMATCH("결제 금액이 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "P_011"),
 
 	// 결제 수단 관련 에러
 	INVALID_PAYMENT_METHOD("지원하지 않는 결제 수단입니다.", HttpStatus.BAD_REQUEST, "P_012"),
 
-	// TOSS 에러
-	TOSS_PAYMENT_FAILED("토스 결제중 오류가 발생했습니다.", HttpStatus.BAD_REQUEST, "P_201"),
-	TOSS_SERVER_ERROR("토스 결제 서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.", HttpStatus.BAD_GATEWAY, "P_202"),
+	// 결제 키 관련 에러
 	PAYMENT_KEY_MISMATCH("결제 키가 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "P_0203"),
 
 	// 시스템 에러

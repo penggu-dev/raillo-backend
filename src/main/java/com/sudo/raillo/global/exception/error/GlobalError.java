@@ -17,13 +17,11 @@ public enum GlobalError implements ErrorCode {
 	RESOURCE_ALREADY_EXISTS("이미 존재하는 리소스입니다.", HttpStatus.CONFLICT, "G_005"),
 	UNAUTHORIZED_ACCESS("인증이 필요합니다.", HttpStatus.UNAUTHORIZED, "G_006"),
 	FORBIDDEN_ACCESS("접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "G_007"),
-	METHOD_NOT_ALLOWED("허용되지 않은 HTTP 메소드입니다.", HttpStatus.METHOD_NOT_ALLOWED, "G_008"),
 	INVALID_YN_VALUE("Y 또는 N 값만 허용됩니다.", HttpStatus.BAD_REQUEST, "G_009"),
 
 	// 5xx 서버 에러
 	INTERNAL_SERVER_ERROR("내부 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "G_500"),
-	DATABASE_ERROR("데이터베이스 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "G_501"),
-	EXTERNAL_API_ERROR("외부 API 호출 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "G_502");
+	DATABASE_ERROR("데이터베이스 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "G_501");
 
 	private final String message;
 	private final HttpStatus status;
