@@ -18,7 +18,7 @@ import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
@@ -64,7 +64,7 @@ public class TrainSearchService {
 		return stationFareRepository.findByDepartureStationIdAndArrivalStationId(departureStationId, arrivalStationId)
 			.orElseThrow(() -> {
 				log.error("요금 정보 없음: {} -> {}", departureStationId, arrivalStationId);
-				return new BusinessException(TrainErrorCode.STATION_FARE_NOT_FOUND);
+				return new BusinessException(TrainError.STATION_FARE_NOT_FOUND);
 			});
 	}
 
@@ -73,7 +73,7 @@ public class TrainSearchService {
 	 */
 	public TrainScheduleBasicInfo getTrainScheduleBasicInfo(Long trainScheduleId) {
 		TrainSchedule trainSchedule = trainScheduleRepository.findById(trainScheduleId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_DETAIL_NOT_FOUND));
+			.orElseThrow(() -> new BusinessException(TrainError.TRAIN_SCHEDULE_DETAIL_NOT_FOUND));
 
 		return new TrainScheduleBasicInfo(
 			trainSchedule.getId(),

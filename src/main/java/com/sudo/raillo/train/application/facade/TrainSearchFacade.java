@@ -31,7 +31,7 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -216,7 +216,7 @@ public class TrainSearchFacade {
 
 		if (results.isEmpty()) {
 			log.warn("처리 가능한 열차 없음");
-			throw new BusinessException(TrainErrorCode.NO_SEARCH_RESULTS);
+			throw new BusinessException(TrainError.NO_SEARCH_RESULTS);
 		}
 
 		log.info("배치 처리 완료: 전체 {}건 중 {}건 성공", trainInfoSlice.size(), results.size());
@@ -294,7 +294,7 @@ public class TrainSearchFacade {
 			.toList();
 
 		if (adjustedCars.isEmpty()) {
-			throw new BusinessException(TrainErrorCode.NO_AVAILABLE_CARS);
+			throw new BusinessException(TrainError.NO_AVAILABLE_CARS);
 		}
 
 		return adjustedCars;

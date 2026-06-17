@@ -14,7 +14,7 @@ import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
@@ -180,7 +180,7 @@ public class PendingBookingService {
 		List<TrainSchedule> trainSchedules = trainScheduleRepository.findAllByIdWithTrain(trainScheduleIds);
 
 		if (trainSchedules.size() != trainScheduleIds.size()) {
-			throw new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND);
+			throw new BusinessException(TrainError.TRAIN_SCHEDULE_NOT_FOUND);
 		}
 
 		return trainSchedules.stream()
@@ -198,7 +198,7 @@ public class PendingBookingService {
 		List<ScheduleStop> scheduleStops = scheduleStopRepository.findAllByIdWithStation(stopIds);
 
 		if (scheduleStops.size() != stopIds.size()) {
-			throw new BusinessException(TrainErrorCode.STATION_NOT_FOUND);
+			throw new BusinessException(TrainError.STATION_NOT_FOUND);
 		}
 
 		return scheduleStops.stream()
@@ -216,7 +216,7 @@ public class PendingBookingService {
 		List<Seat> seats = seatRepository.findAllByIdWithTrainCar(seatIds);
 
 		if (seats.size() != seatIds.size()) {
-			throw new BusinessException(TrainErrorCode.SEAT_NOT_FOUND);
+			throw new BusinessException(TrainError.SEAT_NOT_FOUND);
 		}
 
 		return seats.stream()

@@ -24,7 +24,7 @@ import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.application.dto.response.TrainSearchSlicePageResponse;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -78,9 +78,9 @@ public class TrainSearchFacadeValidationTest {
 			.satisfies(ex -> {
 				BusinessException be = (BusinessException)ex;
 				assertThat(be.getErrorCode())
-					.isEqualTo(TrainErrorCode.STATION_FARE_NOT_FOUND);
+					.isEqualTo(TrainError.STATION_FARE_NOT_FOUND);
 				assertThat(be.getMessage())
-					.contains(TrainErrorCode.STATION_FARE_NOT_FOUND.getMessage());
+					.contains(TrainError.STATION_FARE_NOT_FOUND.getMessage());
 			});
 	}
 
@@ -96,7 +96,7 @@ public class TrainSearchFacadeValidationTest {
 			String description,
 			TrainSearchRequest request,
 			Class<? extends Exception> expectedException,
-			TrainErrorCode expectedErrorCode,
+			TrainError expectedErrorCode,
 			String expectedMessageContains
 		) {}
 
@@ -105,15 +105,15 @@ public class TrainSearchFacadeValidationTest {
 				"출발역과 도착역이 동일한 경우",
 				new TrainSearchRequest(seoul.getId(), seoul.getId(), validDate, 1, "00"),
 				BusinessException.class,
-				TrainErrorCode.INVALID_ROUTE,
-				TrainErrorCode.INVALID_ROUTE.getMessage()
+				TrainError.INVALID_ROUTE,
+				TrainError.INVALID_ROUTE.getMessage()
 			),
 			new ValidationScenario(
 				"운행일이 너무 먼 미래인 경우 (3개월 후)",
 				new TrainSearchRequest(seoul.getId(), busan.getId(), LocalDate.now().plusMonths(3), 1, "00"),
 				BusinessException.class,
-				TrainErrorCode.OPERATION_DATE_TOO_FAR,
-				TrainErrorCode.OPERATION_DATE_TOO_FAR.getMessage()
+				TrainError.OPERATION_DATE_TOO_FAR,
+				TrainError.OPERATION_DATE_TOO_FAR.getMessage()
 			)
 		);
 
@@ -152,7 +152,7 @@ public class TrainSearchFacadeValidationTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchFacade.searchTrains(request, PageRequest.of(0, 20)))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.DEPARTURE_TIME_PASSED.getMessage());
+			.hasMessageContaining(TrainError.DEPARTURE_TIME_PASSED.getMessage());
 	}
 
 	@DisplayName("다양한 검색 시나리오에서 검색 결과가 없을 경우 빈 리스트를 반환한다.")

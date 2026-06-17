@@ -5,7 +5,7 @@ import java.util.List;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,12 +25,12 @@ public class TrainScheduleService {
 
 	public TrainSchedule getTrainSchedule(Long trainScheduleId) {
 		return trainScheduleRepository.findById(trainScheduleId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND));
+			.orElseThrow(() -> new BusinessException(TrainError.TRAIN_SCHEDULE_NOT_FOUND));
 	}
 
 	public ScheduleStop getStopStation(TrainSchedule trainSchedule, Long stationId) {
 		return scheduleStopRepository.findByTrainScheduleIdAndStationId(trainSchedule.getId(), stationId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_NOT_FOUND));
+			.orElseThrow(() -> new BusinessException(TrainError.STATION_NOT_FOUND));
 	}
 
 	public List<ScheduleStop> getScheduleStops(List<Long> stopIds) {

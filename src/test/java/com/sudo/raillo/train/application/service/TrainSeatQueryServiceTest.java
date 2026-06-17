@@ -22,7 +22,7 @@ import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainCar;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.TrainCarRepository;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -153,7 +153,7 @@ class TrainSeatQueryServiceTest {
 			arrivalStop.getStation().getId()
 		))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(TrainErrorCode.NO_AVAILABLE_CARS.getMessage());
+			.hasMessage(TrainError.NO_AVAILABLE_CARS.getMessage());
 	}
 
 	@Test

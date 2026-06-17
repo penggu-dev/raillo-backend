@@ -23,7 +23,7 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -53,7 +53,7 @@ public class BookingValidator {
 	 * */
 	public void validateSameSchedule(ScheduleStop departureStop, ScheduleStop arrivalStop) {
 		if (!departureStop.getTrainSchedule().getId().equals(arrivalStop.getTrainSchedule().getId())) {
-			throw new BusinessException(TrainErrorCode.INVALID_ROUTE);
+			throw new BusinessException(TrainError.INVALID_ROUTE);
 		}
 	}
 
@@ -62,7 +62,7 @@ public class BookingValidator {
 	 * */
 	public void validateTrainOperating(TrainSchedule trainSchedule) {
 		if (trainSchedule.getOperationStatus() == OperationStatus.CANCELLED) {
-			throw new BusinessException(TrainErrorCode.TRAIN_OPERATION_CANCELLED);
+			throw new BusinessException(TrainError.TRAIN_OPERATION_CANCELLED);
 		}
 	}
 
@@ -70,7 +70,7 @@ public class BookingValidator {
 		LocalDateTime bookingClosedAt = departureDateTime.minusMinutes(BOOKING_CLOSE_MINUTES_BEFORE_DEPARTURE);
 
 		if (!now.isBefore(bookingClosedAt)) {
-			throw new BusinessException(TrainErrorCode.DEPARTURE_TIME_PASSED);
+			throw new BusinessException(TrainError.DEPARTURE_TIME_PASSED);
 		}
 	}
 
@@ -129,7 +129,7 @@ public class BookingValidator {
 	public CarType validateSeatIdsAndGetSingleCarType(List<CarType> carTypes) {
 		if (carTypes.isEmpty()) {
 			log.warn("[좌석 조회 실패] 요청한 좌석 ID에 해당하는 좌석이 없음");
-			throw new BusinessException(TrainErrorCode.SEAT_NOT_FOUND);
+			throw new BusinessException(TrainError.SEAT_NOT_FOUND);
 		}
 
 		if (carTypes.size() != 1) {
@@ -219,7 +219,7 @@ public class BookingValidator {
 				.filter(id -> !stopMap.containsKey(id))
 				.collect(Collectors.toSet());
 			log.error("[정류장 조회 실패] scheduleStopIds={}", noExistIds);
-			throw new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND);
+			throw new BusinessException(TrainError.SCHEDULE_STOP_NOT_FOUND);
 		}
 	}
 

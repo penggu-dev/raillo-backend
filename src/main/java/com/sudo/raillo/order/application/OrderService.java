@@ -20,7 +20,7 @@ import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
@@ -152,7 +152,7 @@ public class OrderService {
 		List<Seat> seats = seatRepository.findAllByIdWithTrainCar(seatIds);
 
 		if (seats.size() != seatIds.size()) {
-			throw new BusinessException(TrainErrorCode.SEAT_NOT_FOUND);
+			throw new BusinessException(TrainError.SEAT_NOT_FOUND);
 		}
 
 		return seats.stream().collect(Collectors.toMap(Seat::getId, seat -> seat));
@@ -166,7 +166,7 @@ public class OrderService {
 		List<TrainSchedule> schedules = trainScheduleRepository.findAllByIdWithTrain(scheduleIds);
 
 		if (schedules.size() != scheduleIds.size()) {
-			throw new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_DETAIL_NOT_FOUND);
+			throw new BusinessException(TrainError.TRAIN_SCHEDULE_DETAIL_NOT_FOUND);
 		}
 
 		return schedules.stream().collect(Collectors.toMap(TrainSchedule::getId, schedule -> schedule));
@@ -180,7 +180,7 @@ public class OrderService {
 		List<ScheduleStop> stops = scheduleStopRepository.findAllByIdWithStation(stopIds);
 
 		if (stops.size() != stopIds.size()) {
-			throw new BusinessException(TrainErrorCode.STATION_NOT_FOUND);
+			throw new BusinessException(TrainError.STATION_NOT_FOUND);
 		}
 
 		return stops.stream().collect(Collectors.toMap(ScheduleStop::getId, scheduleStop -> scheduleStop));

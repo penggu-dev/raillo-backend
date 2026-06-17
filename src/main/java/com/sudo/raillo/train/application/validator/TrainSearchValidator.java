@@ -9,7 +9,7 @@ import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.StationRepository;
 import com.sudo.raillo.train.infrastructure.TrainCarRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
@@ -67,7 +67,7 @@ public class TrainSearchValidator {
 	private void validateDepartureAndArrivalStationNotSame(Long departureStationId, Long arrivalStationId) {
 		if (departureStationId.equals(arrivalStationId)) {
 			log.warn("출발역과 도착역이 동일함: stationId={}", departureStationId);
-			throw new BusinessException(TrainErrorCode.INVALID_ROUTE);
+			throw new BusinessException(TrainError.INVALID_ROUTE);
 		}
 	}
 
@@ -76,7 +76,7 @@ public class TrainSearchValidator {
 	 */
 	private void validateOperationDateRange(TrainSearchRequest request) {
 		if (request.operationDate().isAfter(LocalDate.now().plusMonths(1))) {
-			throw new BusinessException(TrainErrorCode.OPERATION_DATE_TOO_FAR);
+			throw new BusinessException(TrainError.OPERATION_DATE_TOO_FAR);
 		}
 	}
 
@@ -90,7 +90,7 @@ public class TrainSearchValidator {
 			int currentHour = LocalTime.now().getHour();
 
 			if (requestHour < currentHour) {
-				throw new BusinessException(TrainErrorCode.DEPARTURE_TIME_PASSED);
+				throw new BusinessException(TrainError.DEPARTURE_TIME_PASSED);
 			}
 		}
 	}
@@ -103,7 +103,7 @@ public class TrainSearchValidator {
 	private void validateTrainScheduleExists(Long trainScheduleId) {
 		if (!trainScheduleRepository.existsById(trainScheduleId)) {
 			log.warn("존재하지 않는 열차 스케줄: trainScheduleId={}", trainScheduleId);
-			throw new BusinessException(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND);
+			throw new BusinessException(TrainError.TRAIN_SCHEDULE_NOT_FOUND);
 		}
 	}
 
@@ -113,7 +113,7 @@ public class TrainSearchValidator {
 	private void validateTrainCarExists(Long trainCarId) {
 		if (!trainCarRepository.existsById(trainCarId)) {
 			log.warn("존재하지 않는 객차: trainCarId={}", trainCarId);
-			throw new BusinessException(TrainErrorCode.TRAIN_CAR_NOT_FOUND);
+			throw new BusinessException(TrainError.TRAIN_CAR_NOT_FOUND);
 		}
 	}
 
@@ -123,7 +123,7 @@ public class TrainSearchValidator {
 	private void validateStationExists(Long stationId, String stationType) {
 		if (!stationRepository.existsById(stationId)) {
 			log.warn("존재하지 않는 {}: stationId={}", stationType, stationId);
-			throw new BusinessException(TrainErrorCode.STATION_NOT_FOUND);
+			throw new BusinessException(TrainError.STATION_NOT_FOUND);
 		}
 	}
 

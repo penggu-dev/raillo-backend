@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,7 +66,7 @@ class CarRecommendationServiceTest {
 		// when & then
 		assertThatThrownBy(() -> service.selectRecommendedCar(cars, passengerCount))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.NO_AVAILABLE_CARS.getMessage());
+			.hasMessageContaining(TrainError.NO_AVAILABLE_CARS.getMessage());
 
 		log.info("객차 없음 예외 테스트 완료");
 	}

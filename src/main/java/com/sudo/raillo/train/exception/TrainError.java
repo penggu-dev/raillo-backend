@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum TrainErrorCode implements ErrorCode {
+public enum TrainError implements ErrorCode {
 
 	// 열차 조회 관련
 	TRAIN_SCHEDULE_NOT_FOUND("해당 날짜에 운행하는 열차가 없습니다.", HttpStatus.NOT_FOUND, "T4001"),

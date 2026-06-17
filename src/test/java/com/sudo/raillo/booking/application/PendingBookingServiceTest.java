@@ -30,7 +30,7 @@ import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 
 @ServiceTest
 class PendingBookingServiceTest {
@@ -251,7 +251,7 @@ class PendingBookingServiceTest {
 		// when & then
 		assertThatThrownBy(() -> pendingBookingService.getPendingBookings(testMember.getMemberDetail().getMemberNo()))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND.getMessage());
+			.hasMessage(TrainError.TRAIN_SCHEDULE_NOT_FOUND.getMessage());
 	}
 
 	@Test
@@ -277,7 +277,7 @@ class PendingBookingServiceTest {
 		// when & then
 		assertThatThrownBy(() -> pendingBookingService.getPendingBookings(testMember.getMemberDetail().getMemberNo()))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(TrainErrorCode.STATION_NOT_FOUND.getMessage());
+			.hasMessage(TrainError.STATION_NOT_FOUND.getMessage());
 	}
 
 	@Test
@@ -303,7 +303,7 @@ class PendingBookingServiceTest {
 		// when & then
 		assertThatThrownBy(() -> pendingBookingService.getPendingBookings(testMember.getMemberDetail().getMemberNo()))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(TrainErrorCode.SEAT_NOT_FOUND.getMessage());
+			.hasMessage(TrainError.SEAT_NOT_FOUND.getMessage());
 	}
 
 	@Test
