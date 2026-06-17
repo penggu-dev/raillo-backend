@@ -190,7 +190,8 @@ Controller → Facade → Service → Repository
 | [`testing-guide.md`](./docs/testing-guide.md) | Helper/Fixture 사용 예제와 `@ServiceTest` 상세 |
 | [`deployment.md`](./docs/deployment.md) | K8s, ArgoCD, Docker, CI/CD 배포 상세 |
 
-### 커스텀 Skills (`.claude/skills/`)
+### 커스텀 Skills (`.agents/skills/`)
+팀 컨벤션을 코드화한 커스텀 skill. 실제 파일은 `.agents/skills/`에 두고 `.claude/skills`는 이를 가리키는 심볼릭 링크다 — Claude Code는 `.claude/skills`, Codex 등은 `.agents/skills`를 참조하므로 어떤 도구에서도 동일한 skill을 사용한다.
 
 | Skill | 용도 |
 |---|---|
@@ -210,7 +211,7 @@ Controller → Facade → Service → Repository
 3. `superpowers:test-driven-development` — TDD 구현
 4. `/test <대상>` — 프로젝트 컨벤션 기반 테스트 작성
 5. `superpowers:verification-before-completion` — `./gradlew test` 등 증거 기반 검증
-6. **문서 반영** — 바뀐 내용을 관련 문서(`AGENTS.md`, `README.md`, `docs/*`)에 반영. 기존 문서를 수정하거나 필요하면 적절한 문서를 신규 생성하고, 같은 PR에 포함한다
+6. 문서 반영 — 바뀐 내용을 관련 문서(`AGENTS.md`, `README.md`, `docs/*`)에 반영. 기존 문서를 수정하거나 필요하면 적절한 문서를 신규 생성하고, 같은 PR에 포함한다
 7. `/pr` — PR 생성 (사용자 검수 후 실행)
 
 - **버그 발생 시** → `superpowers:systematic-debugging` 우선

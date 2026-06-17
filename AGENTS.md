@@ -126,7 +126,7 @@ public enum BookingError implements ErrorCode {
 
 - 환경: H2 + 임베디드 Redis(포트 **63790** — 로컬 개발용 Redis 기본 포트 6379와 충돌 회피), 통합 테스트는 `@ServiceTest`
 - ⚠️ **테스트 메서드 `@Transactional` 절대 금지** — `@ServiceTest`의 cleanup(`DatabaseCleanupExtension`, `RedisCleanupExtension`)을 우회한다
-- 상세 컨벤션 → `.claude/skills/test/SKILL.md` / Helper 빌더 예제 → [docs/testing-guide.md](./docs/testing-guide.md)
+- 상세 컨벤션 → `.agents/skills/test/SKILL.md` / Helper 빌더 예제 → [docs/testing-guide.md](./docs/testing-guide.md)
 
 ## Technology Stack
 
