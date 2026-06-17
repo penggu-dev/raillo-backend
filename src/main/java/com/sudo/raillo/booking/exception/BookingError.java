@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum BookingError implements ErrorCode {
 
-	SEAT_NOT_FOUND("좌석을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_001"),
 	TRAIN_NOT_OPERATIONAL("운행중인 스케줄이 아닙니다.", HttpStatus.BAD_REQUEST, "B_011"),
 	BOOKING_CREATE_SEATS_INVALID("좌석 수는 총 승객 수와 같아야 합니다.", HttpStatus.BAD_REQUEST, "B_012"),
 	SEAT_BOOKING_NOT_FOUND("좌석 예약 상태를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_018"),

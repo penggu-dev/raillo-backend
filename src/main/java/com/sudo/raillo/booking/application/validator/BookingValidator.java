@@ -129,7 +129,7 @@ public class BookingValidator {
 	public CarType validateSeatIdsAndGetSingleCarType(List<CarType> carTypes) {
 		if (carTypes.isEmpty()) {
 			log.warn("[좌석 조회 실패] 요청한 좌석 ID에 해당하는 좌석이 없음");
-			throw new BusinessException(BookingError.SEAT_NOT_FOUND);
+			throw new BusinessException(TrainErrorCode.SEAT_NOT_FOUND);
 		}
 
 		if (carTypes.size() != 1) {

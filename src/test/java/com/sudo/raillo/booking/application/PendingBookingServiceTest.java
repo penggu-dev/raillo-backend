@@ -18,7 +18,6 @@ import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -304,7 +303,7 @@ class PendingBookingServiceTest {
 		// when & then
 		assertThatThrownBy(() -> pendingBookingService.getPendingBookings(testMember.getMemberDetail().getMemberNo()))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(BookingError.SEAT_NOT_FOUND.getMessage());
+			.hasMessage(TrainErrorCode.SEAT_NOT_FOUND.getMessage());
 	}
 
 	@Test
