@@ -182,4 +182,4 @@ Java 17, Spring Boot 3.5.0, MySQL (prod/dev), H2 (test), Redis, QueryDSL 5.0.0 (
   핵심: 엔티티 관계도, Status enum, 한국어 용어(예약/예매/승차권) 일관 사용.
 
 - **배포/인프라/K8s 작업 시** → [docs/deployment.md](./docs/deployment.md)
-  핵심: K8s 매니페스트는 `k8s/`, ArgoCD는 `main` 브랜치 sync, `raillo-secrets`로 시크릿 주입.
+  핵심: K8s 매니페스트는 `k8s/k8s-application`·`k8s-argocd`·`k8s-monitoring`, ArgoCD는 `main` 브랜치 sync, 환경변수는 `raillo-config`(ConfigMap)·`raillo-secrets`(Secret)를 `envFrom`으로 주입.
