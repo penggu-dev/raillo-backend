@@ -157,7 +157,8 @@ Java 17, Spring Boot 3.5.0, MySQL (prod/dev), H2 (test), Redis, QueryDSL 5.0.0 (
 4. **구현** — `/branch <이슈>`로 브랜치 생성 후 도메인별 skill(`/validator`, `/api-doc` 등) 결합. 본 프로젝트는 **구현 → 테스트 순서**를 표준으로 한다.
 5. **테스트 작성** — `/test <대상>` (BDD/Fixture/Helper 컨벤션 자동 적용; 단순 설정/문서 변경 등은 생략 가능)
 6. **검증** — `superpowers:verification-before-completion` ("완료" 선언 전 `./gradlew test` 등 증거 확보)
-7. **PR** — `/commit`으로 커밋 후 `/pr` 실행 (변경사항 자동 분석 + 이슈 기반 PR 생성)
+7. **문서 반영** — 작업으로 바뀐 내용을 관련 문서에 반영한다. 영향받는 기존 문서(`AGENTS.md`, `README.md`, `docs/*`)를 수정하고, 새 도메인·아키텍처·배포 변경처럼 기존 문서로 담기 어려우면 적절한 문서를 새로 생성한다. 변경 문서는 같은 PR에 포함한다.
+8. **PR** — `/commit`으로 커밋 후 `/pr` 실행 (변경사항 자동 분석 + 이슈 기반 PR 생성)
 
 **버그 발생 시** → 가장 먼저 `superpowers:systematic-debugging`.
 **코드리뷰 받았을 때** → `superpowers:receiving-code-review`로 맹목적 적용을 방지.

@@ -210,7 +210,8 @@ Controller → Facade → Service → Repository
 3. `superpowers:test-driven-development` — TDD 구현
 4. `/test <대상>` — 프로젝트 컨벤션 기반 테스트 작성
 5. `superpowers:verification-before-completion` — `./gradlew test` 등 증거 기반 검증
-6. `/pr` — PR 생성 (사용자 검수 후 실행)
+6. **문서 반영** — 바뀐 내용을 관련 문서(`AGENTS.md`, `README.md`, `docs/*`)에 반영. 기존 문서를 수정하거나 필요하면 적절한 문서를 신규 생성하고, 같은 PR에 포함한다
+7. `/pr` — PR 생성 (사용자 검수 후 실행)
 
 - **버그 발생 시** → `superpowers:systematic-debugging` 우선
 - **코드리뷰 받았을 때** → `superpowers:receiving-code-review`로 맹목적 적용 방지
