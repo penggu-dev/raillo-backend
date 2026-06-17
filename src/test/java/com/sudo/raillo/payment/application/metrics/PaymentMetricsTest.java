@@ -159,7 +159,7 @@ class PaymentMetricsTest {
 	}
 
 	@Test
-	@DisplayName("금액 불일치로 결제 실패 시 payment_confirm_failure_total{reason=validation_error, error_code=P_011} 카운터가 증가한다")
+	@DisplayName("금액 불일치로 결제 실패 시 payment_confirm_failure_total{reason=validation_error, error_code=PAYMENT_201} 카운터가 증가한다")
 	void confirmPayment_amountMismatch_incrementsConfirmFailureValidationError() {
 		// given
 		BigDecimal orderAmount = BigDecimal.valueOf(50000);
@@ -222,7 +222,7 @@ class PaymentMetricsTest {
 	}
 
 	@Test
-	@DisplayName("5xx BusinessException 발생 시 payment_confirm_failure_total{reason=system_error, error_code=P_999} 카운터가 증가한다")
+	@DisplayName("5xx BusinessException 발생 시 payment_confirm_failure_total{reason=system_error, error_code=PAYMENT_901} 카운터가 증가한다")
 	void confirmPayment_5xxBusinessException_incrementsConfirmFailureSystemError() {
 		// given
 		BigDecimal amount = BigDecimal.valueOf(50000);
