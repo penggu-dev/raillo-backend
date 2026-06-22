@@ -58,8 +58,7 @@ public class GlobalExceptionHandler {
 
 		return ResponseEntity.badRequest().body(
 			ErrorResponse.of(
-				"G_400",
-				"요청 본문이 필요합니다. JSON 형식의 데이터를 포함해주세요.",
+				GlobalError.REQUEST_BODY_MISSING,
 				Map.of(
 					"path", "uri=" + request.getRequestURI(),
 					"method", request.getMethod()

@@ -23,7 +23,7 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import java.time.LocalTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -434,7 +434,7 @@ public class SeatConflictValidatorTest {
 		assertThatThrownBy(() ->
 			bookingValidator.validateSeatConflicts(List.of(pendingBooking))
 		).isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", TrainErrorCode.SCHEDULE_STOP_NOT_FOUND);
+			.hasFieldOrPropertyWithValue("errorCode", TrainError.SCHEDULE_STOP_NOT_FOUND);
 	}
 
 	@Nested

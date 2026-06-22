@@ -5,7 +5,7 @@ import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.SeatQueryRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainCarQueryRepository;
@@ -36,7 +36,7 @@ public class TrainSeatQueryService {
 
 		if (availableCars.isEmpty()) {
 			log.warn("잔여 좌석이 있는 객차가 없음: trainScheduleId={}", trainScheduleId);
-			throw new BusinessException(TrainErrorCode.NO_AVAILABLE_CARS);
+			throw new BusinessException(TrainError.NO_AVAILABLE_CARS);
 		}
 
 		return availableCars;
@@ -53,10 +53,10 @@ public class TrainSeatQueryService {
 			request.arrivalStationId()
 		);
 		if (carSeatInfo.departureStopOrder() == null || carSeatInfo.arrivalStopOrder() == null) {
-			throw new BusinessException(TrainErrorCode.SCHEDULE_STOP_NOT_FOUND);
+			throw new BusinessException(TrainError.SCHEDULE_STOP_NOT_FOUND);
 		}
 		if (carSeatInfo.departureStopOrder() >= carSeatInfo.arrivalStopOrder()) {
-			throw new BusinessException(TrainErrorCode.INVALID_ROUTE);
+			throw new BusinessException(TrainError.INVALID_ROUTE);
 		}
 
 		log.info("열차 객차 좌석 상세 조회 완료: 객차={}, 전체좌석={}, 잔여좌석={}",

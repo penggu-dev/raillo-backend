@@ -4,7 +4,7 @@ import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -76,7 +76,7 @@ public class FareCalculator {
 	private StationFare findStationFare(Long departureStationId, Long arrivalStationId) {
 		return stationFareRepository
 			.findByDepartureStationIdAndArrivalStationId(departureStationId, arrivalStationId)
-			.orElseThrow(() -> new BusinessException(TrainErrorCode.STATION_FARE_NOT_FOUND));
+			.orElseThrow(() -> new BusinessException(TrainError.STATION_FARE_NOT_FOUND));
 	}
 
 	/**

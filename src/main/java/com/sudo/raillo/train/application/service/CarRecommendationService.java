@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 
 @Service
 public class CarRecommendationService {
@@ -21,7 +21,7 @@ public class CarRecommendationService {
 	 */
 	public String selectRecommendedCar(List<TrainCarInfo> availableCars, int passengerCount) {
 		if (availableCars.isEmpty()) {
-			throw new BusinessException(TrainErrorCode.NO_AVAILABLE_CARS);
+			throw new BusinessException(TrainError.NO_AVAILABLE_CARS);
 		}
 
 		List<TrainCarInfo> suitableCars = findSuitableCars(availableCars, passengerCount);

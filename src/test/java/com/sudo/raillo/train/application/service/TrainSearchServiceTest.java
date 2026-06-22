@@ -39,7 +39,7 @@ import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.domain.type.TrainType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
@@ -161,7 +161,7 @@ class TrainSearchServiceTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchService.findStationFare(departureStationId, arrivalStationId))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.STATION_FARE_NOT_FOUND.getMessage());
+			.hasMessageContaining(TrainError.STATION_FARE_NOT_FOUND.getMessage());
 
 		verify(stationFareRepository).findByDepartureStationIdAndArrivalStationId(
 			departureStationId, arrivalStationId
@@ -221,7 +221,7 @@ class TrainSearchServiceTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchService.getTrainScheduleBasicInfo(trainScheduleId))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.TRAIN_SCHEDULE_DETAIL_NOT_FOUND.getMessage());
+			.hasMessageContaining(TrainError.TRAIN_SCHEDULE_DETAIL_NOT_FOUND.getMessage());
 
 		verify(trainScheduleRepository).findById(trainScheduleId);
 	}

@@ -160,5 +160,5 @@ public void validatePaymentKeyUnique(String paymentKey) {
 
 {ERROR_CODE}("{메시지}", HttpStatus.{STATUS}, "{prefix}_{번호}")
 
-예: PASSENGER_SEAT_MISMATCH("승객 수와 좌석 수가 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "B_007")
+예: PASSENGER_SEAT_MISMATCH("승객 수와 좌석 수가 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "BOOKING_108")
 ```

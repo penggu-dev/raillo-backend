@@ -10,7 +10,7 @@ import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Stream;
@@ -106,7 +106,7 @@ class FareCalculatorTest {
 			CarType.STANDARD
 		))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", TrainErrorCode.STATION_FARE_NOT_FOUND);
+			.hasFieldOrPropertyWithValue("errorCode", TrainError.STATION_FARE_NOT_FOUND);
 	}
 
 	private static Stream<Arguments> provideStandardSeatScenarios() {

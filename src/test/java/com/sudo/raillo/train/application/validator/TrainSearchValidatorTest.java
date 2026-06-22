@@ -22,7 +22,7 @@ import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.StationRepository;
 import com.sudo.raillo.train.infrastructure.TrainCarRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
@@ -63,7 +63,7 @@ class TrainSearchValidatorTest {
 		record ValidationScenario(
 			String description,
 			TrainSearchRequest request,
-			TrainErrorCode expectedErrorCode
+			TrainError expectedErrorCode
 		) {
 			@Override
 			public String toString() {
@@ -75,17 +75,17 @@ class TrainSearchValidatorTest {
 			new ValidationScenario(
 				"출발역과 도착역이 동일한 경우",
 				new TrainSearchRequest(1L, 1L, LocalDate.now().plusDays(1), 2, "10"),
-				TrainErrorCode.INVALID_ROUTE
+				TrainError.INVALID_ROUTE
 			),
 			new ValidationScenario(
 				"운행일이 1개월 이상 미래인 경우",
 				new TrainSearchRequest(1L, 2L, LocalDate.now().plusMonths(2), 2, "10"),
-				TrainErrorCode.OPERATION_DATE_TOO_FAR
+				TrainError.OPERATION_DATE_TOO_FAR
 			),
 			new ValidationScenario(
 				"오늘 날짜에 과거 시간을 선택한 경우",
 				new TrainSearchRequest(1L, 2L, LocalDate.now(), 2, pastHourString),
-				TrainErrorCode.DEPARTURE_TIME_PASSED
+				TrainError.DEPARTURE_TIME_PASSED
 			)
 		);
 
@@ -93,7 +93,7 @@ class TrainSearchValidatorTest {
 			.map(scenario -> DynamicTest.dynamicTest(
 				scenario.description,
 				() -> {
-					if (scenario.expectedErrorCode == TrainErrorCode.DEPARTURE_TIME_PASSED) {
+					if (scenario.expectedErrorCode == TrainError.DEPARTURE_TIME_PASSED) {
 						Assumptions.assumeTrue(canTestPastTime,
 							"현재 시각이 자정(00시)이므로 과거 시간 테스트를 건너뛴다.");
 					}
@@ -158,7 +158,7 @@ class TrainSearchValidatorTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchValidator.validateTrainCarListRequest(request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND.getMessage());
+			.hasMessageContaining(TrainError.TRAIN_SCHEDULE_NOT_FOUND.getMessage());
 
 		verify(trainScheduleRepository).existsById(999L);
 		log.info("존재하지 않는 열차 스케줄 검증 예외 발생 완료");
@@ -175,7 +175,7 @@ class TrainSearchValidatorTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchValidator.validateTrainCarListRequest(request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.STATION_NOT_FOUND.getMessage());
+			.hasMessageContaining(TrainError.STATION_NOT_FOUND.getMessage());
 
 		verify(stationRepository).existsById(999L);
 		log.info("존재하지 않는 출발역 검증 예외 발생 완료");
@@ -193,7 +193,7 @@ class TrainSearchValidatorTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchValidator.validateTrainCarListRequest(request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.STATION_NOT_FOUND.getMessage());
+			.hasMessageContaining(TrainError.STATION_NOT_FOUND.getMessage());
 
 		verify(stationRepository).existsById(999L);
 		log.info("존재하지 않는 도착역 검증 예외 발생 완료");
@@ -210,7 +210,7 @@ class TrainSearchValidatorTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchValidator.validateTrainCarListRequest(request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.INVALID_ROUTE.getMessage());
+			.hasMessageContaining(TrainError.INVALID_ROUTE.getMessage());
 
 		log.info("출발역과 도착역이 동일한 경우 검증 예외 발생 완료");
 	}
@@ -245,7 +245,7 @@ class TrainSearchValidatorTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchValidator.validateTrainCarSeatDetailRequest(request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.TRAIN_CAR_NOT_FOUND.getMessage());
+			.hasMessageContaining(TrainError.TRAIN_CAR_NOT_FOUND.getMessage());
 
 		verify(trainCarRepository).existsById(999L);
 		log.info("존재하지 않는 객차 검증 예외 발생 완료");
@@ -262,7 +262,7 @@ class TrainSearchValidatorTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchValidator.validateTrainCarSeatDetailRequest(request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.TRAIN_SCHEDULE_NOT_FOUND.getMessage());
+			.hasMessageContaining(TrainError.TRAIN_SCHEDULE_NOT_FOUND.getMessage());
 
 		verify(trainScheduleRepository).existsById(999L);
 		log.info("존재하지 않는 열차 스케줄 검증 예외 발생 완료");
@@ -280,7 +280,7 @@ class TrainSearchValidatorTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchValidator.validateTrainCarSeatDetailRequest(request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.STATION_NOT_FOUND.getMessage());
+			.hasMessageContaining(TrainError.STATION_NOT_FOUND.getMessage());
 
 		verify(stationRepository).existsById(999L);
 		log.info("존재하지 않는 출발역 검증 예외 발생 완료");
@@ -298,7 +298,7 @@ class TrainSearchValidatorTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchValidator.validateTrainCarSeatDetailRequest(request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.INVALID_ROUTE.getMessage());
+			.hasMessageContaining(TrainError.INVALID_ROUTE.getMessage());
 
 		log.info("출발역과 도착역이 동일한 경우 검증 예외 발생 완료");
 	}
@@ -355,7 +355,7 @@ class TrainSearchValidatorTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchValidator.validateScheduleSearchRequest(request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.OPERATION_DATE_TOO_FAR.getMessage());
+			.hasMessageContaining(TrainError.OPERATION_DATE_TOO_FAR.getMessage());
 
 		log.info("1개월 + 1일 후 날짜 검증 예외 발생: {}", oneMonthAndOneDayLater);
 	}

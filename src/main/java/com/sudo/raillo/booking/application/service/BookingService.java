@@ -36,7 +36,7 @@ import com.sudo.raillo.order.exception.OrderError;
 import com.sudo.raillo.order.infrastructure.OrderBookingRepository;
 import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.train.domain.Seat;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 
 import jakarta.persistence.OptimisticLockException;
@@ -195,7 +195,7 @@ public class BookingService {
 	) {
 		Seat seat = seatMap.get(orderSeatBooking.getSeatId());
 		if (seat == null) {
-			throw new BusinessException(TrainErrorCode.SEAT_NOT_FOUND);
+			throw new BusinessException(TrainError.SEAT_NOT_FOUND);
 		}
 
 		SeatBooking seatBooking = SeatBooking.create(

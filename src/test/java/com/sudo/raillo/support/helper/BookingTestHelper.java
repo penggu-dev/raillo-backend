@@ -21,7 +21,7 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 import java.math.BigDecimal;
@@ -85,7 +85,7 @@ public class BookingTestHelper {
 
 		orderSeatBookings.forEach(osb -> {
 			Seat seat = seatRepository.findById(osb.getSeatId())
-				.orElseThrow(() -> new BusinessException(TrainErrorCode.SEAT_NOT_FOUND));
+				.orElseThrow(() -> new BusinessException(TrainError.SEAT_NOT_FOUND));
 			builder.addSeat(seat, osb.getPassengerType());
 		});
 		return builder.build();

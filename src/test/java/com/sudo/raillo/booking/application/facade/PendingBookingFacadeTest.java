@@ -39,7 +39,7 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 
 @ServiceTest
 class PendingBookingFacadeTest {
@@ -227,7 +227,7 @@ class PendingBookingFacadeTest {
 		// when & then
 		assertThatThrownBy(() -> pendingBookingFacade.createPendingBooking(request, memberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", TrainErrorCode.DEPARTURE_TIME_PASSED);
+			.hasFieldOrPropertyWithValue("errorCode", TrainError.DEPARTURE_TIME_PASSED);
 	}
 
 	@Test
@@ -257,7 +257,7 @@ class PendingBookingFacadeTest {
 		// when & then
 		assertThatThrownBy(() -> pendingBookingFacade.createPendingBooking(request, memberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", TrainErrorCode.DEPARTURE_TIME_PASSED);
+			.hasFieldOrPropertyWithValue("errorCode", TrainError.DEPARTURE_TIME_PASSED);
 	}
 
 	@Test

@@ -64,9 +64,11 @@ Controller → Facade → Service → Repository
 도메인별 에러 enum은 `ErrorCode`를 구현한다:
 ```java
 public enum BookingError implements ErrorCode {
-    SEAT_NOT_FOUND("좌석을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "B_001");
+    BOOKING_NOT_FOUND("예매 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "BOOKING_101");
 }
 ```
+
+> 코드 형식·접두사·밴드·추가 절차 → [docs/error-code-convention.md](./docs/error-code-convention.md)
 
 **Validator Pattern** — `@Component`로 `application/validator/`에 `{Domain}Validator` 작성. Service/Facade에 주입되어 실패 시 `BusinessException`을 던진다.
 
@@ -172,6 +174,9 @@ Java 17, Spring Boot 3.5.0, MySQL (prod/dev), H2 (test), Redis, QueryDSL 5.0.0 (
 
 - **좌석 충돌 검증 로직 변경 시** → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
   핵심: 4-Layer 방어 (Lua → SQL Fail Fast → SQL Re-validation → TTL Expiry) 영향 범위 모두 검토.
+
+- **에러 코드 추가/변경 시** → [docs/error-code-convention.md](./docs/error-code-convention.md)
+  핵심: `{DOMAIN}_{NNN}` 형식, 도메인별 카테고리 밴드(백의 자리), 새 코드 추가 절차.
 
 - **새 도메인/엔티티 추가, Booking Flow 이해 시** → [docs/domain-model.md](./docs/domain-model.md)
   핵심: 엔티티 관계도, Status enum, 한국어 용어(예약/예매/승차권) 일관 사용.

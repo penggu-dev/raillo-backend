@@ -25,7 +25,7 @@ import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainCar;
 import com.sudo.raillo.train.domain.type.CarType;
-import com.sudo.raillo.train.exception.TrainErrorCode;
+import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.TrainCarRepository;
 import java.time.Duration;
 import java.util.Collection;
@@ -330,7 +330,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 		// when & then
 		assertThatThrownBy(() -> trainSearchFacade.getAvailableTrainCars(request))
 			.isInstanceOf(BusinessException.class)
-			.hasMessageContaining(TrainErrorCode.NO_AVAILABLE_CARS.getMessage());
+			.hasMessageContaining(TrainError.NO_AVAILABLE_CARS.getMessage());
 	}
 
 	@DisplayName("SeatBooking과 Seat Hold가 함께 존재하면 둘 다 차감된다")
