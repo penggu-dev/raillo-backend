@@ -126,7 +126,7 @@ public enum BookingError implements ErrorCode {
 
 - 환경: H2 + 임베디드 Redis(포트 **63790** — 로컬 개발용 Redis 기본 포트 6379와 충돌 회피), 통합 테스트는 `@ServiceTest`
 - ⚠️ **테스트 메서드 `@Transactional` 절대 금지** — `@ServiceTest`의 cleanup(`DatabaseCleanupExtension`, `RedisCleanupExtension`)을 우회한다
-- 상세 컨벤션 → `.claude/skills/test/SKILL.md` / Helper 빌더 예제 → [docs/testing-guide.md](./docs/testing-guide.md)
+- 상세 컨벤션 → `.agents/skills/test/SKILL.md` / Helper 빌더 예제 → [docs/testing-guide.md](./docs/testing-guide.md)
 
 ## Technology Stack
 
@@ -157,7 +157,8 @@ Java 17, Spring Boot 3.5.0, MySQL (prod/dev), H2 (test), Redis, QueryDSL 5.0.0 (
 4. **구현** — `/branch <이슈>`로 브랜치 생성 후 도메인별 skill(`/validator`, `/api-doc` 등) 결합. 본 프로젝트는 **구현 → 테스트 순서**를 표준으로 한다.
 5. **테스트 작성** — `/test <대상>` (BDD/Fixture/Helper 컨벤션 자동 적용; 단순 설정/문서 변경 등은 생략 가능)
 6. **검증** — `superpowers:verification-before-completion` ("완료" 선언 전 `./gradlew test` 등 증거 확보)
-7. **PR** — `/commit`으로 커밋 후 `/pr` 실행 (변경사항 자동 분석 + 이슈 기반 PR 생성)
+7. **문서 반영** — 작업으로 바뀐 내용을 관련 문서에 반영한다. 영향받는 기존 문서(`AGENTS.md`, `README.md`, `docs/*`)를 수정하고, 새 도메인·아키텍처·배포 변경처럼 기존 문서로 담기 어려우면 적절한 문서를 새로 생성한다. 변경 문서는 같은 PR에 포함한다.
+8. **PR** — `/commit`으로 커밋 후 `/pr` 실행 (변경사항 자동 분석 + 이슈 기반 PR 생성)
 
 **버그 발생 시** → 가장 먼저 `superpowers:systematic-debugging`.
 **코드리뷰 받았을 때** → `superpowers:receiving-code-review`로 맹목적 적용을 방지.
@@ -182,4 +183,4 @@ Java 17, Spring Boot 3.5.0, MySQL (prod/dev), H2 (test), Redis, QueryDSL 5.0.0 (
   핵심: 엔티티 관계도, Status enum, 한국어 용어(예약/예매/승차권) 일관 사용.
 
 - **배포/인프라/K8s 작업 시** → [docs/deployment.md](./docs/deployment.md)
-  핵심: K8s 매니페스트는 `k8s/`, ArgoCD는 `main` 브랜치 sync, `raillo-secrets`로 시크릿 주입.
+  핵심: K8s 매니페스트는 `k8s/k8s-application`·`k8s-argocd`·`k8s-monitoring`, ArgoCD는 `main` 브랜치 sync, 환경변수는 `raillo-config`(ConfigMap)·`raillo-secrets`(Secret)를 `envFrom`으로 주입.
