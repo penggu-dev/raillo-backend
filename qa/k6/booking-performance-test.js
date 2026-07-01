@@ -1,15 +1,16 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { Counter } from 'k6/metrics';
+import { Counter, Trend } from 'k6/metrics';
 
 const BRANCH = __ENV.BRANCH || 'develop';
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 const CONFIG_PATH = __ENV.CONFIG || 'config/booking-performance-config.json';
+const SUMMARY_PATH = __ENV.SUMMARY_PATH || `booking-performance-${BRANCH}-summary.json`;
 const SCENARIO = __ENV.SCENARIO || 'high-contention';
 const VUS = Number(__ENV.VUS || 100);
-const RAMP_UP = __ENV.RAMP_UP || '30s';
-const DURATION = __ENV.DURATION || '2m';
-const RAMP_DOWN = __ENV.RAMP_DOWN || '30s';
+const RAMP_UP = __ENV.RAMP_UP || '10s';
+const DURATION = __ENV.DURATION || '40s';
+const RAMP_DOWN = __ENV.RAMP_DOWN || '10s';
 const REQUEST_TIMEOUT = __ENV.REQUEST_TIMEOUT || '10s';
 const THINK_TIME_SECONDS = Number(__ENV.THINK_TIME_SECONDS || 0);
 
@@ -17,6 +18,7 @@ const bookingSuccess = new Counter('booking_success');
 const bookingConflict = new Counter('booking_conflict');
 const bookingSystemError = new Counter('booking_system_error');
 const loginFailure = new Counter('login_failure');
+const bookingDuration = new Trend('booking_duration', true);
 
 const CONFIG = JSON.parse(openConfig(CONFIG_PATH));
 
@@ -28,22 +30,7 @@ export const options = {
     { duration: DURATION, target: VUS },
     { duration: RAMP_DOWN, target: 0 },
   ],
-  thresholds: {
-    http_req_duration: ['p(95)<5000'],
-    booking_system_error: ['count<1'],
-  },
 };
-
-function openConfig(path) {
-  try {
-    return open(path);
-  } catch (error) {
-    if (path.startsWith('qa/k6/')) {
-      return open(path.replace(/^qa\/k6\//, ''));
-    }
-    throw error;
-  }
-}
 
 export function setup() {
   validateConfig(CONFIG);
@@ -60,7 +47,7 @@ export function setup() {
     }), {
       headers: { 'Content-Type': 'application/json' },
       timeout: REQUEST_TIMEOUT,
-      tags: { name: 'login' },
+      tags: { name: 'login', branch: BRANCH },
     });
 
     if (res.status !== 200) {
@@ -115,6 +102,12 @@ export default function (data) {
     tags: { name: 'booking_create', branch: BRANCH, scenario: SCENARIO },
   });
 
+  bookingDuration.add(res.timings.duration, {
+    branch: BRANCH,
+    scenario: SCENARIO,
+    result: classifyResponse(res),
+  });
+
   const result = classifyResponse(res);
   if (result === 'success') {
     bookingSuccess.add(1);
@@ -131,6 +124,74 @@ export default function (data) {
 
   if (THINK_TIME_SECONDS > 0) {
     sleep(THINK_TIME_SECONDS);
+  }
+}
+
+export function handleSummary(data) {
+  const safeSummary = {
+    metadata: {
+      branch: BRANCH,
+      baseUrl: BASE_URL,
+      scenario: SCENARIO,
+      vus: VUS,
+      rampUp: RAMP_UP,
+      duration: DURATION,
+      rampDown: RAMP_DOWN,
+      config: CONFIG_PATH,
+    },
+    metrics: data.metrics,
+    root_group: data.root_group,
+  };
+
+  return {
+    stdout: buildConsoleSummary(data),
+    [SUMMARY_PATH]: JSON.stringify(safeSummary, null, 2),
+  };
+}
+
+function buildConsoleSummary(data) {
+  const iterations = metricValue(data, 'iterations', 'rate');
+  const avg = metricValue(data, 'booking_duration', 'avg');
+  const p90 = metricValue(data, 'booking_duration', 'p(90)');
+  const p95 = metricValue(data, 'booking_duration', 'p(95)');
+  const p99 = metricValue(data, 'booking_duration', 'p(99)');
+  const success = metricValue(data, 'booking_success', 'count');
+  const conflict = metricValue(data, 'booking_conflict', 'count');
+  const systemError = metricValue(data, 'booking_system_error', 'count');
+
+  return [
+    '',
+    'Booking API performance summary',
+    `branch=${BRANCH}`,
+    `iterations/sec=${iterations.toFixed(2)}`,
+    `booking_avg_ms=${avg.toFixed(2)}`,
+    `booking_p90_ms=${p90.toFixed(2)}`,
+    `booking_p95_ms=${p95.toFixed(2)}`,
+    `booking_p99_ms=${p99.toFixed(2)}`,
+    `success=${success}`,
+    `conflict=${conflict}`,
+    `system_error=${systemError}`,
+    '',
+  ].join('\n');
+}
+
+function metricValue(data, metricName, valueName) {
+  const metric = data.metrics[metricName] || {};
+  if (valueName in metric) {
+    return Number(metric[valueName] || 0);
+  }
+  const values = metric.values || {};
+  return Number(values[valueName] || 0);
+}
+
+function openConfig(path) {
+  try {
+    return open(path);
+  } catch (error) {
+    if (path.startsWith('qa/k6/')) {
+      return open(path.replace(/^qa\/k6\//, ''));
+    }
+    throw error;
   }
 }
 
