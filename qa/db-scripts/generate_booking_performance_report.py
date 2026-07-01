@@ -33,6 +33,9 @@ METRICS = {
     "booking_system_error": (("booking_system_error",), "count"),
     "login_failure": (("login_failure",), "count"),
 }
+SCRIPT_PATH = Path(__file__).resolve()
+QA_ROOT = SCRIPT_PATH.parents[1]
+PROJECT_ROOT = SCRIPT_PATH.parents[2]
 
 
 def parse_args() -> argparse.Namespace:
@@ -43,12 +46,51 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed-v1", help="v1 seed report markdown")
     parser.add_argument("--seed-develop", help="develop seed report markdown")
     parser.add_argument("--output", required=True)
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.v1 = [resolve_input_path(path) for path in args.v1]
+    args.develop = [resolve_input_path(path) for path in args.develop]
+    args.seed_v1 = resolve_input_path(args.seed_v1) if args.seed_v1 else None
+    args.seed_develop = resolve_input_path(args.seed_develop) if args.seed_develop else None
+    args.output = resolve_output_path(args.output)
+    return args
 
 
-def read_summary(path: str) -> dict[str, Any]:
+def resolve_input_path(path_value: str) -> Path:
+    path = Path(path_value).expanduser()
+    if path.is_absolute():
+        return path
+
+    candidates = [Path.cwd() / path]
+    if path.parts and path.parts[0] == "qa":
+        candidates.append(PROJECT_ROOT / path)
+    else:
+        candidates.extend([QA_ROOT / path, PROJECT_ROOT / path])
+
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    return PROJECT_ROOT / path if path.parts and path.parts[0] == "qa" else Path.cwd() / path
+
+
+def resolve_output_path(path_value: str) -> Path:
+    path = Path(path_value).expanduser()
+    if path.is_absolute():
+        return path
+
+    if path.parts and path.parts[0] == "qa":
+        return PROJECT_ROOT / path
+
+    try:
+        Path.cwd().resolve().relative_to(QA_ROOT)
+        return QA_ROOT / path
+    except ValueError:
+        return Path.cwd() / path
+
+
+def read_summary(path: Path) -> dict[str, Any]:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
-    return extract_metrics(data, path)
+    return extract_metrics(data, str(path))
 
 
 def extract_metrics(data: dict[str, Any], path: str) -> dict[str, float]:
@@ -77,7 +119,7 @@ def metric_value(metric: dict[str, Any], value_name: str) -> float:
     return 0.0
 
 
-def summarize(paths: list[str]) -> dict[str, float]:
+def summarize(paths: list[Path]) -> dict[str, float]:
     runs = [read_summary(path) for path in paths]
     summary: dict[str, float] = {"run_count": float(len(runs))}
     for key in METRICS.keys():
@@ -93,7 +135,7 @@ def percent_change(base: float, new: float, higher_is_better: bool) -> float:
     return ((base - new) / base) * 100
 
 
-def read_optional(path: str | None) -> str:
+def read_optional(path: Path | None) -> str:
     if not path:
         return ""
     file = Path(path)

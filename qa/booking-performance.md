@@ -5,6 +5,8 @@
 ## 전제
 
 - 현재 작업 브랜치: `booking-performance-setup`
+- 아래 명령은 모두 `raillo-backend/qa` 디렉터리 기준 예시다.
+- Python 준비/비교 스크립트는 IntelliJ에서 Working directory가 `qa/`로 잡히는 기준에 맞춘다.
 - 테스트 DB schema:
   - `v1` 브랜치: `v1`
   - `develop` 브랜치: `v2`
@@ -13,7 +15,7 @@
 - 회원번호 후보 범위: `202603030001` ~ `202603039999`
 - v1 회원 데이터는 `is_locked=0`, `lock_count=0`이 필요하다. 값이 `NULL`이면 v1 로그인 시 Hibernate가 `MemberDetail`을 만들지 못한다.
 - 성능 테스트 전 선점 데이터: 대상 좌석 30%
-- 로컬 앱 실행은 `qa/compose-test.yaml`을 사용한다.
+- 로컬 앱 실행은 `compose-test.yaml`을 사용한다.
 - 로컬 앱 컨테이너 스펙:
   - app: 1 vCPU, 1GB memory
   - Redis: 0.5 vCPU, 768MB memory, `maxmemory=512mb`, `noeviction`
@@ -21,24 +23,26 @@
   - Hikari maximum pool size: 100
 - 실제 k6 실행은 사용자가 직접 수행한다.
 - 결과는 환경별로 분리 저장한다.
-  - 로컬: `qa/results/booking-performance/local/`
-  - EKS: `qa/results/booking-performance/eks/`
+  - 로컬: `results/booking-performance/local/`
+  - EKS: `results/booking-performance/eks/`
 
 ## 1. 로컬 env 파일
 
 성능 테스트용 env 파일은 루트 `.env`를 직접 수정하지 않고 별도로 둔다.
 
-- `qa/env/booking-performance-v1.env`: v1 앱 실행 및 v1 schema 준비용
-- `qa/env/booking-performance-develop.env`: develop 앱 실행 및 v2 schema 준비용
+- `env/booking-performance-v1.env`: v1 앱 실행 및 v1 schema 준비용
+- `env/booking-performance-develop.env`: develop 앱 실행 및 v2 schema 준비용
 
 실제 env 파일은 Git에 포함하지 않는다. 필요한 항목은 아래 예시 파일을 기준으로 맞춘다.
 
-- `qa/env/booking-performance-v1.env.example`
-- `qa/env/booking-performance-develop.env.example`
+- `env/booking-performance-v1.env.example`
+- `env/booking-performance-develop.env.example`
 
-`qa/compose-test.yaml`은 이 테스트 세팅 브랜치(`booking-performance-setup`)에만 있다. 따라서 v1 성능 테스트도 v1 브랜치 안에서 compose를 실행하지 않고, 이 브랜치 루트에서 compose를 실행한 뒤 v1 worktree의 jar만 연결한다.
+IntelliJ Run Configuration으로 `db-scripts/generate_booking_performance_data.py`를 직접 실행할 때는 Working directory를 `raillo-backend/qa`로 둔다. Program arguments에는 문서의 `--env-file env/...`, `--output k6/...`, `--seed-report results/...` 값을 그대로 넣는다.
 
-`qa/compose-test.yaml`에서 사용하는 `APP_ENV_FILE`, `APP_LIBS_DIR` 값은 compose 파일 위치인 `qa/` 기준 상대 경로다. 예를 들어 v1 env 파일은 `./env/booking-performance-v1.env`, v1 jar 디렉터리는 `../.worktrees/raillo-v1/build/libs`로 지정한다.
+`compose-test.yaml`은 이 테스트 세팅 브랜치(`booking-performance-setup`)에만 있다. 따라서 v1 성능 테스트도 v1 브랜치 안에서 compose를 실행하지 않고, 이 브랜치의 `qa/` 디렉터리에서 compose를 실행한 뒤 v1 worktree의 jar만 연결한다.
+
+`compose-test.yaml`에서 사용하는 `APP_ENV_FILE`, `APP_LIBS_DIR` 값은 compose 파일 위치인 `qa/` 기준 상대 경로다. 예를 들어 v1 env 파일은 `./env/booking-performance-v1.env`, v1 jar 디렉터리는 `../.worktrees/raillo-v1/build/libs`로 지정한다.
 
 v1 브랜치는 예전 프로젝트명 때문에 jar 이름이 `railo-0.0.1-SNAPSHOT.jar`다. develop은 `raillo-0.0.1-SNAPSHOT.jar`를 사용한다.
 
@@ -50,39 +54,39 @@ v1 브랜치는 예전 프로젝트명 때문에 jar 이름이 `railo-0.0.1-SNAP
 
 `generate_booking_performance_data.py`는 DB 기준 현재시각에서 기본 30분 뒤(`--departure-buffer-minutes 30`) 이후에 출발하는 `ACTIVE`/`DELAYED` 스케줄만 선택한다. develop은 출발 5분 전부터 예약을 막기 때문에, 과거 스케줄이 선택되면 k6에서 `TRAIN_402`가 발생한다.
 
-k6 config는 `qa/k6/config/booking-performance-config.json` 한 파일만 사용한다. 각 run 직전에 현재 테스트할 브랜치 기준으로 다시 생성하므로, v1과 develop config를 동시에 보관하지 않는다.
+k6 config는 `k6/config/booking-performance-config.json` 한 파일만 사용한다. 각 run 직전에 현재 테스트할 브랜치 기준으로 다시 생성하므로, v1과 develop config를 동시에 보관하지 않는다.
 
 ### v1 DB 준비
 
 ```bash
-python3 qa/db-scripts/generate_booking_performance_data.py \
+python3 db-scripts/generate_booking_performance_data.py \
   --branch v1 \
   --schema v1 \
-  --env-file qa/env/booking-performance-v1.env \
+  --env-file env/booking-performance-v1.env \
   --confirm-test-db \
   --occupancy 0.30 \
   --member-limit 1000 \
-  --output qa/k6/config/booking-performance-config.json \
-  --seed-report qa/results/booking-performance/local/seed-report-v1.md
+  --output k6/config/booking-performance-config.json \
+  --seed-report results/booking-performance/local/seed-report-v1.md
 ```
 
 ### develop DB 준비
 
 ```bash
-python3 qa/db-scripts/generate_booking_performance_data.py \
+python3 db-scripts/generate_booking_performance_data.py \
   --branch develop \
   --schema v2 \
-  --env-file qa/env/booking-performance-develop.env \
+  --env-file env/booking-performance-develop.env \
   --confirm-test-db \
   --occupancy 0.30 \
   --member-limit 1000 \
-  --output qa/k6/config/booking-performance-config.json \
-  --seed-report qa/results/booking-performance/local/seed-report-develop.md
+  --output k6/config/booking-performance-config.json \
+  --seed-report results/booking-performance/local/seed-report-develop.md
 ```
 
 ## 3. 로컬 v1 서버 실행
 
-아래 명령은 모두 `booking-performance-setup` 브랜치의 프로젝트 루트에서 실행한다. v1 브랜치로 직접 checkout해서 실행하지 않는다.
+아래 명령은 모두 `booking-performance-setup` 브랜치의 `qa/` 디렉터리에서 실행한다. v1 브랜치로 직접 checkout해서 실행하지 않는다.
 
 v1 브랜치는 현재 작업 브랜치와 API/스키마가 다르므로, v1 jar를 별도 worktree에서 빌드하고 compose에는 해당 jar 디렉터리만 연결한다.
 
@@ -91,28 +95,28 @@ git switch booking-performance-setup
 ```
 
 ```bash
-git worktree add .worktrees/raillo-v1 v1
+git worktree add ../.worktrees/raillo-v1 v1
 ```
 
 ```bash
-cd .worktrees/raillo-v1
+cd ../.worktrees/raillo-v1
 ./gradlew clean bootJar
-cd ../..
+cd ../../qa
 ```
 
 ```bash
 APP_LIBS_DIR=../.worktrees/raillo-v1/build/libs \
 APP_JAR_FILE=railo-0.0.1-SNAPSHOT.jar \
 APP_ENV_FILE=./env/booking-performance-v1.env \
-docker compose -f qa/compose-test.yaml up -d
+docker compose -f compose-test.yaml up -d
 ```
 
-이때 실행되는 compose 파일은 현재 브랜치의 `qa/compose-test.yaml`이고, 앱 컨테이너 안에서 실행되는 jar만 v1 worktree의 빌드 결과물이다.
+이때 실행되는 compose 파일은 현재 브랜치의 `compose-test.yaml`이고, 앱 컨테이너 안에서 실행되는 jar만 v1 worktree의 빌드 결과물이다.
 
 테스트가 끝나면 다음 버전 실행 전에 compose를 내린다.
 
 ```bash
-docker compose -f qa/compose-test.yaml down
+docker compose -f compose-test.yaml down
 ```
 
 ## 4. 로컬 v1 테스트
@@ -121,26 +125,25 @@ docker compose -f qa/compose-test.yaml down
 
 ```bash
 for i in 1 2 3; do
-  python3 qa/db-scripts/generate_booking_performance_data.py \
+  python3 db-scripts/generate_booking_performance_data.py \
     --branch v1 \
     --schema v1 \
-    --env-file qa/env/booking-performance-v1.env \
+    --env-file env/booking-performance-v1.env \
     --confirm-test-db \
     --occupancy 0.30 \
     --member-limit 1000 \
-    --output qa/k6/config/booking-performance-config.json \
-    --seed-report qa/results/booking-performance/local/seed-report-v1-run-${i}.md
+    --output k6/config/booking-performance-config.json \
+    --seed-report results/booking-performance/local/seed-report-v1-run-${i}.md
 
   APP_ENV_FILE=./env/booking-performance-v1.env \
-  docker compose -f qa/compose-test.yaml exec -T redis redis-cli FLUSHALL
+  docker compose -f compose-test.yaml exec -T redis redis-cli FLUSHALL
 
   BRANCH=v1 \
   CONFIG=config/booking-performance-config.json \
   BASE_URL=http://localhost:8080 \
   SCENARIO=high-contention \
-  k6 run \
-    --summary-export qa/results/booking-performance/local/v1-run-${i}.json \
-    qa/k6/booking-performance-test.js
+  SUMMARY_PATH=results/booking-performance/local/v1-run-${i}.json \
+  k6 run k6/booking-performance-test.js
 done
 ```
 
@@ -149,18 +152,18 @@ done
 develop 테스트는 `booking-performance-setup` 브랜치의 jar를 빌드해 실행한다. 이 브랜치는 develop 기반 테스트 세팅 브랜치이므로 develop API 테스트에 사용할 수 있다.
 
 ```bash
-./gradlew clean bootJar
+../gradlew clean bootJar
 ```
 
 ```bash
 APP_ENV_FILE=./env/booking-performance-develop.env \
-docker compose -f qa/compose-test.yaml up -d
+docker compose -f compose-test.yaml up -d
 ```
 
 테스트가 끝나면 compose를 내린다.
 
 ```bash
-docker compose -f qa/compose-test.yaml down
+docker compose -f compose-test.yaml down
 ```
 
 ## 6. 로컬 develop 테스트
@@ -169,45 +172,44 @@ docker compose -f qa/compose-test.yaml down
 
 ```bash
 for i in 1 2 3; do
-  python3 qa/db-scripts/generate_booking_performance_data.py \
+  python3 db-scripts/generate_booking_performance_data.py \
     --branch develop \
     --schema v2 \
-    --env-file qa/env/booking-performance-develop.env \
+    --env-file env/booking-performance-develop.env \
     --confirm-test-db \
     --occupancy 0.30 \
     --member-limit 1000 \
-    --output qa/k6/config/booking-performance-config.json \
-    --seed-report qa/results/booking-performance/local/seed-report-develop-run-${i}.md
+    --output k6/config/booking-performance-config.json \
+    --seed-report results/booking-performance/local/seed-report-develop-run-${i}.md
 
   APP_ENV_FILE=./env/booking-performance-develop.env \
-  docker compose -f qa/compose-test.yaml exec -T redis redis-cli FLUSHALL
+  docker compose -f compose-test.yaml exec -T redis redis-cli FLUSHALL
 
   BRANCH=develop \
   CONFIG=config/booking-performance-config.json \
   BASE_URL=http://localhost:8080 \
   SCENARIO=high-contention \
-  k6 run \
-    --summary-export qa/results/booking-performance/local/develop-run-${i}.json \
-    qa/k6/booking-performance-test.js
+  SUMMARY_PATH=results/booking-performance/local/develop-run-${i}.json \
+  k6 run k6/booking-performance-test.js
 done
 ```
 
 ## 7. 로컬 결과 비교
 
 ```bash
-python3 qa/db-scripts/generate_booking_performance_report.py \
+python3 db-scripts/generate_booking_performance_report.py \
   --environment local \
   --v1 \
-    qa/results/booking-performance/local/v1-run-1.json \
-    qa/results/booking-performance/local/v1-run-2.json \
-    qa/results/booking-performance/local/v1-run-3.json \
+    results/booking-performance/local/v1-run-1.json \
+    results/booking-performance/local/v1-run-2.json \
+    results/booking-performance/local/v1-run-3.json \
   --develop \
-    qa/results/booking-performance/local/develop-run-1.json \
-    qa/results/booking-performance/local/develop-run-2.json \
-    qa/results/booking-performance/local/develop-run-3.json \
-  --seed-v1 qa/results/booking-performance/local/seed-report-v1-run-1.md \
-  --seed-develop qa/results/booking-performance/local/seed-report-develop-run-1.md \
-  --output qa/results/booking-performance/local/comparison.md
+    results/booking-performance/local/develop-run-1.json \
+    results/booking-performance/local/develop-run-2.json \
+    results/booking-performance/local/develop-run-3.json \
+  --seed-v1 results/booking-performance/local/seed-report-v1-run-1.md \
+  --seed-develop results/booking-performance/local/seed-report-develop-run-1.md \
+  --output results/booking-performance/local/comparison.md
 ```
 
 ## 8. EKS 테스트 준비
@@ -229,27 +231,27 @@ node2
 EKS에서 테스트 전에도 DB 선점 조건을 맞춘다. EKS가 같은 테스트 DB를 사용한다면 아래 명령을 다시 실행해 예약/결제 데이터만 초기화하고 30% 선점 데이터를 다시 만든다.
 
 ```bash
-python3 qa/db-scripts/generate_booking_performance_data.py \
+python3 db-scripts/generate_booking_performance_data.py \
   --branch v1 \
   --schema v1 \
-  --env-file qa/env/booking-performance-v1.env \
+  --env-file env/booking-performance-v1.env \
   --confirm-test-db \
   --occupancy 0.30 \
   --member-limit 1000 \
-  --output qa/k6/config/booking-performance-config.json \
-  --seed-report qa/results/booking-performance/eks/seed-report-v1.md
+  --output k6/config/booking-performance-config.json \
+  --seed-report results/booking-performance/eks/seed-report-v1.md
 ```
 
 ```bash
-python3 qa/db-scripts/generate_booking_performance_data.py \
+python3 db-scripts/generate_booking_performance_data.py \
   --branch develop \
   --schema v2 \
-  --env-file qa/env/booking-performance-develop.env \
+  --env-file env/booking-performance-develop.env \
   --confirm-test-db \
   --occupancy 0.30 \
   --member-limit 1000 \
-  --output qa/k6/config/booking-performance-config.json \
-  --seed-report qa/results/booking-performance/eks/seed-report-develop.md
+  --output k6/config/booking-performance-config.json \
+  --seed-report results/booking-performance/eks/seed-report-develop.md
 ```
 
 ## 9. EKS v1 테스트
@@ -258,15 +260,15 @@ python3 qa/db-scripts/generate_booking_performance_data.py \
 
 ```bash
 for i in 1 2 3; do
-  python3 qa/db-scripts/generate_booking_performance_data.py \
+  python3 db-scripts/generate_booking_performance_data.py \
     --branch v1 \
     --schema v1 \
-    --env-file qa/env/booking-performance-v1.env \
+    --env-file env/booking-performance-v1.env \
     --confirm-test-db \
     --occupancy 0.30 \
     --member-limit 1000 \
-    --output qa/k6/config/booking-performance-config.json \
-    --seed-report qa/results/booking-performance/eks/seed-report-v1-run-${i}.md
+    --output k6/config/booking-performance-config.json \
+    --seed-report results/booking-performance/eks/seed-report-v1-run-${i}.md
 
   # EKS Redis 위치에 맞게 실행한다.
   # 예: kubectl exec -n <namespace> <redis-pod> -- redis-cli FLUSHALL
@@ -278,8 +280,8 @@ for i in 1 2 3; do
   RAMP_UP=10s \
   DURATION=40s \
   RAMP_DOWN=10s \
-  SUMMARY_PATH=qa/results/booking-performance/eks/v1-run-${i}.json \
-  k6 run qa/k6/booking-performance-eks-test.js
+  SUMMARY_PATH=results/booking-performance/eks/v1-run-${i}.json \
+  k6 run k6/booking-performance-test.js
 done
 ```
 
@@ -289,15 +291,15 @@ done
 
 ```bash
 for i in 1 2 3; do
-  python3 qa/db-scripts/generate_booking_performance_data.py \
+  python3 db-scripts/generate_booking_performance_data.py \
     --branch develop \
     --schema v2 \
-    --env-file qa/env/booking-performance-develop.env \
+    --env-file env/booking-performance-develop.env \
     --confirm-test-db \
     --occupancy 0.30 \
     --member-limit 1000 \
-    --output qa/k6/config/booking-performance-config.json \
-    --seed-report qa/results/booking-performance/eks/seed-report-develop-run-${i}.md
+    --output k6/config/booking-performance-config.json \
+    --seed-report results/booking-performance/eks/seed-report-develop-run-${i}.md
 
   # EKS Redis 위치에 맞게 실행한다.
   # 예: kubectl exec -n <namespace> <redis-pod> -- redis-cli FLUSHALL
@@ -309,27 +311,27 @@ for i in 1 2 3; do
   RAMP_UP=10s \
   DURATION=40s \
   RAMP_DOWN=10s \
-  SUMMARY_PATH=qa/results/booking-performance/eks/develop-run-${i}.json \
-  k6 run qa/k6/booking-performance-eks-test.js
+  SUMMARY_PATH=results/booking-performance/eks/develop-run-${i}.json \
+  k6 run k6/booking-performance-test.js
 done
 ```
 
 ## 11. EKS 결과 비교
 
 ```bash
-python3 qa/db-scripts/generate_booking_performance_report.py \
+python3 db-scripts/generate_booking_performance_report.py \
   --environment eks \
   --v1 \
-    qa/results/booking-performance/eks/v1-run-1.json \
-    qa/results/booking-performance/eks/v1-run-2.json \
-    qa/results/booking-performance/eks/v1-run-3.json \
+    results/booking-performance/eks/v1-run-1.json \
+    results/booking-performance/eks/v1-run-2.json \
+    results/booking-performance/eks/v1-run-3.json \
   --develop \
-    qa/results/booking-performance/eks/develop-run-1.json \
-    qa/results/booking-performance/eks/develop-run-2.json \
-    qa/results/booking-performance/eks/develop-run-3.json \
-  --seed-v1 qa/results/booking-performance/eks/seed-report-v1-run-1.md \
-  --seed-develop qa/results/booking-performance/eks/seed-report-develop-run-1.md \
-  --output qa/results/booking-performance/eks/comparison.md
+    results/booking-performance/eks/develop-run-1.json \
+    results/booking-performance/eks/develop-run-2.json \
+    results/booking-performance/eks/develop-run-3.json \
+  --seed-v1 results/booking-performance/eks/seed-report-v1-run-1.md \
+  --seed-develop results/booking-performance/eks/seed-report-develop-run-1.md \
+  --output results/booking-performance/eks/comparison.md
 ```
 
 ## 시나리오 옵션

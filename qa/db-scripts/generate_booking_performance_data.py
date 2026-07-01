@@ -43,6 +43,9 @@ MEMBER_NO_START = "202603030001"
 MEMBER_NO_END = "202603039999"
 MEMBER_PASSWORD = "Test1234!"
 DEFAULT_FARE = Decimal("10000")
+SCRIPT_PATH = Path(__file__).resolve()
+QA_ROOT = SCRIPT_PATH.parents[1]
+PROJECT_ROOT = SCRIPT_PATH.parents[2]
 
 
 def parse_args() -> argparse.Namespace:
@@ -77,12 +80,16 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
 
     if args.env_from or args.env_file != ".env":
+        args.env_file = resolve_input_path(args.env_file)
         env = load_env_file(args.env_file)
         args.host = env.get("host", args.host)
         args.port = env.get("port", args.port)
         args.schema = env.get("db", args.schema)
         args.user = env.get("user", args.user)
         args.password = env.get("password", args.password)
+
+    args.output = resolve_output_path(args.output)
+    args.seed_report = resolve_output_path(args.seed_report)
 
     if not args.schema:
         args.schema = "v1" if args.branch == "v1" else "v2"
@@ -99,8 +106,41 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def load_env_file(env_path: str) -> dict[str, Any]:
-    path = Path(env_path)
+def resolve_input_path(path_value: str) -> Path:
+    path = Path(path_value).expanduser()
+    if path.is_absolute():
+        return path
+
+    candidates = [Path.cwd() / path]
+    if path.parts and path.parts[0] == "qa":
+        candidates.append(PROJECT_ROOT / path)
+    else:
+        candidates.extend([QA_ROOT / path, PROJECT_ROOT / path])
+
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    return PROJECT_ROOT / path if path.parts and path.parts[0] == "qa" else Path.cwd() / path
+
+
+def resolve_output_path(path_value: str) -> Path:
+    path = Path(path_value).expanduser()
+    if path.is_absolute():
+        return path
+
+    if path.parts and path.parts[0] == "qa":
+        return PROJECT_ROOT / path
+
+    try:
+        Path.cwd().resolve().relative_to(QA_ROOT)
+        return QA_ROOT / path
+    except ValueError:
+        return Path.cwd() / path
+
+
+def load_env_file(env_path: Path) -> dict[str, Any]:
+    path = env_path
     if not path.is_file():
         raise SystemExit(f"[ERROR] .env file not found: {env_path}")
 
