@@ -6,17 +6,17 @@ services:
       - "8080:8080"
     working_dir: /app
     volumes:
-      - ./build/libs:/app/libs
-      - ./.env:/app/.env
+      - ${APP_LIBS_DIR:-../build/libs}:/app/libs:ro
+      - ${APP_ENV_FILE:-../.env}:/app/.env:ro
     entrypoint: [
       "java",
       "-XX:MaxRAMPercentage=75.0",
       "-Dspring.profiles.active=dev",
       "-jar",
-      "/app/libs/raillo-0.0.1-SNAPSHOT.jar"
+      "/app/libs/${APP_JAR_FILE:-raillo-0.0.1-SNAPSHOT.jar}"
     ]
     env_file:
-      - .env
+      - ${APP_ENV_FILE:-../.env}
     environment:
       - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_DATA_REDIS_HOST=redis
@@ -24,11 +24,8 @@ services:
     depends_on:
       - redis
       - wiremock
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0' # application server cpu 코어 수
-          memory: 1G # application server 메모리 용량
+    cpus: "1.0"
+    mem_limit: 1g
 
   redis:
     image: 'redis:alpine'
@@ -37,7 +34,9 @@ services:
     command: >
       redis-server
       --maxmemory 512mb
-    # Redis 메모리 용량
+      --maxmemory-policy noeviction
+    cpus: "0.5"
+    mem_limit: 768m
 
   wiremock:
     image: wiremock/wiremock:latest
@@ -45,7 +44,7 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - ./qa/wiremock/mappings:/home/wiremock/mappings
+      - ./wiremock/mappings:/home/wiremock/mappings
 
     command: --global-response-templating --verbose
 
@@ -96,7 +95,7 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=true
     volumes:
-      - ./qa/grafana/dashboards:/tmp/custom-dashboards
+      - ./grafana/dashboards:/tmp/custom-dashboards
     depends_on:
       - prometheus
     user: root
