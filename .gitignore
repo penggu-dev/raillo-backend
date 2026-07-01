@@ -5,6 +5,7 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 /.venv/
+.worktrees/
 
 ### Environment ###
 .env

@@ -3,19 +3,18 @@ Prepare booking API performance-test data and k6 config.
 
 This script is intentionally branch-aware because v1 and develop use different
 reservation schemas. It keeps train/member data intact, clears only booking
-and payment related tables, creates 30% pre-occupied confirmed seats, and
-writes a k6 config JSON.
+and payment related tables, creates pre-occupied confirmed seats from a fixed
+k6 config JSON, or writes that config once from train/member data.
 
 Examples:
-  python3 qa/db-scripts/generate_booking_performance_data.py \
-    --branch v1 --schema v1 --confirm-test-db \
-    --output qa/k6/config/booking-performance-config.json \
-    --seed-report qa/results/booking-performance/local/seed-report-v1.md
+  python3 db-scripts/generate_booking_performance_data.py \
+    --mode config --env-file env/booking-performance-develop.env \
+    --output k6/config/booking-performance-config.json
 
-  python3 qa/db-scripts/generate_booking_performance_data.py \
-    --branch develop --schema v2 --confirm-test-db \
-    --output qa/k6/config/booking-performance-config.json \
-    --seed-report qa/results/booking-performance/local/seed-report-develop.md
+  python3 db-scripts/generate_booking_performance_data.py \
+    --mode prepare --branch v1 --env-file env/booking-performance-v1.env --confirm-test-db \
+    --config k6/config/booking-performance-config.json \
+    --seed-report results/booking-performance/local/seed-report-v1-run-1.md
 """
 
 from __future__ import annotations
@@ -50,8 +49,9 @@ PROJECT_ROOT = SCRIPT_PATH.parents[2]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Prepare booking performance-test data")
-    parser.add_argument("--branch", choices=["v1", "develop"], required=True)
-    parser.add_argument("--schema", help="MySQL schema/database name. Defaults to v1 or v2 by branch.")
+    parser.add_argument("--mode", choices=["config", "prepare"], required=True)
+    parser.add_argument("--branch", choices=["v1", "develop"])
+    parser.add_argument("--schema", help="Optional MySQL schema override. Usually loaded from --env-file TEST_DB_URL.")
     parser.add_argument("--host", default=os.environ.get("DB_HOST", "localhost"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("DB_PORT", "3306")))
     parser.add_argument("--user", default=os.environ.get("DB_USER", "root"))
@@ -68,8 +68,9 @@ def parse_args() -> argparse.Namespace:
         default=30,
         help="Only select schedules departing after DB NOW() plus this buffer.",
     )
-    parser.add_argument("--output", required=True)
-    parser.add_argument("--seed-report", required=True)
+    parser.add_argument("--output")
+    parser.add_argument("--config")
+    parser.add_argument("--seed-report")
     parser.add_argument("--no-cleanup", action="store_true", help="Skip booking/payment cleanup")
     parser.add_argument("--no-seed", action="store_true", help="Skip pre-occupied booking inserts")
     parser.add_argument(
@@ -88,8 +89,12 @@ def parse_args() -> argparse.Namespace:
         args.user = env.get("user", args.user)
         args.password = env.get("password", args.password)
 
-    args.output = resolve_output_path(args.output)
-    args.seed_report = resolve_output_path(args.seed_report)
+    if args.output:
+        args.output = resolve_output_path(args.output)
+    if args.config:
+        args.config = resolve_input_path(args.config)
+    if args.seed_report:
+        args.seed_report = resolve_output_path(args.seed_report)
 
     if not args.schema:
         args.schema = "v1" if args.branch == "v1" else "v2"
@@ -100,7 +105,19 @@ def parse_args() -> argparse.Namespace:
     if args.departure_buffer_minutes < 0:
         raise SystemExit("[ERROR] --departure-buffer-minutes must be greater than or equal to 0")
 
-    if (not args.no_cleanup or not args.no_seed) and not args.confirm_test_db:
+    if args.mode == "config" and not args.output:
+        raise SystemExit("[ERROR] --output is required when --mode config")
+
+    if args.mode == "prepare" and not args.branch:
+        raise SystemExit("[ERROR] --branch is required when --mode prepare")
+
+    if args.mode == "prepare" and not args.config:
+        raise SystemExit("[ERROR] --config is required when --mode prepare")
+
+    if args.mode == "prepare" and not args.seed_report:
+        raise SystemExit("[ERROR] --seed-report is required when --mode prepare")
+
+    if args.mode == "prepare" and (not args.no_cleanup or not args.no_seed) and not args.confirm_test_db:
         raise SystemExit("[ERROR] Add --confirm-test-db to allow cleanup/seed writes.")
 
     return args
@@ -227,6 +244,30 @@ def load_members(conn, limit: int) -> list[dict[str, Any]]:
     if len(members) < limit:
         raise SystemExit(f"[ERROR] expected {limit} members, found {len(members)}")
     return members
+
+
+def load_members_by_member_numbers(conn, member_numbers: list[str]) -> list[dict[str, Any]]:
+    if not member_numbers:
+        raise SystemExit("[ERROR] config.members must not be empty")
+
+    placeholders = ",".join(["%s"] * len(member_numbers))
+    sql = f"""
+        SELECT id, member_no
+        FROM member
+        WHERE member_no IN ({placeholders})
+          AND is_deleted = 0
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql, member_numbers)
+        rows = list(cursor.fetchall())
+
+    by_member_no = {str(row["member_no"]): row for row in rows}
+    missing = [member_no for member_no in member_numbers if member_no not in by_member_no]
+    if missing:
+        preview = ", ".join(missing[:5])
+        raise SystemExit(f"[ERROR] config members not found in target schema: {preview}")
+
+    return [by_member_no[member_no] for member_no in member_numbers]
 
 
 def validate_members(conn, branch: str) -> None:
@@ -361,6 +402,47 @@ def load_seats(conn, train_id: int) -> list[dict[str, Any]]:
     with conn.cursor() as cursor:
         cursor.execute(sql, (train_id,))
         return list(cursor.fetchall())
+
+
+def build_seed_data_from_config(
+    conn,
+    config_schedule: dict[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    schedule_id = int(config_schedule["scheduleId"])
+    train_id = int(config_schedule["trainId"])
+
+    stops = load_stops(conn, schedule_id)
+    stops_by_order = {int(stop["stop_order"]): stop for stop in stops}
+    stop_orders = [
+        int(config_schedule["departureStopOrder"]),
+        int(config_schedule["midStopOrder"]),
+        int(config_schedule["arrivalStopOrder"]),
+    ]
+    missing_stop_orders = [stop_order for stop_order in stop_orders if stop_order not in stops_by_order]
+    if missing_stop_orders:
+        raise SystemExit(
+            "[ERROR] config schedule stops not found in target schema. "
+            f"scheduleId={schedule_id}, missingStopOrders={missing_stop_orders}"
+        )
+
+    seats = load_seats(conn, train_id)
+    seats_by_id = {int(seat["seat_id"]): seat for seat in seats}
+    occupied_seat_ids = [int(seat_id) for seat_id in config_schedule["occupiedSeatIds"]]
+    missing_seat_ids = [seat_id for seat_id in occupied_seat_ids if seat_id not in seats_by_id]
+    if missing_seat_ids:
+        preview = ", ".join(str(seat_id) for seat_id in missing_seat_ids[:5])
+        raise SystemExit(
+            "[ERROR] config occupied seats not found in target schema. "
+            f"scheduleId={schedule_id}, missingSeatIds={preview}"
+        )
+
+    schedule = {
+        "schedule_id": schedule_id,
+        "train_id": train_id,
+        "stops": [stops_by_order[stop_order] for stop_order in stop_orders],
+    }
+    occupied = [seats_by_id[seat_id] for seat_id in occupied_seat_ids]
+    return schedule, occupied
 
 
 def select_seat_pool(seats: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -502,7 +584,7 @@ def seed_develop(conn, schedule: dict[str, Any], occupied: list[dict[str, Any]],
     conn.commit()
 
 
-def build_config(branch: str, members: list[dict[str, Any]], schedules: list[dict[str, Any]], occupancy: float) -> dict[str, Any]:
+def build_config(members: list[dict[str, Any]], schedules: list[dict[str, Any]], occupancy: float) -> dict[str, Any]:
     config_schedules = []
     for schedule in schedules:
         seats = schedule["seats"]
@@ -536,7 +618,6 @@ def build_config(branch: str, members: list[dict[str, Any]], schedules: list[dic
         )
 
     return {
-        "branch": branch,
         "memberPassword": MEMBER_PASSWORD,
         "memberNoStart": MEMBER_NO_START,
         "memberNoEnd": MEMBER_NO_END,
@@ -549,6 +630,34 @@ def write_json(path: str, data: dict[str, Any]) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_config(path: Path) -> dict[str, Any]:
+    config = json.loads(path.read_text(encoding="utf-8"))
+    validate_config(config)
+    return config
+
+
+def validate_config(config: dict[str, Any]) -> None:
+    if not isinstance(config.get("members"), list) or not config["members"]:
+        raise SystemExit("[ERROR] config.members must not be empty")
+
+    if not isinstance(config.get("schedules"), list) or not config["schedules"]:
+        raise SystemExit("[ERROR] config.schedules must not be empty")
+
+    required_schedule_keys = [
+        "scheduleId",
+        "trainId",
+        "departureStopOrder",
+        "midStopOrder",
+        "arrivalStopOrder",
+        "occupiedSeatIds",
+        "seatIds",
+    ]
+    for schedule in config["schedules"]:
+        for key in required_schedule_keys:
+            if key not in schedule:
+                raise SystemExit(f"[ERROR] config schedule missing required key: {key}")
 
 
 def write_seed_report(
@@ -605,53 +714,68 @@ def write_seed_report(
     output.write_text("\n".join(lines), encoding="utf-8")
 
 
+def run_config_mode(conn, args: argparse.Namespace) -> None:
+    members = load_members(conn, args.member_limit)
+    print(f"[OK] members={len(members)}")
+
+    database_now = load_database_now(conn)
+    departure_cutoff = database_now + timedelta(minutes=args.departure_buffer_minutes)
+    schedules = load_schedule_candidates(conn, args.min_seats, args.schedule_count, departure_cutoff)
+    print(
+        "[OK] selected schedules={} departure_cutoff={}".format(
+            len(schedules),
+            departure_cutoff.isoformat(timespec="seconds"),
+        )
+    )
+
+    config = build_config(members, schedules, args.occupancy)
+    write_json(args.output, config)
+    print(f"[OK] wrote {args.output}")
+
+
+def run_prepare_mode(conn, args: argparse.Namespace) -> None:
+    config = load_config(args.config)
+    deleted: dict[str, int] = {}
+
+    if not args.no_cleanup:
+        deleted = cleanup(conn, args.branch)
+        print(f"[OK] cleanup tables={len(deleted)}")
+
+    members = load_members_by_member_numbers(conn, [str(member_no) for member_no in config["members"]])
+    validate_members(conn, args.branch)
+    print(f"[OK] members={len(members)}")
+
+    if not args.no_seed:
+        for config_schedule in config["schedules"]:
+            schedule, occupied = build_seed_data_from_config(conn, config_schedule)
+            if args.branch == "v1":
+                seed_v1(conn, schedule, occupied, members)
+            else:
+                seed_develop(conn, schedule, occupied, members)
+
+            total_seats = len(config_schedule["seatIds"])
+            print(
+                "[OK] seeded schedule={} occupied={} total={} ratio={:.2f}".format(
+                    schedule["schedule_id"],
+                    len(occupied),
+                    total_seats,
+                    len(occupied) / total_seats if total_seats else 0,
+                )
+            )
+
+    write_seed_report(args.seed_report, args, config, deleted)
+    print(f"[OK] wrote {args.seed_report}")
+
+
 def main() -> None:
     args = parse_args()
-    print(f"[INFO] branch={args.branch} schema={args.schema} host={args.host}:{args.port}")
+    print(f"[INFO] mode={args.mode} branch={args.branch or '-'} schema={args.schema} host={args.host}:{args.port}")
     conn = connect(args)
-    deleted: dict[str, int] = {}
     try:
-        if not args.no_cleanup:
-            deleted = cleanup(conn, args.branch)
-            print(f"[OK] cleanup tables={len(deleted)}")
-
-        members = load_members(conn, args.member_limit)
-        validate_members(conn, args.branch)
-        print(f"[OK] members={len(members)}")
-
-        database_now = load_database_now(conn)
-        departure_cutoff = database_now + timedelta(minutes=args.departure_buffer_minutes)
-        schedules = load_schedule_candidates(conn, args.min_seats, args.schedule_count, departure_cutoff)
-        print(
-            "[OK] selected schedules={} departure_cutoff={}".format(
-                len(schedules),
-                departure_cutoff.isoformat(timespec="seconds"),
-            )
-        )
-
-        if not args.no_seed:
-            for schedule in schedules:
-                seats = schedule["seats"]
-                occupied_count = max(1, int(len(seats) * args.occupancy))
-                occupied = seats[:occupied_count]
-                if args.branch == "v1":
-                    seed_v1(conn, schedule, occupied, members)
-                else:
-                    seed_develop(conn, schedule, occupied, members)
-                print(
-                    "[OK] seeded schedule={} occupied={} total={} ratio={:.2f}".format(
-                        schedule["schedule_id"],
-                        occupied_count,
-                        len(seats),
-                        occupied_count / len(seats),
-                    )
-                )
-
-        config = build_config(args.branch, members, schedules, args.occupancy)
-        write_json(args.output, config)
-        write_seed_report(args.seed_report, args, config, deleted)
-        print(f"[OK] wrote {args.output}")
-        print(f"[OK] wrote {args.seed_report}")
+        if args.mode == "config":
+            run_config_mode(conn, args)
+        else:
+            run_prepare_mode(conn, args)
     finally:
         conn.close()
 
