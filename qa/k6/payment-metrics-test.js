@@ -6,19 +6,21 @@ import { check, sleep } from 'k6';
 // Grafana에서 Payment 관련 메트릭을 시각적으로 확인하기 위한 소규모 부하 테스트
 //
 // 사전 준비:
-//   1. docker compose -f compose-test.yaml up -d
+//   1. docker compose -f qa/compose-test.yaml up -d
 //   2. python qa/db-scripts/generate_members.py --total 100 --batch 100
 //   3. DB에 train_schedule, train_car, seat 데이터 존재 확인
-//   4. (선택) python qa/db-scripts/generate_schedule_preoccupy.py --schedule-ids <ID>
 //
 // 실행:
-//   1. 스케줄 설정 자동 생성 (서버가 떠있어야 함):
-//      python3 qa/db-scripts/generate_k6_schedule_config.py
+//   1. 스케줄 설정 생성:
+//      python3 qa/db-scripts/generate_booking_performance_data.py --branch develop --schema v2 \
+//        --env-file qa/env/booking-performance-develop.env --confirm-test-db \
+//        --output qa/k6/config/booking-performance-config.json \
+//        --seed-report qa/results/booking-performance/local/payment-seed-report.md
 //
 //   2. k6 테스트 실행:
 //      K6_WEB_DASHBOARD=true k6 run qa/k6/payment-metrics-test.js
 //
-// schedule-config.json 없이도 실행 가능 (SCHEDULES 기본값 사용)
+// config 파일 없이도 실행 가능 (SCHEDULES 기본값 사용)
 // ================================================================================
 
 // --------------------------------------------------------------------------------
@@ -26,31 +28,35 @@ import { check, sleep } from 'k6';
 // --------------------------------------------------------------------------------
 const VU = 30;  // 가상 유저 수 (동시 접속자)
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
+const CONFIG_PATH = __ENV.CONFIG || 'config/booking-performance-config.json';
 
 // 계정 설정 (generate_members.py 기본값 기준)
 // generate_members.py가 생성하는 멤버 번호: 202603030001, 202603030002, ...
 const MEMBER_NO_START = 202603030001;
-const MEMBER_PASSWORD = 'Test1234!';
+let MEMBER_PASSWORD = __ENV.MEMBER_PASSWORD || 'Test1234!';
 
-// 스케줄 목록 — schedule-config.json에서 자동 로드하거나 수동으로 지정
-// 자동 생성: python3 qa/db-scripts/generate_k6_schedule_config.py
-// → train search API 호출 → DB에서 좌석 범위 조회 → qa/k6/schedule-config.json 생성
+// 스케줄 목록 — generate_booking_performance_data.py가 만든 config를 로드하거나 수동 기본값 사용
 //
 // 여러 스케줄에 분산하면 좌석 충돌이 줄어들고 더 많은 결제 메트릭을 수집할 수 있음
 // 각 VU의 매 iteration마다 이 중 하나를 랜덤으로 선택하여 예약 시도
 let SCHEDULES;
+let MEMBERS;
 let SCHEDULE_CONFIG_MODE = 'file';
 try {
-    // generate_k6_schedule_config.py가 생성한 JSON 파일을 읽어옴
+    // generate_booking_performance_data.py가 생성한 JSON 파일을 읽어옴
     // k6의 open()은 init 단계에서만 호출 가능 (setup/default 함수 밖)
-    const configFile = open('./schedule-config.json');
-    SCHEDULES = JSON.parse(configFile);
+    const configFile = open(CONFIG_PATH);
+    const normalized = normalizeScheduleConfig(JSON.parse(configFile));
+    SCHEDULES = normalized.schedules;
+    MEMBERS = normalized.members.length > 0 ? normalized.members : defaultMembers(VU);
+    MEMBER_PASSWORD = __ENV.MEMBER_PASSWORD || normalized.memberPassword || MEMBER_PASSWORD;
 } catch (e) {
     // JSON 파일이 없으면 기본값 사용 (수동 설정)
     SCHEDULE_CONFIG_MODE = 'default';
     SCHEDULES = [
         { scheduleId: 10323, departureStation: 2, arrivalStation: 18, seatStart: 223775, seatEnd: 224187 },
     ];
+    MEMBERS = defaultMembers(VU);
 }
 
 // 실패 시나리오용 Toss 에러코드 풀
@@ -95,15 +101,13 @@ export function setup() {
     const tokens = [];
     console.log(`[Setup] ${VU}명의 토큰 발급 시작 ...`);
     if (SCHEDULE_CONFIG_MODE === 'file') {
-        console.log(`[Config] schedule-config.json 로드 완료: ${SCHEDULES.length}개 스케줄`);
+        console.log(`[Config] ${CONFIG_PATH} 로드 완료: ${SCHEDULES.length}개 스케줄`);
     } else {
-        console.warn('[Config] schedule-config.json 없음 → 기본 스케줄 사용');
+        console.warn(`[Config] ${CONFIG_PATH} 없음 → 기본 스케줄 사용`);
     }
 
     for (let i = 0; i < VU; i++) {
-        // MEMBER_NO_START부터 순서대로 멤버 번호 생성
-        // 예: 202603160001, 202603160002, ..., 202603160030
-        const memberNo = (MEMBER_NO_START + i).toString();
+        const memberNo = MEMBERS[i % MEMBERS.length];
         const res = http.post(`${BASE_URL}/auth/login`, JSON.stringify({
             memberNo: memberNo,
             password: MEMBER_PASSWORD,
@@ -156,10 +160,10 @@ export default function (data) {
     const schedule = SCHEDULES[Math.floor(Math.random() * SCHEDULES.length)];
 
     // ── Step 1: Pending Booking 생성 ──
-    // 선택된 스케줄의 좌석 범위 내에서 랜덤으로 1~2석을 골라 임시 예약 요청
+    // 선택된 스케줄의 좌석 후보에서 랜덤으로 1~2석을 골라 임시 예약 요청
     // 성공하면 pendingBookingId를 받아서 다음 단계로 진행
     const seatCount = randomIntBetween(1, 2);
-    const seatIds = pickRandomSeats(seatCount, schedule.seatStart, schedule.seatEnd);
+    const seatIds = pickRandomSeats(seatCount, schedule);
     const passengerTypes = seatIds.map(() => 'ADULT');  // 좌석 수만큼 ADULT 탑승자
 
     const pendingRes = http.post(`${BASE_URL}/api/v1/pending-bookings`, JSON.stringify({
@@ -262,18 +266,93 @@ export default function (data) {
 // 4. Helper Functions
 // --------------------------------------------------------------------------------
 
+function defaultMembers(count) {
+    const members = [];
+    for (let i = 0; i < count; i++) {
+        members.push((MEMBER_NO_START + i).toString());
+    }
+    return members;
+}
+
+function normalizeScheduleConfig(config) {
+    const sourceSchedules = Array.isArray(config) ? config : config.schedules;
+    if (!Array.isArray(sourceSchedules)) {
+        throw new Error('config schedules must be an array');
+    }
+
+    const schedules = sourceSchedules.map(normalizeSchedule).filter((schedule) => schedule !== null);
+    if (schedules.length === 0) {
+        throw new Error('valid schedules not found');
+    }
+
+    return {
+        schedules,
+        members: Array.isArray(config.members) ? config.members.map(String) : [],
+        memberPassword: config.memberPassword,
+    };
+}
+
+function normalizeSchedule(schedule) {
+    if (Number.isInteger(schedule.scheduleId) &&
+        Number.isInteger(schedule.departureStation) &&
+        Number.isInteger(schedule.arrivalStation) &&
+        Number.isInteger(schedule.seatStart) &&
+        Number.isInteger(schedule.seatEnd) &&
+        schedule.seatStart <= schedule.seatEnd) {
+        return schedule;
+    }
+
+    const seatIds = Array.isArray(schedule.openSeatIds) && schedule.openSeatIds.length > 0
+        ? schedule.openSeatIds
+        : schedule.seatIds;
+
+    if (Number.isInteger(schedule.scheduleId) &&
+        Number.isInteger(schedule.departureStationId) &&
+        Number.isInteger(schedule.arrivalStationId) &&
+        Array.isArray(seatIds) &&
+        seatIds.length > 0) {
+        return {
+            scheduleId: schedule.scheduleId,
+            departureStation: schedule.departureStationId,
+            arrivalStation: schedule.arrivalStationId,
+            seatIds: seatIds.map(Number),
+        };
+    }
+
+    return null;
+}
+
 // min 이상 max 이하의 랜덤 정수 반환
 function randomIntBetween(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// 지정된 좌석 범위(seatStart ~ seatEnd) 내에서 count개의 좌석 ID를 뽑아 반환
+// 지정된 좌석 후보 내에서 count개의 좌석 ID를 뽑아 반환
 // - 2석 이상일 때 70% 확률로 연속 좌석 (실제 예매처럼 나란히 앉는 패턴)
 //   예: [223800, 223801]
 // - 나머지는 범위 내 랜덤 좌석 (중복 없이)
 //   예: [223812, 224055]
 // - 1석이면 항상 랜덤으로 1개만 뽑음
-function pickRandomSeats(count, seatStart, seatEnd) {
+function pickRandomSeats(count, schedule) {
+    if (Array.isArray(schedule.seatIds)) {
+        return pickRandomSeatIds(count, schedule.seatIds);
+    }
+
+    return pickRandomSeatsInRange(count, schedule.seatStart, schedule.seatEnd);
+}
+
+function pickRandomSeatIds(count, candidates) {
+    const shuffled = candidates.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = randomIntBetween(0, i);
+        const temp = shuffled[i];
+        shuffled[i] = shuffled[j];
+        shuffled[j] = temp;
+    }
+    return shuffled.slice(0, Math.min(count, shuffled.length)).sort((a, b) => a - b);
+}
+
+function pickRandomSeatsInRange(count, seatStart, seatEnd) {
     const seats = [];
 
     // 2석 이상 + 70% 확률 → 연속 좌석 시도

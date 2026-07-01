@@ -5,7 +5,8 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 const SEARCH_URL = `${BASE_URL}/api/v1/trains/search?page=0&size=10`;
 const CARS_URL = `${BASE_URL}/api/v1/trains/cars`;
 const SEATS_URL = `${BASE_URL}/api/v1/trains/seats`;
-const SCHEDULES = JSON.parse(open('./schedule-config.json'));
+const CONFIG_PATH = __ENV.CONFIG || 'config/booking-performance-config.json';
+const SCHEDULES = normalizeScheduleConfig(JSON.parse(open(CONFIG_PATH)));
 const searchDuration = new Trend('search');
 const carsDuration = new Trend('cars');
 const seatsDuration = new Trend('seats');
@@ -75,6 +76,38 @@ function randomOperationDate() {
 
 function getRandomItem(items) {
     return items[randomInt(0, items.length - 1)];
+}
+
+function normalizeScheduleConfig(config) {
+    const sourceSchedules = Array.isArray(config) ? config : config.schedules;
+    if (!Array.isArray(sourceSchedules)) {
+        throw new Error('config schedules must be an array');
+    }
+    const schedules = sourceSchedules.map(normalizeSchedule).filter((schedule) => schedule !== null);
+    if (schedules.length === 0) {
+        throw new Error('valid schedules not found');
+    }
+    return schedules;
+}
+
+function normalizeSchedule(schedule) {
+    if (Number.isInteger(schedule.scheduleId) &&
+        Number.isInteger(schedule.departureStation) &&
+        Number.isInteger(schedule.arrivalStation)) {
+        return schedule;
+    }
+
+    if (Number.isInteger(schedule.scheduleId) &&
+        Number.isInteger(schedule.departureStationId) &&
+        Number.isInteger(schedule.arrivalStationId)) {
+        return {
+            scheduleId: schedule.scheduleId,
+            departureStation: schedule.departureStationId,
+            arrivalStation: schedule.arrivalStationId,
+        };
+    }
+
+    return null;
 }
 
 function randomInt(min, max) {

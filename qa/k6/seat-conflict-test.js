@@ -20,6 +20,7 @@ export const options = {
 
 // API 및 계정 설정
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
+const CONFIG_PATH = __ENV.CONFIG || 'config/booking-performance-config.json';
 const LOGIN_URL = `${BASE_URL}/auth/login`;
 const RESERVATION_URL = `${BASE_URL}/api/v1/pending-bookings`;
 const MEMBER_NO_START = 202603030001;
@@ -29,15 +30,14 @@ const SINGLE_PASSENGER_TYPE = 'ADULT';
 // 예약 데이터
 let SCHEDULES;
 try {
-    const configFile = open('./schedule-config.json');
-    const parsedSchedules = JSON.parse(configFile);
-    SCHEDULES = parsedSchedules.filter(isValidSchedule);
+    const configFile = open(CONFIG_PATH);
+    SCHEDULES = normalizeScheduleConfig(JSON.parse(configFile));
 
     if (SCHEDULES.length === 0) {
         throw new Error('유효한 예약 데이터가 없습니다.');
     }
 } catch (e) {
-    throw new Error(`[Config] schedule-config.json 로드 실패: ${e.message}`);
+    throw new Error(`[Config] ${CONFIG_PATH} 로드 실패: ${e.message}`);
 }
 
 // --------------------------------------------------------------------------------
@@ -120,9 +120,47 @@ function isValidSchedule(schedule) {
         Number.isInteger(schedule.scheduleId) &&
         Number.isInteger(schedule.departureStation) &&
         Number.isInteger(schedule.arrivalStation) &&
-        Number.isInteger(schedule.seatStart) &&
-        Number.isInteger(schedule.seatEnd) &&
-        schedule.seatStart <= schedule.seatEnd;
+        (
+            Array.isArray(schedule.seatIds) ||
+            (
+                Number.isInteger(schedule.seatStart) &&
+                Number.isInteger(schedule.seatEnd) &&
+                schedule.seatStart <= schedule.seatEnd
+            )
+        );
+}
+
+function normalizeScheduleConfig(config) {
+    const sourceSchedules = Array.isArray(config) ? config : config.schedules;
+    if (!Array.isArray(sourceSchedules)) {
+        throw new Error('config schedules must be an array');
+    }
+    return sourceSchedules.map(normalizeSchedule).filter(isValidSchedule);
+}
+
+function normalizeSchedule(schedule) {
+    if (isValidSchedule(schedule)) {
+        return schedule;
+    }
+
+    const seatIds = Array.isArray(schedule.openSeatIds) && schedule.openSeatIds.length > 0
+        ? schedule.openSeatIds
+        : schedule.seatIds;
+
+    if (Number.isInteger(schedule.scheduleId) &&
+        Number.isInteger(schedule.departureStationId) &&
+        Number.isInteger(schedule.arrivalStationId) &&
+        Array.isArray(seatIds) &&
+        seatIds.length > 0) {
+        return {
+            scheduleId: schedule.scheduleId,
+            departureStation: schedule.departureStationId,
+            arrivalStation: schedule.arrivalStationId,
+            seatIds: seatIds.map(Number),
+        };
+    }
+
+    return null;
 }
 
 function getRandomSchedule() {
@@ -130,6 +168,11 @@ function getRandomSchedule() {
 }
 
 function generateSingleSeatId(schedule) {
+    if (Array.isArray(schedule.seatIds)) {
+        const index = Math.floor(Math.random() * schedule.seatIds.length);
+        return [schedule.seatIds[index]];
+    }
+
     const totalRange = schedule.seatEnd - schedule.seatStart + 1;
     if (totalRange < 1) {
         return [];

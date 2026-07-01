@@ -2,7 +2,7 @@
 Compare v1/develop k6 summary exports and write a markdown report.
 
 Example:
-  python3 qa/db-scripts/booking_perf_compare.py \
+  python3 qa/db-scripts/generate_booking_performance_report.py \
     --environment local \
     --v1 qa/results/booking-performance/local/v1-run-1.json qa/results/booking-performance/local/v1-run-2.json qa/results/booking-performance/local/v1-run-3.json \
     --develop qa/results/booking-performance/local/develop-run-1.json qa/results/booking-performance/local/develop-run-2.json qa/results/booking-performance/local/develop-run-3.json \

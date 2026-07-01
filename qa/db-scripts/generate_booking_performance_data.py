@@ -7,12 +7,12 @@ and payment related tables, creates 30% pre-occupied confirmed seats, and
 writes a k6 config JSON.
 
 Examples:
-  python3 qa/db-scripts/booking_perf_prepare.py \
+  python3 qa/db-scripts/generate_booking_performance_data.py \
     --branch v1 --schema v1 --confirm-test-db \
     --output qa/k6/config/booking-performance-config.json \
     --seed-report qa/results/booking-performance/local/seed-report-v1.md
 
-  python3 qa/db-scripts/booking_perf_prepare.py \
+  python3 qa/db-scripts/generate_booking_performance_data.py \
     --branch develop --schema v2 --confirm-test-db \
     --output qa/k6/config/booking-performance-config.json \
     --seed-report qa/results/booking-performance/local/seed-report-develop.md

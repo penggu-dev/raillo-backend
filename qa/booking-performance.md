@@ -48,14 +48,14 @@ v1 브랜치는 예전 프로젝트명 때문에 jar 이름이 `railo-0.0.1-SNAP
 
 공정한 반복 측정을 위해 실제 측정 루프에서는 **각 run 직전마다 MySQL 예약/결제 데이터를 초기화하고 30% 선점 데이터를 다시 만든 뒤, Redis도 비운다.** 아래 DB 준비 명령은 단독 검증용이며, 실제 3회 측정 루프에도 동일하게 포함되어 있다.
 
-`booking_perf_prepare.py`는 DB 기준 현재시각에서 기본 30분 뒤(`--departure-buffer-minutes 30`) 이후에 출발하는 `ACTIVE`/`DELAYED` 스케줄만 선택한다. develop은 출발 5분 전부터 예약을 막기 때문에, 과거 스케줄이 선택되면 k6에서 `TRAIN_402`가 발생한다.
+`generate_booking_performance_data.py`는 DB 기준 현재시각에서 기본 30분 뒤(`--departure-buffer-minutes 30`) 이후에 출발하는 `ACTIVE`/`DELAYED` 스케줄만 선택한다. develop은 출발 5분 전부터 예약을 막기 때문에, 과거 스케줄이 선택되면 k6에서 `TRAIN_402`가 발생한다.
 
 k6 config는 `qa/k6/config/booking-performance-config.json` 한 파일만 사용한다. 각 run 직전에 현재 테스트할 브랜치 기준으로 다시 생성하므로, v1과 develop config를 동시에 보관하지 않는다.
 
 ### v1 DB 준비
 
 ```bash
-python3 qa/db-scripts/booking_perf_prepare.py \
+python3 qa/db-scripts/generate_booking_performance_data.py \
   --branch v1 \
   --schema v1 \
   --env-file qa/env/booking-performance-v1.env \
@@ -69,7 +69,7 @@ python3 qa/db-scripts/booking_perf_prepare.py \
 ### develop DB 준비
 
 ```bash
-python3 qa/db-scripts/booking_perf_prepare.py \
+python3 qa/db-scripts/generate_booking_performance_data.py \
   --branch develop \
   --schema v2 \
   --env-file qa/env/booking-performance-develop.env \
@@ -121,7 +121,7 @@ docker compose -f qa/compose-test.yaml down
 
 ```bash
 for i in 1 2 3; do
-  python3 qa/db-scripts/booking_perf_prepare.py \
+  python3 qa/db-scripts/generate_booking_performance_data.py \
     --branch v1 \
     --schema v1 \
     --env-file qa/env/booking-performance-v1.env \
@@ -169,7 +169,7 @@ docker compose -f qa/compose-test.yaml down
 
 ```bash
 for i in 1 2 3; do
-  python3 qa/db-scripts/booking_perf_prepare.py \
+  python3 qa/db-scripts/generate_booking_performance_data.py \
     --branch develop \
     --schema v2 \
     --env-file qa/env/booking-performance-develop.env \
@@ -195,7 +195,7 @@ done
 ## 7. 로컬 결과 비교
 
 ```bash
-python3 qa/db-scripts/booking_perf_compare.py \
+python3 qa/db-scripts/generate_booking_performance_report.py \
   --environment local \
   --v1 \
     qa/results/booking-performance/local/v1-run-1.json \
@@ -229,7 +229,7 @@ node2
 EKS에서 테스트 전에도 DB 선점 조건을 맞춘다. EKS가 같은 테스트 DB를 사용한다면 아래 명령을 다시 실행해 예약/결제 데이터만 초기화하고 30% 선점 데이터를 다시 만든다.
 
 ```bash
-python3 qa/db-scripts/booking_perf_prepare.py \
+python3 qa/db-scripts/generate_booking_performance_data.py \
   --branch v1 \
   --schema v1 \
   --env-file qa/env/booking-performance-v1.env \
@@ -241,7 +241,7 @@ python3 qa/db-scripts/booking_perf_prepare.py \
 ```
 
 ```bash
-python3 qa/db-scripts/booking_perf_prepare.py \
+python3 qa/db-scripts/generate_booking_performance_data.py \
   --branch develop \
   --schema v2 \
   --env-file qa/env/booking-performance-develop.env \
@@ -258,7 +258,7 @@ python3 qa/db-scripts/booking_perf_prepare.py \
 
 ```bash
 for i in 1 2 3; do
-  python3 qa/db-scripts/booking_perf_prepare.py \
+  python3 qa/db-scripts/generate_booking_performance_data.py \
     --branch v1 \
     --schema v1 \
     --env-file qa/env/booking-performance-v1.env \
@@ -289,7 +289,7 @@ done
 
 ```bash
 for i in 1 2 3; do
-  python3 qa/db-scripts/booking_perf_prepare.py \
+  python3 qa/db-scripts/generate_booking_performance_data.py \
     --branch develop \
     --schema v2 \
     --env-file qa/env/booking-performance-develop.env \
@@ -317,7 +317,7 @@ done
 ## 11. EKS 결과 비교
 
 ```bash
-python3 qa/db-scripts/booking_perf_compare.py \
+python3 qa/db-scripts/generate_booking_performance_report.py \
   --environment eks \
   --v1 \
     qa/results/booking-performance/eks/v1-run-1.json \
@@ -343,6 +343,6 @@ python3 qa/db-scripts/booking_perf_compare.py \
 
 ## 안전장치
 
-`booking_perf_prepare.py`는 예약/결제 데이터를 삭제하므로 반드시 `--confirm-test-db`를 요구한다. 운영 데이터가 연결된 DB에는 실행하지 않는다.
+`generate_booking_performance_data.py`는 예약/결제 데이터를 삭제하므로 반드시 `--confirm-test-db`를 요구한다. 운영 데이터가 연결된 DB에는 실행하지 않는다.
 
 seed report와 k6 config에는 선택된 스케줄의 `operationDate`, `departureTime`, `operationStatus`가 기록된다. `TRAIN_402`가 보이면 먼저 해당 값이 테스트 시점보다 충분히 미래인지 확인하고, 장시간 테스트라면 `--departure-buffer-minutes` 값을 늘린다.
