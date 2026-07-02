@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: raillo-v1
+  namespace: raillo-perf
+  labels:
+    app.kubernetes.io/name: raillo-backend
+    app.kubernetes.io/instance: raillo-v1
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: raillo-performance
+    raillo.perf/workload: spring
+    raillo.perf/version: v1
+spec:
+  revisionHistoryLimit: 2
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: raillo-backend
+      app.kubernetes.io/instance: raillo-v1
+      raillo.perf/workload: spring
+      raillo.perf/version: v1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: raillo-backend
+        app.kubernetes.io/instance: raillo-v1
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: raillo-performance
+        raillo.perf/workload: spring
+        raillo.perf/version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: raillo.perf/app-node
+                    operator: In
+                    values:
+                      - "true"
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: raillo.perf/workload
+                    operator: In
+                    values:
+                      - spring
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: raillo-backend
+          image: 921115464344.dkr.ecr.ap-northeast-2.amazonaws.com/raillo-backend:v1
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+            requests:
+              cpu: "0.5"
+              memory: "512Mi"
+          envFrom:
+            - configMapRef:
+                name: raillo-v1-config
+            - secretRef:
+                name: raillo-v1-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: raillo-v1-service
+  namespace: raillo-perf
+  labels:
+    app.kubernetes.io/name: raillo-backend
+    app.kubernetes.io/instance: raillo-v1
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: raillo-performance
+    raillo.perf/version: v1
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  selector:
+    app.kubernetes.io/name: raillo-backend
+    app.kubernetes.io/instance: raillo-v1
+    raillo.perf/workload: spring
+    raillo.perf/version: v1

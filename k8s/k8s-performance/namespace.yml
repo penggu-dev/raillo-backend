@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: raillo-perf
+  labels:
+    app.kubernetes.io/name: raillo-performance
+    app.kubernetes.io/part-of: raillo

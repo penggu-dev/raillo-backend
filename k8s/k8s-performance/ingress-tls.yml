@@ -1,0 +1,69 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-v1-raillo-store-tls
+  namespace: raillo-perf
+spec:
+  secretName: server-v1-raillo-store-tls
+  duration: 2160h
+  renewBefore: 360h
+  issuerRef:
+    name: raillo-issuer
+    kind: ClusterIssuer
+  commonName: server.v1.raillo.store
+  dnsNames:
+    - server.v1.raillo.store
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-v2-raillo-store-tls
+  namespace: raillo-perf
+spec:
+  secretName: server-v2-raillo-store-tls
+  duration: 2160h
+  renewBefore: 360h
+  issuerRef:
+    name: raillo-issuer
+    kind: ClusterIssuer
+  commonName: server.v2.raillo.store
+  dnsNames:
+    - server.v2.raillo.store
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: raillo-performance-ingress
+  namespace: raillo-perf
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: raillo-issuer
+spec:
+  tls:
+    - hosts:
+        - server.v1.raillo.store
+      secretName: server-v1-raillo-store-tls
+    - hosts:
+        - server.v2.raillo.store
+      secretName: server-v2-raillo-store-tls
+  rules:
+    - host: server.v1.raillo.store
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: raillo-v1-service
+                port:
+                  number: 80
+    - host: server.v2.raillo.store
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: raillo-v2-service
+                port:
+                  number: 80
