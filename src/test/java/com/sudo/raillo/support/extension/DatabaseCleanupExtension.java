@@ -9,6 +9,13 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 public class DatabaseCleanupExtension implements AfterEachCallback {
 
+	private static final String SELECT_TABLE_NAMES = """
+		SELECT TABLE_NAME
+		FROM INFORMATION_SCHEMA.TABLES
+		WHERE TABLE_SCHEMA = DATABASE()
+		  AND TABLE_TYPE = 'BASE TABLE'
+		""";
+
 	@Override
 	public void afterEach(ExtensionContext context) {
 		JdbcTemplate jdbcTemplate = getJdbcTemplate(context);
@@ -22,13 +29,12 @@ public class DatabaseCleanupExtension implements AfterEachCallback {
 
 	private List<String> getTruncateQueries(JdbcTemplate jdbcTemplate) {
 		List<String> tableNames = jdbcTemplate.query(
-			"SELECT TABLE_SCHEMA, TABLE_NAME " + "FROM INFORMATION_SCHEMA.TABLES ",
-			(rs, rowNum) -> rs.getString("TABLE_SCHEMA") + "." + rs.getString("TABLE_NAME"));
+			SELECT_TABLE_NAMES,
+			(rs, rowNum) -> rs.getString("TABLE_NAME"));
 
 		return tableNames.stream()
-			.filter(tableNameWithSchema -> tableNameWithSchema.startsWith("PUBLIC."))
-			.map(tableNameWithSchema -> "TRUNCATE TABLE " + tableNameWithSchema)
-			.collect(java.util.stream.Collectors.toList());
+			.map(tableName -> "TRUNCATE TABLE `" + tableName + "`")
+			.toList();
 	}
 
 	private void truncateTables(JdbcTemplate jdbcTemplate, List<String> truncateQueries) {
