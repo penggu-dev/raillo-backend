@@ -155,14 +155,14 @@ class OrderServiceTest {
 		OrderBooking savedOrderBooking = orderBookings.get(0);
 		assertThat(savedOrderBooking.getPendingBookingId()).isEqualTo(pendingBooking.getId());
 		assertThat(savedOrderBooking.getOrder().getId()).isEqualTo(savedOrder.getId());
-		assertThat(savedOrderBooking.getTrainSchedule().getId()).isEqualTo(1L);
-		assertThat(savedOrderBooking.getDepartureStop().getId()).isEqualTo(1L);
-		assertThat(savedOrderBooking.getArrivalStop().getId()).isEqualTo(2L);
+		assertThat(savedOrderBooking.getTrainSchedule().getId()).isEqualTo(result.trainSchedule().getId());
+		assertThat(savedOrderBooking.getDepartureStop().getId()).isEqualTo(result.scheduleStops().get(0).getId());
+		assertThat(savedOrderBooking.getArrivalStop().getId()).isEqualTo(result.scheduleStops().get(1).getId());
 
 		// OrderSeatBooking 검증
 		List<OrderSeatBooking> orderSeatBookings = orderSeatBookingRepository.findAll();
 		assertThat(orderSeatBookings).hasSize(1);
-		assertThat(orderSeatBookings.get(0).getSeatId()).isEqualTo(1L);
+		assertThat(orderSeatBookings.get(0).getSeatId()).isEqualTo(seats.get(0).getId());
 		assertThat(orderSeatBookings.get(0).getPassengerType()).isEqualTo(PassengerType.ADULT);
 	}
 

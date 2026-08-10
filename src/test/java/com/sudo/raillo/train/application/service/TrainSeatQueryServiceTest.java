@@ -79,6 +79,11 @@ class TrainSeatQueryServiceTest {
 	@Test
 	@DisplayName("잔여 좌석이 있는 객차 목록을 성공적으로 조회한다")
 	void getAvailableTrainCars() {
+		// given
+		List<TrainCar> trainCars = trainCarRepository.findAllByTrainId(train.getId());
+		TrainCar expectedStandardCar = getCarByNumber(trainCars, 1);
+		TrainCar expectedFirstClassCar = getCarByNumber(trainCars, 2);
+
 		// when
 		List<TrainCarInfo> availableTrainCars = trainSeatQueryService.getAvailableTrainCars(
 			trainScheduleResult.trainSchedule().getId(),
@@ -90,14 +95,14 @@ class TrainSeatQueryServiceTest {
 		assertThat(availableTrainCars).hasSize(2);
 
 		TrainCarInfo standardCar = availableTrainCars.get(0);
-		assertThat(standardCar.id()).isEqualTo(1L);
+		assertThat(standardCar.id()).isEqualTo(expectedStandardCar.getId());
 		assertThat(standardCar.carNumber()).isEqualTo("0001");
 		assertThat(standardCar.carType()).isEqualTo(CarType.STANDARD);
 		assertThat(standardCar.totalSeats()).isEqualTo(2);
 		assertThat(standardCar.remainingSeats()).isEqualTo(2);
 
 		TrainCarInfo firstClassCar = availableTrainCars.get(1);
-		assertThat(firstClassCar.id()).isEqualTo(2L);
+		assertThat(firstClassCar.id()).isEqualTo(expectedFirstClassCar.getId());
 		assertThat(firstClassCar.carNumber()).isEqualTo("0002");
 		assertThat(firstClassCar.carType()).isEqualTo(CarType.FIRST_CLASS);
 		assertThat(firstClassCar.totalSeats()).isEqualTo(2);
@@ -231,5 +236,12 @@ class TrainSeatQueryServiceTest {
 		assertThat(response.remainingSeats()).isEqualTo(1);
 		assertThat(bookedSeatProjection.isAvailable()).isFalse();
 		assertThat(unavailableSeatCount).isEqualTo(1);
+	}
+
+	private TrainCar getCarByNumber(List<TrainCar> trainCars, int carNumber) {
+		return trainCars.stream()
+			.filter(trainCar -> trainCar.getCarNumber() == carNumber)
+			.findFirst()
+			.orElseThrow();
 	}
 }
