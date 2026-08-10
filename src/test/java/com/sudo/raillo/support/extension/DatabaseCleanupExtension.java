@@ -19,28 +19,28 @@ public class DatabaseCleanupExtension implements AfterEachCallback {
 	@Override
 	public void afterEach(ExtensionContext context) {
 		JdbcTemplate jdbcTemplate = getJdbcTemplate(context);
-		final List<String> truncateQueries = getTruncateQueries(jdbcTemplate);
-		truncateTables(jdbcTemplate, truncateQueries);
+		List<String> deleteQueries = getDeleteQueries(jdbcTemplate);
+		deleteTables(jdbcTemplate, deleteQueries);
 	}
 
 	private JdbcTemplate getJdbcTemplate(ExtensionContext context) {
 		return SpringExtension.getApplicationContext(context).getBean(JdbcTemplate.class);
 	}
 
-	private List<String> getTruncateQueries(JdbcTemplate jdbcTemplate) {
+	private List<String> getDeleteQueries(JdbcTemplate jdbcTemplate) {
 		List<String> tableNames = jdbcTemplate.query(
 			SELECT_TABLE_NAMES,
 			(rs, rowNum) -> rs.getString("TABLE_NAME"));
 
 		return tableNames.stream()
-			.map(tableName -> "TRUNCATE TABLE `" + tableName + "`")
+			.map(tableName -> "DELETE FROM `" + tableName + "`")
 			.toList();
 	}
 
-	private void truncateTables(JdbcTemplate jdbcTemplate, List<String> truncateQueries) {
+	private void deleteTables(JdbcTemplate jdbcTemplate, List<String> deleteQueries) {
 		try {
 			execute(jdbcTemplate, "SET FOREIGN_KEY_CHECKS = FALSE");
-			truncateQueries.forEach(query -> execute(jdbcTemplate, query));
+			deleteQueries.forEach(query -> execute(jdbcTemplate, query));
 		} finally {
 			execute(jdbcTemplate, "SET FOREIGN_KEY_CHECKS = TRUE");
 		}
