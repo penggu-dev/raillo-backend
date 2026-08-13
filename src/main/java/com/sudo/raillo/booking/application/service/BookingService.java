@@ -3,6 +3,7 @@ package com.sudo.raillo.booking.application.service;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.booking.util.TicketNumberGenerator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -63,9 +64,11 @@ public class BookingService {
 
 	/**
 	 * 주문으로부터 예매를 생성
+	 *
 	 * @param order 주문
+	 * @return 예약 ID(= PendingBooking ID / reservationCode)별로 생성된 예매
 	 * */
-	public void createBookingFromOrder(Order order) {
+	public Map<String, Booking> createBookingFromOrder(Order order) {
 		// 1. 도메인 규칙 검증
 		order.validateCompleted();
 
@@ -93,12 +96,15 @@ public class BookingService {
 			.collect(Collectors.toMap(Seat::getId, Function.identity()));
 
 		// 4. Booking, SeatBooking 생성
+		Map<String, Booking> bookingsByPendingBookingId = new HashMap<>();
 		orderBookings.forEach(orderBooking -> {
 			List<OrderSeatBooking> relatedSeatBookings = seatBookingMap.get(orderBooking.getId());
-			createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
+			Booking booking = createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
+			bookingsByPendingBookingId.put(orderBooking.getPendingBookingId(), booking);
 		});
 
 		log.info("[주문에 대한 예매 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());
+		return bookingsByPendingBookingId;
 	}
 
 	/**
@@ -164,7 +170,7 @@ public class BookingService {
 	}
 
 	// private Method
-	private void createBooking(
+	private Booking createBooking(
 		Member member,
 		Order order,
 		OrderBooking orderBooking,
@@ -184,6 +190,8 @@ public class BookingService {
 
 		IntStream.range(0, orderSeatBookings.size())
 			.forEach(i -> createSeatBooking(booking, orderSeatBookings.get(i), seatMap, reservationCode, i + 1));
+
+		return booking;
 	}
 
 	private void createSeatBooking(

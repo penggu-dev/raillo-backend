@@ -2,10 +2,12 @@ package com.sudo.raillo.support.helper;
 
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
+import com.sudo.raillo.booking.domain.SeatOccupancy;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
+import com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.booking.util.TicketNumberGenerator;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -45,6 +47,7 @@ public class BookingTestHelper {
 	private final BookingRepository bookingRepository;
 	private final OrderRepository orderRepository;
 	private final SeatBookingRepository seatBookingRepository;
+	private final SeatOccupancyRepository seatOccupancyRepository;
 	private final SeatRepository seatRepository;
 	private final TicketRepository ticketRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
@@ -134,11 +137,35 @@ public class BookingTestHelper {
 		);
 
 		List<SeatBooking> savedSeatBookings = saveSeatBookings(booking, builder);
+		saveSeatOccupancies(booking, builder);
 		List<Ticket> savedTickets = builder.createTickets
 			? savedTickets(booking, builder)
 			: List.of();
 
 		return new BookingResult(booking, savedSeatBookings, savedTickets);
+	}
+
+	/**
+	 * 확정 좌석 점유 행 생성
+	 *
+	 * <p>예약을 거치지 않고 예매를 직접 만드는 테스트 경로에서는 HELD 점유가 없으므로
+	 * CONFIRMED 점유를 직접 만들어 준다. 이게 없으면 헬퍼로 만든 예매가 잔여석 계산에서
+	 * "빈 좌석"으로 보인다.</p>
+	 */
+	private void saveSeatOccupancies(Booking booking, BookingBuilder builder) {
+		if (builder.seatWithPassengerTypes.isEmpty()) {
+			return;
+		}
+
+		int departureStopOrder = builder.departureScheduleStop.getStopOrder();
+		int arrivalStopOrder = builder.arrivalScheduleStop.getStopOrder();
+
+		List<SeatOccupancy> occupancies = builder.seatWithPassengerTypes.stream()
+			.flatMap(sp -> IntStream.range(departureStopOrder, arrivalStopOrder)
+				.mapToObj(sectionOrder -> SeatOccupancy.createConfirmed(booking, sp.seat, sectionOrder)))
+			.toList();
+
+		seatOccupancyRepository.saveAll(occupancies);
 	}
 
 	private List<SeatBooking> saveSeatBookings(Booking booking, BookingBuilder builder) {

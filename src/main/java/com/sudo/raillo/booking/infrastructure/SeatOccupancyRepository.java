@@ -14,7 +14,7 @@ import com.sudo.raillo.booking.domain.status.SeatOccupancyStatus;
 
 public interface SeatOccupancyRepository extends JpaRepository<SeatOccupancy, Long> {
 
-	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Modifying(flushAutomatically = true)
 	@Query("DELETE FROM SeatOccupancy o "
 		+ "WHERE o.trainSchedule.id = :trainScheduleId "
 		+ "AND o.seat.id IN :seatIds "
@@ -28,7 +28,7 @@ public interface SeatOccupancyRepository extends JpaRepository<SeatOccupancy, Lo
 		@Param("now") LocalDateTime now
 	);
 
-	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Modifying(flushAutomatically = true)
 	@Query("UPDATE SeatOccupancy o "
 		+ "SET o.status = :confirmedStatus, o.booking = :booking, o.expiresAt = :neverExpires "
 		+ "WHERE o.reservation.id = :reservationId "
@@ -45,11 +45,11 @@ public interface SeatOccupancyRepository extends JpaRepository<SeatOccupancy, Lo
 
 	List<SeatOccupancy> findAllByReservationId(Long reservationId);
 
-	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Modifying(flushAutomatically = true)
 	@Query("DELETE FROM SeatOccupancy o WHERE o.reservation.id IN :reservationIds")
 	int deleteByReservationIdIn(@Param("reservationIds") List<Long> reservationIds);
 
-	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Modifying(flushAutomatically = true)
 	@Query("DELETE FROM SeatOccupancy o WHERE o.booking.id = :bookingId")
 	int deleteByBookingId(@Param("bookingId") Long bookingId);
 }

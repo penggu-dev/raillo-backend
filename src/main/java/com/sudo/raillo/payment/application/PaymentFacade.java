@@ -2,9 +2,13 @@ package com.sudo.raillo.payment.application;
 
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
+import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.application.service.SeatHoldService;
+import com.sudo.raillo.booking.application.service.SeatOccupancyService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
+import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.application.MemberService;
@@ -49,6 +53,8 @@ public class PaymentFacade {
 	private final MemberService memberService;
 	private final PendingBookingService pendingBookingService;
 	private final SeatHoldService seatHoldService;
+	private final ReservationService reservationService;
+	private final SeatOccupancyService seatOccupancyService;
 	private final BookingService bookingService;
 	private final TrainScheduleService trainScheduleService;
 	private final TrainSeatQueryService trainSeatQueryService;
@@ -126,8 +132,9 @@ public class PaymentFacade {
 		PaymentMethod paymentMethod = mapToPaymentMethod(tossResponse.method());
 
 		order.completePayment();
-		bookingService.createBookingFromOrder(order);
+		Map<String, Booking> bookingsByReservationCode = bookingService.createBookingFromOrder(order);
 		payment.approve(paymentMethod);
+		confirmReservations(pendingBookings, bookingsByReservationCode);
 		cleanupPendingBookings(pendingBookings);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
@@ -151,6 +158,37 @@ public class PaymentFacade {
 
 		// 모든 PendingBooking이 존재하는지 검증 (getPendingBookings 내부에서 검증)
 		return pendingBookingService.getPendingBookings(pendingBookingIds, memberNo);
+	}
+
+	/**
+	 * Reservation 확정 및 SeatOccupancy 상태 전이 (shadow write)
+	 *
+	 * <p>점유 행을 옮기지 않고 HELD → CONFIRMED 로만 전이시키므로 점유가 끊기는 순간이 없다.</p>
+	 *
+	 * <p>이중 기록 도입 이전에 생성된 PendingBooking은 대응하는 Reservation이 없을 수 있으므로 건너뛴다.
+	 * MySQL이 진실 공급원이 되는 시점에는 이 방어가 제거되고 누락 자체가 오류가 된다.</p>
+	 */
+	private void confirmReservations(List<PendingBooking> pendingBookings, Map<String, Booking> bookingsByReservationCode) {
+		List<String> reservationCodes = pendingBookings.stream()
+			.map(PendingBooking::getId)
+			.toList();
+
+		Map<String, Reservation> reservationsByCode = reservationService.getByReservationCodes(reservationCodes).stream()
+			.collect(Collectors.toMap(Reservation::getReservationCode, Function.identity()));
+
+		for (PendingBooking pendingBooking : pendingBookings) {
+			Reservation reservation = reservationsByCode.get(pendingBooking.getId());
+			Booking booking = bookingsByReservationCode.get(pendingBooking.getId());
+
+			if (reservation == null || booking == null) {
+				log.warn("[예약 확정 건너뜀] reservationCode={}, reservationFound={}, bookingFound={}",
+					pendingBooking.getId(), reservation != null, booking != null);
+				continue;
+			}
+
+			reservation.confirm();
+			seatOccupancyService.confirm(reservation, booking, pendingBooking.getSeatIds().size());
+		}
 	}
 
 	/**

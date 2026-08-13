@@ -29,17 +29,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 예약 (기존 Redis PendingBooking 대체)
- *
- * <p>Redis TTL 대신 {@code expiresAt} 컬럼으로 만료를 관리한다.
- * 조회 시 {@code expiresAt > now} 조건으로 만료 예약을 걸러낸다.</p>
- */
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
-	name = "reservation",
 	uniqueConstraints = {
 		@UniqueConstraint(name = "uk_reservation_code", columnNames = "reservation_code")
 	},
@@ -52,34 +45,33 @@ public class Reservation extends BaseEntity {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name = "reservation_id")
 	@Comment("예약 ID")
 	private Long id;
 
-	@Column(name = "reservation_code", nullable = false)
+	@Column(nullable = false)
 	@Comment("고객·외부 노출용 예약 코드")
 	private String reservationCode;
 
-	@Column(name = "member_no", nullable = false)
+	@Column(nullable = false)
 	@Comment("회원 번호")
 	private String memberNo;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "train_schedule_id", nullable = false)
+	@JoinColumn(nullable = false)
 	@Comment("운행 일정 ID")
 	private TrainSchedule trainSchedule;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "departure_stop_id", nullable = false)
+	@JoinColumn(nullable = false)
 	@Comment("출발 정류장 ID")
 	private ScheduleStop departureStop;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "arrival_stop_id", nullable = false)
+	@JoinColumn(nullable = false)
 	@Comment("도착 정류장 ID")
 	private ScheduleStop arrivalStop;
 
-	@Column(name = "total_fare", nullable = false)
+	@Column(nullable = false)
 	@Comment("총 운임")
 	private BigDecimal totalFare;
 

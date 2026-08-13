@@ -8,8 +8,13 @@ import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.SeatQueryRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
+import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.infrastructure.TrainCarQueryRepository;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -71,6 +76,28 @@ public class TrainSeatQueryService {
 	 */
 	public List<CarType> getCarTypes(List<Long> seatIds) {
 		return seatRepository.findCarTypes(seatIds);
+	}
+
+	/**
+	 * 좌석 ID 목록에 해당하는 좌석 조회
+	 *
+	 * <p>요청한 순서를 그대로 유지해 반환한다. 좌석과 승객 유형이 인덱스로 짝지어지므로
+	 * DB 조회 순서를 그대로 쓰면 승객 유형이 어긋난다.</p>
+	 *
+	 * @throws BusinessException 요청한 좌석 중 존재하지 않는 좌석이 있는 경우
+	 */
+	public List<Seat> getSeats(List<Long> seatIds) {
+		Map<Long, Seat> seatMap = seatRepository.findAllByIdWithTrainCar(seatIds).stream()
+			.collect(Collectors.toMap(Seat::getId, Function.identity()));
+
+		if (seatMap.size() != Set.copyOf(seatIds).size()) {
+			log.warn("[좌석 조회 실패] 존재하지 않는 좌석이 포함됨: seatIds={}", seatIds);
+			throw new BusinessException(TrainError.SEAT_NOT_FOUND);
+		}
+
+		return seatIds.stream()
+			.map(seatMap::get)
+			.toList();
 	}
 
 	/**
