@@ -157,7 +157,7 @@ public class PendingBookingConcurrencyTest {
 		assertThat(failCount.get()).isEqualTo(9);
 		assertThat(failureReasons)
 			.hasSize(9)
-			.allMatch(code -> code.equals(BookingError.SEAT_CONFLICT_WITH_HOLD.getCode()));
+			.allMatch(code -> code.equals(BookingError.SEAT_ALREADY_OCCUPIED.getCode()));
 	}
 
 	@Test
@@ -218,7 +218,7 @@ public class PendingBookingConcurrencyTest {
 		assertThat(failCount.get()).isEqualTo(9);
 		assertThat(failureReasons)
 			.hasSize(9)
-			.allMatch(code -> code.equals(BookingError.SEAT_CONFLICT_WITH_HOLD.getCode()));
+			.allMatch(code -> code.equals(BookingError.SEAT_ALREADY_OCCUPIED.getCode()));
 	}
 
 	@Test
@@ -281,7 +281,7 @@ public class PendingBookingConcurrencyTest {
 			// SeatBooking 충돌이 있어도 SEAT_CONFLICT_WITH_HOLD가 반환될 수 있어 임시로 두 코드를 허용
 			.allMatch(code ->
 				code.equals(BookingError.SEAT_ALREADY_OCCUPIED.getCode())
-				|| code.equals(BookingError.SEAT_CONFLICT_WITH_HOLD.getCode())
+				|| code.equals(BookingError.SEAT_ALREADY_OCCUPIED.getCode())
 			);
 	}
 
@@ -336,6 +336,6 @@ public class PendingBookingConcurrencyTest {
 		assertThat(failCount.get()).isEqualTo(99);
 		assertThat(failureReasons)
 			.hasSize(99)
-			.allMatch(code -> code.equals(BookingError.SEAT_CONFLICT_WITH_HOLD.getCode()));
+			.allMatch(code -> code.equals(BookingError.SEAT_ALREADY_OCCUPIED.getCode()));
 	}
 }

@@ -100,7 +100,7 @@ public class BookingService {
 		orderBookings.forEach(orderBooking -> {
 			List<OrderSeatBooking> relatedSeatBookings = seatBookingMap.get(orderBooking.getId());
 			Booking booking = createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
-			bookingsByPendingBookingId.put(orderBooking.getPendingBookingId(), booking);
+			bookingsByPendingBookingId.put(orderBooking.getReservation().getReservationCode(), booking);
 		});
 
 		log.info("[주문에 대한 예매 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());

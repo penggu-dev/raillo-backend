@@ -12,6 +12,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -112,6 +113,42 @@ public class BookingValidator {
 		if (!notFoundIds.isEmpty()) {
 			log.warn("[예약 만료] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
 			throw new BusinessException(BookingError.PENDING_BOOKING_EXPIRED);
+		}
+	}
+
+	/**
+	 * 요청한 예약이 모두 조회되었는지 검증
+	 *
+	 * <p>없는 예약과 만료된 예약을 같은 오류로 다룬다. Redis TTL 시절 키가 사라진 것과
+	 * 만료된 것을 구분할 수 없었던 동작을 그대로 유지한다.</p>
+	 */
+	public void validateAllReservationsExist(List<String> reservationCodes, List<Reservation> reservations) {
+		if (reservations.size() != reservationCodes.size()) {
+			log.warn("[예약 조회 실패] 요청={}, 조회={} - 만료되었거나 이미 사용됨",
+				reservationCodes.size(), reservations.size());
+			throw new BusinessException(BookingError.RESERVATION_EXPIRED);
+		}
+	}
+
+	/**
+	 * 예약 접근 권한 확인
+	 */
+	public void validateReservationOwner(Reservation reservation, String memberNo) {
+		if (!reservation.getMemberNo().equals(memberNo)) {
+			log.error("[예약 소유자 불일치] reservationMemberNo={}, requestMemberNo={}",
+				reservation.getMemberNo(), memberNo);
+			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
+		}
+	}
+
+	/**
+	 * 결제 가능한 상태인지 검증 (점유중이면서 만료되지 않음)
+	 */
+	public void validateReservationPayable(Reservation reservation, LocalDateTime now) {
+		if (!reservation.isPayable(now)) {
+			log.warn("[결제 불가 예약] reservationCode={}, status={}, expiresAt={}",
+				reservation.getReservationCode(), reservation.getStatus(), reservation.getExpiresAt());
+			throw new BusinessException(BookingError.RESERVATION_EXPIRED);
 		}
 	}
 

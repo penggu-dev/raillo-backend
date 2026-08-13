@@ -102,7 +102,7 @@ class BookingMetricsTest {
 	}
 
 	@Test
-	@DisplayName("같은 좌석에 대해 Seat Hold 충돌이 발생하면 tag가 hold인 seat_conflict 카운터가 증가한다")
+	@DisplayName("다른 예약이 점유중인 좌석에 예약하면 seat_conflict 카운터가 증가한다")
 	void createPendingBooking_holdConflict_incrementSeatConflictHoldMetric() {
 		// given
 		// 첫 번째 사용자가 좌석 Hold
@@ -112,7 +112,7 @@ class BookingMetricsTest {
 			"202601010001"
 		);
 
-		double before = meterRegistry.counter("seat_conflict_total", "conflict_type", "hold").count();
+		double before = meterRegistry.counter("seat_conflict_total", "conflict_type", "occupied").count();
 
 		// when
 		assertThatThrownBy(() ->
@@ -123,15 +123,15 @@ class BookingMetricsTest {
 			)
 		).isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException) e).getErrorCode())
-			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_HOLD);
+			.isEqualTo(BookingError.SEAT_ALREADY_OCCUPIED);
 
 		// then
-		double after = meterRegistry.counter("seat_conflict_total", "conflict_type", "hold").count();
+		double after = meterRegistry.counter("seat_conflict_total", "conflict_type", "occupied").count();
 		assertThat(after).isEqualTo(before + 1);
 	}
 
 	@Test
-	@DisplayName("이미 확정된 좌석에 예약을 시도하면 tag가 sold인 seat_conflict 카운터가 증가한다")
+	@DisplayName("이미 확정된 좌석에 예약을 시도하면 seat_conflict 카운터가 증가한다")
 	void createPendingBooking_soldConflict_incrementSeatConflictSoldMetric() {
 		// given
 		// 좌석을 확정 예매 (DB에 SeatBooking 저장)
@@ -157,36 +157,9 @@ class BookingMetricsTest {
 		assertThat(after).isEqualTo(before + 1);
 	}
 
-	@Test
-	@DisplayName("Hold 충돌로 예약 실패 시 pending_booking_created_total 카운터는 증가하지 않는다")
-	void createPendingBooking_holdConflict_doesNotIncrementPendingBookingCreated() {
-		// given
-		pendingBookingFacade.createPendingBooking(
-			new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
-				List.of(PassengerType.ADULT), List.of(seatId)),
-			"202601010001"
-		);
-
-		double before = meterRegistry.counter("pending_booking_created_total").count();
-
-		// when
-		assertThatThrownBy(() ->
-			pendingBookingFacade.createPendingBooking(
-				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
-					List.of(PassengerType.ADULT), List.of(seatId)),
-				"202601010002"
-			)
-		).isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException) e).getErrorCode())
-			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_HOLD);
-
-		// then
-		double after = meterRegistry.counter("pending_booking_created_total").count();
-		assertThat(after).isEqualTo(before);
-	}
 
 	@Test
-	@DisplayName("Sold 충돌로 예약 실패 시 pending_booking_created_total 카운터는 증가하지 않는다")
+	@DisplayName("좌석 충돌로 예약 실패 시 pending_booking_created_total 카운터는 증가하지 않는다")
 	void createPendingBooking_soldConflict_doesNotIncrementPendingBookingCreated() {
 		// given
 		bookingTestHelper.builder(member, scheduleResult)
@@ -211,66 +184,14 @@ class BookingMetricsTest {
 		assertThat(after).isEqualTo(before);
 	}
 
-	@Test
-	@DisplayName("Hold 충돌 발생 시 seat_conflict의 sold 카운터는 증가하지 않는다")
-	void createPendingBooking_holdConflict_doesNotIncrementSoldCounter() {
-		// given
-		pendingBookingFacade.createPendingBooking(
-			new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
-				List.of(PassengerType.ADULT), List.of(seatId)),
-			"202601010001"
-		);
 
-		double soldBefore = meterRegistry.counter("seat_conflict_total", "conflict_type", "occupied").count();
-
-		// when
-		assertThatThrownBy(() ->
-			pendingBookingFacade.createPendingBooking(
-				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
-					List.of(PassengerType.ADULT), List.of(seatId)),
-				"202601010002"
-			)
-		).isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException) e).getErrorCode())
-			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_HOLD);
-
-		// then
-		double soldAfter = meterRegistry.counter("seat_conflict_total", "conflict_type", "occupied").count();
-		assertThat(soldAfter).isEqualTo(soldBefore);
-	}
 
 	@Test
-	@DisplayName("Sold 충돌 발생 시 seat_conflict의 hold 카운터는 증가하지 않는다")
-	void createPendingBooking_soldConflict_doesNotIncrementHoldCounter() {
-		// given
-		bookingTestHelper.builder(member, scheduleResult)
-			.addSeat(seats.get(0), PassengerType.ADULT)
-			.build();
-
-		double holdBefore = meterRegistry.counter("seat_conflict_total", "conflict_type", "hold").count();
-
-		// when
-		assertThatThrownBy(() ->
-			pendingBookingFacade.createPendingBooking(
-				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
-					List.of(PassengerType.ADULT), List.of(seatId)),
-				"202601010099"
-			)
-		).isInstanceOf(BusinessException.class)
-			.extracting(e -> ((BusinessException) e).getErrorCode())
-			.isEqualTo(BookingError.SEAT_ALREADY_OCCUPIED);
-
-		// then
-		double holdAfter = meterRegistry.counter("seat_conflict_total", "conflict_type", "hold").count();
-		assertThat(holdAfter).isEqualTo(holdBefore);
-	}
-
-	@Test
-	@DisplayName("예약 생성 성공 시 예약 생성 타이머와 seat_hold 타이머가 기록된다")
+	@DisplayName("예약 생성 성공 시 예약 생성 타이머와 좌석 점유 타이머가 기록된다")
 	void createPendingBooking_success_recordsBothTimers() {
 		// given
 		double pendingBookingBefore = meterRegistry.timer("pending_booking_duration_seconds").count();
-		double seatHoldBefore = meterRegistry.timer("seat_hold_duration_seconds").count();
+		double seatHoldBefore = meterRegistry.timer("seat_occupancy_duration_seconds").count();
 
 		// when
 		pendingBookingFacade.createPendingBooking(
@@ -281,50 +202,22 @@ class BookingMetricsTest {
 
 		// then
 		double pendingBookingAfter = meterRegistry.timer("pending_booking_duration_seconds").count();
-		double seatHoldAfter = meterRegistry.timer("seat_hold_duration_seconds").count();
+		double seatHoldAfter = meterRegistry.timer("seat_occupancy_duration_seconds").count();
 		assertThat(pendingBookingAfter).isEqualTo(pendingBookingBefore + 1);
 		assertThat(seatHoldAfter).isEqualTo(seatHoldBefore + 1);
 	}
 
-	@Test
-	@DisplayName("hold 좌석 충돌로 예약 실패해도 pending_booking 타이머와 seat_hold 타이머는 기록된다")
-	void createPendingBooking_holdConflict_stillRecordsBothTimers() {
-		// given
-		pendingBookingFacade.createPendingBooking(
-			new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
-				List.of(PassengerType.ADULT), List.of(seatId)),
-			"202601010001"
-		);
-
-		double pendingBookingBefore = meterRegistry.timer("pending_booking_duration_seconds").count();
-		double seatHoldBefore = meterRegistry.timer("seat_hold_duration_seconds").count();
-
-		// when
-		assertThatThrownBy(() ->
-			pendingBookingFacade.createPendingBooking(
-				new PendingBookingCreateRequest(scheduleId, departureStationId, arrivalStationId,
-					List.of(PassengerType.ADULT), List.of(seatId)),
-				"202601010002"
-			)
-		).isInstanceOf(BusinessException.class);
-
-		// then
-		double pendingBookingAfter = meterRegistry.timer("pending_booking_duration_seconds").count();
-		double seatHoldAfter = meterRegistry.timer("seat_hold_duration_seconds").count();
-		assertThat(pendingBookingAfter).isEqualTo(pendingBookingBefore + 1);
-		assertThat(seatHoldAfter).isEqualTo(seatHoldBefore + 1);
-	}
 
 	@Test
-	@DisplayName("sold 좌석 충돌로 예약 실패해도 pending_booking 타이머와 seat_hold 타이머는 기록된다")
-	void createPendingBooking_soldConflict_stillRecordsBothTimers() {
+	@DisplayName("좌석 충돌로 예약에 실패하면 예약 생성 타이머만 기록되고 좌석 점유는 시도되지 않는다")
+	void createPendingBooking_seatConflict_failsBeforeOccupancy() {
 		// given
 		bookingTestHelper.builder(member, scheduleResult)
 			.addSeat(seats.get(0), PassengerType.ADULT)
 			.build();
 
 		double pendingBookingBefore = meterRegistry.timer("pending_booking_duration_seconds").count();
-		double seatHoldBefore = meterRegistry.timer("seat_hold_duration_seconds").count();
+		double seatHoldBefore = meterRegistry.timer("seat_occupancy_duration_seconds").count();
 
 		// when
 		assertThatThrownBy(() ->
@@ -339,8 +232,9 @@ class BookingMetricsTest {
 
 		// then
 		double pendingBookingAfter = meterRegistry.timer("pending_booking_duration_seconds").count();
-		double seatHoldAfter = meterRegistry.timer("seat_hold_duration_seconds").count();
+		double seatHoldAfter = meterRegistry.timer("seat_occupancy_duration_seconds").count();
 		assertThat(pendingBookingAfter).isEqualTo(pendingBookingBefore + 1);
-		assertThat(seatHoldAfter).isEqualTo(seatHoldBefore + 1);
+		// 사전 검증에서 걸러지므로 좌석 점유 삽입은 시도되지 않는다
+		assertThat(seatHoldAfter).isEqualTo(seatHoldBefore);
 	}
 }

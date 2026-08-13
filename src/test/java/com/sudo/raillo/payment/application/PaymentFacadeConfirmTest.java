@@ -15,7 +15,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.sudo.raillo.booking.application.service.SeatHoldService;
-import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository;
+import com.sudo.raillo.booking.infrastructure.ReservationRepository;
+import com.sudo.raillo.booking.domain.status.SeatOccupancyStatus;
+import com.sudo.raillo.booking.domain.status.ReservationStatus;
+import com.sudo.raillo.booking.domain.SeatOccupancy;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -41,6 +46,8 @@ import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.TossPaymentClient;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
+import com.sudo.raillo.support.helper.ReservationTestHelper;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.PendingBookingFixture;
@@ -54,6 +61,18 @@ import com.sudo.raillo.train.domain.type.CarType;
 
 @ServiceTest
 class PaymentFacadeConfirmTest {
+
+	@Autowired
+	private ReservationTestHelper reservationTestHelper;
+
+	@Autowired
+	private com.sudo.raillo.booking.application.facade.PendingBookingFacade pendingBookingFacade;
+
+	@Autowired
+	private ReservationRepository reservationRepository;
+
+	@Autowired
+	private SeatOccupancyRepository seatOccupancyRepository;
 
 	@Autowired
 	private PaymentFacade paymentFacade;
@@ -112,9 +131,9 @@ class PaymentFacadeConfirmTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_test_12345";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, prepareResponse.orderId(), "카드", amount.longValue(), "DONE");
@@ -141,9 +160,9 @@ class PaymentFacadeConfirmTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_test_67890";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, prepareResponse.orderId(), "카드", amount.longValue(), "DONE");
@@ -178,9 +197,9 @@ class PaymentFacadeConfirmTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_requires_new_test";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		// 토스 API 실패 → 바깥 트랜잭션 롤백
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
@@ -211,19 +230,18 @@ class PaymentFacadeConfirmTest {
 	}
 
 	@Test
-	@DisplayName("결제 승인 성공 시 Seat Hold가 해제된다")
-	void confirmPayment_holdReleasedAfterSuccess() {
+	@DisplayName("결제 승인 성공 시 좌석 점유가 확정 상태로 전이된다")
+	void confirmPayment_occupancyConfirmedAfterSuccess() {
 		// given
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_hold_release_test";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
-		Long seatId = pendingBooking.getPendingSeatBookings().get(0).seatId();
 
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, prepareResponse.orderId(), "카드", amount.longValue(), "DONE");
@@ -236,37 +254,35 @@ class PaymentFacadeConfirmTest {
 		// when
 		paymentFacade.confirmPayment(confirmRequest, memberNo);
 
-		// then - Hold가 해제되어 다른 사용자가 같은 좌석을 Hold 할 수 있어야 함
-		Long trainCarId = trainTestHelper.getSeats(
-			trainScheduleResult.trainSchedule().getTrain(), CarType.STANDARD, 1
-			).get(0).getTrainCar().getId();
-		SeatHoldResult result = seatHoldRepository.trySeatHold(
-			trainScheduleResult.trainSchedule().getId(),
-			seatId,
-			"other-pending-booking",
-			departureStop.getStopOrder(),
-			arrivalStop.getStopOrder(),
-			trainCarId,
-			Duration.ofMinutes(10)
-		);
-		assertThat(result.success()).isTrue();
+		// then - 점유는 해제되지 않고 확정(CONFIRMED)으로 전이되어 좌석이 계속 잠긴다
+		Reservation confirmed = reservationRepository.findByReservationCode(
+			pendingBooking.getReservationCode()).orElseThrow();
+		List<SeatOccupancy> occupancies = seatOccupancyRepository.findAllByReservationId(confirmed.getId());
+
+		assertThat(confirmed.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
+		assertThat(occupancies).isNotEmpty();
+		assertThat(occupancies).allSatisfy(occupancy -> {
+			assertThat(occupancy.getStatus()).isEqualTo(SeatOccupancyStatus.CONFIRMED);
+			assertThat(occupancy.getExpiresAt()).isEqualTo(SeatOccupancy.NEVER_EXPIRES);
+		});
 	}
 
 	// ========== 실패 시나리오 테스트 ==========
 
 	@Test
-	@DisplayName("PendingBooking이 TTL 만료되면 PENDING_BOOKING_EXPIRED 예외가 발생한다")
+	@DisplayName("예약이 만료되면 RESERVATION_EXPIRED 예외가 발생한다")
 	void confirmPayment_pendingBookingExpired_throwsException() {
 		// given
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_expired_test";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
-		// PendingBooking을 Redis에서 삭제하여 TTL 만료 시뮬레이션
-		bookingRedisRepository.deletePendingBooking(pendingBooking.getId());
+		// 예약을 해제하여 만료 상황을 만든다
+		pendingBookingFacade.deletePendingBookings(
+			List.of(pendingBooking.getReservationCode()), memberNo);
 
 		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
 			paymentKey, prepareResponse.orderId(), amount);
@@ -274,35 +290,25 @@ class PaymentFacadeConfirmTest {
 		// when & then
 		assertThatThrownBy(() -> paymentFacade.confirmPayment(confirmRequest, memberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_EXPIRED)
-			.hasMessage(BookingError.PENDING_BOOKING_EXPIRED.getMessage());
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_EXPIRED)
+			.hasMessage(BookingError.RESERVATION_EXPIRED.getMessage());
 	}
 
 	@Test
-	@DisplayName("Order 소유자가 아닌 회원이 결제 승인을 시도하면 ORDER_ACCESS_DENIED 예외가 발생한다")
+	@DisplayName("소유자가 아닌 회원이 결제 승인을 시도하면 접근 권한 예외가 발생한다")
 	void confirmPayment_orderOwnerMismatch_throwsException() {
 		// given
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_owner_test";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		// 다른 회원 생성
 		Member otherMember = memberRepository.save(MemberFixture.createOther());
 		String otherMemberNo = otherMember.getMemberDetail().getMemberNo();
 
-		// 다른 회원의 PendingBooking도 만들어서 Redis에 소유자 검증을 통과시킴
-		PendingBooking otherPendingBooking = PendingBookingFixture.builder()
-			.withId(pendingBooking.getId())
-			.withMemberNo(otherMemberNo)
-			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
-			.withDepartureStopId(trainScheduleResult.scheduleStops().get(0).getId())
-			.withArrivalStopId(trainScheduleResult.scheduleStops().get(1).getId())
-			.withTotalFare(amount)
-			.build();
-		bookingRedisRepository.savePendingBooking(otherPendingBooking);
 
 		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
 			paymentKey, prepareResponse.orderId(), amount);
@@ -310,8 +316,8 @@ class PaymentFacadeConfirmTest {
 		// when & then
 		assertThatThrownBy(() -> paymentFacade.confirmPayment(confirmRequest, otherMemberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", OrderError.ORDER_ACCESS_DENIED)
-			.hasMessage(OrderError.ORDER_ACCESS_DENIED.getMessage());
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_ACCESS_DENIED)
+			.hasMessage(BookingError.PENDING_BOOKING_ACCESS_DENIED.getMessage());
 	}
 
 	@Test
@@ -322,9 +328,9 @@ class PaymentFacadeConfirmTest {
 		BigDecimal wrongRequestAmount = BigDecimal.valueOf(30000);
 		String paymentKey = "toss_pk_amount_test";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(orderAmount);
+		Reservation pendingBooking = createPendingBookingWithHold(orderAmount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
 			paymentKey, prepareResponse.orderId(), wrongRequestAmount);
@@ -343,9 +349,9 @@ class PaymentFacadeConfirmTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_duplicate_test";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		// 기존 Payment를 PAID 상태로 변경
 		Order order = orderRepository.findByOrderCode(prepareResponse.orderId()).orElseThrow();
@@ -363,7 +369,7 @@ class PaymentFacadeConfirmTest {
 			.hasMessage(PaymentError.PAYMENT_ALREADY_COMPLETED.getMessage());
 	}
 
-	private PendingBooking createPendingBookingWithHold(BigDecimal fare) {
+	private Reservation createPendingBookingWithHold(BigDecimal fare) {
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
@@ -372,29 +378,16 @@ class PaymentFacadeConfirmTest {
 		List<Long> seatIds = seats.stream().map(Seat::getId).toList();
 		Long trainCarId = seats.get(0).getTrainCar().getId();
 
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(memberNo)
-			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT)
-			))
-			.withTotalFare(fare)
-			.build();
-
-		// 실제 플로우처럼 Seat Hold 먼저 설정 (PendingBookingFacade가 하는 일)
-		seatHoldService.holdSeats(
-			pendingBooking.getId(),
-			trainScheduleResult.trainSchedule().getId(),
+		Reservation pendingBooking = reservationTestHelper.hold(
+			memberNo,
+			trainScheduleResult.trainSchedule(),
 			departureStop,
 			arrivalStop,
-			seatIds,
-			trainCarId,
-			Duration.ofMinutes(10)
-		);
+			List.of(seats.get(0)),
+			List.of(PassengerType.ADULT));
 
-		bookingRedisRepository.savePendingBooking(pendingBooking);
+		// 실제 플로우처럼 Seat Hold 먼저 설정 (PendingBookingFacade가 하는 일)
+
 		return pendingBooking;
 	}
 }

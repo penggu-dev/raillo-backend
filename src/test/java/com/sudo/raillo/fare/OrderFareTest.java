@@ -2,7 +2,7 @@ package com.sudo.raillo.fare;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.member.domain.Member;
@@ -13,6 +13,8 @@ import com.sudo.raillo.order.domain.OrderBooking;
 import com.sudo.raillo.order.domain.OrderSeatBooking;
 import com.sudo.raillo.order.infrastructure.OrderBookingRepository;
 import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
+import com.sudo.raillo.support.helper.ReservationTestHelper;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.PendingBookingFixture;
@@ -37,6 +39,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 class OrderFareTest {
+
+	@Autowired
+	private ReservationTestHelper reservationTestHelper;
 
 	@Autowired
 	private OrderService orderService;
@@ -81,15 +86,13 @@ class OrderFareTest {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
 
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(trainSchedule.getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)
-			))
-			.build();
+		Reservation pendingBooking = reservationTestHelper.hold(
+			member.getMemberDetail().getMemberNo(),
+			trainSchedule,
+			departureStop,
+			arrivalStop,
+			List.of(seats.get(0)),
+			List.of(PassengerType.ADULT));
 
 		// when
 		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
@@ -117,15 +120,13 @@ class OrderFareTest {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
 
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(trainSchedule.getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seats.get(0).getId(), PassengerType.CHILD)
-			))
-			.build();
+		Reservation pendingBooking = reservationTestHelper.hold(
+			member.getMemberDetail().getMemberNo(),
+			trainSchedule,
+			departureStop,
+			arrivalStop,
+			List.of(seats.get(0)),
+			List.of(PassengerType.CHILD));
 
 		// when
 		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
@@ -153,15 +154,13 @@ class OrderFareTest {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, 1);
 
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(trainSchedule.getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)
-			))
-			.build();
+		Reservation pendingBooking = reservationTestHelper.hold(
+			member.getMemberDetail().getMemberNo(),
+			trainSchedule,
+			departureStop,
+			arrivalStop,
+			List.of(seats.get(0)),
+			List.of(PassengerType.ADULT));
 
 		// when
 		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
@@ -189,16 +188,13 @@ class OrderFareTest {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(trainSchedule.getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT),
-				new PendingSeatBooking(seats.get(1).getId(), PassengerType.ADULT)
-			))
-			.build();
+		Reservation pendingBooking = reservationTestHelper.hold(
+			member.getMemberDetail().getMemberNo(),
+			trainSchedule,
+			departureStop,
+			arrivalStop,
+			List.of(seats.get(0), seats.get(1)),
+			List.of(PassengerType.ADULT, PassengerType.ADULT));
 
 		// when
 		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
@@ -227,16 +223,13 @@ class OrderFareTest {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(trainSchedule.getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT),
-				new PendingSeatBooking(seats.get(1).getId(), PassengerType.CHILD)
-			))
-			.build();
+		Reservation pendingBooking = reservationTestHelper.hold(
+			member.getMemberDetail().getMemberNo(),
+			trainSchedule,
+			departureStop,
+			arrivalStop,
+			List.of(seats.get(0), seats.get(1)),
+			List.of(PassengerType.ADULT, PassengerType.CHILD));
 
 		// when
 		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
@@ -273,25 +266,21 @@ class OrderFareTest {
 		List<Seat> standardSeats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
 		List<Seat> firstClassSeats = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, 1);
 
-		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(trainSchedule.getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(standardSeats.get(0).getId(), PassengerType.ADULT)
-			))
-			.build();
+		Reservation pendingBooking1 = reservationTestHelper.hold(
+			member.getMemberDetail().getMemberNo(),
+			trainSchedule,
+			departureStop,
+			arrivalStop,
+			List.of(standardSeats.get(0)),
+			List.of(PassengerType.ADULT));
 
-		PendingBooking pendingBooking2 = PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(trainSchedule.getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(firstClassSeats.get(0).getId(), PassengerType.ADULT)
-			))
-			.build();
+		Reservation pendingBooking2 = reservationTestHelper.hold(
+			member.getMemberDetail().getMemberNo(),
+			trainSchedule,
+			departureStop,
+			arrivalStop,
+			List.of(firstClassSeats.get(0)),
+			List.of(PassengerType.ADULT));
 
 		// when
 		Order order = orderService.createOrder(
@@ -336,8 +325,8 @@ class OrderFareTest {
 		// given
 		// 1. 첫 번째 스케줄 준비: 서울 -> 부산 (일반석 2좌석)
 		List<Seat> schedule1Seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
-		Long s1SeatId1 = schedule1Seats.get(0).getId(); // 성인용
-		Long s1SeatId2 = schedule1Seats.get(1).getId(); // 어린이용
+		Seat s1SeatId1 = schedule1Seats.get(0); // 성인용
+		Seat s1SeatId2 = schedule1Seats.get(1); // 어린이용
 
 		// 2. 두 번째 스케줄 준비: 서울 -> 대전 (특실 3좌석, 다른 열차)
 		trainScheduleTestHelper.createOrUpdateStationFare("서울", "대전", 25000, 50000);
@@ -351,36 +340,29 @@ class OrderFareTest {
 			.build();
 
 		List<Seat> schedule2Seats = trainTestHelper.getSeats(train2, CarType.FIRST_CLASS, 3);
-		Long s2SeatId1 = schedule2Seats.get(0).getId(); // 성인용
-		Long s2SeatId2 = schedule2Seats.get(1).getId(); // 경로용
-		Long s2SeatId3 = schedule2Seats.get(2).getId(); // 어린이용
+		Seat s2SeatId1 = schedule2Seats.get(0); // 성인용
+		Seat s2SeatId2 = schedule2Seats.get(1); // 경로용
+		Seat s2SeatId3 = schedule2Seats.get(2); // 어린이용
 
 		ScheduleStop schedule2Departure = schedule2Result.scheduleStops().get(0);
 		ScheduleStop schedule2Arrival = schedule2Result.scheduleStops().get(1);
 
-		// 3. PendingBooking 생성
-		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(trainSchedule.getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(s1SeatId1, PassengerType.ADULT),
-				new PendingSeatBooking(s1SeatId2, PassengerType.CHILD)
-			))
-			.build();
+		// 3. Reservation 생성
+		Reservation pendingBooking1 = reservationTestHelper.hold(
+			member.getMemberDetail().getMemberNo(),
+			trainSchedule,
+			departureStop,
+			arrivalStop,
+			List.of(s1SeatId1, s1SeatId2),
+			List.of(PassengerType.ADULT, PassengerType.CHILD));
 
-		PendingBooking pendingBooking2 = PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(schedule2Result.trainSchedule().getId())
-			.withDepartureStopId(schedule2Departure.getId())
-			.withArrivalStopId(schedule2Arrival.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(s2SeatId1, PassengerType.ADULT),
-				new PendingSeatBooking(s2SeatId2, PassengerType.SENIOR),
-				new PendingSeatBooking(s2SeatId3, PassengerType.CHILD)
-			))
-			.build();
+		Reservation pendingBooking2 = reservationTestHelper.hold(
+			member.getMemberDetail().getMemberNo(),
+			schedule2Result.trainSchedule(),
+			schedule2Departure,
+			schedule2Arrival,
+			List.of(s2SeatId1, s2SeatId2, s2SeatId3),
+			List.of(PassengerType.ADULT, PassengerType.SENIOR, PassengerType.CHILD));
 
 		// when
 		Order order = orderService.createOrder(

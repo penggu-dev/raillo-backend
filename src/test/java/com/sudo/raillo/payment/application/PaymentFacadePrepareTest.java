@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -25,6 +25,8 @@ import com.sudo.raillo.order.domain.status.OrderStatus;
 import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentPrepareResponse;
+import com.sudo.raillo.support.helper.ReservationTestHelper;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.PendingBookingFixture;
@@ -32,11 +34,15 @@ import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
 import com.sudo.raillo.train.domain.ScheduleStop;
+import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 
 @ServiceTest
 class PaymentFacadePrepareTest {
+
+	@Autowired
+	private ReservationTestHelper reservationTestHelper;
 
 	@Autowired
 	private PaymentFacade paymentFacade;
@@ -76,27 +82,21 @@ class PaymentFacadePrepareTest {
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
-		List<Long> seatIds = trainTestHelper.getSeatIds(
+		List<Seat> seats = trainTestHelper.getSeats(
 			trainScheduleResult.trainSchedule().getTrain(),
 			CarType.STANDARD,
 			1
 		);
 
-		List<PendingSeatBooking> pendingSeatBookings = List.of(
-			new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT)
-		);
+		Reservation pendingBooking = reservationTestHelper.hold(
+			memberNo,
+			trainScheduleResult.trainSchedule(),
+			departureStop,
+			arrivalStop,
+			List.of(seats.get(0)),
+			List.of(PassengerType.ADULT));
 
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(memberNo)
-			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(pendingSeatBookings)
-			.withTotalFare(BigDecimal.valueOf(50000))
-			.build();
-		bookingRedisRepository.savePendingBooking(pendingBooking);
-
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getId()));
+		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode()));
 
 		// when
 		PaymentPrepareResponse response = paymentFacade.preparePayment(request, memberNo);
@@ -121,36 +121,28 @@ class PaymentFacadePrepareTest {
 		ScheduleStop departureStop = scheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = scheduleResult.scheduleStops().get(1);
 
-		List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 4);
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 4);
 
-		// 첫 번째 PendingBooking: 2명 (성인 + 어린이)
-		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
-			.withMemberNo(memberNo)
-			.withTrainScheduleId(scheduleResult.trainSchedule().getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT),
-				new PendingSeatBooking(seatIds.get(1), PassengerType.CHILD)
-			))
-			.build();
-		bookingRedisRepository.savePendingBooking(pendingBooking1);
+		// 첫 번째 Reservation: 2명 (성인 + 어린이)
+		Reservation pendingBooking1 = reservationTestHelper.hold(
+			memberNo,
+			scheduleResult.trainSchedule(),
+			departureStop,
+			arrivalStop,
+			List.of(seats.get(0), seats.get(1)),
+			List.of(PassengerType.ADULT, PassengerType.CHILD));
 
-		// 두 번째 PendingBooking: 2명 (성인 + 경로)
-		PendingBooking pendingBooking2 = PendingBookingFixture.builder()
-			.withMemberNo(memberNo)
-			.withTrainScheduleId(scheduleResult.trainSchedule().getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seatIds.get(2), PassengerType.ADULT),
-				new PendingSeatBooking(seatIds.get(3), PassengerType.SENIOR)
-			))
-			.build();
-		bookingRedisRepository.savePendingBooking(pendingBooking2);
+		// 두 번째 Reservation: 2명 (성인 + 경로)
+		Reservation pendingBooking2 = reservationTestHelper.hold(
+			memberNo,
+			scheduleResult.trainSchedule(),
+			departureStop,
+			arrivalStop,
+			List.of(seats.get(2), seats.get(3)),
+			List.of(PassengerType.ADULT, PassengerType.SENIOR));
 
 		PaymentPrepareRequest request = new PaymentPrepareRequest(
-			List.of(pendingBooking1.getId(), pendingBooking2.getId())
+			List.of(pendingBooking1.getReservationCode(), pendingBooking2.getReservationCode())
 		);
 
 		// when
@@ -166,7 +158,7 @@ class PaymentFacadePrepareTest {
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 PendingBooking ID로 결제 준비 시 예외가 발생한다")
+	@DisplayName("존재하지 않는 Reservation ID로 결제 준비 시 예외가 발생한다")
 	void preparePayment_pendingBookingNotFound_throwsException() {
 		// given
 		String memberNo = member.getMemberDetail().getMemberNo();
@@ -177,8 +169,8 @@ class PaymentFacadePrepareTest {
 		// when & then
 		assertThatThrownBy(() -> paymentFacade.preparePayment(request, memberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_EXPIRED)
-			.hasMessage(BookingError.PENDING_BOOKING_EXPIRED.getMessage());
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_EXPIRED)
+			.hasMessage(BookingError.RESERVATION_EXPIRED.getMessage());
 	}
 
 	@Test
@@ -193,26 +185,22 @@ class PaymentFacadePrepareTest {
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
-		List<Long> seatIds = trainTestHelper.getSeatIds(
+		List<Seat> seats = trainTestHelper.getSeats(
 			trainScheduleResult.trainSchedule().getTrain(),
 			CarType.STANDARD,
 			1
 		);
 
-		// 다른 사용자의 PendingBooking 생성
-		PendingBooking othersPendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(otherMemberNo)
-			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT)
-			))
-			.withTotalFare(BigDecimal.valueOf(50000))
-			.build();
-		bookingRedisRepository.savePendingBooking(othersPendingBooking);
+		// 다른 사용자의 Reservation 생성
+		Reservation othersPendingBooking = reservationTestHelper.hold(
+			otherMemberNo,
+			trainScheduleResult.trainSchedule(),
+			departureStop,
+			arrivalStop,
+			List.of(seats.get(0)),
+			List.of(PassengerType.ADULT));
 
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(othersPendingBooking.getId()));
+		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(othersPendingBooking.getReservationCode()));
 
 		// when & then (현재 사용자가 다른 사용자의 PendingBooking으로 결제 시도)
 		assertThatThrownBy(() -> paymentFacade.preparePayment(request, currentMemberNo))
@@ -230,29 +218,25 @@ class PaymentFacadePrepareTest {
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
-		List<Long> seatIds = trainTestHelper.getSeatIds(
+		List<Seat> seats = trainTestHelper.getSeats(
 			trainScheduleResult.trainSchedule().getTrain(),
 			CarType.STANDARD,
 			1
 		);
 
-		// 유효한 회원의 PendingBooking 생성
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(memberNo)
-			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT)
-			))
-			.withTotalFare(BigDecimal.valueOf(50000))
-			.build();
-		bookingRedisRepository.savePendingBooking(pendingBooking);
+		// 유효한 회원의 Reservation 생성
+		Reservation pendingBooking = reservationTestHelper.hold(
+			memberNo,
+			trainScheduleResult.trainSchedule(),
+			departureStop,
+			arrivalStop,
+			List.of(seats.get(0)),
+			List.of(PassengerType.ADULT));
 
 		// 회원 탈퇴
 		memberRepository.delete(member);
 
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getId()));
+		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode()));
 
 		// when & then (탈퇴한 회원의 토큰으로 결제 시도)
 		assertThatThrownBy(() -> paymentFacade.preparePayment(request, memberNo))

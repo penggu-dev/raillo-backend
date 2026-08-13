@@ -1,5 +1,6 @@
 package com.sudo.raillo.order.domain;
 
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.global.domain.BaseEntity;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
@@ -30,9 +31,10 @@ public class OrderBooking extends BaseEntity {
 	@Comment("주문 예약 ID")
 	private Long id;
 
-	@Column(name = "pending_booking_id", nullable = false)
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "reservation_id", nullable = false)
 	@Comment("예약 ID")
-	private String pendingBookingId;
+	private Reservation reservation;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "order_id", nullable = false)
@@ -60,7 +62,7 @@ public class OrderBooking extends BaseEntity {
 	private BigDecimal totalFare;
 
 	public static OrderBooking create(
-		String pendingBookingId,
+		Reservation reservation,
 		Order order,
 		TrainSchedule trainSchedule,
 		ScheduleStop departureStop,
@@ -68,7 +70,7 @@ public class OrderBooking extends BaseEntity {
 		BigDecimal totalFare
 	) {
 		OrderBooking orderBooking = new OrderBooking();
-		orderBooking.pendingBookingId = pendingBookingId;
+		orderBooking.reservation = reservation;
 		orderBooking.order = order;
 		orderBooking.trainSchedule = trainSchedule;
 		orderBooking.departureStop = departureStop;

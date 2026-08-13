@@ -102,3 +102,7 @@ redis:
   ttl:
     pending-booking: 10m
     pending-booking-member-key: 580s # 유령 인덱스 방지를 위해 주 키의 TTL 설정 값보다 20초 짧게 설정
+
+# 예약 기본 유효 기간 (Redis TTL 대체)
+reservation:
+  ttl: 10m

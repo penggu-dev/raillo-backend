@@ -15,7 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.sudo.raillo.booking.application.service.SeatHoldService;
-import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
@@ -30,6 +30,8 @@ import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.TossPaymentClient;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
+import com.sudo.raillo.support.helper.ReservationTestHelper;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.PendingBookingFixture;
@@ -44,6 +46,9 @@ import io.micrometer.core.instrument.MeterRegistry;
 
 @ServiceTest
 class PaymentMetricsTest {
+
+	@Autowired
+	private ReservationTestHelper reservationTestHelper;
 
 	@Autowired
 	private PaymentFacade paymentFacade;
@@ -86,8 +91,8 @@ class PaymentMetricsTest {
 	@DisplayName("결제 준비 성공 시 payment_prepare_total 카운터가 증가한다")
 	void preparePayment_incrementsPrepareMetric() {
 		// given
-		PendingBooking pendingBooking = createPendingBookingWithHold(BigDecimal.valueOf(50000));
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getId()));
+		Reservation pendingBooking = createPendingBookingWithHold(BigDecimal.valueOf(50000));
+		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode()));
 
 		double before = meterRegistry.counter("payment_prepare_total").count();
 
@@ -106,9 +111,9 @@ class PaymentMetricsTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_metrics_success";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, prepareResponse.orderId(), "카드", amount.longValue(), "DONE");
@@ -135,9 +140,9 @@ class PaymentMetricsTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_metrics_toss_fail";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
 			.willThrow(new TossPaymentException(400, "INVALID_REQUEST", "test error"));
@@ -166,9 +171,9 @@ class PaymentMetricsTest {
 		BigDecimal wrongAmount = BigDecimal.valueOf(30000);
 		String paymentKey = "toss_pk_metrics_validation_fail";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(orderAmount);
+		Reservation pendingBooking = createPendingBookingWithHold(orderAmount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
 			paymentKey, prepareResponse.orderId(), wrongAmount);
@@ -198,9 +203,9 @@ class PaymentMetricsTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_metrics_unexpected";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
 			.willThrow(new RuntimeException("unexpected error"));
@@ -228,9 +233,9 @@ class PaymentMetricsTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_metrics_system_error";
 
-		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
+		Reservation pendingBooking = createPendingBookingWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
 
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
 			.willThrow(new BusinessException(PaymentError.PAYMENT_SYSTEM_ERROR));
@@ -256,7 +261,7 @@ class PaymentMetricsTest {
 		assertThat(after).isEqualTo(before + 1);
 	}
 
-	private PendingBooking createPendingBookingWithHold(BigDecimal fare) {
+	private Reservation createPendingBookingWithHold(BigDecimal fare) {
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
@@ -265,28 +270,15 @@ class PaymentMetricsTest {
 		List<Long> seatIds = seats.stream().map(Seat::getId).toList();
 		Long trainCarId = seats.get(0).getTrainCar().getId();
 
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(memberNo)
-			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
-			.withDepartureStopId(departureStop.getId())
-			.withArrivalStopId(arrivalStop.getId())
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seatIds.get(0), PassengerType.ADULT)
-			))
-			.withTotalFare(fare)
-			.build();
-
-		seatHoldService.holdSeats(
-			pendingBooking.getId(),
-			trainScheduleResult.trainSchedule().getId(),
+		Reservation pendingBooking = reservationTestHelper.hold(
+			memberNo,
+			trainScheduleResult.trainSchedule(),
 			departureStop,
 			arrivalStop,
-			seatIds,
-			trainCarId,
-			Duration.ofMinutes(10)
-		);
+			List.of(seats.get(0)),
+			List.of(PassengerType.ADULT));
 
-		bookingRedisRepository.savePendingBooking(pendingBooking);
+
 		return pendingBooking;
 	}
 }

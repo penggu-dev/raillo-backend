@@ -3,6 +3,7 @@ package com.sudo.raillo.support.helper;
 import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.member.domain.Member;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.order.domain.OrderBooking;
 import com.sudo.raillo.order.domain.OrderSeatBooking;
@@ -31,6 +32,7 @@ public class OrderTestHelper {
 
 	private final TrainTestHelper trainTestHelper;
 	private final OrderRepository orderRepository;
+	private final ReservationTestHelper reservationTestHelper;
 	private final OrderBookingRepository orderBookingRepository;
 	private final OrderSeatBookingRepository orderSeatBookingRepository;
 	private final FareCalculator fareCalculator;
@@ -101,9 +103,20 @@ public class OrderTestHelper {
 		for (OrderBookingBuilder bookingBuilder : builder.orderBookingBuilders) {
 			bookingBuilder.setDefaultStops();
 
+			if (bookingBuilder.reservation == null) {
+				bookingBuilder.reservation = reservationTestHelper.hold(
+					builder.member.getMemberDetail().getMemberNo(),
+					bookingBuilder.trainScheduleResult.trainSchedule(),
+					bookingBuilder.departureScheduleStop,
+					bookingBuilder.arrivalScheduleStop,
+					bookingBuilder.seatWithPassengerTypes.stream().map(sp -> sp.seat).toList(),
+					bookingBuilder.seatWithPassengerTypes.stream().map(sp -> sp.passengerType).toList()
+				);
+			}
+
 			OrderBooking orderBooking = orderBookingRepository.save(
 				OrderBooking.create(
-					bookingBuilder.pendingBookingId,
+					bookingBuilder.reservation,
 					order,
 					bookingBuilder.trainScheduleResult.trainSchedule(),
 					bookingBuilder.departureScheduleStop,
@@ -197,7 +210,7 @@ public class OrderTestHelper {
 	 * OrderBooking 생성용 Builder
 	 */
 	public class OrderBookingBuilder {
-		private String pendingBookingId = UUID.randomUUID().toString();
+		private Reservation reservation;
 		private final OrderBuilder parent;
 		private final TrainScheduleResult trainScheduleResult;
 		private final List<SeatWithPassengerType> seatWithPassengerTypes = new ArrayList<>();
@@ -214,8 +227,8 @@ public class OrderTestHelper {
 		 * 예약 ID를 설정한다.
 		 * <p>설정하지 않으면 UUID로 기본 예약 ID가 생성된다.</p>
 		 */
-		public OrderBookingBuilder setPendingBookingId(String pendingBookingId) {
-			this.pendingBookingId = pendingBookingId;
+		public OrderBookingBuilder setReservation(Reservation reservation) {
+			this.reservation = reservation;
 			return this;
 		}
 

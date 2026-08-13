@@ -52,4 +52,15 @@ public interface SeatOccupancyRepository extends JpaRepository<SeatOccupancy, Lo
 	@Modifying(flushAutomatically = true)
 	@Query("DELETE FROM SeatOccupancy o WHERE o.booking.id = :bookingId")
 	int deleteByBookingId(@Param("bookingId") Long bookingId);
+
+	/**
+	 * 특정 열차의 좌석들에 대한 점유를 모두 삭제한다.
+	 */
+	@Modifying(flushAutomatically = true)
+	@Query("DELETE FROM SeatOccupancy o "
+		+ "WHERE o.trainSchedule.id = :trainScheduleId AND o.seat.id IN :seatIds")
+	int deleteByTrainScheduleIdAndSeatIdIn(
+		@Param("trainScheduleId") Long trainScheduleId,
+		@Param("seatIds") List<Long> seatIds
+	);
 }

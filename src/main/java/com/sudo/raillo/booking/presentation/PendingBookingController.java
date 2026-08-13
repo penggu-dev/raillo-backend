@@ -16,7 +16,7 @@ import com.sudo.raillo.booking.application.dto.request.PendingBookingDeleteReque
 import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
 import com.sudo.raillo.booking.application.dto.response.PendingBookingDetailResponse;
 import com.sudo.raillo.booking.application.facade.PendingBookingFacade;
-import com.sudo.raillo.booking.application.service.PendingBookingService;
+import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.docs.PendingBookingControllerDoc;
 import com.sudo.raillo.booking.success.BookingSuccess;
 import com.sudo.raillo.global.success.SuccessResponse;
@@ -30,7 +30,7 @@ import lombok.RequiredArgsConstructor;
 public class PendingBookingController implements PendingBookingControllerDoc {
 
 	private final PendingBookingFacade pendingBookingFacade;
-	private final PendingBookingService pendingBookingService;
+	private final ReservationService reservationService;
 
 
 	/***
@@ -58,7 +58,7 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	) {
 		String memberNo = userDetails.getUsername();
 
-		List<PendingBookingDetailResponse> response = pendingBookingService.getPendingBookings(memberNo);
+		List<PendingBookingDetailResponse> response = reservationService.getReservationDetails(memberNo);
 		return SuccessResponse.of(BookingSuccess.PENDING_BOOKING_LIST_SUCCESS, response);
 	}
 

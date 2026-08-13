@@ -3,7 +3,7 @@ package com.sudo.raillo.booking.application;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.booking.application.service.BookingService;
-import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -12,6 +12,8 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.application.OrderService;
 import com.sudo.raillo.order.domain.Order;
+import com.sudo.raillo.support.helper.ReservationTestHelper;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.PendingBookingFixture;
@@ -25,6 +27,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
+import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +38,9 @@ import org.springframework.transaction.annotation.Transactional;
 @ServiceTest
 @Transactional
 public class TicketNumberTest {
+
+	@Autowired
+	private ReservationTestHelper reservationTestHelper;
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -66,12 +73,12 @@ public class TicketNumberTest {
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 6);
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		PendingBooking pendingBooking1 = createPendingBooking(member, trainScheduleResult, seats.subList(0, 3));
-		PendingBooking pendingBooking2 = createPendingBooking(member, trainScheduleResult, seats.subList(3, 6));
+		Reservation pendingBooking1 = createPendingBooking(member, trainScheduleResult, seats.subList(0, 3));
+		Reservation pendingBooking2 = createPendingBooking(member, trainScheduleResult, seats.subList(3, 6));
 
 		// when
 		// 예약 -> 주문 -> 결제 -> 예매로 티켓 생성
-		List<PendingBooking> pendingBookings = List.of(pendingBooking1, pendingBooking2);
+		List<Reservation> pendingBookings = List.of(pendingBooking1, pendingBooking2);
 		Order order = orderService.createOrder(memberNo, pendingBookings);
 		order.completePayment();
 		bookingService.createBookingFromOrder(order);
@@ -119,9 +126,9 @@ public class TicketNumberTest {
 		String member2No = member2.getMemberDetail().getMemberNo();
 
 		// 회원1 예약 (좌석 0, 1, 2)
-		PendingBooking pendingBooking1 = createPendingBooking(member1, trainScheduleResult, seats.subList(0, 3));
+		Reservation pendingBooking1 = createPendingBooking(member1, trainScheduleResult, seats.subList(0, 3));
 		// 회원2 예약 (좌석 3, 4, 5)
-		PendingBooking pendingBooking2 = createPendingBooking(member2, trainScheduleResult, seats.subList(3, 6));
+		Reservation pendingBooking2 = createPendingBooking(member2, trainScheduleResult, seats.subList(3, 6));
 
 		// when
 		// 회원1: 예약 -> 주문 -> 결제 -> 예매
@@ -165,15 +172,13 @@ public class TicketNumberTest {
 			);
 	}
 
-	private PendingBooking createPendingBooking(Member member, TrainScheduleResult result, List<Seat> seats) {
-		return PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(result.trainSchedule().getId())
-			.withDepartureStopId(result.scheduleStops().get(0).getId())
-			.withArrivalStopId(result.scheduleStops().get(1).getId())
-			.withPendingSeatBookings(seats.stream()
-				.map(seat -> new PendingSeatBooking(seat.getId(), PassengerType.ADULT))
-				.toList())
-			.build();
+	private Reservation createPendingBooking(Member member, TrainScheduleResult result, List<Seat> seats) {
+		return reservationTestHelper.hold(
+			member.getMemberDetail().getMemberNo(),
+			result.trainSchedule(),
+			result.scheduleStops().get(0),
+			result.scheduleStops().get(1),
+			seats,
+			Collections.nCopies(seats.size(), PassengerType.ADULT));
 	}
 }

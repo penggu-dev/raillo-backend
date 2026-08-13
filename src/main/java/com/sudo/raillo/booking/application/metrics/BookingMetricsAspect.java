@@ -27,9 +27,7 @@ public class BookingMetricsAspect {
 			bookingMetrics.incrementPendingBookingCreated();
 			return result;
 		} catch (BusinessException e) {
-			if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_HOLD) {
-				bookingMetrics.incrementSeatConflictHold();
-			} else if (e.getErrorCode() == BookingError.SEAT_ALREADY_OCCUPIED) {
+			if (e.getErrorCode() == BookingError.SEAT_ALREADY_OCCUPIED) {
 				bookingMetrics.incrementSeatConflictOccupied();
 			}
 			throw e;
@@ -38,9 +36,9 @@ public class BookingMetricsAspect {
 		}
 	}
 
-	@Around("execution(* com.sudo.raillo.booking.application.service.SeatHoldService.holdSeats(..))")
-	public Object timeSeatHold(ProceedingJoinPoint joinPoint) throws Throwable {
-		return recordTime(joinPoint, bookingMetrics.getSeatHoldTimer());
+	@Around("execution(* com.sudo.raillo.booking.application.service.SeatOccupancyService.hold(..))")
+	public Object timeSeatOccupancy(ProceedingJoinPoint joinPoint) throws Throwable {
+		return recordTime(joinPoint, bookingMetrics.getSeatOccupancyTimer());
 	}
 
 	private Object recordTime(ProceedingJoinPoint joinPoint, Timer timer) throws Throwable {

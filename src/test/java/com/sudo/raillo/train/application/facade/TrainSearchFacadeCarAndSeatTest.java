@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.support.helper.SeatOccupancyTestHelper;
+import com.sudo.raillo.support.helper.ReservationTestHelper;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -59,7 +59,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 	private MemberRepository memberRepository;
 
 	@Autowired
-	private SeatOccupancyTestHelper seatOccupancyTestHelper;
+	private ReservationTestHelper reservationTestHelper;
 
 	@Autowired
 	private BookingTestHelper bookingTestHelper;
@@ -427,7 +427,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop
 	) {
-		seatOccupancyTestHelper.hold(
+		reservationTestHelper.hold(
 			departureStop.getTrainSchedule(), departureStop, arrivalStop, seats);
 	}
 }

@@ -12,19 +12,13 @@ import lombok.Getter;
 public class BookingMetrics {
 
 	private final Counter pendingCreatedCounter;
-	private final Counter seatConflictHoldCounter;
 	private final Counter seatConflictOccupiedCounter;
 	private final Timer pendingBookingTimer;
-	private final Timer seatHoldTimer;
+	private final Timer seatOccupancyTimer;
 
 	public BookingMetrics(MeterRegistry meterRegistry) {
 		this.pendingCreatedCounter = Counter.builder("pending_booking_created_total")
 			.description("PendingBooking 생성 성공 건수")
-			.register(meterRegistry);
-
-		this.seatConflictHoldCounter = Counter.builder("seat_conflict_total")
-			.description("좌석 충돌 건수")
-			.tag("conflict_type", "hold")
 			.register(meterRegistry);
 
 		this.seatConflictOccupiedCounter = Counter.builder("seat_conflict_total")
@@ -37,18 +31,14 @@ public class BookingMetrics {
 			.publishPercentileHistogram(true)
 			.register(meterRegistry);
 
-		this.seatHoldTimer = Timer.builder("seat_hold_duration_seconds")
-			.description("Seat Hold 소요 시간")
+		this.seatOccupancyTimer = Timer.builder("seat_occupancy_duration_seconds")
+			.description("좌석 점유 소요 시간")
 			.publishPercentileHistogram(true)
 			.register(meterRegistry);
 	}
 
 	public void incrementPendingBookingCreated() {
 		pendingCreatedCounter.increment();
-	}
-
-	public void incrementSeatConflictHold() {
-		seatConflictHoldCounter.increment();
 	}
 
 	public void incrementSeatConflictOccupied() {

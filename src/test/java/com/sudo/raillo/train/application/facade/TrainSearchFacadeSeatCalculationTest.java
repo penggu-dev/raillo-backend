@@ -3,7 +3,7 @@ package com.sudo.raillo.train.application.facade;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.support.helper.SeatOccupancyTestHelper;
+import com.sudo.raillo.support.helper.ReservationTestHelper;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
@@ -51,7 +51,7 @@ class TrainSearchFacadeSeatCalculationTest {
 	private MemberRepository memberRepository;
 
 	@Autowired
-	private SeatOccupancyTestHelper seatOccupancyTestHelper;
+	private ReservationTestHelper reservationTestHelper;
 
 	@Autowired
 	private RedisTemplate<String, String> customStringRedisTemplate;
@@ -216,6 +216,8 @@ class TrainSearchFacadeSeatCalculationTest {
 		// given
 		LocalDate searchDate = LocalDate.now().plusDays(1);
 		trainScheduleTestHelper.createOrUpdateStationFare("대전", "부산", 25000, 40000);
+		trainScheduleTestHelper.createOrUpdateStationFare("서울", "대전", 25000, 40000);
+		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 80000);
 		Station daejeon = trainScheduleTestHelper.getOrCreateStation("대전");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
 
@@ -258,6 +260,8 @@ class TrainSearchFacadeSeatCalculationTest {
 		// given
 		LocalDate searchDate = LocalDate.now().plusDays(1);
 		trainScheduleTestHelper.createOrUpdateStationFare("대전", "부산", 25000, 40000);
+		trainScheduleTestHelper.createOrUpdateStationFare("서울", "대전", 25000, 40000);
+		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 80000);
 		Station daejeon = trainScheduleTestHelper.getOrCreateStation("대전");
 		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
 
@@ -319,9 +323,9 @@ class TrainSearchFacadeSeatCalculationTest {
 		ScheduleStop busanStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleResult, "부산");
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 5);
 
-		seatOccupancyTestHelper.hold(scheduleResult.trainSchedule(), seoulStop, busanStop,
+		reservationTestHelper.hold(scheduleResult.trainSchedule(), seoulStop, busanStop,
 			List.of(seats.get(0)), LocalDateTime.now().minusMinutes(1));
-		seatOccupancyTestHelper.hold(scheduleResult.trainSchedule(), seoulStop, busanStop,
+		reservationTestHelper.hold(scheduleResult.trainSchedule(), seoulStop, busanStop,
 			seats.subList(1, seats.size()));
 
 		// when
@@ -342,7 +346,7 @@ class TrainSearchFacadeSeatCalculationTest {
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop
 	) {
-		seatOccupancyTestHelper.hold(
+		reservationTestHelper.hold(
 			departureStop.getTrainSchedule(), departureStop, arrivalStop, seats);
 	}
 }

@@ -160,6 +160,11 @@ public class BookingTestHelper {
 		int departureStopOrder = builder.departureScheduleStop.getStopOrder();
 		int arrivalStopOrder = builder.arrivalScheduleStop.getStopOrder();
 
+		// 예약을 거쳐 만들어진 예매라면 이미 HELD 점유가 있으므로 대체한다
+		seatOccupancyRepository.deleteByTrainScheduleIdAndSeatIdIn(
+			builder.trainScheduleResult.trainSchedule().getId(),
+			builder.seatWithPassengerTypes.stream().map(sp -> sp.seat.getId()).toList());
+
 		List<SeatOccupancy> occupancies = builder.seatWithPassengerTypes.stream()
 			.flatMap(sp -> IntStream.range(departureStopOrder, arrivalStopOrder)
 				.mapToObj(sectionOrder -> SeatOccupancy.createConfirmed(booking, sp.seat, sectionOrder)))
