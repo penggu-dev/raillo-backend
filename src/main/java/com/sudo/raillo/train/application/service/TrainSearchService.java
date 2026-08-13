@@ -1,5 +1,6 @@
 package com.sudo.raillo.train.application.service;
 
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
@@ -9,17 +10,16 @@ import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sudo.raillo.booking.infrastructure.SeatOccupancyQueryRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;
-import com.sudo.raillo.train.application.dto.projection.TrainCarIdsBatch;
 import com.sudo.raillo.train.application.dto.projection.TrainSeatInfoBatch;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.TrainSchedule;
+import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainError;
-import com.sudo.raillo.train.infrastructure.SeatBookingQueryRepository;
 import com.sudo.raillo.train.infrastructure.StationFareRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleQueryRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
@@ -40,7 +40,7 @@ public class TrainSearchService {
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final TrainScheduleQueryRepository trainScheduleQueryRepository;
 	private final StationFareRepository stationFareRepository;
-	private final SeatBookingQueryRepository seatBookingQueryRepository;
+	private final SeatOccupancyQueryRepository seatOccupancyQueryRepository;
 
 	/**
 	 * 기본 열차 정보 조회
@@ -91,18 +91,15 @@ public class TrainSearchService {
 	}
 
 	/**
-	 * 겹치는 예약 배치 조회
+	 * 요청 구간과 겹치는 CarType별 점유 좌석 수 배치 조회
+	 *
+	 * <p>예약(HELD)과 확정 예매(CONFIRMED)를 한 번의 집계로 함께 계산한다.</p>
+	 *
+	 * @return {trainScheduleId: {carType: 점유 좌석 수}}
 	 */
-	public Map<Long, List<SeatBookingInfo>> findOverlappingBookingsBatch(
+	public Map<Long, Map<CarType, Integer>> findOccupiedSeatsBatch(
 		List<Long> trainScheduleIds, Long departureStationId, Long arrivalStationId) {
-		return seatBookingQueryRepository.findOverlappingBookingsBatch(
-			trainScheduleIds, departureStationId, arrivalStationId);
-	}
-
-	/**
-	 * 여러 스케줄의 CarType별 객차 ID 배치 조회
-	 */
-	public TrainCarIdsBatch getTrainCarIdsBatch(List<Long> trainScheduleIds) {
-		return trainScheduleQueryRepository.findTrainCarIdsBatch(trainScheduleIds);
+		return seatOccupancyQueryRepository.countOccupiedSeatsBatch(
+			trainScheduleIds, departureStationId, arrivalStationId, LocalDateTime.now());
 	}
 }

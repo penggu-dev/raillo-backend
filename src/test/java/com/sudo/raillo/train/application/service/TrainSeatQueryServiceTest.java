@@ -82,8 +82,8 @@ class TrainSeatQueryServiceTest {
 		// when
 		List<TrainCarInfo> availableTrainCars = trainSeatQueryService.getAvailableTrainCars(
 			trainScheduleResult.trainSchedule().getId(),
-			departureStop.getStation().getId(),
-			arrivalStop.getStation().getId()
+			departureStop.getStopOrder(),
+			arrivalStop.getStopOrder()
 		);
 
 		// then
@@ -120,8 +120,8 @@ class TrainSeatQueryServiceTest {
 		// when
 		List<TrainCarInfo> availableTrainCars = trainSeatQueryService.getAvailableTrainCars(
 			trainScheduleResult.trainSchedule().getId(),
-			departureStop.getStation().getId(),
-			arrivalStop.getStation().getId()
+			departureStop.getStopOrder(),
+			arrivalStop.getStopOrder()
 		);
 
 		// then
@@ -149,8 +149,8 @@ class TrainSeatQueryServiceTest {
 		// when & then
 		assertThatThrownBy(() -> trainSeatQueryService.getAvailableTrainCars(
 			trainScheduleResult.trainSchedule().getId(),
-			departureStop.getStation().getId(),
-			arrivalStop.getStation().getId()
+			departureStop.getStopOrder(),
+			arrivalStop.getStopOrder()
 		))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(TrainError.NO_AVAILABLE_CARS.getMessage());

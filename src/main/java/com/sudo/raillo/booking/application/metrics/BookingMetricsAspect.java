@@ -29,8 +29,8 @@ public class BookingMetricsAspect {
 		} catch (BusinessException e) {
 			if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_HOLD) {
 				bookingMetrics.incrementSeatConflictHold();
-			} else if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_SOLD) {
-				bookingMetrics.incrementSeatConflictSold();
+			} else if (e.getErrorCode() == BookingError.SEAT_ALREADY_OCCUPIED) {
+				bookingMetrics.incrementSeatConflictOccupied();
 			}
 			throw e;
 		} finally {

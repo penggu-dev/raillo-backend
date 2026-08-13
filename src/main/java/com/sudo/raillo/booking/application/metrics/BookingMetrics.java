@@ -13,7 +13,7 @@ public class BookingMetrics {
 
 	private final Counter pendingCreatedCounter;
 	private final Counter seatConflictHoldCounter;
-	private final Counter seatConflictSoldCounter;
+	private final Counter seatConflictOccupiedCounter;
 	private final Timer pendingBookingTimer;
 	private final Timer seatHoldTimer;
 
@@ -27,9 +27,9 @@ public class BookingMetrics {
 			.tag("conflict_type", "hold")
 			.register(meterRegistry);
 
-		this.seatConflictSoldCounter = Counter.builder("seat_conflict_total")
+		this.seatConflictOccupiedCounter = Counter.builder("seat_conflict_total")
 			.description("좌석 충돌 건수")
-			.tag("conflict_type", "sold")
+			.tag("conflict_type", "occupied")
 			.register(meterRegistry);
 
 		this.pendingBookingTimer = Timer.builder("pending_booking_duration_seconds")
@@ -51,7 +51,7 @@ public class BookingMetrics {
 		seatConflictHoldCounter.increment();
 	}
 
-	public void incrementSeatConflictSold() {
-		seatConflictSoldCounter.increment();
+	public void incrementSeatConflictOccupied() {
+		seatConflictOccupiedCounter.increment();
 	}
 }

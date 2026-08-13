@@ -139,7 +139,7 @@ class BookingMetricsTest {
 			.addSeat(seats.get(0), PassengerType.ADULT)
 			.build();
 
-		double before = meterRegistry.counter("seat_conflict_total", "conflict_type", "sold").count();
+		double before = meterRegistry.counter("seat_conflict_total", "conflict_type", "occupied").count();
 
 		// when
 		assertThatThrownBy(() ->
@@ -150,10 +150,10 @@ class BookingMetricsTest {
 			)
 		).isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException) e).getErrorCode())
-			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_SOLD);
+			.isEqualTo(BookingError.SEAT_ALREADY_OCCUPIED);
 
 		// then
-		double after = meterRegistry.counter("seat_conflict_total", "conflict_type", "sold").count();
+		double after = meterRegistry.counter("seat_conflict_total", "conflict_type", "occupied").count();
 		assertThat(after).isEqualTo(before + 1);
 	}
 
@@ -204,7 +204,7 @@ class BookingMetricsTest {
 			)
 		).isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException) e).getErrorCode())
-			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_SOLD);
+			.isEqualTo(BookingError.SEAT_ALREADY_OCCUPIED);
 
 		// then
 		double after = meterRegistry.counter("pending_booking_created_total").count();
@@ -221,7 +221,7 @@ class BookingMetricsTest {
 			"202601010001"
 		);
 
-		double soldBefore = meterRegistry.counter("seat_conflict_total", "conflict_type", "sold").count();
+		double soldBefore = meterRegistry.counter("seat_conflict_total", "conflict_type", "occupied").count();
 
 		// when
 		assertThatThrownBy(() ->
@@ -235,7 +235,7 @@ class BookingMetricsTest {
 			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_HOLD);
 
 		// then
-		double soldAfter = meterRegistry.counter("seat_conflict_total", "conflict_type", "sold").count();
+		double soldAfter = meterRegistry.counter("seat_conflict_total", "conflict_type", "occupied").count();
 		assertThat(soldAfter).isEqualTo(soldBefore);
 	}
 
@@ -258,7 +258,7 @@ class BookingMetricsTest {
 			)
 		).isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException) e).getErrorCode())
-			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_SOLD);
+			.isEqualTo(BookingError.SEAT_ALREADY_OCCUPIED);
 
 		// then
 		double holdAfter = meterRegistry.counter("seat_conflict_total", "conflict_type", "hold").count();
@@ -335,7 +335,7 @@ class BookingMetricsTest {
 			)
 		).isInstanceOf(BusinessException.class)
 			.extracting(e -> ((BusinessException) e).getErrorCode())
-			.isEqualTo(BookingError.SEAT_CONFLICT_WITH_SOLD);
+			.isEqualTo(BookingError.SEAT_ALREADY_OCCUPIED);
 
 		// then
 		double pendingBookingAfter = meterRegistry.timer("pending_booking_duration_seconds").count();

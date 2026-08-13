@@ -1,7 +1,9 @@
 package com.sudo.raillo.train.application.service;
 
+import com.sudo.raillo.booking.infrastructure.SeatOccupancyQueryRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
+import com.sudo.raillo.train.application.dto.projection.TrainCarProjection;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
 import com.sudo.raillo.train.domain.type.CarType;
@@ -10,6 +12,7 @@ import com.sudo.raillo.train.infrastructure.SeatQueryRepository;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.infrastructure.TrainCarQueryRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,16 +31,31 @@ public class TrainSeatQueryService {
 
 	private final TrainCarQueryRepository trainCarQueryRepository;
 	private final SeatQueryRepository seatQueryRepository;
+	private final SeatOccupancyQueryRepository seatOccupancyQueryRepository;
 	private final SeatRepository seatRepository;
 
 	/**
-	 * 열차 객차 목록 조회 (잔여 좌석이 있는 객차만)
+	 * 열차 객차 목록 조회 (좌석 점유를 차감한 잔여 좌석이 있는 객차만)
+	 *
+	 * @param arrivalStopOrder 도착 stopOrder (점유 구간은 이 값 미만까지)
 	 */
-	public List<TrainCarInfo> getAvailableTrainCars(Long trainScheduleId, Long departureStationId,
-		Long arrivalStationId) {
-		// 1. 잔여 좌석이 있는 객차 목록 조회
-		List<TrainCarInfo> availableCars = trainCarQueryRepository.findAvailableTrainCars(
-			trainScheduleId, departureStationId, arrivalStationId);
+	public List<TrainCarInfo> getAvailableTrainCars(
+		Long trainScheduleId,
+		int departureStopOrder,
+		int arrivalStopOrder
+	) {
+		List<TrainCarProjection> trainCars = trainCarQueryRepository.findTrainCars(trainScheduleId);
+		Map<Long, Integer> occupiedSeatsPerCar = seatOccupancyQueryRepository.countOccupiedSeatsByTrainCar(
+			trainScheduleId, departureStopOrder, arrivalStopOrder, LocalDateTime.now());
+
+		List<TrainCarInfo> availableCars = trainCars.stream()
+			.map(trainCar -> {
+				int occupied = occupiedSeatsPerCar.getOrDefault(trainCar.getId(), 0);
+				return trainCar.withRemainingSeats(Math.max(0, trainCar.getTotalSeats() - occupied));
+			})
+			.filter(trainCar -> trainCar.getRemainingSeats() > 0)
+			.map(TrainCarProjection::toTrainCarInfo)
+			.toList();
 
 		if (availableCars.isEmpty()) {
 			log.warn("잔여 좌석이 있는 객차가 없음: trainScheduleId={}", trainScheduleId);

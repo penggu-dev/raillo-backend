@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
+import com.sudo.raillo.support.helper.SeatOccupancyTestHelper;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -59,7 +59,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 	private MemberRepository memberRepository;
 
 	@Autowired
-	private SeatHoldRepository seatHoldRepository;
+	private SeatOccupancyTestHelper seatOccupancyTestHelper;
 
 	@Autowired
 	private BookingTestHelper bookingTestHelper;
@@ -427,20 +427,7 @@ public class TrainSearchFacadeCarAndSeatTest {
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop
 	) {
-		String pendingBookingId = "pending_test_" + System.nanoTime();
-		int departureStopOrder = departureStop.getStopOrder();
-		int arrivalStopOrder = arrivalStop.getStopOrder();
-
-		seats.forEach(seat -> assertThat(
-			seatHoldRepository.trySeatHold(
-				trainScheduleId,
-				seat.getId(),
-				pendingBookingId,
-				departureStopOrder,
-				arrivalStopOrder,
-				seat.getTrainCar().getId(),
-				Duration.ofMinutes(10)
-			).success()
-		).as("Hold 생성에 실패하면 좌석 계산 테스트가 왜곡됨(seatId=%s)", seat.getId()).isTrue());
+		seatOccupancyTestHelper.hold(
+			departureStop.getTrainSchedule(), departureStop, arrivalStop, seats);
 	}
 }

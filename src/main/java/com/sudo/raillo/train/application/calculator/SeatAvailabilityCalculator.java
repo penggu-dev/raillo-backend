@@ -1,12 +1,9 @@
 package com.sudo.raillo.train.application.calculator;
 
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
-import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.SectionSeatStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 
@@ -21,19 +18,20 @@ import lombok.extern.slf4j.Slf4j;
 public class SeatAvailabilityCalculator {
 
 	/**
-	 * 구간별 좌석 상태 계산 (전체 좌석 - SeatBooking - Seat Hold = 잔여석)
+	 * 구간별 좌석 상태 계산 (전체 좌석 - 점유 좌석 = 잔여석)
+	 *
+	 * <p>점유 좌석은 예약(HELD)과 확정 예매(CONFIRMED)를 모두 포함한 단일 집계값이다.</p>
+	 *
+	 * @param occupiedSeats CarType별 점유 좌석 수
+	 * @param totalSeats CarType별 전체 좌석 수
 	 */
 	public SectionSeatStatus calculateSectionSeatStatus(
-		List<SeatBookingInfo> overlappingBookings,
+		Map<CarType, Integer> occupiedSeats,
 		Map<CarType, Integer> totalSeats,
-		Map<CarType, Integer> holdSeatsCountByCarType,
 		int requestedPassengerCount
 	) {
-		Map<CarType, Long> seatBooking = overlappingBookings.stream()
-			.collect(Collectors.groupingBy(SeatBookingInfo::carType, Collectors.counting()));
-
-		int standardRemaining = calculateRemaining(CarType.STANDARD, totalSeats, seatBooking, holdSeatsCountByCarType);
-		int firstClassRemaining = calculateRemaining(CarType.FIRST_CLASS, totalSeats, seatBooking, holdSeatsCountByCarType);
+		int standardRemaining = calculateRemaining(CarType.STANDARD, totalSeats, occupiedSeats);
+		int firstClassRemaining = calculateRemaining(CarType.FIRST_CLASS, totalSeats, occupiedSeats);
 
 		return new SectionSeatStatus(
 			standardRemaining,
@@ -48,12 +46,10 @@ public class SeatAvailabilityCalculator {
 	private int calculateRemaining(
 		CarType carType,
 		Map<CarType, Integer> totalSeats,
-		Map<CarType, Long> occupySeatBooking,
-		Map<CarType, Integer> holdSeatsCountByCarType
+		Map<CarType, Integer> occupiedSeats
 	) {
 		int total = totalSeats.getOrDefault(carType, 0);
-		int seatBooking = occupySeatBooking.getOrDefault(carType, 0L).intValue();
-		int holdCount = holdSeatsCountByCarType.getOrDefault(carType, 0);
-		return Math.max(0, total - seatBooking - holdCount);
+		int occupied = occupiedSeats.getOrDefault(carType, 0);
+		return Math.max(0, total - occupied);
 	}
 }

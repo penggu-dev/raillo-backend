@@ -3,8 +3,7 @@ package com.sudo.raillo.train.application.facade;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
-import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
+import com.sudo.raillo.support.helper.SeatOccupancyTestHelper;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
@@ -23,6 +22,7 @@ import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -51,10 +51,7 @@ class TrainSearchFacadeSeatCalculationTest {
 	private MemberRepository memberRepository;
 
 	@Autowired
-	private SeatHoldRepository seatHoldRepository;
-
-	@Autowired
-	private SeatHoldKeyGenerator seatHoldKeyGenerator;
+	private SeatOccupancyTestHelper seatOccupancyTestHelper;
 
 	@Autowired
 	private RedisTemplate<String, String> customStringRedisTemplate;
@@ -297,7 +294,7 @@ class TrainSearchFacadeSeatCalculationTest {
 	}
 
 	@Test
-	@DisplayName("만료된 Seat Hold는 잔여석에 반영되지 않는다")
+	@DisplayName("만료된 좌석 점유는 잔여석에 반영되지 않는다")
 	void searchTrains_expired_hold_not_counted() {
 		// given
 		LocalDate searchDate = LocalDate.now().plusDays(1);
@@ -317,24 +314,15 @@ class TrainSearchFacadeSeatCalculationTest {
 
 		Long trainScheduleId = scheduleResult.trainSchedule().getId();
 
-		// Hold Index에 5석 직접 삽입: 4석은 유효, 1석은 만료
+		// 5석 중 1석은 만료된 점유, 4석은 유효한 점유
+		ScheduleStop seoulStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleResult, "서울");
+		ScheduleStop busanStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleResult, "부산");
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 5);
-		long validScore = System.currentTimeMillis() / 1000 + 600;  // 10분 후 만료 (유효)
-		long expiredScore = System.currentTimeMillis() / 1000 - 1;  // 이미 만료
 
-		// seats[0]: 만료된 Hold
-		Seat expiredSeat = seats.get(0);
-		String expiredTrainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
-			trainScheduleId, expiredSeat.getTrainCar().getId());
-		customStringRedisTemplate.opsForZSet().add(expiredTrainCarHoldIndexKey, expiredSeat.getId() + ":0-1", expiredScore);
-
-		// seats[1..4]: 유효한 Hold (4석)
-		for (int i = 1; i < seats.size(); i++) {
-			Seat seat = seats.get(i);
-			String trainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
-				trainScheduleId, seat.getTrainCar().getId());
-			customStringRedisTemplate.opsForZSet().add(trainCarHoldIndexKey, seat.getId() + ":0-1", validScore);
-		}
+		seatOccupancyTestHelper.hold(scheduleResult.trainSchedule(), seoulStop, busanStop,
+			List.of(seats.get(0)), LocalDateTime.now().minusMinutes(1));
+		seatOccupancyTestHelper.hold(scheduleResult.trainSchedule(), seoulStop, busanStop,
+			seats.subList(1, seats.size()));
 
 		// when
 		TrainSearchRequest request = new TrainSearchRequest(seoul.getId(), busan.getId(), searchDate, 1, "00");
@@ -344,7 +332,7 @@ class TrainSearchFacadeSeatCalculationTest {
 		assertThat(response.content()).hasSize(1);
 		TrainSearchResponse result = response.content().get(0);
 
-		// 만료된 1석은 ZRANGEBYSCORE에서 제외, 유효한 4석만 차감: 80 - 4 = 76
+		// 만료된 1석은 집계에서 제외, 유효한 4석만 차감: 80 - 4 = 76
 		assertThat(result.standardSeat().remainingSeats()).isEqualTo(76);
 	}
 
@@ -354,18 +342,7 @@ class TrainSearchFacadeSeatCalculationTest {
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop
 	) {
-		String pendingBookingId = "pending_test_" + System.nanoTime();
-		int departureStopOrder = departureStop.getStopOrder();
-		int arrivalStopOrder = arrivalStop.getStopOrder();
-
-		seats.forEach(seat -> seatHoldRepository.trySeatHold(
-			trainScheduleId,
-			seat.getId(),
-			pendingBookingId,
-			departureStopOrder,
-			arrivalStopOrder,
-			seat.getTrainCar().getId(),
-			Duration.ofMinutes(10)
-		));
+		seatOccupancyTestHelper.hold(
+			departureStop.getTrainSchedule(), departureStop, arrivalStop, seats);
 	}
 }

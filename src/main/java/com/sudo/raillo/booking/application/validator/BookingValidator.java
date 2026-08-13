@@ -1,21 +1,17 @@
 package com.sudo.raillo.booking.application.validator;
 
 import com.sudo.raillo.booking.domain.Ticket;
-import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
+import com.sudo.raillo.booking.infrastructure.SeatOccupancyQueryRepository;
 import com.sudo.raillo.member.domain.Member;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -24,7 +20,6 @@ import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainError;
-import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,8 +31,7 @@ public class BookingValidator {
 
 	private static final long BOOKING_CLOSE_MINUTES_BEFORE_DEPARTURE = 5L;
 
-	private final ScheduleStopRepository scheduleStopRepository;
-	private final SeatBookingRepository seatBookingRepository;
+	private final SeatOccupancyQueryRepository seatOccupancyQueryRepository;
 
 	/**
 	 * 출발지, 도착지 순서 검증
@@ -149,39 +143,13 @@ public class BookingValidator {
 	}
 
 	/**
-	 * 결제 준비 시 좌석 충돌 검증
-	 * <p>Seat Hold 구간과 DB SeatBooking 구간 비교</p>
-	 * @param pendingBookings 결제할 PendingBooking 목록
-	 */
-	public void validateSeatConflicts(List<PendingBooking> pendingBookings) {
-		// 1. 필요한 ScheduleStop ID들을 한 번에 수집하여 한 번의 쿼리로 조회
-		Set<Long> stopIds = pendingBookings.stream()
-			.flatMap(pb -> Stream.of(pb.getDepartureStopId(), pb.getArrivalStopId()))
-			.collect(Collectors.toSet());
-
-		Map<Long, ScheduleStop> stopMap = scheduleStopRepository.findAllById(stopIds)
-			.stream()
-			.collect(Collectors.toMap(ScheduleStop::getId, Function.identity()));
-
-		// 2. 정류장 조회 결과 검증
-		validateAllStopsExist(stopIds, stopMap);
-
-		for (PendingBooking pendingBooking : pendingBookings) {
-			Long trainScheduleId = pendingBooking.getTrainScheduleId();
-			List<Long> seatIds = pendingBooking.getSeatIds();
-
-			// 3. stopOrder 추출
-			ScheduleStop departureStop = stopMap.get(pendingBooking.getDepartureStopId());
-			ScheduleStop arrivalStop = stopMap.get(pendingBooking.getArrivalStopId());
-
-			// 4. DB에서 구간 겹침 조건으로 충돌 예약 조회
-			validateSeatConflicts(trainScheduleId, departureStop, arrivalStop, seatIds);
-		}
-	}
-
-	/**
-	 * PendingBooking 생성 시 확정 좌석 중 구간 중복 여부를 검증한다.
-	 * <p>Repository는 구간이 겹치는 SeatBooking을 조회하고, 충돌 판단은 Validator에서 수행한다.</p>
+	 * 요청 구간에 이미 점유된 좌석이 있는지 검증한다.
+	 *
+	 * <p>예약(HELD)과 확정 예매(CONFIRMED)가 {@code seat_occupancy} 한 테이블에 있으므로
+	 * 한 번의 조회로 두 종류의 충돌을 모두 판정한다.</p>
+	 *
+	 * <p>최종 충돌 방어는 {@code uk_seat_occupancy_section} 유니크 제약이 하며,
+	 * 이 검증은 빠른 실패를 위한 보조 수단이다.</p>
 	 *
 	 * @param trainScheduleId 열차 스케줄 ID
 	 * @param departureStop 출발 정류장
@@ -194,34 +162,19 @@ public class BookingValidator {
 		ScheduleStop arrivalStop,
 		List<Long> seatIds
 	) {
-		// DB에서 요청 구간과 겹치는 확정 좌석 조회
-		List<SeatBooking> overlappingSeatBookings = seatBookingRepository.findOverlappingSeatBookings(
+		Set<Long> occupiedSeatIds = seatOccupancyQueryRepository.findOccupiedSeatIdsAmong(
 			trainScheduleId,
 			seatIds,
 			departureStop.getStopOrder(),
-			arrivalStop.getStopOrder()
+			arrivalStop.getStopOrder(),
+			LocalDateTime.now()
 		);
 
-		// 충돌 행이 있으면 예외 발생
-		if (!overlappingSeatBookings.isEmpty()) {
-			log.error("[구간 충돌] seatId={}, booked=[{}-{}], request=[{}-{}]",
-				overlappingSeatBookings.get(0).getSeat().getId(),
-				overlappingSeatBookings.get(0).getDepartureStopOrder(),
-				overlappingSeatBookings.get(0).getArrivalStopOrder(),
-				departureStop.getStopOrder(), arrivalStop.getStopOrder());
-			throw new BusinessException(BookingError.SEAT_CONFLICT_WITH_SOLD);
+		if (!occupiedSeatIds.isEmpty()) {
+			log.warn("[좌석 점유 충돌] trainScheduleId={}, occupiedSeatIds={}, request=[{}-{}]",
+				trainScheduleId, occupiedSeatIds, departureStop.getStopOrder(), arrivalStop.getStopOrder());
+			throw new BusinessException(BookingError.SEAT_ALREADY_OCCUPIED);
 		}
 	}
-
-	private void validateAllStopsExist(Set<Long> stopIds, Map<Long, ScheduleStop> stopMap) {
-		if(stopIds.size() != stopMap.size()) {
-			Set<Long> noExistIds = stopIds.stream()
-				.filter(id -> !stopMap.containsKey(id))
-				.collect(Collectors.toSet());
-			log.error("[정류장 조회 실패] scheduleStopIds={}", noExistIds);
-			throw new BusinessException(TrainError.SCHEDULE_STOP_NOT_FOUND);
-		}
-	}
-
 
 }

@@ -1,17 +1,20 @@
 package com.sudo.raillo.train.infrastructure;
 
-import static com.sudo.raillo.booking.domain.QBooking.booking;
-import static com.sudo.raillo.booking.domain.QSeatBooking.seatBooking;
+import static com.sudo.raillo.booking.domain.QSeatOccupancy.seatOccupancy;
 import static com.sudo.raillo.train.domain.QSeat.seat;
 import static com.sudo.raillo.train.domain.QTrainCar.trainCar;
 
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
 import com.sudo.raillo.train.application.dto.projection.QSeatProjection;
 import com.sudo.raillo.train.application.dto.projection.SeatProjection;
 import com.sudo.raillo.train.domain.QScheduleStop;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -26,10 +29,10 @@ public class SeatQueryRepository {
 	private final JPAQueryFactory queryFactory;
 
 	/**
-	 * 특정 객차의 모든 좌석 상세 정보 및 예매 상태 조회
-	 * - LEFT JOIN으로 예매 정보 연결
-	 * - stopOrder 기반으로 해당 구간에서의 예매 상태 판단
-	 * - 좌석별 방향성, 특별 메시지 등 부가 정보 포함
+	 * 특정 객차의 모든 좌석 상세 정보 및 점유 상태 조회
+	 *
+	 * <p>점유 여부는 {@code seat_occupancy} 에 요청 구간과 겹치는 유효한 행이 있는지로 판단한다.
+	 * 예약(HELD)과 확정 예매(CONFIRMED)가 같은 테이블에 있으므로 판정이 한 번에 끝난다.</p>
 	 */
 	public TrainCarSeatInfo findTrainCarSeatDetail(
 		Long trainCarId,
@@ -65,13 +68,10 @@ public class SeatQueryRepository {
 		Integer seatRowCount = carInfo.get(trainCar.seatRowCount);
 		int middleRow = (seatRowCount != null) ? (seatRowCount + 1) / 2 : 8; // 중간 지점 계산
 
-		// 2. 객차 내 모든 좌석 상세 정보 조회 (예매 상태 포함)
-		// stopOrder 기반 구간 겹침을 위한 ScheduleStop 조인
-		QScheduleStop bookedDepartureStop = new QScheduleStop("bookedDepartureStop");
-		QScheduleStop bookedArrivalStop = new QScheduleStop("bookedArrivalStop");
-		QScheduleStop searchDepartureStop = new QScheduleStop("searchDepartureStop");
-		QScheduleStop searchArrivalStop = new QScheduleStop("searchArrivalStop");
+		Integer departureStopOrder = carInfo.get(carInfoDepartureStop.stopOrder);
+		Integer arrivalStopOrder = carInfo.get(carInfoArrivalStop.stopOrder);
 
+		// 2. 객차 내 모든 좌석 상세 정보 조회 (점유 상태 포함)
 		List<SeatProjection> seatProjections = queryFactory.select(
 				new QSeatProjection(seat.id,
 					seat.seatRow.stringValue().concat(seat.seatColumn),
@@ -81,7 +81,7 @@ public class SeatQueryRepository {
 						.then("009")  // 순방향
 						.otherwise("010"), // 역방향
 					// isBooked
-					new CaseBuilder().when(seatBooking.id.isNotNull()).then(true).otherwise(false),
+					occupiedExpression(trainScheduleId, departureStopOrder, arrivalStopOrder),
 					// specialMessage
 					new CaseBuilder().when(seat.seatRow.between(middleRow, middleRow + 1))
 						.then(new CaseBuilder().when(seat.seatRow.eq(middleRow))
@@ -91,34 +91,7 @@ public class SeatQueryRepository {
 							.otherwise(""))
 						.otherwise("")))
 			.from(seat)
-			.leftJoin(seatBooking).on(
-				seatBooking.seat.id.eq(seat.id)
-					.and(seatBooking.trainSchedule.id.eq(trainScheduleId))
-					.and(seatBooking.seat.isNotNull())  // 실제 예매 좌석
-			)
-			.leftJoin(seatBooking.booking, booking)
-			// 기존 예매 정보 left join
-			.leftJoin(booking.departureStop, bookedDepartureStop)
-			.leftJoin(booking.arrivalStop, bookedArrivalStop)
-			// 검색 구간 정보 left join
-			.leftJoin(searchDepartureStop).on(
-				searchDepartureStop.trainSchedule.id.eq(trainScheduleId)
-					.and(searchDepartureStop.station.id.eq(departureStationId))
-			)
-			.leftJoin(searchArrivalStop).on(
-				searchArrivalStop.trainSchedule.id.eq(trainScheduleId)
-					.and(searchArrivalStop.station.id.eq(arrivalStationId))
-			)
-			.where(
-				seat.trainCar.id.eq(trainCarId),
-				// stopOrder 기반 구간 겹침 조건
-				// 구간 겹침: NOT(예약종료 <= 검색시작 OR 예약시작 >= 검색종료)
-				// = 예약종료 > 검색시작 AND 예약시작 < 검색종료
-				booking.id.isNull().or(
-					bookedArrivalStop.stopOrder.gt(searchDepartureStop.stopOrder)
-						.and(bookedDepartureStop.stopOrder.lt(searchArrivalStop.stopOrder))
-				)
-			)
+			.where(seat.trainCar.id.eq(trainCarId))
 			.orderBy(seat.seatRow.asc(), seat.seatColumn.asc())
 			.fetch();
 
@@ -126,9 +99,6 @@ public class SeatQueryRepository {
 		long remainingSeats = seatProjections.stream()
 			.mapToLong(projection -> projection.isAvailable() ? 1 : 0)
 			.sum();
-
-		Integer departureStopOrder = carInfo.get(carInfoDepartureStop.stopOrder);
-		Integer arrivalStopOrder = carInfo.get(carInfoArrivalStop.stopOrder);
 
 		return new TrainCarSeatInfo(
 			String.valueOf(carInfo.get(trainCar.carNumber)),
@@ -140,5 +110,32 @@ public class SeatQueryRepository {
 			arrivalStopOrder,
 			seatProjections
 		);
+	}
+
+	/**
+	 * 좌석이 요청 구간에서 점유되어 있는지 판단하는 표현식
+	 *
+	 * <p>정차역을 찾지 못해 stopOrder가 없으면 판단할 수 없으므로 미점유로 둔다.
+	 * 이 경우 호출하는 Service가 {@code SCHEDULE_STOP_NOT_FOUND} 로 처리한다.</p>
+	 */
+	private Expression<Boolean> occupiedExpression(
+		Long trainScheduleId,
+		Integer departureStopOrder,
+		Integer arrivalStopOrder
+	) {
+		if (departureStopOrder == null || arrivalStopOrder == null) {
+			return Expressions.constant(false);
+		}
+
+		return JPAExpressions.selectOne()
+			.from(seatOccupancy)
+			.where(
+				seatOccupancy.seat.id.eq(seat.id),
+				seatOccupancy.trainSchedule.id.eq(trainScheduleId),
+				seatOccupancy.expiresAt.gt(LocalDateTime.now()),
+				seatOccupancy.sectionOrder.goe(departureStopOrder),
+				seatOccupancy.sectionOrder.lt(arrivalStopOrder)
+			)
+			.exists();
 	}
 }

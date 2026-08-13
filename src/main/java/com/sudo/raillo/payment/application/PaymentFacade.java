@@ -71,9 +71,9 @@ public class PaymentFacade {
 	 * <p>4. orderId, amount 응답
 	 */
 	public PaymentPrepareResponse preparePayment(PaymentPrepareRequest request, String memberNo) {
+		// 좌석 충돌 재검증은 하지 않는다. 예약 시점에 seat_occupancy가 좌석을 점유했고
+		// 그 점유는 만료 전까지 유지되므로, 여기서 다시 검사하면 자기 자신의 점유를 충돌로 판정한다.
 		List<PendingBooking> pendingBookings = pendingBookingService.getPendingBookings(request.pendingBookingIds(), memberNo);
-
-		bookingValidator.validateSeatConflicts(pendingBookings);
 
 		Member member = memberService.getMemberByMemberNo(memberNo);
 		Order order = orderService.createOrder(memberNo, pendingBookings);
