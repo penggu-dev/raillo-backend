@@ -6,7 +6,7 @@ import com.sudo.raillo.train.domain.type.CarType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "예약 좌석 정보")
-public record PendingSeatBookingDetail(
+public record ReservationSeatDetail(
 
 	@Schema(description = "예약 좌석 ID", example = "1")
 	Long seatId,

@@ -4,8 +4,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
-import com.sudo.raillo.booking.application.dto.response.PendingBookingDetailResponse;
-import com.sudo.raillo.booking.application.dto.response.PendingSeatBookingDetail;
+import com.sudo.raillo.booking.application.dto.response.ReservationDetailResponse;
+import com.sudo.raillo.booking.application.dto.response.ReservationSeatDetail;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.ReservationSeat;
 import com.sudo.raillo.train.domain.ScheduleStop;
@@ -19,9 +19,9 @@ import com.sudo.raillo.train.domain.TrainSchedule;
  * 따로 조회해 Map으로 맞붙일 필요가 없다.</p>
  */
 @Component
-public class PendingBookingMapper {
+public class ReservationMapper {
 
-	public PendingBookingDetailResponse convertToReservationDetail(
+	public ReservationDetailResponse convertToReservationDetail(
 		Reservation reservation,
 		List<ReservationSeat> reservationSeats
 	) {
@@ -29,7 +29,7 @@ public class PendingBookingMapper {
 		ScheduleStop departureStop = reservation.getDepartureStop();
 		ScheduleStop arrivalStop = reservation.getArrivalStop();
 
-		return new PendingBookingDetailResponse(
+		return new ReservationDetailResponse(
 			reservation.getReservationCode(),
 			String.format("%03d", trainSchedule.getTrain().getTrainNumber()),
 			trainSchedule.getTrain().getTrainName(),
@@ -43,11 +43,11 @@ public class PendingBookingMapper {
 		);
 	}
 
-	private List<PendingSeatBookingDetail> convertToSeatDetails(List<ReservationSeat> reservationSeats) {
+	private List<ReservationSeatDetail> convertToSeatDetails(List<ReservationSeat> reservationSeats) {
 		return reservationSeats.stream()
 			.map(reservationSeat -> {
 				Seat seat = reservationSeat.getSeat();
-				return new PendingSeatBookingDetail(
+				return new ReservationSeatDetail(
 					seat.getId(),
 					reservationSeat.getPassengerType(),
 					seat.getTrainCar().getCarNumber(),

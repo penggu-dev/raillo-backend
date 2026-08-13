@@ -98,7 +98,7 @@ public class BookingValidator {
 		if (!reservation.getMemberNo().equals(memberNo)) {
 			log.error("[예약 소유자 불일치] reservationMemberNo={}, requestMemberNo={}",
 				reservation.getMemberNo(), memberNo);
-			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
+			throw new BusinessException(BookingError.RESERVATION_ACCESS_DENIED);
 		}
 	}
 

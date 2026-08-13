@@ -66,7 +66,7 @@ public class BookingService {
 	 * 주문으로부터 예매를 생성
 	 *
 	 * @param order 주문
-	 * @return 예약 ID(= PendingBooking ID / reservationCode)별로 생성된 예매
+	 * @return 예약 코드별로 생성된 예매
 	 * */
 	public Map<String, Booking> createBookingFromOrder(Order order) {
 		// 1. 도메인 규칙 검증
@@ -96,15 +96,15 @@ public class BookingService {
 			.collect(Collectors.toMap(Seat::getId, Function.identity()));
 
 		// 4. Booking, SeatBooking 생성
-		Map<String, Booking> bookingsByPendingBookingId = new HashMap<>();
+		Map<String, Booking> bookingsByReservationCode = new HashMap<>();
 		orderBookings.forEach(orderBooking -> {
 			List<OrderSeatBooking> relatedSeatBookings = seatBookingMap.get(orderBooking.getId());
 			Booking booking = createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
-			bookingsByPendingBookingId.put(orderBooking.getReservation().getReservationCode(), booking);
+			bookingsByReservationCode.put(orderBooking.getReservation().getReservationCode(), booking);
 		});
 
 		log.info("[주문에 대한 예매 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());
-		return bookingsByPendingBookingId;
+		return bookingsByReservationCode;
 	}
 
 	/**

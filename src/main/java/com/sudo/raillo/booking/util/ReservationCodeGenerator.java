@@ -7,7 +7,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.stereotype.Component;
 
 @Component
-public class PendingBookingIdGenerator {
+public class ReservationCodeGenerator {
 
 	private static final String PREFIX = "PB";
 	private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -15,7 +15,7 @@ public class PendingBookingIdGenerator {
 	private static final int RANDOM_LENGTH = 6;
 
 	/**
-	 * PendingBookingId 생성
+	 * 예약 코드 생성
 	 * 형식: PB + yyyyMMddHHmmss + 6자리 랜덤 문자열 (영대문자+숫자)
 	 * 예: PB20260124120000A1B2C3
 	 */

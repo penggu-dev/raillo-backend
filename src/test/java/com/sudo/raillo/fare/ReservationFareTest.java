@@ -2,9 +2,9 @@ package com.sudo.raillo.fare;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
-import com.sudo.raillo.booking.application.facade.PendingBookingFacade;
+import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
+import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
+import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.infrastructure.ReservationRepository;
@@ -32,13 +32,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
-class PendingBookingFareTest {
+class ReservationFareTest {
 
 	@Autowired
 	private ReservationRepository reservationRepository;
 
 	@Autowired
-	private PendingBookingFacade pendingBookingFacade;
+	private ReservationFacade reservationFacade;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -70,11 +70,11 @@ class PendingBookingFareTest {
 
 	@Test
 	@DisplayName("일반석 성인 1명 예약 금액이 정상적으로 계산된다")
-	void create_pendingBooking_standard_adult() {
+	void create_reservation_standard_adult() {
 		// given
 		List<Seat> seats = trainTestHelper.getAvailableSeats(trainSchedule, CarType.STANDARD, 1);
 
-		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+		ReservationCreateRequest request = new ReservationCreateRequest(
 			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),
@@ -83,26 +83,26 @@ class PendingBookingFareTest {
 		);
 
 		// when
-		PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
+		ReservationCreateResponse response = reservationFacade.createReservation(
 			request,
 			member.getMemberDetail().getMemberNo()
 		);
 
 		// then
-		Reservation pendingBooking = reservationRepository
-			.findByReservationCode(response.pendingBookingId()).orElseThrow();
+		Reservation reservation = reservationRepository
+			.findByReservationCode(response.reservationCode()).orElseThrow();
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
 
-		assertThat(pendingBooking.getTotalFare()).isEqualByComparingTo(stationFare.getStandardFare());
+		assertThat(reservation.getTotalFare()).isEqualByComparingTo(stationFare.getStandardFare());
 	}
 
 	@Test
 	@DisplayName("일반석 어린이 1명 예약 금액이 정상적으로 계산된다")
-	void create_pendingBooking_standard_child() {
+	void create_reservation_standard_child() {
 		// given
 		List<Seat> seats = trainTestHelper.getAvailableSeats(trainSchedule, CarType.STANDARD, 1);
 
-		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+		ReservationCreateRequest request = new ReservationCreateRequest(
 			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),
@@ -111,27 +111,27 @@ class PendingBookingFareTest {
 		);
 
 		// when
-		PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
+		ReservationCreateResponse response = reservationFacade.createReservation(
 			request,
 			member.getMemberDetail().getMemberNo()
 		);
 
 		// then
-		Reservation pendingBooking = reservationRepository
-			.findByReservationCode(response.pendingBookingId()).orElseThrow();
+		Reservation reservation = reservationRepository
+			.findByReservationCode(response.reservationCode()).orElseThrow();
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
 
-		assertThat(pendingBooking.getTotalFare())
+		assertThat(reservation.getTotalFare())
 			.isEqualByComparingTo(stationFare.getStandardFare().multiply(BigDecimal.valueOf(0.6)));
 	}
 
 	@Test
 	@DisplayName("특실 성인 1명 예약 금액이 정상적으로 계산된다")
-	void create_pendingBooking_firstClass_adult() {
+	void create_reservation_firstClass_adult() {
 		// given
 		List<Seat> seats = trainTestHelper.getAvailableSeats(trainSchedule, CarType.FIRST_CLASS, 1);
 
-		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+		ReservationCreateRequest request = new ReservationCreateRequest(
 			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),
@@ -140,26 +140,26 @@ class PendingBookingFareTest {
 		);
 
 		// when
-		PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
+		ReservationCreateResponse response = reservationFacade.createReservation(
 			request,
 			member.getMemberDetail().getMemberNo()
 		);
 
 		// then
-		Reservation pendingBooking = reservationRepository
-			.findByReservationCode(response.pendingBookingId()).orElseThrow();
+		Reservation reservation = reservationRepository
+			.findByReservationCode(response.reservationCode()).orElseThrow();
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
 
-		assertThat(pendingBooking.getTotalFare()).isEqualByComparingTo(stationFare.getFirstClassFare());
+		assertThat(reservation.getTotalFare()).isEqualByComparingTo(stationFare.getFirstClassFare());
 	}
 
 	@Test
 	@DisplayName("일반석 성인 2명 예약 금액이 정상적으로 합산된다")
-	void create_pendingBooking_standard_multipleAdults() {
+	void create_reservation_standard_multipleAdults() {
 		// given
 		List<Seat> seats = trainTestHelper.getAvailableSeats(trainSchedule, CarType.STANDARD, 2);
 
-		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+		ReservationCreateRequest request = new ReservationCreateRequest(
 			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),
@@ -168,27 +168,27 @@ class PendingBookingFareTest {
 		);
 
 		// when
-		PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
+		ReservationCreateResponse response = reservationFacade.createReservation(
 			request,
 			member.getMemberDetail().getMemberNo()
 		);
 
 		// then
-		Reservation pendingBooking = reservationRepository
-			.findByReservationCode(response.pendingBookingId()).orElseThrow();
+		Reservation reservation = reservationRepository
+			.findByReservationCode(response.reservationCode()).orElseThrow();
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
 
-		assertThat(pendingBooking.getTotalFare())
+		assertThat(reservation.getTotalFare())
 			.isEqualByComparingTo(stationFare.getStandardFare().multiply(BigDecimal.valueOf(2)));
 	}
 
 	@Test
 	@DisplayName("일반석 성인 1명 + 어린이 1명 예약 금액이 정상적으로 계산된다")
-	void create_pendingBooking_standard_adultAndChild() {
+	void create_reservation_standard_adultAndChild() {
 		// given
 		List<Seat> seats = trainTestHelper.getAvailableSeats(trainSchedule, CarType.STANDARD, 2);
 
-		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+		ReservationCreateRequest request = new ReservationCreateRequest(
 			trainScheduleResult.trainSchedule().getId(),
 			departureStop.getStation().getId(),
 			arrivalStop.getStation().getId(),
@@ -197,20 +197,20 @@ class PendingBookingFareTest {
 		);
 
 		// when
-		PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
+		ReservationCreateResponse response = reservationFacade.createReservation(
 			request,
 			member.getMemberDetail().getMemberNo()
 		);
 
 		// then
-		Reservation pendingBooking = reservationRepository
-			.findByReservationCode(response.pendingBookingId()).orElseThrow();
+		Reservation reservation = reservationRepository
+			.findByReservationCode(response.reservationCode()).orElseThrow();
 
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
 		BigDecimal adultFare = stationFare.getStandardFare();
 		BigDecimal childFare = stationFare.getStandardFare().multiply(BigDecimal.valueOf(0.6));
 
-		assertThat(pendingBooking.getTotalFare()).isEqualByComparingTo(adultFare.add(childFare));
+		assertThat(reservation.getTotalFare()).isEqualByComparingTo(adultFare.add(childFare));
 	}
 
 

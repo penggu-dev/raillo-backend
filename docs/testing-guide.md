@@ -63,7 +63,7 @@ void cancel_success() {
 
 ### Available Fixtures
 
-`MemberFixture`, `BookingFixture`, `SeatBookingFixture`, `TicketFixture`, `OrderFixture`, `PaymentFixture`, `PendingBookingFixture`, 그리고 train 관련 fixture는 `support/fixture/train/`:
+`MemberFixture`, `BookingFixture`, `SeatBookingFixture`, `TicketFixture`, `OrderFixture`, `PaymentFixture`, 그리고 train 관련 fixture는 `support/fixture/train/`:
 `TrainFixture`, `TrainCarFixture`, `SeatFixture`, `StationFixture`, `TrainScheduleFixture`, `ScheduleStopFixture`, `StationFareFixture`
 
 ## Member Setup (Fixture Pattern)

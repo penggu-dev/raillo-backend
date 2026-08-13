@@ -12,15 +12,15 @@
 - `StationFare` — Fare between two stations (standardFare, firstClassFare)
 
 ### Booking Domain
-- `PendingBooking` — Temporary reservation in Redis (TTL 10min) before payment
-- `PendingSeatBooking` — Seat info within PendingBooking
+- `Reservation` — Temporary reservation in Redis (TTL 10min) before payment
+- `PendingSeatBooking` — Seat info within Reservation
 - `Booking` — Confirmed booking after payment (예매)
 - `SeatBooking` — Seat info within Booking
 - `Ticket` — Issued ticket per seat after payment (승차권)
 
 ### Order Domain
-- `Order` — Payment unit grouping multiple PendingBookings
-- `OrderBooking` — Booking info converted from PendingBooking
+- `Order` — Payment unit grouping multiple Reservations
+- `OrderBooking` — Booking info converted from Reservation
 - `OrderSeatBooking` — Seat info converted from PendingSeatBooking
 
 ### Payment Domain
@@ -45,14 +45,14 @@ Member → Order (1:N)
 ## Booking Flow
 
 1. **열차 검색** — Query TrainSchedule + ScheduleStop
-2. **좌석 선택** — Create PendingBooking + PendingSeatBooking (Redis, TTL 10min)
+2. **좌석 선택** — Create Reservation + PendingSeatBooking (Redis, TTL 10min)
 3. **결제 준비** — Convert to Order (PENDING) + OrderBooking + OrderSeatBooking, create Payment (PENDING)
 4. **결제 승인** — Toss Payments approval → Payment (PAID), Order (ORDERED)
-5. **예매 확정** — Convert to Booking + SeatBooking, issue Tickets, delete PendingBooking from Redis
+5. **예매 확정** — Convert to Booking + SeatBooking, issue Tickets, delete Reservation from Redis
 
 ## Domain Terminology (Korean)
 
-- **예약** = PendingBooking (temporary, before payment)
+- **예약** = Reservation (temporary, before payment)
 - **예매** = Booking (confirmed, after payment)
 - **승차권** = Ticket (issued document)
 - **객차** = TrainCar
@@ -61,5 +61,5 @@ Member → Order (1:N)
 
 ## Related Documents
 
-- 좌석 충돌 검증 4계층 방어: [seat-conflict-validation.md](./seat-conflict-validation.md)
-- Seat Hold Lua 아키텍처: [seat-hold-architecture.md](./seat-hold-architecture.md)
+- 좌석 충돌 검증: [seat-conflict-validation.md](./seat-conflict-validation.md)
+- 좌석 점유 아키텍처: [seat-occupancy-architecture.md](./seat-occupancy-architecture.md)

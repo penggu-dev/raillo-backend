@@ -27,8 +27,8 @@ public enum BookingError implements ErrorCode {
 	TICKET_NOT_CANCELLABLE("취소할 수 없는 티켓입니다.", HttpStatus.BAD_REQUEST, "BOOKING_204"),
 
 	// 예약(Reservation) (3xx)
-	PENDING_BOOKING_ACCESS_DENIED("해당 예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "BOOKING_301"),
-	PENDING_BOOKING_IDS_REQUIRED("조회할 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "BOOKING_302"),
+	RESERVATION_ACCESS_DENIED("해당 예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "BOOKING_301"),
+	RESERVATION_CODES_REQUIRED("조회할 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "BOOKING_302"),
 	RESERVATION_EXPIRED("만료된 예약이 있습니다. 다시 예약해주세요.", HttpStatus.BAD_REQUEST, "BOOKING_305"),
 	RESERVATION_NOT_HELD("점유중인 예약이 아닙니다.", HttpStatus.BAD_REQUEST, "BOOKING_306"),
 

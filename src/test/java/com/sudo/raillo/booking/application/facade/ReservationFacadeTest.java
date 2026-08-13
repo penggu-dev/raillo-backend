@@ -12,8 +12,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
+import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
+import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
@@ -33,12 +33,12 @@ import com.sudo.raillo.train.exception.TrainError;
 
 @ServiceTest
 @DisplayName("예약 생성·삭제")
-class PendingBookingFacadeTest {
+class ReservationFacadeTest {
 
 	private static final String MEMBER_NO = "202601010001";
 
 	@Autowired
-	private PendingBookingFacade pendingBookingFacade;
+	private ReservationFacade reservationFacade;
 
 	@Autowired
 	private ReservationRepository reservationRepository;
@@ -77,35 +77,35 @@ class PendingBookingFacadeTest {
 
 	@Test
 	@DisplayName("예약을 삭제하면 예약이 해제되고 좌석 점유가 사라진다")
-	void deletePendingBookings_releasesOccupancy() {
+	void deleteReservations_releasesOccupancy() {
 		// given
-		PendingBookingCreateResponse created = createReservation(MEMBER_NO, seats.get(0));
+		ReservationCreateResponse created = createReservation(MEMBER_NO, seats.get(0));
 
 		// when
-		pendingBookingFacade.deletePendingBookings(List.of(created.pendingBookingId()), MEMBER_NO);
+		reservationFacade.deleteReservations(List.of(created.reservationCode()), MEMBER_NO);
 
 		// then
-		Reservation reservation = reservationRepository.findByReservationCode(created.pendingBookingId()).orElseThrow();
+		Reservation reservation = reservationRepository.findByReservationCode(created.reservationCode()).orElseThrow();
 		assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.RELEASED);
 		assertThat(seatOccupancyRepository.findAllByReservationId(reservation.getId())).isEmpty();
 	}
 
 	@Test
 	@DisplayName("권한이 없는 예약을 삭제하려고 시도하면 예외가 발생한다")
-	void deletePendingBookings_fail_notOwner() {
+	void deleteReservations_fail_notOwner() {
 		// given
-		PendingBookingCreateResponse created = createReservation(MEMBER_NO, seats.get(0));
+		ReservationCreateResponse created = createReservation(MEMBER_NO, seats.get(0));
 
 		// when & then
 		assertThatThrownBy(() ->
-			pendingBookingFacade.deletePendingBookings(List.of(created.pendingBookingId()), "202601010002"))
+			reservationFacade.deleteReservations(List.of(created.reservationCode()), "202601010002"))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_ACCESS_DENIED);
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_ACCESS_DENIED);
 	}
 
 	@Test
 	@DisplayName("이미 점유된 좌석을 예약하면 예외가 발생하고 예약이 남지 않는다")
-	void createPendingBooking_fail_seatAlreadyOccupied() {
+	void createReservation_fail_seatAlreadyOccupied() {
 		// given - 다른 사용자가 같은 구간을 점유중
 		reservationTestHelper.hold(
 			trainScheduleResult.trainSchedule(),
@@ -116,7 +116,7 @@ class PendingBookingFacadeTest {
 		long reservationCountBefore = reservationRepository.count();
 
 		// when & then
-		assertThatThrownBy(() -> pendingBookingFacade.createPendingBooking(
+		assertThatThrownBy(() -> reservationFacade.createReservation(
 			createRequest(seats.get(0)), MEMBER_NO))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_ALREADY_OCCUPIED);
@@ -127,7 +127,7 @@ class PendingBookingFacadeTest {
 
 	@Test
 	@DisplayName("출발 시간이 이미 지난 열차를 예약하면 예외가 발생한다")
-	void createPendingBooking_fail_departureTimePassed() {
+	void createReservation_fail_departureTimePassed() {
 		// given
 		TrainScheduleResult pastSchedule = trainScheduleTestHelper.builder()
 			.scheduleName("KTX 002 경부선")
@@ -138,7 +138,7 @@ class PendingBookingFacadeTest {
 			.addStop("부산", LocalTime.of(9, 0), null)
 			.build();
 
-		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+		ReservationCreateRequest request = new ReservationCreateRequest(
 			pastSchedule.trainSchedule().getId(),
 			pastSchedule.scheduleStops().get(0).getStation().getId(),
 			pastSchedule.scheduleStops().get(2).getStation().getId(),
@@ -147,14 +147,14 @@ class PendingBookingFacadeTest {
 		);
 
 		// when & then
-		assertThatThrownBy(() -> pendingBookingFacade.createPendingBooking(request, MEMBER_NO))
+		assertThatThrownBy(() -> reservationFacade.createReservation(request, MEMBER_NO))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", TrainError.DEPARTURE_TIME_PASSED);
 	}
 
 	@Test
 	@DisplayName("출발 5분 이내 열차를 예약하면 예외가 발생한다")
-	void createPendingBooking_fail_departureWithinFiveMinutes() {
+	void createReservation_fail_departureWithinFiveMinutes() {
 		// given
 		LocalDateTime departureDateTime = LocalDateTime.now().plusMinutes(4);
 		LocalDateTime arrivalDateTime = departureDateTime.plusHours(1);
@@ -167,7 +167,7 @@ class PendingBookingFacadeTest {
 			.addStop("부산", arrivalDateTime.toLocalTime(), null)
 			.build();
 
-		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+		ReservationCreateRequest request = new ReservationCreateRequest(
 			imminentSchedule.trainSchedule().getId(),
 			imminentSchedule.scheduleStops().get(0).getStation().getId(),
 			imminentSchedule.scheduleStops().get(1).getStation().getId(),
@@ -176,14 +176,14 @@ class PendingBookingFacadeTest {
 		);
 
 		// when & then
-		assertThatThrownBy(() -> pendingBookingFacade.createPendingBooking(request, MEMBER_NO))
+		assertThatThrownBy(() -> reservationFacade.createReservation(request, MEMBER_NO))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", TrainError.DEPARTURE_TIME_PASSED);
 	}
 
 	@Test
 	@DisplayName("자정을 넘기는 야간 열차의 출발 시간이 아직 지나지 않았으면 예약에 성공한다")
-	void createPendingBooking_success_overnightTrain() {
+	void createReservation_success_overnightTrain() {
 		// given
 		TrainScheduleResult overnightSchedule = trainScheduleTestHelper.builder()
 			.scheduleName("KTX 003 야간")
@@ -195,7 +195,7 @@ class PendingBookingFacadeTest {
 			.build();
 		trainScheduleTestHelper.createOrUpdateStationFare("대전", "부산", 30000, 50000);
 
-		PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+		ReservationCreateRequest request = new ReservationCreateRequest(
 			overnightSchedule.trainSchedule().getId(),
 			overnightSchedule.scheduleStops().get(1).getStation().getId(),  // 자정을 넘긴 중간역
 			overnightSchedule.scheduleStops().get(2).getStation().getId(),
@@ -204,18 +204,18 @@ class PendingBookingFacadeTest {
 		);
 
 		// when & then
-		assertThatCode(() -> pendingBookingFacade.createPendingBooking(request, MEMBER_NO))
+		assertThatCode(() -> reservationFacade.createReservation(request, MEMBER_NO))
 			.doesNotThrowAnyException();
 	}
 
 	// ===== Helper =====
 
-	private PendingBookingCreateResponse createReservation(String memberNo, Seat seat) {
-		return pendingBookingFacade.createPendingBooking(createRequest(seat), memberNo);
+	private ReservationCreateResponse createReservation(String memberNo, Seat seat) {
+		return reservationFacade.createReservation(createRequest(seat), memberNo);
 	}
 
-	private PendingBookingCreateRequest createRequest(Seat seat) {
-		return new PendingBookingCreateRequest(
+	private ReservationCreateRequest createRequest(Seat seat) {
+		return new ReservationCreateRequest(
 			trainScheduleResult.trainSchedule().getId(),
 			trainScheduleResult.scheduleStops().get(0).getStation().getId(),
 			trainScheduleResult.scheduleStops().get(2).getStation().getId(),

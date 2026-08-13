@@ -129,7 +129,7 @@ class OrderServiceTest {
 		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			result.trainSchedule(),
 			result.scheduleStops().get(0),
@@ -138,7 +138,7 @@ class OrderServiceTest {
 			List.of(PassengerType.ADULT));
 
 		// when
-		orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
+		orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(reservation));
 
 		// then
 		List<Order> orders = orderRepository.findAll();
@@ -156,7 +156,7 @@ class OrderServiceTest {
 		assertThat(orderBookings).hasSize(1);
 
 		OrderBooking savedOrderBooking = orderBookings.get(0);
-		assertThat(savedOrderBooking.getReservation().getId()).isEqualTo(pendingBooking.getId());
+		assertThat(savedOrderBooking.getReservation().getId()).isEqualTo(reservation.getId());
 		assertThat(savedOrderBooking.getOrder().getId()).isEqualTo(savedOrder.getId());
 		assertThat(savedOrderBooking.getTrainSchedule().getId()).isEqualTo(1L);
 		assertThat(savedOrderBooking.getDepartureStop().getId()).isEqualTo(1L);
@@ -170,7 +170,7 @@ class OrderServiceTest {
 	}
 
 	@Test
-	@DisplayName("여러 개의 PendingBooking으로 주문 생성에 성공한다")
+	@DisplayName("여러 개의 Reservation으로 주문 생성에 성공한다")
 	void createOrder_success_with_multiple_pending_bookings() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -178,7 +178,7 @@ class OrderServiceTest {
 		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		Reservation pendingBooking1 = reservationTestHelper.hold(
+		Reservation reservation1 = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			result.trainSchedule(),
 			result.scheduleStops().get(0),
@@ -186,7 +186,7 @@ class OrderServiceTest {
 			List.of(seats.get(0)),
 			List.of(PassengerType.ADULT));
 
-		Reservation pendingBooking2 = reservationTestHelper.hold(
+		Reservation reservation2 = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			result.trainSchedule(),
 			result.scheduleStops().get(0),
@@ -194,10 +194,10 @@ class OrderServiceTest {
 			List.of(seats.get(1)),
 			List.of(PassengerType.SENIOR));
 
-		List<Reservation> pendingBookings = List.of(pendingBooking1, pendingBooking2);
+		List<Reservation> reservations = List.of(reservation1, reservation2);
 
 		// when
-		orderService.createOrder(member.getMemberDetail().getMemberNo(), pendingBookings);
+		orderService.createOrder(member.getMemberDetail().getMemberNo(), reservations);
 
 		// then
 		List<Order> orders = orderRepository.findAll();
@@ -227,7 +227,7 @@ class OrderServiceTest {
 		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
 
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			result.trainSchedule(),
 			result.scheduleStops().get(0),
@@ -236,7 +236,7 @@ class OrderServiceTest {
 			List.of(PassengerType.ADULT));
 
 		// when & then
-		assertThatThrownBy(() -> orderService.createOrder(nonExistentMemberNo, List.of(pendingBooking)))
+		assertThatThrownBy(() -> orderService.createOrder(nonExistentMemberNo, List.of(reservation)))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(MemberError.USER_NOT_FOUND.getMessage());
 	}
@@ -248,12 +248,12 @@ class OrderServiceTest {
 		Member member = memberRepository.save(MemberFixture.create());
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		List<Reservation> emptyPendingBookings = Collections.emptyList();
+		List<Reservation> emptyReservations = Collections.emptyList();
 
 		// when & then
-		assertThatThrownBy(() -> orderService.createOrder(memberNo, emptyPendingBookings))
+		assertThatThrownBy(() -> orderService.createOrder(memberNo, emptyReservations))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(OrderError.EMPTY_PENDING_BOOKINGS.getMessage());
+			.hasMessage(OrderError.EMPTY_RESERVATIONS.getMessage());
 	}
 
 	@Test
@@ -263,11 +263,11 @@ class OrderServiceTest {
 		Member member = memberRepository.save(MemberFixture.create());
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		List<Reservation> emptyPendingBookings = null;
+		List<Reservation> emptyReservations = null;
 
 		// when & then
-		assertThatThrownBy(() -> orderService.createOrder(memberNo, emptyPendingBookings))
+		assertThatThrownBy(() -> orderService.createOrder(memberNo, emptyReservations))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(OrderError.EMPTY_PENDING_BOOKINGS.getMessage());
+			.hasMessage(OrderError.EMPTY_RESERVATIONS.getMessage());
 	}
 }

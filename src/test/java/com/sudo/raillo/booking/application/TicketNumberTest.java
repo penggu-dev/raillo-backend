@@ -71,13 +71,13 @@ public class TicketNumberTest {
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 6);
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		Reservation pendingBooking1 = createPendingBooking(member, trainScheduleResult, seats.subList(0, 3));
-		Reservation pendingBooking2 = createPendingBooking(member, trainScheduleResult, seats.subList(3, 6));
+		Reservation reservation1 = createReservation(member, trainScheduleResult, seats.subList(0, 3));
+		Reservation reservation2 = createReservation(member, trainScheduleResult, seats.subList(3, 6));
 
 		// when
 		// 예약 -> 주문 -> 결제 -> 예매로 티켓 생성
-		List<Reservation> pendingBookings = List.of(pendingBooking1, pendingBooking2);
-		Order order = orderService.createOrder(memberNo, pendingBookings);
+		List<Reservation> reservations = List.of(reservation1, reservation2);
+		Order order = orderService.createOrder(memberNo, reservations);
 		order.completePayment();
 		bookingService.createBookingFromOrder(order);
 
@@ -124,18 +124,18 @@ public class TicketNumberTest {
 		String member2No = member2.getMemberDetail().getMemberNo();
 
 		// 회원1 예약 (좌석 0, 1, 2)
-		Reservation pendingBooking1 = createPendingBooking(member1, trainScheduleResult, seats.subList(0, 3));
+		Reservation reservation1 = createReservation(member1, trainScheduleResult, seats.subList(0, 3));
 		// 회원2 예약 (좌석 3, 4, 5)
-		Reservation pendingBooking2 = createPendingBooking(member2, trainScheduleResult, seats.subList(3, 6));
+		Reservation reservation2 = createReservation(member2, trainScheduleResult, seats.subList(3, 6));
 
 		// when
 		// 회원1: 예약 -> 주문 -> 결제 -> 예매
-		Order order1 = orderService.createOrder(member1No, List.of(pendingBooking1));
+		Order order1 = orderService.createOrder(member1No, List.of(reservation1));
 		order1.completePayment();
 		bookingService.createBookingFromOrder(order1);
 
 		// 회원2: 예약 -> 주문 -> 결제 -> 예매
-		Order order2 = orderService.createOrder(member2No, List.of(pendingBooking2));
+		Order order2 = orderService.createOrder(member2No, List.of(reservation2));
 		order2.completePayment();
 		bookingService.createBookingFromOrder(order2);
 
@@ -170,7 +170,7 @@ public class TicketNumberTest {
 			);
 	}
 
-	private Reservation createPendingBooking(Member member, TrainScheduleResult result, List<Seat> seats) {
+	private Reservation createReservation(Member member, TrainScheduleResult result, List<Seat> seats) {
 		return reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			result.trainSchedule(),

@@ -84,7 +84,7 @@ class OrderFareTest {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
 
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			trainSchedule,
 			departureStop,
@@ -93,7 +93,7 @@ class OrderFareTest {
 			List.of(PassengerType.ADULT));
 
 		// when
-		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
+		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(reservation));
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
@@ -118,7 +118,7 @@ class OrderFareTest {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
 
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			trainSchedule,
 			departureStop,
@@ -127,7 +127,7 @@ class OrderFareTest {
 			List.of(PassengerType.CHILD));
 
 		// when
-		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
+		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(reservation));
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
@@ -152,7 +152,7 @@ class OrderFareTest {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, 1);
 
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			trainSchedule,
 			departureStop,
@@ -161,7 +161,7 @@ class OrderFareTest {
 			List.of(PassengerType.ADULT));
 
 		// when
-		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
+		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(reservation));
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
@@ -186,7 +186,7 @@ class OrderFareTest {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			trainSchedule,
 			departureStop,
@@ -195,7 +195,7 @@ class OrderFareTest {
 			List.of(PassengerType.ADULT, PassengerType.ADULT));
 
 		// when
-		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
+		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(reservation));
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
@@ -221,7 +221,7 @@ class OrderFareTest {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			trainSchedule,
 			departureStop,
@@ -230,7 +230,7 @@ class OrderFareTest {
 			List.of(PassengerType.ADULT, PassengerType.CHILD));
 
 		// when
-		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
+		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(reservation));
 
 		// then
 		StationFare stationFare = getStationFare(departureStop.getStation().getId(), arrivalStop.getStation().getId());
@@ -259,12 +259,12 @@ class OrderFareTest {
 
 	@Test
 	@DisplayName("여러 예약으로 생성된 주문 금액이 정상적으로 합산된다")
-	void create_order_multiplePendingBookings() {
+	void create_order_multipleReservations() {
 		// given
 		List<Seat> standardSeats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
 		List<Seat> firstClassSeats = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, 1);
 
-		Reservation pendingBooking1 = reservationTestHelper.hold(
+		Reservation reservation1 = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			trainSchedule,
 			departureStop,
@@ -272,7 +272,7 @@ class OrderFareTest {
 			List.of(standardSeats.get(0)),
 			List.of(PassengerType.ADULT));
 
-		Reservation pendingBooking2 = reservationTestHelper.hold(
+		Reservation reservation2 = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			trainSchedule,
 			departureStop,
@@ -283,7 +283,7 @@ class OrderFareTest {
 		// when
 		Order order = orderService.createOrder(
 			member.getMemberDetail().getMemberNo(),
-			List.of(pendingBooking1, pendingBooking2)
+			List.of(reservation1, reservation2)
 		);
 
 		// then
@@ -346,7 +346,7 @@ class OrderFareTest {
 		ScheduleStop schedule2Arrival = schedule2Result.scheduleStops().get(1);
 
 		// 3. Reservation 생성
-		Reservation pendingBooking1 = reservationTestHelper.hold(
+		Reservation reservation1 = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			trainSchedule,
 			departureStop,
@@ -354,7 +354,7 @@ class OrderFareTest {
 			List.of(s1SeatId1, s1SeatId2),
 			List.of(PassengerType.ADULT, PassengerType.CHILD));
 
-		Reservation pendingBooking2 = reservationTestHelper.hold(
+		Reservation reservation2 = reservationTestHelper.hold(
 			member.getMemberDetail().getMemberNo(),
 			schedule2Result.trainSchedule(),
 			schedule2Departure,
@@ -365,7 +365,7 @@ class OrderFareTest {
 		// when
 		Order order = orderService.createOrder(
 			member.getMemberDetail().getMemberNo(),
-			List.of(pendingBooking1, pendingBooking2)
+			List.of(reservation1, reservation2)
 		);
 
 		// then

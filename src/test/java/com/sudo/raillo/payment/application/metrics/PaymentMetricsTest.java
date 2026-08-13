@@ -83,8 +83,8 @@ class PaymentMetricsTest {
 	@DisplayName("결제 준비 성공 시 payment_prepare_total 카운터가 증가한다")
 	void preparePayment_incrementsPrepareMetric() {
 		// given
-		Reservation pendingBooking = createPendingBookingWithHold(BigDecimal.valueOf(50000));
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode()));
+		Reservation reservation = createReservationWithHold(BigDecimal.valueOf(50000));
+		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(reservation.getReservationCode()));
 
 		double before = meterRegistry.counter("payment_prepare_total").count();
 
@@ -103,9 +103,9 @@ class PaymentMetricsTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_metrics_success";
 
-		Reservation pendingBooking = createPendingBookingWithHold(amount);
+		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
+			new PaymentPrepareRequest(List.of(reservation.getReservationCode())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, prepareResponse.orderId(), "카드", amount.longValue(), "DONE");
@@ -132,9 +132,9 @@ class PaymentMetricsTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_metrics_toss_fail";
 
-		Reservation pendingBooking = createPendingBookingWithHold(amount);
+		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
+			new PaymentPrepareRequest(List.of(reservation.getReservationCode())), memberNo);
 
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
 			.willThrow(new TossPaymentException(400, "INVALID_REQUEST", "test error"));
@@ -163,9 +163,9 @@ class PaymentMetricsTest {
 		BigDecimal wrongAmount = BigDecimal.valueOf(30000);
 		String paymentKey = "toss_pk_metrics_validation_fail";
 
-		Reservation pendingBooking = createPendingBookingWithHold(orderAmount);
+		Reservation reservation = createReservationWithHold(orderAmount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
+			new PaymentPrepareRequest(List.of(reservation.getReservationCode())), memberNo);
 
 		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
 			paymentKey, prepareResponse.orderId(), wrongAmount);
@@ -195,9 +195,9 @@ class PaymentMetricsTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_metrics_unexpected";
 
-		Reservation pendingBooking = createPendingBookingWithHold(amount);
+		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
+			new PaymentPrepareRequest(List.of(reservation.getReservationCode())), memberNo);
 
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
 			.willThrow(new RuntimeException("unexpected error"));
@@ -225,9 +225,9 @@ class PaymentMetricsTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_metrics_system_error";
 
-		Reservation pendingBooking = createPendingBookingWithHold(amount);
+		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
+			new PaymentPrepareRequest(List.of(reservation.getReservationCode())), memberNo);
 
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
 			.willThrow(new BusinessException(PaymentError.PAYMENT_SYSTEM_ERROR));
@@ -253,7 +253,7 @@ class PaymentMetricsTest {
 		assertThat(after).isEqualTo(before + 1);
 	}
 
-	private Reservation createPendingBookingWithHold(BigDecimal fare) {
+	private Reservation createReservationWithHold(BigDecimal fare) {
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
@@ -262,7 +262,7 @@ class PaymentMetricsTest {
 		List<Long> seatIds = seats.stream().map(Seat::getId).toList();
 		Long trainCarId = seats.get(0).getTrainCar().getId();
 
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			memberNo,
 			trainScheduleResult.trainSchedule(),
 			departureStop,
@@ -271,6 +271,6 @@ class PaymentMetricsTest {
 			List.of(PassengerType.ADULT));
 
 
-		return pendingBooking;
+		return reservation;
 	}
 }

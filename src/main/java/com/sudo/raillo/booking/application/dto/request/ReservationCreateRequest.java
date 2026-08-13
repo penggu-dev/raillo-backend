@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 @Schema(description = "예약 생성 요청 DTO")
-public record PendingBookingCreateRequest(
+public record ReservationCreateRequest(
 	@Schema(description = "열차 스케줄 ID", example = "54")
 	@NotNull(message = "열차 스케줄 ID는 필수입니다")
 	Long trainScheduleId,

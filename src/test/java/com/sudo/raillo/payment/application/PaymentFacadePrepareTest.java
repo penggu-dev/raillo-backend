@@ -83,7 +83,7 @@ class PaymentFacadePrepareTest {
 			1
 		);
 
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			memberNo,
 			trainScheduleResult.trainSchedule(),
 			departureStop,
@@ -91,7 +91,7 @@ class PaymentFacadePrepareTest {
 			List.of(seats.get(0)),
 			List.of(PassengerType.ADULT));
 
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode()));
+		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(reservation.getReservationCode()));
 
 		// when
 		PaymentPrepareResponse response = paymentFacade.preparePayment(request, memberNo);
@@ -100,12 +100,12 @@ class PaymentFacadePrepareTest {
 		Order order = orderRepository.findByOrderCode(response.orderId()).get();
 		assertThat(response.orderId()).isEqualTo(order.getOrderCode());
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
-		assertThat(response.amount()).isEqualByComparingTo(pendingBooking.getTotalFare());
+		assertThat(response.amount()).isEqualByComparingTo(reservation.getTotalFare());
 	}
 
 	@Test
-	@DisplayName("여러 좌석이 포함된 여러 PendingBooking으로 결제 준비 시 금액이 합산된다")
-	void preparePayment_multiplePendingBookingsWithMultipleSeats_success() {
+	@DisplayName("여러 좌석이 포함된 여러 Reservation으로 결제 준비 시 금액이 합산된다")
+	void preparePayment_multipleReservationsWithMultipleSeats_success() {
 		// given
 		String memberNo = member.getMemberDetail().getMemberNo();
 
@@ -119,7 +119,7 @@ class PaymentFacadePrepareTest {
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 4);
 
 		// 첫 번째 Reservation: 2명 (성인 + 어린이)
-		Reservation pendingBooking1 = reservationTestHelper.hold(
+		Reservation reservation1 = reservationTestHelper.hold(
 			memberNo,
 			scheduleResult.trainSchedule(),
 			departureStop,
@@ -128,7 +128,7 @@ class PaymentFacadePrepareTest {
 			List.of(PassengerType.ADULT, PassengerType.CHILD));
 
 		// 두 번째 Reservation: 2명 (성인 + 경로)
-		Reservation pendingBooking2 = reservationTestHelper.hold(
+		Reservation reservation2 = reservationTestHelper.hold(
 			memberNo,
 			scheduleResult.trainSchedule(),
 			departureStop,
@@ -137,7 +137,7 @@ class PaymentFacadePrepareTest {
 			List.of(PassengerType.ADULT, PassengerType.SENIOR));
 
 		PaymentPrepareRequest request = new PaymentPrepareRequest(
-			List.of(pendingBooking1.getReservationCode(), pendingBooking2.getReservationCode())
+			List.of(reservation1.getReservationCode(), reservation2.getReservationCode())
 		);
 
 		// when
@@ -154,7 +154,7 @@ class PaymentFacadePrepareTest {
 
 	@Test
 	@DisplayName("존재하지 않는 Reservation ID로 결제 준비 시 예외가 발생한다")
-	void preparePayment_pendingBookingNotFound_throwsException() {
+	void preparePayment_reservationNotFound_throwsException() {
 		// given
 		String memberNo = member.getMemberDetail().getMemberNo();
 		String nonExistentId = UUID.randomUUID().toString();
@@ -169,7 +169,7 @@ class PaymentFacadePrepareTest {
 	}
 
 	@Test
-	@DisplayName("다른 사용자의 PendingBooking으로 결제 준비 시 예외가 발생한다")
+	@DisplayName("다른 사용자의 Reservation으로 결제 준비 시 예외가 발생한다")
 	void preparePayment_accessDenied_throwsException() {
 		// given
 		Member otherMember = memberRepository.save(MemberFixture.createOther());
@@ -187,7 +187,7 @@ class PaymentFacadePrepareTest {
 		);
 
 		// 다른 사용자의 Reservation 생성
-		Reservation othersPendingBooking = reservationTestHelper.hold(
+		Reservation othersReservation = reservationTestHelper.hold(
 			otherMemberNo,
 			trainScheduleResult.trainSchedule(),
 			departureStop,
@@ -195,13 +195,13 @@ class PaymentFacadePrepareTest {
 			List.of(seats.get(0)),
 			List.of(PassengerType.ADULT));
 
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(othersPendingBooking.getReservationCode()));
+		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(othersReservation.getReservationCode()));
 
-		// when & then (현재 사용자가 다른 사용자의 PendingBooking으로 결제 시도)
+		// when & then (현재 사용자가 다른 사용자의 Reservation으로 결제 시도)
 		assertThatThrownBy(() -> paymentFacade.preparePayment(request, currentMemberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_ACCESS_DENIED)
-			.hasMessage(BookingError.PENDING_BOOKING_ACCESS_DENIED.getMessage());
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_ACCESS_DENIED)
+			.hasMessage(BookingError.RESERVATION_ACCESS_DENIED.getMessage());
 	}
 
 	@Test
@@ -220,7 +220,7 @@ class PaymentFacadePrepareTest {
 		);
 
 		// 유효한 회원의 Reservation 생성
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			memberNo,
 			trainScheduleResult.trainSchedule(),
 			departureStop,
@@ -231,7 +231,7 @@ class PaymentFacadePrepareTest {
 		// 회원 탈퇴
 		memberRepository.delete(member);
 
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode()));
+		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(reservation.getReservationCode()));
 
 		// when & then (탈퇴한 회원의 토큰으로 결제 시도)
 		assertThatThrownBy(() -> paymentFacade.preparePayment(request, memberNo))

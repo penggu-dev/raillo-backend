@@ -4,10 +4,10 @@ import java.util.List;
 
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
-import com.sudo.raillo.booking.application.dto.request.PendingBookingDeleteRequest;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingDetailResponse;
+import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
+import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
+import com.sudo.raillo.booking.application.dto.response.ReservationDetailResponse;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
 import com.sudo.raillo.global.success.SuccessResponse;
 
@@ -19,8 +19,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-@Tag(name = "PendingBookings")
-public interface PendingBookingControllerDoc {
+@Tag(name = "Reservations")
+public interface ReservationControllerDoc {
 
 	@Operation(method = "POST", summary = "예약 생성", description = "정보를 받아 예약을 생성합니다.", security = {
 		@SecurityRequirement(name = "bearerAuth")})
@@ -43,8 +43,8 @@ public interface PendingBookingControllerDoc {
 				+ "- 사용자를 찾을 수 없음\n",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<PendingBookingCreateResponse> createPendingBooking(
-		PendingBookingCreateRequest request, UserDetails userDetails);
+	SuccessResponse<ReservationCreateResponse> createReservation(
+		ReservationCreateRequest request, UserDetails userDetails);
 
 	@Operation(method = "GET", summary = "예약 목록 조회", description = "회원의 예약 목록을 조회합니다.", security = {
 		@SecurityRequirement(name = "bearerAuth")})
@@ -53,7 +53,7 @@ public interface PendingBookingControllerDoc {
 		@ApiResponse(responseCode = "403", description = "해당 예약에 대한 접근 권한이 없습니다.",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<List<PendingBookingDetailResponse>> getPendingBookings(UserDetails userDetails);
+	SuccessResponse<List<ReservationDetailResponse>> getReservations(UserDetails userDetails);
 
 	@Operation(method = "DELETE", summary = "예약 다중 삭제", description = "예약을 다중 삭제합니다.", security = {
 		@SecurityRequirement(name = "bearerAuth")})
@@ -62,5 +62,5 @@ public interface PendingBookingControllerDoc {
 		@ApiResponse(responseCode = "403", description = "해당 예약에 대한 접근 권한이 없습니다.",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<?> deletePendingBookings(PendingBookingDeleteRequest request, UserDetails userDetails);
+	SuccessResponse<?> deleteReservations(ReservationDeleteRequest request, UserDetails userDetails);
 }

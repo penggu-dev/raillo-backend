@@ -21,7 +21,7 @@ Spring Boot 3.5 + Java 17 + DDD. Domains:
 - `member` — 사용자, 회원번호 생성, 만료 회원 Spring Batch
 - `payment` — Toss Payments, 환불
 - `train` — 열차 스케줄, 역, 운임, 좌석 가용성
-- `order` — 결제 단위로 PendingBooking들을 묶음
+- `order` — 결제 단위로 예약(Reservation)들을 묶음
 - `global` — 공통 인프라 (config, exceptions, Redis 유틸)
 
 ### Package Structure
@@ -78,12 +78,15 @@ public enum BookingError implements ErrorCode {
 
 **Repository Pattern** — 기본 CRUD는 `JpaRepository`. 복잡한 쿼리는 `*QueryRepository` + `JPAQueryFactory` (QueryDSL projection). 둘 다 `{domain}/infrastructure/` 직속에 둔다 (별도 `repository/` 하위 디렉터리 두지 않음).
 
-**Redis Repository Pattern** — `RedisTemplate<String, Object>`, TTL은 `@Value`로 주입. 커서 순회는 `ScanOptions`.
+**Redis Repository Pattern** — `RedisTemplate<String, Object>`, TTL은 `@Value`로 주입. 커서 순회는 `ScanOptions`. 현재 Redis는 인증 토큰·이메일 인증·번호 채번·캘린더 캐시에만 쓰인다 (좌석 관련 사용 없음).
 
-**Redis Lua Scripts** — 좌석 동시 선점 충돌 방지. 스크립트는 `src/main/resources/scripts/`:
-- `seat_hold.lua` / `seat_release.lua` / `get_hold_seats_count.lua`
-- 상세 흐름, Hold Index, Lazy Cleanup, Train Search 통합 → [docs/seat-hold-architecture.md](./docs/seat-hold-architecture.md)
-- 4-Layer 좌석 충돌 방어 → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
+**Seat Occupancy** — 좌석 충돌은 `seat_occupancy` 테이블의 유니크 제약 `(train_schedule_id, seat_id, section_order)` 하나로 막는다. 예약(HELD)과 확정 예매(CONFIRMED)가 같은 테이블을 공유한다.
+- 새 좌석 관련 쿼리는 `SeatBooking`이 아니라 `SeatOccupancy`를 기준으로 작성한다
+- 점유 해제는 반드시 **물리 삭제**다. 상태값으로 남기면 유니크 인덱스가 좌석을 영구 점유한다
+- 구간 전개 모델, 만료 처리, 잔여석 집계 → [docs/seat-occupancy-architecture.md](./docs/seat-occupancy-architecture.md)
+- 충돌 방어 구조 → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
+
+**MySQL 전용 문법 금지** — 테스트가 H2(MODE=MYSQL)에서 돌기 때문에 `INSERT ... ON DUPLICATE KEY UPDATE`, `INSERT IGNORE`, `SELECT ... FOR UPDATE SKIP LOCKED` 를 쓸 수 없다. 벌크 연산은 표준 JPQL로 작성하고, 제약 위반은 벤더 중립인 `DataIntegrityViolationException`으로 잡는다.
 
 ## Coding Rules
 
@@ -104,6 +107,8 @@ public enum BookingError implements ErrorCode {
 
 | Entity | Status | Values |
 |--------|--------|--------|
+| Reservation | `ReservationStatus` | HELD, CONFIRMED, RELEASED |
+| SeatOccupancy | `SeatOccupancyStatus` | HELD, CONFIRMED |
 | Booking | `BookingStatus` | BOOKED, CANCELLED |
 | Order | `OrderStatus` | PENDING, ORDERED, EXPIRED |
 | Payment | `PaymentStatus` | PENDING, PAID, CANCELLED, REFUNDED, FAILED |
@@ -118,7 +123,7 @@ public enum BookingError implements ErrorCode {
 
 ### Korean Terminology
 
-예약 = PendingBooking, 예매 = Booking, 승차권 = Ticket, 객차 = TrainCar, 정차역 = ScheduleStop
+예약 = Reservation, 예매 = Booking, 승차권 = Ticket, 객차 = TrainCar, 정차역 = ScheduleStop
 
 ## Testing
 
@@ -170,11 +175,11 @@ Java 17, Spring Boot 3.5.0, MySQL (prod/dev), H2 (test), Redis, QueryDSL 5.0.0 (
 
 - **테스트 작성/수정 시** → **`/test` skill 호출**. 자동 호출 안 됐다면 명시적으로 `/test <대상>` 실행. 상세 예제는 [docs/testing-guide.md](./docs/testing-guide.md).
 
-- **Lua 스크립트 / 좌석 동시성 작업 시** → [docs/seat-hold-architecture.md](./docs/seat-hold-architecture.md)
-  핵심: 원자성 보장, Lazy Cleanup 패턴, Hold Index 3종 키 동시 갱신 (`hold:pendingId`, `holds`, `holding-seats`), `RedisScriptConfig` Bean 등록.
+- **좌석 동시성 작업 시** → [docs/seat-occupancy-architecture.md](./docs/seat-occupancy-architecture.md)
+  핵심: 구간 전개(`section_order`), 유니크 제약이 유일한 충돌 판정 지점, 만료 행 선삭제, 정렬 삽입에 의한 데드락 회피, `expires_at` 센티넬.
 
 - **좌석 충돌 검증 로직 변경 시** → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
-  핵심: 4-Layer 방어 (Lua → SQL Fail Fast → SQL Re-validation → TTL Expiry) 영향 범위 모두 검토.
+  핵심: 사전 검증은 빠른 실패용 보조 수단이고 실제 방어는 유니크 제약. 결제 준비에서 좌석 재검증 금지 (자기 점유를 충돌로 판정함).
 
 - **에러 코드 추가/변경 시** → [docs/error-code-convention.md](./docs/error-code-convention.md)
   핵심: `{DOMAIN}_{NNN}` 형식, 도메인별 카테고리 밴드(백의 자리), 새 코드 추가 절차.

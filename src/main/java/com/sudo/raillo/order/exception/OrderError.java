@@ -13,7 +13,7 @@ public enum OrderError implements ErrorCode {
 	INVALID_TOTAL_AMOUNT("주문 총 금액은 0보다 크거나 같아야 합니다", HttpStatus.BAD_REQUEST, "ORDER_003"),
 	ORDER_NOT_FOUND("주문 정보를 찾을 수 없습니다.", HttpStatus.BAD_REQUEST, "ORDER_004"),
 	ORDER_ACCESS_DENIED("주문에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "ORDER_005"),
-	EMPTY_PENDING_BOOKINGS("주문할 예약 정보가 없습니다.", HttpStatus.BAD_REQUEST, "ORDER_006"),
+	EMPTY_RESERVATIONS("주문할 예약 정보가 없습니다.", HttpStatus.BAD_REQUEST, "ORDER_006"),
 	ORDER_BOOKING_NOT_FOUND("주문 예약 정보를 찾을 수 없습니다.", HttpStatus.BAD_REQUEST, "ORDER_007"),
 	ORDER_SEAT_BOOKING_NOT_FOUND("주문 좌석 예약 정보를 찾을 수 없습니다.", HttpStatus.BAD_REQUEST, "ORDER_008"),
 	ORDER_IS_EXPIRED("만료된 주문입니다.", HttpStatus.GONE, "ORDER_009");

@@ -13,8 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateCommand;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingDetailResponse;
-import com.sudo.raillo.booking.application.mapper.PendingBookingMapper;
+import com.sudo.raillo.booking.application.dto.response.ReservationDetailResponse;
+import com.sudo.raillo.booking.application.mapper.ReservationMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.ReservationSeat;
@@ -45,7 +45,7 @@ public class ReservationService {
 
 	private final ReservationRepository reservationRepository;
 	private final ReservationSeatRepository reservationSeatRepository;
-	private final PendingBookingMapper reservationMapper;
+	private final ReservationMapper reservationMapper;
 	private final BookingValidator bookingValidator;
 	private final FareCalculator fareCalculator;
 
@@ -113,7 +113,7 @@ public class ReservationService {
 	 * 회원의 유효한 예약 목록 조회
 	 */
 	@Transactional(readOnly = true)
-	public List<PendingBookingDetailResponse> getReservationDetails(String memberNo) {
+	public List<ReservationDetailResponse> getReservationDetails(String memberNo) {
 		List<Reservation> reservations = reservationRepository.findActiveByMemberNo(
 			memberNo, ReservationStatus.HELD, LocalDateTime.now());
 

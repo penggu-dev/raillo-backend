@@ -116,9 +116,9 @@ class PaymentScenarioTest {
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
-		Reservation pendingBooking = createPendingBookingWithHold(amount);
+		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
+			new PaymentPrepareRequest(List.of(reservation.getReservationCode())), memberNo);
 
 		// 준비 단계 검증
 		assertThat(prepareResponse.orderId()).isNotNull();
@@ -153,7 +153,7 @@ class PaymentScenarioTest {
 		// then - SeatBooking 생성 검증
 		List<SeatBooking> seatBookings = seatBookingRepository.findOverlappingSeatBookings(
 			trainScheduleResult.trainSchedule().getId(),
-			reservationSeatRepository.findAllByReservationId(pendingBooking.getId()).stream()
+			reservationSeatRepository.findAllByReservationId(reservation.getId()).stream()
 				.map(reservationSeat -> reservationSeat.getSeat().getId())
 				.toList(),
 			departureStop.getStopOrder(),
@@ -162,7 +162,7 @@ class PaymentScenarioTest {
 		assertThat(seatBookings).hasSize(1);
 
 		// then - Reservation 삭제 검증 (Redis에서 제거됨)
-		assertThat(reservationRepository.findByReservationCode(pendingBooking.getReservationCode()).orElseThrow()
+		assertThat(reservationRepository.findByReservationCode(reservation.getReservationCode()).orElseThrow()
 			.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
 	}
 
@@ -173,9 +173,9 @@ class PaymentScenarioTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_scenario_fail";
 
-		Reservation pendingBooking = createPendingBookingWithHold(amount);
+		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
+			new PaymentPrepareRequest(List.of(reservation.getReservationCode())), memberNo);
 
 		// given - 토스 승인 실패 Mock (4xx 에러)
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
@@ -212,9 +212,9 @@ class PaymentScenarioTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_scenario_amount_mismatch";
 
-		Reservation pendingBooking = createPendingBookingWithHold(amount);
+		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
+			new PaymentPrepareRequest(List.of(reservation.getReservationCode())), memberNo);
 
 		// given - 토스 응답 금액 불일치 Mock (요청은 50000인데 토스가 60000 응답)
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
@@ -239,9 +239,9 @@ class PaymentScenarioTest {
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_scenario_unknown_method";
 
-		Reservation pendingBooking = createPendingBookingWithHold(amount);
+		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(pendingBooking.getReservationCode())), memberNo);
+			new PaymentPrepareRequest(List.of(reservation.getReservationCode())), memberNo);
 
 		// given - 알 수 없는 결제수단 Mock
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
@@ -261,7 +261,7 @@ class PaymentScenarioTest {
 
 	@Test
 	@DisplayName("복수 Reservation 결제 준비 → 토스 승인 성공 시 Booking이 건수만큼 생성된다")
-	void fullFlow_multiplePendingBookings_success() {
+	void fullFlow_multipleReservations_success() {
 		// given - 좌석 2개로 Reservation 2건 생성
 		BigDecimal farePerBooking = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_scenario_multi";
@@ -272,9 +272,9 @@ class PaymentScenarioTest {
 			trainScheduleResult.trainSchedule().getTrain(), CarType.STANDARD, 2);
 		List<Long> seatIds = seats.stream().map(Seat::getId).toList();
 
-		Reservation pb1 = createSingleSeatPendingBooking(
+		Reservation pb1 = createSingleSeatReservation(
 			departureStop, arrivalStop, seats.get(0), farePerBooking);
-		Reservation pb2 = createSingleSeatPendingBooking(
+		Reservation pb2 = createSingleSeatReservation(
 			departureStop, arrivalStop, seats.get(1), farePerBooking);
 
 		Long trainCarId = seats.get(0).getTrainCar().getId();
@@ -325,7 +325,7 @@ class PaymentScenarioTest {
 		assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
 	}
 
-	private Reservation createSingleSeatPendingBooking(
+	private Reservation createSingleSeatReservation(
 		ScheduleStop departureStop, ScheduleStop arrivalStop, Seat seat, BigDecimal fare) {
 		return reservationTestHelper.hold(
 			memberNo,
@@ -336,7 +336,7 @@ class PaymentScenarioTest {
 			List.of(PassengerType.ADULT));
 	}
 
-	private Reservation createPendingBookingWithHold(BigDecimal fare) {
+	private Reservation createReservationWithHold(BigDecimal fare) {
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
@@ -345,7 +345,7 @@ class PaymentScenarioTest {
 		List<Long> seatIds = seats.stream().map(Seat::getId).toList();
 		Long trainCarId = seats.get(0).getTrainCar().getId();
 
-		Reservation pendingBooking = reservationTestHelper.hold(
+		Reservation reservation = reservationTestHelper.hold(
 			memberNo,
 			trainScheduleResult.trainSchedule(),
 			departureStop,
@@ -354,6 +354,6 @@ class PaymentScenarioTest {
 			List.of(PassengerType.ADULT));
 
 
-		return pendingBooking;
+		return reservation;
 	}
 }

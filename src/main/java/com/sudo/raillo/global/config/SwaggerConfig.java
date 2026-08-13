@@ -98,7 +98,7 @@ public class SwaggerConfig {
 				.name("Tickets")
 				.description("🚝 승차권 API - 승차권 조회, 발권, 취소 API"),
 			new Tag()
-				.name("PendingBookings")
+				.name("Reservations")
 				.description("⏳ 예약 API - 예약 생성, 조회, 취소 API"),
 			new Tag()
 				.name("Bookings")

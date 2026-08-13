@@ -11,13 +11,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
-import com.sudo.raillo.booking.application.dto.request.PendingBookingDeleteRequest;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingDetailResponse;
-import com.sudo.raillo.booking.application.facade.PendingBookingFacade;
+import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.ReservationDeleteRequest;
+import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
+import com.sudo.raillo.booking.application.dto.response.ReservationDetailResponse;
+import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.application.service.ReservationService;
-import com.sudo.raillo.booking.docs.PendingBookingControllerDoc;
+import com.sudo.raillo.booking.docs.ReservationControllerDoc;
 import com.sudo.raillo.booking.success.BookingSuccess;
 import com.sudo.raillo.global.success.SuccessResponse;
 
@@ -25,11 +25,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/pending-bookings")
+@RequestMapping("/api/v1/reservations")
 @RequiredArgsConstructor
-public class PendingBookingController implements PendingBookingControllerDoc {
+public class ReservationController implements ReservationControllerDoc {
 
-	private final PendingBookingFacade pendingBookingFacade;
+	private final ReservationFacade reservationFacade;
 	private final ReservationService reservationService;
 
 
@@ -39,13 +39,13 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	 * @return 예약 생성 성공 응답
 	 */
 	@PostMapping
-	public SuccessResponse<PendingBookingCreateResponse> createPendingBooking(
-		@RequestBody @Valid PendingBookingCreateRequest request,
+	public SuccessResponse<ReservationCreateResponse> createReservation(
+		@RequestBody @Valid ReservationCreateRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
-		PendingBookingCreateResponse response = pendingBookingFacade
-			.createPendingBooking(request, userDetails.getUsername());
-		return SuccessResponse.of(BookingSuccess.PENDING_BOOKING_CREATE_SUCCESS, response);
+		ReservationCreateResponse response = reservationFacade
+			.createReservation(request, userDetails.getUsername());
+		return SuccessResponse.of(BookingSuccess.RESERVATION_CREATE_SUCCESS, response);
 	}
 
 	/**
@@ -53,13 +53,13 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	 * @return 회원의 예약 목록 응답
 	 * */
 	@GetMapping
-	public SuccessResponse<List<PendingBookingDetailResponse>> getPendingBookings(
+	public SuccessResponse<List<ReservationDetailResponse>> getReservations(
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
 		String memberNo = userDetails.getUsername();
 
-		List<PendingBookingDetailResponse> response = reservationService.getReservationDetails(memberNo);
-		return SuccessResponse.of(BookingSuccess.PENDING_BOOKING_LIST_SUCCESS, response);
+		List<ReservationDetailResponse> response = reservationService.getReservationDetails(memberNo);
+		return SuccessResponse.of(BookingSuccess.RESERVATION_LIST_SUCCESS, response);
 	}
 
 	/**
@@ -67,14 +67,14 @@ public class PendingBookingController implements PendingBookingControllerDoc {
 	 * @param request 예약 삭제 요청 DTO
 	 */
 	@DeleteMapping
-	public SuccessResponse<?> deletePendingBookings(
-		@RequestBody @Valid PendingBookingDeleteRequest request,
+	public SuccessResponse<?> deleteReservations(
+		@RequestBody @Valid ReservationDeleteRequest request,
 		@AuthenticationPrincipal UserDetails userDetails
 	) {
 		String memberNo = userDetails.getUsername();
 
-		pendingBookingFacade.deletePendingBookings(request.pendingBookingIds(), memberNo);
-		return SuccessResponse.of(BookingSuccess.PENDING_BOOKING_DELETE_SUCCESS);
+		reservationFacade.deleteReservations(request.reservationCodes(), memberNo);
+		return SuccessResponse.of(BookingSuccess.RESERVATION_DELETE_SUCCESS);
 	}
 
 }

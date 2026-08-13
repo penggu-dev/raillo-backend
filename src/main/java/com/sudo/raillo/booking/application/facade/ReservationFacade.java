@@ -7,14 +7,14 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
+import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateCommand;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
+import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
 import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.application.service.SeatOccupancyService;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Reservation;
-import com.sudo.raillo.booking.util.PendingBookingIdGenerator;
+import com.sudo.raillo.booking.util.ReservationCodeGenerator;
 import com.sudo.raillo.train.application.service.TrainScheduleService;
 import com.sudo.raillo.train.application.service.TrainSeatQueryService;
 import com.sudo.raillo.train.domain.ScheduleStop;
@@ -28,13 +28,13 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class PendingBookingFacade {
+public class ReservationFacade {
 
 	private final ReservationService reservationService;
 	private final SeatOccupancyService seatOccupancyService;
 	private final TrainSeatQueryService trainSeatQueryService;
 	private final BookingValidator bookingValidator;
-	private final PendingBookingIdGenerator pendingBookingIdGenerator;
+	private final ReservationCodeGenerator reservationCodeGenerator;
 	private final TrainScheduleService trainScheduleService;
 
 	/**
@@ -45,7 +45,7 @@ public class PendingBookingFacade {
 	 * 별도의 보상 로직이 필요 없다.</p>
 	 */
 	@Transactional
-	public PendingBookingCreateResponse createPendingBooking(PendingBookingCreateRequest request, String memberNo) {
+	public ReservationCreateResponse createReservation(ReservationCreateRequest request, String memberNo) {
 		// 1. 조회
 		TrainSchedule trainSchedule = trainScheduleService.getTrainSchedule(request.trainScheduleId());
 		ScheduleStop departureStop = trainScheduleService.getStopStation(trainSchedule, request.departureStationId());
@@ -69,7 +69,7 @@ public class PendingBookingFacade {
 		// 4. 예약 저장 (운임은 좌석별로 계산되어 합산된다)
 		Duration reservationTtl = reservationService.calculateReservationTtl(departureDateTime, now);
 		Reservation reservation = reservationService.createHeld(new ReservationCreateCommand(
-			pendingBookingIdGenerator.generate(),
+			reservationCodeGenerator.generate(),
 			memberNo,
 			trainSchedule,
 			departureStop,
@@ -82,14 +82,14 @@ public class PendingBookingFacade {
 		// 5. 좌석 점유 (유니크 제약 위반 시 SEAT_ALREADY_OCCUPIED)
 		seatOccupancyService.hold(reservation, seats);
 
-		return new PendingBookingCreateResponse(reservation.getReservationCode());
+		return new ReservationCreateResponse(reservation.getReservationCode());
 	}
 
 	/**
 	 * 예약 삭제 예약 해제 → 좌석 점유 행 물리 삭제
 	 */
 	@Transactional
-	public void deletePendingBookings(List<String> reservationCodes, String memberNo) {
+	public void deleteReservations(List<String> reservationCodes, String memberNo) {
 		List<Reservation> reservations = reservationService.getOwnedByCodes(reservationCodes, memberNo);
 
 		List<Reservation> released = reservationService.release(reservations);

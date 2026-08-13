@@ -114,7 +114,7 @@ Controller → Facade → Service → Repository
 - **장바구니 시스템**: 예약 후 결제 전 임시 저장 및 관리 기능
 - **좌석 예약 관리**: 승객 유형별 좌석 배정 및 예약 상태 관리
 - **요금 계산**: 거리별, 승객 유형별, 차량 등급별 요금 자동 계산
-- **Redis Lua 스크립트 기반 좌석 선점**: 좌석 구간 충돌 검사와 임시 좌석 점유를 Lua 스크립트로 원자적 처리하여 동시 예약 방지
+- **구간 단위 좌석 점유**: 좌석 점유를 정차역 구간 단위로 전개해 `seat_occupancy` 유니크 제약 하나로 동시 예약을 막고, 잔여석 집계도 같은 테이블에서 처리
 - **좌석 점유 인덱스 최적화**: 좌석별, 객차별 다중 인덱스 구조로 좌석 조회 성능과 정확성 확보
 - **TTL 기반 자동 만료**: 일정 시간 내 결제하지 않은 임시 예약과 좌석 점유는 자동으로 해제되어 좌석을 예매 가능 상태로 전환
 
@@ -184,8 +184,8 @@ Controller → Facade → Service → Repository
 ### 상세 문서 (`docs/`)
 | 문서 | 내용 |
 |---|---|
-| [`seat-hold-architecture.md`](./docs/seat-hold-architecture.md) | Redis Lua 기반 좌석 동시 선점 아키텍처, Hold Index, Train Search 통합 |
-| [`seat-conflict-validation.md`](./docs/seat-conflict-validation.md) | 4-Layer 좌석 충돌 방어 (Lua → SQL → Re-validation → TTL) |
+| [`seat-occupancy-architecture.md`](./docs/seat-occupancy-architecture.md) | 구간 전개 기반 좌석 점유 모델, 유니크 제약 동시성 제어, 잔여석 집계 |
+| [`seat-conflict-validation.md`](./docs/seat-conflict-validation.md) | 좌석 충돌 방어 구조와 만료 정리 경합 처리 |
 | [`domain-model.md`](./docs/domain-model.md) | 엔티티 관계도, Booking Flow, 한국어 도메인 용어 |
 | [`testing-guide.md`](./docs/testing-guide.md) | Helper/Fixture 사용 예제와 `@ServiceTest` 상세 |
 | [`deployment.md`](./docs/deployment.md) | K8s, ArgoCD, Docker, CI/CD 배포 상세 |

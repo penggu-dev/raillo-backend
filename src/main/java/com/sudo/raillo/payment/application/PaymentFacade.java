@@ -58,7 +58,7 @@ public class PaymentFacade {
 	public PaymentPrepareResponse preparePayment(PaymentPrepareRequest request, String memberNo) {
 		// 좌석 충돌 재검증은 하지 않는다. 예약 시점에 seat_occupancy가 좌석을 점유했고
 		// 그 점유는 만료 전까지 유지되므로, 여기서 다시 검사하면 자기 자신의 점유를 충돌로 판정한다.
-		List<Reservation> reservations = reservationService.getPayableByCodes(request.pendingBookingIds(), memberNo);
+		List<Reservation> reservations = reservationService.getPayableByCodes(request.reservationCodes(), memberNo);
 
 		Member member = memberService.getMemberByMemberNo(memberNo);
 		Order order = orderService.createOrder(memberNo, reservations);
@@ -137,7 +137,7 @@ public class PaymentFacade {
 		List<String> reservationCodes = orderService.getReservationCodes(order);
 		if (reservationCodes.isEmpty()) {
 			log.error("[예약 검증 실패] 연결된 예약이 없음: orderCode={}", order.getOrderCode());
-			throw new BusinessException(BookingError.PENDING_BOOKING_IDS_REQUIRED);
+			throw new BusinessException(BookingError.RESERVATION_CODES_REQUIRED);
 		}
 
 		return reservationService.getPayableByCodesForUpdate(reservationCodes, memberNo);

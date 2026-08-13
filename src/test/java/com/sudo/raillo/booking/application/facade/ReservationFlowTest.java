@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
-import com.sudo.raillo.booking.application.dto.response.PendingBookingCreateResponse;
+import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
+import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.ReservationSeat;
 import com.sudo.raillo.booking.domain.SeatOccupancy;
@@ -44,15 +44,15 @@ import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 
 /**
- * 예약 생성·삭제 시 Redis PendingBooking과 함께 MySQL Reservation/SeatOccupancy가
+ * 예약 생성·삭제 시 Redis Reservation과 함께 MySQL Reservation/SeatOccupancy가
  * 이중 기록(shadow write)되는지 검증한다.
  */
 @ServiceTest
-@DisplayName("예약 이중 기록(shadow write)")
-class ReservationShadowWriteTest {
+@DisplayName("예약 생성·확정·해제 흐름")
+class ReservationFlowTest {
 
 	@Autowired
-	private PendingBookingFacade pendingBookingFacade;
+	private ReservationFacade reservationFacade;
 	@Autowired
 	private PaymentFacade paymentFacade;
 	@MockitoBean
@@ -103,14 +103,14 @@ class ReservationShadowWriteTest {
 
 	@Test
 	@DisplayName("예약을 생성하면 Reservation과 좌석 x 구간 만큼의 SeatOccupancy가 함께 기록된다")
-	void createPendingBooking_also_writes_reservation_and_occupancy() {
+	void createReservation_also_writes_reservation_and_occupancy() {
 		// given - 서울 -> 부산 (2개 구간), 좌석 2개
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 		List<Long> seatIds = seats.stream().map(Seat::getId).toList();
 
 		// when
-		PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
-			new PendingBookingCreateRequest(
+		ReservationCreateResponse response = reservationFacade.createReservation(
+			new ReservationCreateRequest(
 				scheduleResult.trainSchedule().getId(),
 				seoul.getStation().getId(),
 				busan.getStation().getId(),
@@ -120,8 +120,8 @@ class ReservationShadowWriteTest {
 			member.getMemberDetail().getMemberNo()
 		);
 
-		// then - PendingBooking ID가 그대로 reservationCode가 된다
-		Reservation reservation = reservationRepository.findByReservationCode(response.pendingBookingId())
+		// then - Reservation ID가 그대로 reservationCode가 된다
+		Reservation reservation = reservationRepository.findByReservationCode(response.reservationCode())
 			.orElseThrow();
 		assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.HELD);
 		assertThat(reservation.getMemberNo()).isEqualTo(member.getMemberDetail().getMemberNo());
@@ -144,8 +144,8 @@ class ReservationShadowWriteTest {
 		Seat secondRequested = seats.get(0);
 
 		// when
-		PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
-			new PendingBookingCreateRequest(
+		ReservationCreateResponse response = reservationFacade.createReservation(
+			new ReservationCreateRequest(
 				scheduleResult.trainSchedule().getId(),
 				seoul.getStation().getId(),
 				busan.getStation().getId(),
@@ -156,7 +156,7 @@ class ReservationShadowWriteTest {
 		);
 
 		// then
-		Reservation reservation = reservationRepository.findByReservationCode(response.pendingBookingId())
+		Reservation reservation = reservationRepository.findByReservationCode(response.reservationCode())
 			.orElseThrow();
 		List<ReservationSeat> reservationSeats = reservationSeatRepository.findAllByReservationId(reservation.getId());
 
@@ -175,11 +175,11 @@ class ReservationShadowWriteTest {
 
 	@Test
 	@DisplayName("예약을 삭제하면 SeatOccupancy는 물리 삭제되고 Reservation은 해제 상태로 남는다")
-	void deletePendingBookings_releases_reservation_and_deletes_occupancy() {
+	void deleteReservations_releases_reservation_and_deletes_occupancy() {
 		// given
 		List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
-		PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
-			new PendingBookingCreateRequest(
+		ReservationCreateResponse response = reservationFacade.createReservation(
+			new ReservationCreateRequest(
 				scheduleResult.trainSchedule().getId(),
 				seoul.getStation().getId(),
 				busan.getStation().getId(),
@@ -190,10 +190,10 @@ class ReservationShadowWriteTest {
 		);
 
 		// when
-		pendingBookingFacade.deletePendingBookings(List.of(response.pendingBookingId()), member.getMemberDetail().getMemberNo());
+		reservationFacade.deleteReservations(List.of(response.reservationCode()), member.getMemberDetail().getMemberNo());
 
 		// then
-		Reservation reservation = reservationRepository.findByReservationCode(response.pendingBookingId())
+		Reservation reservation = reservationRepository.findByReservationCode(response.reservationCode())
 			.orElseThrow();
 		assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.RELEASED);
 		assertThat(seatOccupancyRepository.findAllByReservationId(reservation.getId())).isEmpty();
@@ -205,8 +205,8 @@ class ReservationShadowWriteTest {
 		// given - 실제 예약 생성 경로를 거쳐 HELD 점유를 만든다
 		List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
 		String memberNo = member.getMemberDetail().getMemberNo();
-		PendingBookingCreateResponse created = pendingBookingFacade.createPendingBooking(
-			new PendingBookingCreateRequest(
+		ReservationCreateResponse created = reservationFacade.createReservation(
+			new ReservationCreateRequest(
 				scheduleResult.trainSchedule().getId(),
 				seoul.getStation().getId(),
 				busan.getStation().getId(),
@@ -217,7 +217,7 @@ class ReservationShadowWriteTest {
 		);
 
 		PaymentPrepareResponse prepareResponse = paymentFacade.preparePayment(
-			new PaymentPrepareRequest(List.of(created.pendingBookingId())), memberNo);
+			new PaymentPrepareRequest(List.of(created.reservationCode())), memberNo);
 
 		String paymentKey = "toss_pk_shadow_confirm";
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
@@ -229,7 +229,7 @@ class ReservationShadowWriteTest {
 			new PaymentConfirmRequest(paymentKey, prepareResponse.orderId(), prepareResponse.amount()), memberNo);
 
 		// then - 점유 행은 옮겨지지 않고 상태만 전이된다
-		Reservation reservation = reservationRepository.findByReservationCode(created.pendingBookingId())
+		Reservation reservation = reservationRepository.findByReservationCode(created.reservationCode())
 			.orElseThrow();
 		assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
 
@@ -244,11 +244,11 @@ class ReservationShadowWriteTest {
 
 	@Test
 	@DisplayName("겹치지 않는 구간이면 같은 좌석으로 예약을 다시 생성할 수 있다")
-	void createPendingBooking_success_for_non_overlapping_section() {
+	void createReservation_success_for_non_overlapping_section() {
 		// given - 서울(0) -> 대전(1) 예약
 		List<Long> seatIds = trainTestHelper.getSeatIds(train, CarType.STANDARD, 1);
-		pendingBookingFacade.createPendingBooking(
-			new PendingBookingCreateRequest(
+		reservationFacade.createReservation(
+			new ReservationCreateRequest(
 				scheduleResult.trainSchedule().getId(),
 				seoul.getStation().getId(),
 				daejeon.getStation().getId(),
@@ -259,8 +259,8 @@ class ReservationShadowWriteTest {
 		);
 
 		// when - 대전(1) -> 부산(2) 은 겹치지 않는다
-		PendingBookingCreateResponse response = pendingBookingFacade.createPendingBooking(
-			new PendingBookingCreateRequest(
+		ReservationCreateResponse response = reservationFacade.createReservation(
+			new ReservationCreateRequest(
 				scheduleResult.trainSchedule().getId(),
 				daejeon.getStation().getId(),
 				busan.getStation().getId(),
@@ -271,7 +271,7 @@ class ReservationShadowWriteTest {
 		);
 
 		// then
-		Reservation reservation = reservationRepository.findByReservationCode(response.pendingBookingId())
+		Reservation reservation = reservationRepository.findByReservationCode(response.reservationCode())
 			.orElseThrow();
 		assertThat(seatOccupancyRepository.findAllByReservationId(reservation.getId())).hasSize(1);
 	}

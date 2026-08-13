@@ -19,12 +19,12 @@ public class BookingMetricsAspect {
 
 	private final BookingMetrics bookingMetrics;
 
-	@Around("execution(* com.sudo.raillo.booking.application.facade.PendingBookingFacade.createPendingBooking(..))")
-	public Object measurePendingBookingCreation(ProceedingJoinPoint joinPoint) throws Throwable {
+	@Around("execution(* com.sudo.raillo.booking.application.facade.ReservationFacade.createReservation(..))")
+	public Object measureReservationCreation(ProceedingJoinPoint joinPoint) throws Throwable {
 		Sample sample = Timer.start();
 		try {
 			Object result = joinPoint.proceed();
-			bookingMetrics.incrementPendingBookingCreated();
+			bookingMetrics.incrementReservationCreated();
 			return result;
 		} catch (BusinessException e) {
 			if (e.getErrorCode() == BookingError.SEAT_ALREADY_OCCUPIED) {
@@ -32,7 +32,7 @@ public class BookingMetricsAspect {
 			}
 			throw e;
 		} finally {
-			sample.stop(bookingMetrics.getPendingBookingTimer());
+			sample.stop(bookingMetrics.getReservationTimer());
 		}
 	}
 

@@ -68,7 +68,7 @@ public class OrderTestHelper {
 	 * // 단일 OrderBooking 주문
 	 * OrderResult result = orderTestHelper.builder(member)
 	 *     .addOrderBooking(schedule)
-	 *         .setPendingBookingId(pendingBookingId)
+	 *         .setReservationId(reservationCode)
 	 *         .setDepartureScheduleStop(departureStop)
 	 *         .setArrivalScheduleStop(arrivalStop)
 	 *         .setTotalFare(BigDecimal.valueOf(10000)) // OrderBooking 운임 설정 (지정 안하면 자동 계산)

@@ -2,8 +2,8 @@ package com.sudo.raillo.booking.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.sudo.raillo.booking.application.dto.request.PendingBookingCreateRequest;
-import com.sudo.raillo.booking.application.facade.PendingBookingFacade;
+import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
+import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -35,15 +35,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
- * PendingBooking 생성 동시성 테스트
+ * Reservation 생성 동시성 테스트
  * <p>여러 스레드가 동시에 같은 좌석을 예약할 때 올바르게 동작하는지 검증</p>
  */
 @Slf4j
 @ServiceTest
-public class PendingBookingConcurrencyTest {
+public class ReservationConcurrencyTest {
 
 	@Autowired
-	private PendingBookingFacade pendingBookingFacade;
+	private ReservationFacade reservationFacade;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -121,7 +121,7 @@ public class PendingBookingConcurrencyTest {
 					startLatch.await();
 
 					// 예약 시도
-					PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+					ReservationCreateRequest request = new ReservationCreateRequest(
 						trainScheduleResult.trainSchedule().getId(),
 						stops.get(0).getStation().getId(),  // 서울
 						stops.get(3).getStation().getId(),  // 부산
@@ -129,7 +129,7 @@ public class PendingBookingConcurrencyTest {
 						List.of(seat.getId())
 					);
 
-					pendingBookingFacade.createPendingBooking(
+					reservationFacade.createReservation(
 						request,
 						member.getMemberDetail().getMemberNo()
 					);
@@ -183,7 +183,7 @@ public class PendingBookingConcurrencyTest {
 				try {
 					startLatch.await();
 
-					PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+					ReservationCreateRequest request = new ReservationCreateRequest(
 						trainScheduleResult.trainSchedule().getId(),
 						stops.get(0).getStation().getId(),  // 서울
 						isShortRoute
@@ -193,7 +193,7 @@ public class PendingBookingConcurrencyTest {
 						List.of(seat.getId())
 					);
 
-					pendingBookingFacade.createPendingBooking(
+					reservationFacade.createReservation(
 						request,
 						member.getMemberDetail().getMemberNo()
 					);
@@ -247,7 +247,7 @@ public class PendingBookingConcurrencyTest {
 				try {
 					startLatch.await();
 
-					PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+					ReservationCreateRequest request = new ReservationCreateRequest(
 						trainScheduleResult.trainSchedule().getId(),
 						stops.get(0).getStation().getId(),  // 서울
 						stops.get(3).getStation().getId(),  // 부산
@@ -255,7 +255,7 @@ public class PendingBookingConcurrencyTest {
 						List.of(seat.getId())
 					);
 
-					pendingBookingFacade.createPendingBooking(request, member.getMemberDetail().getMemberNo());
+					reservationFacade.createReservation(request, member.getMemberDetail().getMemberNo());
 					successCount.incrementAndGet();
 
 				} catch (BusinessException e) {
@@ -307,7 +307,7 @@ public class PendingBookingConcurrencyTest {
 				try {
 					startLatch.await();
 
-					PendingBookingCreateRequest request = new PendingBookingCreateRequest(
+					ReservationCreateRequest request = new ReservationCreateRequest(
 						trainScheduleResult.trainSchedule().getId(),
 						stops.get(0).getStation().getId(),  // 서울
 						stops.get(3).getStation().getId(),  // 부산
@@ -315,7 +315,7 @@ public class PendingBookingConcurrencyTest {
 						List.of(seat.getId())
 					);
 
-					pendingBookingFacade.createPendingBooking(request, member.getMemberDetail().getMemberNo());
+					reservationFacade.createReservation(request, member.getMemberDetail().getMemberNo());
 					successCount.incrementAndGet();
 				} catch (BusinessException e) {
 					failCount.incrementAndGet();

@@ -17,7 +17,7 @@ public class OrderValidator {
 	public void validateReservationsNotEmpty(List<Reservation> reservations) {
 		if (reservations == null || reservations.isEmpty()) {
 			log.error("[주문 검증 실패] 빈 예약 리스트로 주문 시도");
-			throw new BusinessException(OrderError.EMPTY_PENDING_BOOKINGS);
+			throw new BusinessException(OrderError.EMPTY_RESERVATIONS);
 		}
 	}
 }
