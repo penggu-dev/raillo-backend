@@ -14,13 +14,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.booking.infrastructure.ReservationRepository;
+import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.infrastructure.ReservationSeatRepository;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
@@ -45,7 +44,6 @@ import com.sudo.raillo.support.helper.ReservationTestHelper;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import com.sudo.raillo.support.fixture.PendingBookingFixture;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
@@ -63,6 +61,9 @@ class PaymentScenarioTest {
 
 	@Autowired
 	private ReservationSeatRepository reservationSeatRepository;
+
+	@Autowired
+	private ReservationRepository reservationRepository;
 
 	@Autowired
 	private PaymentFacade paymentFacade;
@@ -85,8 +86,6 @@ class PaymentScenarioTest {
 	@Autowired
 	private SeatBookingRepository seatBookingRepository;
 
-	@Autowired
-	private BookingRedisRepository bookingRedisRepository;
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -94,8 +93,6 @@ class PaymentScenarioTest {
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
 
-	@Autowired
-	private SeatHoldService seatHoldService;
 
 	private Member member;
 	private String memberNo;
@@ -165,7 +162,8 @@ class PaymentScenarioTest {
 		assertThat(seatBookings).hasSize(1);
 
 		// then - Reservation 삭제 검증 (Redis에서 제거됨)
-		assertThat(bookingRedisRepository.getPendingBooking(pendingBooking.getReservationCode())).isEmpty();
+		assertThat(reservationRepository.findByReservationCode(pendingBooking.getReservationCode()).orElseThrow()
+			.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
 	}
 
 	@Test
@@ -314,8 +312,10 @@ class PaymentScenarioTest {
 		assertThat(seatBookings).hasSize(2);
 
 		// then - 두 Reservation 모두 Redis에서 삭제됨
-		assertThat(bookingRedisRepository.getPendingBooking(pb1.getReservationCode())).isEmpty();
-		assertThat(bookingRedisRepository.getPendingBooking(pb2.getReservationCode())).isEmpty();
+		assertThat(reservationRepository.findByReservationCode(pb1.getReservationCode()).orElseThrow()
+			.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
+		assertThat(reservationRepository.findByReservationCode(pb2.getReservationCode()).orElseThrow()
+			.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
 
 		// then - Order, Payment 상태 검증
 		Order order = orderRepository.findByOrderCode(prepareResponse.orderId()).orElseThrow();

@@ -12,10 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.sudo.raillo.booking.domain.Reservation;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
@@ -29,7 +27,6 @@ import com.sudo.raillo.support.helper.ReservationTestHelper;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import com.sudo.raillo.support.fixture.PendingBookingFixture;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
@@ -50,8 +47,6 @@ class PaymentFacadePrepareTest {
 	@Autowired
 	private MemberRepository memberRepository;
 
-	@Autowired
-	private BookingRedisRepository bookingRedisRepository;
 
 	@Autowired
 	private OrderRepository orderRepository;

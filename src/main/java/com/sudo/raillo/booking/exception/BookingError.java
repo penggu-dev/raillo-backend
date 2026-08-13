@@ -26,19 +26,13 @@ public enum BookingError implements ErrorCode {
 	TICKET_NOT_USABLE("사용할 수 없는 티켓입니다.", HttpStatus.BAD_REQUEST, "BOOKING_203"),
 	TICKET_NOT_CANCELLABLE("취소할 수 없는 티켓입니다.", HttpStatus.BAD_REQUEST, "BOOKING_204"),
 
-	// 예약(PendingBooking) (3xx)
+	// 예약(Reservation) (3xx)
 	PENDING_BOOKING_ACCESS_DENIED("해당 예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "BOOKING_301"),
 	PENDING_BOOKING_IDS_REQUIRED("조회할 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "BOOKING_302"),
-	PENDING_BOOKING_EXPIRED("만료된 예약이 있습니다. 다시 예약해주세요.", HttpStatus.BAD_REQUEST, "BOOKING_303"),
-	INVALID_PENDING_BOOKING_TTL("예약을 처리할 수 없습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "BOOKING_304"),
 	RESERVATION_EXPIRED("만료된 예약이 있습니다. 다시 예약해주세요.", HttpStatus.BAD_REQUEST, "BOOKING_305"),
 	RESERVATION_NOT_HELD("점유중인 예약이 아닙니다.", HttpStatus.BAD_REQUEST, "BOOKING_306"),
 
 	// 좌석 점유·충돌 (4xx)
-	SEAT_CONFLICT_WITH_SOLD("이미 판매된 좌석이 존재하는 구간입니다.", HttpStatus.CONFLICT, "BOOKING_401"),
-	SEAT_CONFLICT_WITH_HOLD("다른 사용자가 임시 점유 중인 구간입니다.", HttpStatus.CONFLICT, "BOOKING_402"),
-	SEAT_HOLD_SCRIPT_ERROR("좌석 점유 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "BOOKING_403"),
-	SEAT_HOLD_RELEASE_FAILED("좌석 점유 해제에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "BOOKING_404"),
 	SEAT_ALREADY_OCCUPIED("이미 점유된 좌석이 포함되어 있습니다.", HttpStatus.CONFLICT, "BOOKING_405"),
 
 	// 영수증 (5xx)

@@ -278,7 +278,7 @@ public class PendingBookingConcurrencyTest {
 		assertThat(failureReasons)
 			.hasSize(10)
 		    // 동시 경합 시 HOLD 검증이 SeatBooking 검증보다 먼저 실행되어,
-			// SeatBooking 충돌이 있어도 SEAT_CONFLICT_WITH_HOLD가 반환될 수 있어 임시로 두 코드를 허용
+			// 예약·확정 예매 충돌이 하나의 코드로 통합되었다
 			.allMatch(code ->
 				code.equals(BookingError.SEAT_ALREADY_OCCUPIED.getCode())
 				|| code.equals(BookingError.SEAT_ALREADY_OCCUPIED.getCode())

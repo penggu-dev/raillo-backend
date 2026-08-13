@@ -6,12 +6,10 @@ import com.sudo.raillo.member.domain.Member;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
-import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -76,43 +74,6 @@ public class BookingValidator {
 		// 요청 승객 수와 선택한 좌석 수를 비교하여 좌석 수가 승객 수보다 많으면 오류 발생
 		if (passengerTypes.size() != seatIds.size()) {
 			throw new BusinessException(BookingError.BOOKING_CREATE_SEATS_INVALID);
-		}
-	}
-
-	/**
-	 * 여러 개의 예약 접근 권한 확인
-	 * @param pendingBookings 예약 리스트
-	 * @param memberNo 회원 번호
-	 */
-	public void validatePendingBookingOwner(List<PendingBooking> pendingBookings, String memberNo) {
-		pendingBookings.forEach(pendingBooking ->
-			validatePendingBookingOwner(pendingBooking, memberNo));
-	}
-
-	/**
-	 * 예약 접근 권한 확인
-	 * @param pendingBooking 단일 예약
-	 * @param memberNo 회원 번호
-	 */
-	public void validatePendingBookingOwner(PendingBooking pendingBooking, String memberNo) {
-		if (!pendingBooking.getMemberNo().equals(memberNo)) {
-			log.error("[예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
-				pendingBooking.getMemberNo(), memberNo);
-			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
-		}
-	}
-
-	/**
-	 * 예약 존재 여부 검증
-	 */
-	public void validateAllPendingBookingsExist(List<String> pendingBookingIds, Map<String, PendingBooking> bookingsById) {
-		List<String> notFoundIds = pendingBookingIds.stream()
-			.filter(id -> !bookingsById.containsKey(id))
-			.toList();
-
-		if (!notFoundIds.isEmpty()) {
-			log.warn("[예약 만료] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
-			throw new BusinessException(BookingError.PENDING_BOOKING_EXPIRED);
 		}
 	}
 

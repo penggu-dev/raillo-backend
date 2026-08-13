@@ -3,7 +3,6 @@ package com.sudo.raillo.fare;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.booking.domain.Reservation;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -17,7 +16,6 @@ import com.sudo.raillo.support.helper.ReservationTestHelper;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import com.sudo.raillo.support.fixture.PendingBookingFixture;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;

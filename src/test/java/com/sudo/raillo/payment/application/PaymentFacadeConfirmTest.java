@@ -14,19 +14,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import com.sudo.raillo.booking.application.service.SeatHoldService;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository;
 import com.sudo.raillo.booking.infrastructure.ReservationRepository;
 import com.sudo.raillo.booking.domain.status.SeatOccupancyStatus;
 import com.sudo.raillo.booking.domain.status.ReservationStatus;
 import com.sudo.raillo.booking.domain.SeatOccupancy;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
-import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
-import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
 import com.sudo.raillo.global.exception.error.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -50,7 +45,6 @@ import com.sudo.raillo.support.helper.ReservationTestHelper;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import com.sudo.raillo.support.fixture.PendingBookingFixture;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
@@ -89,8 +83,6 @@ class PaymentFacadeConfirmTest {
 	@Autowired
 	private PaymentRepository paymentRepository;
 
-	@Autowired
-	private BookingRedisRepository bookingRedisRepository;
 
 	@Autowired
 	private TrainTestHelper trainTestHelper;
@@ -98,11 +90,7 @@ class PaymentFacadeConfirmTest {
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
 
-	@Autowired
-	private SeatHoldService seatHoldService;
 
-	@Autowired
-	private SeatHoldRepository seatHoldRepository;
 
 	private Member member;
 	private String memberNo;
