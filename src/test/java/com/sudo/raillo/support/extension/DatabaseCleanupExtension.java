@@ -40,7 +40,8 @@ public class DatabaseCleanupExtension implements AfterEachCallback {
 	private void deleteTables(JdbcTemplate jdbcTemplate, List<String> deleteQueries) {
 		try {
 			execute(jdbcTemplate, "SET FOREIGN_KEY_CHECKS = FALSE");
-			deleteQueries.forEach(query -> execute(jdbcTemplate, query));
+			// 테이블별로 개별 실행하지 않고 JDBC batch로 묶어 라운드트립을 줄인다.
+			jdbcTemplate.batchUpdate(deleteQueries.toArray(String[]::new));
 		} finally {
 			execute(jdbcTemplate, "SET FOREIGN_KEY_CHECKS = TRUE");
 		}
