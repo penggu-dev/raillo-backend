@@ -39,7 +39,7 @@ raillo는 현재 6개 도메인(`auth`, `member`, `payment`, `booking`, `order`,
 
 | Phase | 목표 | 상태 |
 |---|---|---|
-| 0 | Common 모듈 추출 (Gradle multi-module) | 진행 중 (설계 완료, Step 1 구현 완료) |
+| 0 | Common 모듈 추출 (Gradle multi-module) | 구현 완료 (2 PR 병합 대기 중) |
 | 1 | Outbox 인프라, 결제 이벤트 발행, Slack 소비자 (MVP) | 유예 — 실제 소비자 요구 시점까지 |
 | 2 | Auth+Member 물리 분리 | 설계 예정 |
 | 3 | 이메일 영수증·승차권 PDF 소비자 | 유예 (1 의존) |

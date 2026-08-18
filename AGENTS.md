@@ -5,43 +5,61 @@ This file provides guidance to coding agents (Claude Code, Codex 등) when worki
 ## Build & Test
 
 ```bash
-./gradlew build                                              # Build
-./gradlew test                                               # All tests
-./gradlew test --tests "com.sudo.raillo.booking.BookingServiceTest"  # Single class
-./gradlew test --tests "...BookingServiceTest.method_name"   # Single method
-./gradlew clean build                                        # Clean rebuild
-docker-compose up -d && ./gradlew bootRun                    # Run app (MySQL + Redis required)
+./gradlew build                                              # 전체 모듈 빌드 (raillo-common + raillo-core)
+./gradlew test                                               # 전체 테스트
+./gradlew :raillo-core:test --tests "com.sudo.raillo.booking.BookingServiceTest"  # 단일 클래스
+./gradlew :raillo-core:test --tests "...BookingServiceTest.method_name"   # 단일 메서드
+./gradlew clean build                                        # 클린 리빌드
+./gradlew :raillo-core:bootRun                               # 앱 실행 (MySQL 필요, Redis는 compose로 자동 기동)
 ```
 
 ## Architecture
 
-Spring Boot 3.5 + Java 17 + DDD. Domains:
+Spring Boot 3.5 + Java 17 + DDD. Gradle multi-module 구조.
+
+### 모듈 구조
+
+- **`raillo-common`** — 여러 서비스가 공유하는 순수 라이브러리 모듈. Spring Boot 실행 플러그인 미적용, jar만 배포. `com.sudo.raillo.common.*` 패키지.
+- **`raillo-core`** — 실행 앱 모듈. 기존 모놀리스 도메인 전체가 여기 담김. `com.sudo.raillo.*` (common 제외) 패키지.
+
+MSA 전환 로드맵 상 현재는 `raillo-core`가 모놀리스 전체지만, 이후 Auth·Payment 등이 별도 서비스 모듈로 분리될 예정. 자세한 전환 계획은 `docs/msa-transition/`.
+
+### 도메인 (raillo-core 내부)
+
 - `auth` — JWT 인증, 이메일 인증, 토큰 관리
 - `booking` — Pending bookings, 좌석 예약, 승차권
 - `member` — 사용자, 회원번호 생성, 만료 회원 Spring Batch
 - `payment` — Toss Payments, 환불
 - `train` — 열차 스케줄, 역, 운임, 좌석 가용성
 - `order` — 결제 단위로 PendingBooking들을 묶음
-- `global` — 공통 인프라 (config, exceptions, Redis 유틸)
+- `global` — 실행 앱 인프라 (config, Redis 유틸 등)
 
 ### Package Structure
 
 ```
-{domain}/
-├── presentation/        # REST controllers
-├── application/
-│   ├── service/         # Business logic
-│   ├── facade/          # Coordinates multiple services
-│   ├── dto/{request,response,projection}/
-│   ├── mapper/          # DTO ↔ Domain
-│   ├── validator/       # Business rule validation
-│   ├── calculator/      # Fares, refunds
-│   └── generator/       # Code generators
-├── domain/              # Entities, enums
-├── infrastructure/      # Repositories (JPA, QueryDSL, Redis)
-├── exception/           # Domain-specific error codes
-├── success/             # Domain-specific success codes
-└── docs/                # Swagger documentation interfaces
+raillo/
+├── raillo-common/                # 공유 라이브러리
+│   └── src/main/java/com/sudo/raillo/common/
+│       ├── domain/               # BaseEntity, YesNo
+│       ├── exception/            # ErrorCode, BusinessException, DomainException, ExternalApiException, GlobalError, CommonExceptionHandler
+│       └── response/             # SuccessCode, SuccessResponse, ErrorResponse, GlobalResponseHandler
+└── raillo-core/                  # 실행 앱
+    └── src/main/java/com/sudo/raillo/
+        └── {domain}/
+            ├── presentation/     # REST controllers
+            ├── application/
+            │   ├── service/      # Business logic
+            │   ├── facade/       # Coordinates multiple services
+            │   ├── dto/{request,response,projection}/
+            │   ├── mapper/       # DTO ↔ Domain
+            │   ├── validator/    # Business rule validation
+            │   ├── calculator/   # Fares, refunds
+            │   └── generator/    # Code generators
+            ├── domain/           # Entities, enums (BaseEntity 상속)
+            ├── infrastructure/   # Repositories (JPA, QueryDSL, Redis), 도메인별 config
+            ├── exception/        # Domain-specific error codes (raillo-common의 ErrorCode 구현)
+            ├── success/          # Domain-specific success codes
+            └── docs/             # Swagger documentation interfaces
 ```
 
 ### Layer Rules
@@ -56,12 +74,12 @@ Controller → Facade → Service → Repository
 
 ## Key Patterns
 
-**Exception Handling** — 3종 분리:
+**Exception Handling** — 3종 예외 계층은 `raillo-common/exception/`에 있다:
 - `BusinessException` — Service/Application 레이어의 비즈니스 로직 오류 (검증 실패, 리소스 없음)
 - `DomainException` — Entity/VO 내부 도메인 불변식 위반 (상태 전이 오류, VO 검증)
 - `ExternalApiException` — 외부 API 호출 실패 (Toss Payments 등)
 
-도메인별 에러 enum은 `ErrorCode`를 구현한다:
+도메인별 에러 enum은 raillo-common의 `ErrorCode`를 구현한다 (위치는 각 도메인의 `exception/`):
 ```java
 public enum BookingError implements ErrorCode {
     BOOKING_NOT_FOUND("예매 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "BOOKING_101");
@@ -70,18 +88,24 @@ public enum BookingError implements ErrorCode {
 
 > 코드 형식·접두사·밴드·추가 절차 → [docs/error-code-convention.md](./docs/error-code-convention.md)
 
+**Exception Handler** — 3개로 분리:
+- `CommonExceptionHandler` (raillo-common) — `BusinessException`, `ExternalApiException`, validation 예외 등 도메인 무관 처리. `@Order(LOWEST_PRECEDENCE)`
+- `AuthExceptionHandler` (raillo-core auth) — `BadCredentialsException` 등 auth 도메인 예외. `@Order(HIGHEST_PRECEDENCE)`
+- `RedisExceptionHandler` (raillo-core global/redis) — Redis 계열 예외. `@Order(HIGHEST_PRECEDENCE)`
+
 **Validator Pattern** — `@Component`로 `application/validator/`에 `{Domain}Validator` 작성. Service/Facade에 주입되어 실패 시 `BusinessException`을 던진다.
 
-**Response Handling** — 도메인별 `SuccessCode` enum 구현. `GlobalResponseHandler`가 void가 아닌 응답을 자동 래핑한다.
+**Response Handling** — 도메인별 `SuccessCode` enum 구현 (raillo-common의 `SuccessCode` 인터페이스). raillo-common의 `GlobalResponseHandler`가 void가 아닌 응답을 자동 래핑한다.
 
-**Entity Base Class** — `BaseEntity` 상속 → `createdAt`/`updatedAt` 자동 (`@MappedSuperclass`).
+**Entity Base Class** — raillo-common의 `BaseEntity` 상속 → `createdAt`/`updatedAt` 자동 (`@MappedSuperclass`).
 
 **Repository Pattern** — 기본 CRUD는 `JpaRepository`. 복잡한 쿼리는 `*QueryRepository` + `JPAQueryFactory` (QueryDSL projection). 둘 다 `{domain}/infrastructure/` 직속에 둔다 (별도 `repository/` 하위 디렉터리 두지 않음).
 
 **Redis Repository Pattern** — `RedisTemplate<String, Object>`, TTL은 `@Value`로 주입. 커서 순회는 `ScanOptions`.
 
-**Redis Lua Scripts** — 좌석 동시 선점 충돌 방지. 스크립트는 `src/main/resources/scripts/`:
+**Redis Lua Scripts** — 좌석 동시 선점 충돌 방지. 스크립트는 `raillo-core/src/main/resources/scripts/`:
 - `seat_hold.lua` / `seat_release.lua` / `get_hold_seats_count.lua`
+- Lua 스크립트 Bean은 `booking/infrastructure/config/RedisScriptConfig`가 등록
 - 상세 흐름, Hold Index, Lazy Cleanup, Train Search 통합 → [docs/seat-hold-architecture.md](./docs/seat-hold-architecture.md)
 - 4-Layer 좌석 충돌 방어 → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
 
