@@ -9,32 +9,39 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 public class DatabaseCleanupExtension implements AfterEachCallback {
 
+	private static final String SELECT_TABLE_NAMES = """
+		SELECT TABLE_NAME
+		FROM INFORMATION_SCHEMA.TABLES
+		WHERE TABLE_SCHEMA = DATABASE()
+		  AND TABLE_TYPE = 'BASE TABLE'
+		""";
+
 	@Override
 	public void afterEach(ExtensionContext context) {
 		JdbcTemplate jdbcTemplate = getJdbcTemplate(context);
-		final List<String> truncateQueries = getTruncateQueries(jdbcTemplate);
-		truncateTables(jdbcTemplate, truncateQueries);
+		List<String> deleteQueries = getDeleteQueries(jdbcTemplate);
+		deleteTables(jdbcTemplate, deleteQueries);
 	}
 
 	private JdbcTemplate getJdbcTemplate(ExtensionContext context) {
 		return SpringExtension.getApplicationContext(context).getBean(JdbcTemplate.class);
 	}
 
-	private List<String> getTruncateQueries(JdbcTemplate jdbcTemplate) {
+	private List<String> getDeleteQueries(JdbcTemplate jdbcTemplate) {
 		List<String> tableNames = jdbcTemplate.query(
-			"SELECT TABLE_SCHEMA, TABLE_NAME " + "FROM INFORMATION_SCHEMA.TABLES ",
-			(rs, rowNum) -> rs.getString("TABLE_SCHEMA") + "." + rs.getString("TABLE_NAME"));
+			SELECT_TABLE_NAMES,
+			(rs, rowNum) -> rs.getString("TABLE_NAME"));
 
 		return tableNames.stream()
-			.filter(tableNameWithSchema -> tableNameWithSchema.startsWith("PUBLIC."))
-			.map(tableNameWithSchema -> "TRUNCATE TABLE " + tableNameWithSchema)
-			.collect(java.util.stream.Collectors.toList());
+			.map(tableName -> "DELETE FROM `" + tableName + "`")
+			.toList();
 	}
 
-	private void truncateTables(JdbcTemplate jdbcTemplate, List<String> truncateQueries) {
+	private void deleteTables(JdbcTemplate jdbcTemplate, List<String> deleteQueries) {
 		try {
 			execute(jdbcTemplate, "SET FOREIGN_KEY_CHECKS = FALSE");
-			truncateQueries.forEach(query -> execute(jdbcTemplate, query));
+			// 테이블별로 개별 실행하지 않고 JDBC batch로 묶어 라운드트립을 줄인다.
+			jdbcTemplate.batchUpdate(deleteQueries.toArray(String[]::new));
 		} finally {
 			execute(jdbcTemplate, "SET FOREIGN_KEY_CHECKS = TRUE");
 		}

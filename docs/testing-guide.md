@@ -2,14 +2,32 @@
 
 ## Test Environment
 
-테스트는 H2 인메모리 DB와 임베디드 Redis(포트 63790)를 사용한다. 통합 테스트는 `@ServiceTest`를 사용한다:
+테스트는 Testcontainers로 띄운 **MySQL 8.4.10 / Redis 7.4** 컨테이너를 사용한다. 운영(RDS MySQL 8.4.10, Redis 7.4)과 **동일한 버전**으로 맞춘 것이며, 실행에 **Docker가 필요**하다. 통합 테스트는 `@ServiceTest`를 사용한다:
 
 - `@ActiveProfiles("test")` — 테스트 프로파일 활성화
-- `DatabaseCleanupExtension` — 매 테스트 후 모든 테이블 TRUNCATE
+- `TestContainerInitializer` — MySQL/Redis 컨테이너를 JVM당 한 번 기동하고 접속 정보를 컨텍스트에 주입
+- `DatabaseCleanupExtension` — 매 테스트 후 모든 테이블 DELETE (JDBC batch로 일괄 실행)
 - `RedisCleanupExtension` — 매 테스트 후 Redis FLUSH
-- `RedisServerExtension` — 임베디드 Redis 라이프사이클
 
 > ⚠️ **테스트 메서드에 `@Transactional`을 절대 사용하지 말 것** — 트랜잭션 전파 이슈를 숨긴다. 명시적 cleanup을 사용한다.
+
+### 컨테이너 접속 정보
+
+`application-test.yml`에는 datasource/Redis 접속 정보가 없다. `TestContainerInitializer`가 컨테이너 기동 후 주입하므로, **`@SpringBootTest`를 직접 쓰는 새 테스트는 `@ContextConfiguration(initializers = TestContainerInitializer.class)`를 함께 붙여야 한다.** `@ServiceTest` / `@RedisTest`를 쓰면 자동으로 적용된다.
+
+### 컨테이너 라이프사이클
+
+컨테이너는 `./gradlew test` 실행당 한 번만 기동한다. Gradle이 테스트 JVM을 하나만 띄우고(`forkEvery = 0`), `TestContainerInitializer`가 컨테이너를 `static`으로 잡고 있어 클래스 로딩 시점에 1회만 시작하기 때문이다. Spring 컨텍스트가 여러 개 생성돼도 컨테이너는 그 하나를 공유한다.
+
+명시적인 `stop()` 호출은 두지 않는다. Testcontainers가 Ryuk 리소스 리퍼 컨테이너를 함께 띄워 테스트 JVM과의 연결이 끊기면 자동으로 정리하며, `@AfterAll` 수동 정리와 달리 JVM이 비정상 종료돼도 동작한다.
+
+### 로컬 컨테이너 재사용 (선택)
+
+`~/.testcontainers.properties`에 아래를 추가하면 테스트 실행 사이에 컨테이너를 재사용해 기동 시간을 아낀다. 설정하지 않으면 무시되므로 CI는 매번 새 컨테이너로 실행된다.
+
+```properties
+testcontainers.reuse.enable=true
+```
 
 ## Test Strategy by Layer
 

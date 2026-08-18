@@ -5,8 +5,8 @@
 | Environment | Database | Redis | Profile |
 |-------------|----------|-------|---------|
 | Local Dev | 외부 Test DB (MySQL, `${TEST_DB_URL}`) | Redis (`compose.yaml`, port 6379) | `dev` |
-| Test | H2 (in-memory) | Embedded Redis (port 63790) | `test` |
-| Production | AWS RDS (MySQL) | ElastiCache (Valkey) | `prod` |
+| Test | Testcontainers MySQL 8.4.10 | Testcontainers Redis 7.4 | `test` |
+| Production | AWS RDS (MySQL 8.4.10) | Redis 7.4 (K8s Pod) | `prod` |
 
 ## Local Development
 
@@ -44,8 +44,8 @@ main 브랜치 push
 ### Infrastructure
 - **Cluster**: AWS EKS `raillo-cluster` (ap-northeast-2)
 - **Container Registry**: AWS ECR
-- **Database**: AWS RDS (MySQL)
-- **Redis**: AWS ElastiCache (Valkey)
+- **Database**: AWS RDS (MySQL 8.4.10)
+- **Redis**: `redis:7.4-alpine`
 - **Domain**: `server.raillo.store`
 - **TLS**: cert-manager (`raillo-issuer` ClusterIssuer, Let's Encrypt) → Secret `server-raillo-com-tls`
 

@@ -51,7 +51,7 @@
 - **Language** : Java
 - **Framework** : Spring Boot, Spring Security
 - **ORM** : Spring Data JPA, QueryDSL
-- **DB** : MySQL (Production), H2 (Test)
+- **DB** : MySQL
 - **Cache** : Redis
 - **Authentication** : JWT
 - **Build Tool** : Gradle
@@ -66,8 +66,7 @@
 
 ### Testing
 - **Framework** : JUnit, Spring Boot Test
-- **DB** : H2 (in-memory)
-- **Cache** : Embedded Redis
+- **Test Environment** : Testcontainers (MySQL 8.4.10, Redis 7.4) — 운영과 동일 버전, Docker 필요
 - **Test Utils** : AssertJ
 - **Performance Testing** : K6
 - **Email Testing** : GreenMail
@@ -142,7 +141,7 @@ Controller → Facade → Service → Repository
 - GitHub Actions와 ArgoCD를 활용해 GitOps 기반 CI/CD 환경 구성
 - Public / Private 서브넷을 분리하고, ALB를 통해서만 내부 서비스에 접근하도록 네트워크 구성
 - `topologySpreadConstraints` 기반 Pod 분산 배치와 다중 Replica 운영을 통해 고가용성을 확보하고, `readinessProbe` 기반 Rolling Update로 무중단 배포 구성
-- Spring Boot 애플리케이션은 Kubernetes(EKS) 기반으로 운영하고, Redis와 DB는 AWS 관리형 서비스(ElastiCache, RDS)로 구성
+- Spring Boot 애플리케이션과 Redis는 Kubernetes(EKS) 기반으로 운영하고, DB는 AWS 관리형 서비스(RDS)로 구성
 
 ### 관측 (Observability)
 - Spring Boot Actuator + Micrometer → Prometheus → Grafana 기반 메트릭 파이프라인 구축
@@ -153,7 +152,7 @@ Controller → Facade → Service → Repository
 ## 🧪 테스트
 ### 자동화 테스트 전략
 - **도메인 단위 테스트** : Entity, VO, Calculator, Validator의 핵심 규칙을 빠르게 검증
-- **서비스 통합 테스트** : `@ServiceTest` 기반으로 H2와 Embedded Redis를 사용해 DB/Redis 연동 흐름 검증
+- **서비스 통합 테스트** : `@ServiceTest` 기반으로 Testcontainers MySQL/Redis를 사용해 운영과 동일한 엔진에서 DB/Redis 연동 흐름 검증
 - **동시성 테스트** : 좌석 선점, 중복 예매, 결제 승인처럼 충돌 가능성이 높은 흐름을 별도 시나리오로 검증
 - **테스트 데이터 구성** : Fixture와 Test Helper를 분리해 단위 테스트와 통합 테스트의 데이터 준비 책임을 구분
 - **BDD 스타일** : `given / when / then` 주석과 한국어 `@DisplayName`으로 테스트 의도를 명확하게 표현

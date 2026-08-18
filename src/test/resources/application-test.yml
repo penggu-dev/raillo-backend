@@ -1,14 +1,5 @@
 spring:
   config.activate.on-profile: "test"
-  data:
-    redis:
-      host: localhost
-      port: 63790
-  datasource:
-    driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:test;MODE=MYSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
   jpa:
     show-sql: true
     hibernate:
@@ -19,6 +10,12 @@ spring:
         use_sql_comments: true
         highlight_sql: true
     open-in-view: false
+
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
 
   mail:
     host: localhost
@@ -45,7 +42,7 @@ logging:
     io.lettuce.core: WARN
 
 jwt:
-  secret: "crailotestjwtsecretkey2025fordevelopmentandtestingonlylonglonglonglonglonglonglonglonglong"
+  secret: "railotestjwtsecretkey2026fordevelopmentandtestingonlylonglonglonglonglonglonglonglonglong"
 
 cors:
   allowed-origins: http://localhost:3000

@@ -333,11 +333,22 @@ class PendingBookingServiceTest {
 		// given
 		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
 			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
+			.withDepartureStopId(trainScheduleResult.scheduleStops().get(0).getId())
+			.withArrivalStopId(trainScheduleResult.scheduleStops().get(1).getId())
+			.withPendingSeatBookings(
+				List.of(
+					new PendingSeatBooking(seats.get(3).getId(), PassengerType.ADULT)
+				)
+			)
 			.build();
 		bookingRedisRepository.savePendingBooking(pendingBooking1);
 
 		PendingBooking pendingBooking2 = PendingBookingFixture.builder()
 			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
+			.withDepartureStopId(trainScheduleResult.scheduleStops().get(0).getId())
+			.withArrivalStopId(trainScheduleResult.scheduleStops().get(1).getId())
 			.withPendingSeatBookings(
 				List.of(
 					new PendingSeatBooking(seats.get(1).getId(), PassengerType.ADULT),
@@ -349,6 +360,9 @@ class PendingBookingServiceTest {
 
 		PendingBooking pendingBooking3 = PendingBookingFixture.builder()
 			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
+			.withDepartureStopId(trainScheduleResult.scheduleStops().get(0).getId())
+			.withArrivalStopId(trainScheduleResult.scheduleStops().get(1).getId())
 			.withPendingSeatBookings(
 				List.of(
 					new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)
@@ -375,11 +389,22 @@ class PendingBookingServiceTest {
 		// given
 		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
 			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
+			.withDepartureStopId(trainScheduleResult.scheduleStops().get(0).getId())
+			.withArrivalStopId(trainScheduleResult.scheduleStops().get(1).getId())
+			.withPendingSeatBookings(
+				List.of(
+					new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)
+				)
+			)
 			.build();
 		bookingRedisRepository.savePendingBooking(pendingBooking1);
 
 		PendingBooking pendingBooking2 = PendingBookingFixture.builder()
 			.withMemberNo(testMember.getMemberDetail().getMemberNo())
+			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
+			.withDepartureStopId(trainScheduleResult.scheduleStops().get(0).getId())
+			.withArrivalStopId(trainScheduleResult.scheduleStops().get(1).getId())
 			.withPendingSeatBookings(
 				List.of(
 					new PendingSeatBooking(seats.get(1).getId(), PassengerType.ADULT),
