@@ -3,7 +3,7 @@ package com.sudo.raillo.train.application.dto.response;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 
-import com.sudo.raillo.global.domain.YesNo;
+import com.sudo.raillo.common.domain.YesNo;
 import com.sudo.raillo.train.domain.type.BusinessDayType;
 
 import io.swagger.v3.oas.annotations.media.Schema;

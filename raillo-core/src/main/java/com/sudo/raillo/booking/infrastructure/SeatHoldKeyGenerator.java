@@ -1,4 +1,4 @@
-package com.sudo.raillo.global.redis.util;
+package com.sudo.raillo.booking.infrastructure;
 
 import java.util.List;
 import java.util.stream.Collectors;

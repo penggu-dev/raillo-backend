@@ -118,6 +118,10 @@ dependencies {
 jar { enabled = true }
 ```
 
+QueryDSL(annotation processor, 소스 경로, clean 설정)은 루트 `build.gradle`의 `subprojects { }` 블록에 두어 raillo-common·raillo-core 양쪽에 자동 적용된다. raillo-common의 `BaseEntity`(@MappedSuperclass) 때문에 이 모듈에서도 `QBaseEntity`가 생성돼야 소비 모듈이 참조 가능한데, 중복 블록을 두 모듈 build.gradle에 각각 쓰는 대신 subprojects로 통합했다.
+
+**주의**: `BaseEntity`를 raillo-common에 두면서 JPA(`spring-boot-starter-data-jpa`)와 QueryDSL이 common 소비 모듈로 딸려 온다. 지금은 감수하지만, 나중에 common 사용 모듈 중 JPA를 안 쓰는 게 생기거나 common 부담이 커지면, 각 서비스가 자체 base entity를 갖는 방향으로 재검토한다.
+
 Auth의 JWT 필터/Provider는 이번 스코프 밖이라 넣지 않는다(F 항목). security compileOnly는 그것과 별개로, `AccessDeniedException` 같은 Spring Security 표준 예외를 다루는 공통 handler를 컴파일하기 위함이다.
 
 ### `raillo-core/build.gradle`

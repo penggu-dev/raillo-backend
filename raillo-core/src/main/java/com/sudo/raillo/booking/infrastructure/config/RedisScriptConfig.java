@@ -1,4 +1,4 @@
-package com.sudo.raillo.global.config;
+package com.sudo.raillo.booking.infrastructure.config;
 
 import java.util.List;
 

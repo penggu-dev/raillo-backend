@@ -1,4 +1,4 @@
-package com.sudo.raillo.global.domain;
+package com.sudo.raillo.common.domain;
 
 import java.time.LocalDateTime;
 

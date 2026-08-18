@@ -1,4 +1,4 @@
-package com.sudo.raillo.global.domain;
+package com.sudo.raillo.common.domain;
 
 import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.common.exception.GlobalError;

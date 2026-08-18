@@ -2,7 +2,7 @@ package com.sudo.raillo.booking.infrastructure;
 
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.common.exception.BusinessException;
-import com.sudo.raillo.global.redis.util.SeatHoldKeyGenerator;
+import com.sudo.raillo.booking.infrastructure.SeatHoldKeyGenerator;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Repository;
  *   <li>SeatHoldResult.fromLuaResult()로 파싱</li>
  * </ol>
  *
- * @see com.sudo.raillo.global.config.RedisScriptConfig - 스크립트 Bean 등록
+ * @see com.sudo.raillo.booking.infrastructure.config.RedisScriptConfig - 스크립트 Bean 등록
  * @see SeatHoldResult - 스크립트 결과 파싱
  */
 @Slf4j

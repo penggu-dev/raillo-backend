@@ -1,7 +1,7 @@
 package com.sudo.raillo.order.domain;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.global.domain.BaseEntity;
+import com.sudo.raillo.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

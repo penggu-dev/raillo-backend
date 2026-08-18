@@ -1,7 +1,7 @@
 package com.sudo.raillo.booking.domain;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.global.domain.BaseEntity;
+import com.sudo.raillo.common.domain.BaseEntity;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.domain.type.CarType;

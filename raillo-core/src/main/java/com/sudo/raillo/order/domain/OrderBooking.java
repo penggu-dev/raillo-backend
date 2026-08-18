@@ -1,6 +1,6 @@
 package com.sudo.raillo.order.domain;
 
-import com.sudo.raillo.global.domain.BaseEntity;
+import com.sudo.raillo.common.domain.BaseEntity;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import jakarta.persistence.Column;

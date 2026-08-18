@@ -43,6 +43,27 @@ subprojects {
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
         testCompileOnly 'org.projectlombok:lombok'
         testAnnotationProcessor 'org.projectlombok:lombok'
+
+        // QueryDSL — raillo-common(BaseEntity)와 raillo-core(도메인 엔티티) 모두 Q 클래스 생성 필요.
+        // subprojects에 두어 중복 제거. 엔티티 없는 모듈에선 아무 것도 생성 안 되니 무해.
+        implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
+        annotationProcessor "com.querydsl:querydsl-apt:${dependencyManagement.importedProperties['querydsl.version']}:jakarta"
+        annotationProcessor "jakarta.annotation:jakarta.annotation-api"
+        annotationProcessor "jakarta.persistence:jakarta.persistence-api"
+    }
+
+    def querydslSrcDir = layout.buildDirectory.dir("generated/querydsl").get().asFile
+
+    sourceSets {
+        main.java.srcDirs += [querydslSrcDir]
+    }
+
+    tasks.withType(JavaCompile) {
+        options.getGeneratedSourceOutputDirectory().set(file(querydslSrcDir))
+    }
+
+    clean {
+        delete file(querydslSrcDir)
     }
 
     test {

@@ -1,6 +1,6 @@
 package com.sudo.raillo.order.domain;
 
-import com.sudo.raillo.global.domain.BaseEntity;
+import com.sudo.raillo.common.domain.BaseEntity;
 import com.sudo.raillo.common.exception.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.status.OrderStatus;

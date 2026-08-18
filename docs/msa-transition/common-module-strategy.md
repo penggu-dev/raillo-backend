@@ -24,11 +24,16 @@ MSA 분리 시 여러 서비스가 반복해서 필요로 하는 코드(예외 �
 - 페이지네이션·정렬 DTO
 - JWT 파싱·검증 유틸 (알고리즘·클레임이 표준화된 경우)
 - 도메인 이벤트 payload 스키마 (`schemaVersion` 포함)
+- **도메인 무관 예외 handler** (예: `AccessDeniedException` → 403 표준 응답)
 
 **담으면 안 되는 것**
 - 도메인 엔티티나 서비스 로직
 - 특정 서비스에만 쓰이는 상수·enum
 - DB 접근 코드
+
+### 결정 기록: security compileOnly 허용 기준
+
+`CommonExceptionHandler`가 `AccessDeniedException`(Spring Security 표준 예외)를 다루므로 raillo-common은 `spring-boot-starter-security`를 **`compileOnly`**로만 의존한다. Auth의 JWT 필터·Provider처럼 Redis·Member 도메인까지 딸려오는 얽힘과는 성격이 다르고, `compileOnly`라 인증 미사용 서비스의 런타임엔 강제되지 않는다. "security 얽힘 조심" 원칙은 **런타임 의존이 깊은 코드**에만 적용하고, 도메인 무관 프레임워크 예외 타입 참조는 허용한다.
 
 ## 예외 계층 예시
 
