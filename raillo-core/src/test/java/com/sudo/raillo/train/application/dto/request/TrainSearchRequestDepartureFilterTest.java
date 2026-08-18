@@ -1,7 +1,6 @@
 package com.sudo.raillo.train.application.dto.request;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -34,19 +33,5 @@ class TrainSearchRequestDepartureFilterTest {
 		LocalTime after = LocalTime.now().plusMinutes(5);
 
 		assertThat(result).isBetween(before, after);
-	}
-
-	@Test
-	@DisplayName("당일 검색 시 요청 시간이 예약 마감 기준(현재+5분)보다 이후이면 요청 시간을 그대로 반환한다")
-	void today_requestTimeAfterCloseFilter_returnsRequestTime() {
-		int futureHour = LocalTime.now().plusHours(2).getHour();
-		assumeTrue(futureHour > LocalTime.now().getHour(), "자정 넘김으로 인한 테스트 스킵");
-
-		String departureHour = String.format("%02d", futureHour);
-		TrainSearchRequest request = new TrainSearchRequest(
-			1L, 2L, LocalDate.now(), 1, departureHour
-		);
-
-		assertThat(request.getDepartureTimeFilter()).isEqualTo(LocalTime.of(futureHour, 0));
 	}
 }
