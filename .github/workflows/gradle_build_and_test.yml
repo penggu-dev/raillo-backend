@@ -33,7 +33,7 @@ jobs:
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1
         with:
-          files: build/test-results/**/*.xml
+          files: raillo-core/build/test-results/**/*.xml
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v3
