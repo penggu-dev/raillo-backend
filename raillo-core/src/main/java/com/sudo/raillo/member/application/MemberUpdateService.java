@@ -3,7 +3,7 @@ package com.sudo.raillo.member.application;
 import com.sudo.raillo.auth.application.EmailAuthService;
 import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
 import com.sudo.raillo.auth.exception.AuthError;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRedisRepository;

@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.sudo.raillo.global.exception.error.DomainException;
+import com.sudo.raillo.common.exception.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.status.OrderStatus;
 import com.sudo.raillo.order.exception.OrderError;

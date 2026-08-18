@@ -4,7 +4,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
 import com.sudo.raillo.train.exception.TrainError;
 

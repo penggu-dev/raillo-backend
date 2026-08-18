@@ -11,7 +11,7 @@ import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.util.BookingCodeGenerator;
 import com.sudo.raillo.global.domain.BaseEntity;
-import com.sudo.raillo.global.exception.error.DomainException;
+import com.sudo.raillo.common.exception.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.TrainSchedule;

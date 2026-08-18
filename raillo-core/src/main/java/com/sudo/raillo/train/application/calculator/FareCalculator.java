@@ -1,7 +1,7 @@
 package com.sudo.raillo.train.application.calculator;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainError;

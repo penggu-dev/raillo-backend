@@ -16,7 +16,7 @@ import org.junit.jupiter.api.TestFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;

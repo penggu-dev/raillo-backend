@@ -5,7 +5,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.booking.domain.Booking;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.domain.Payment;

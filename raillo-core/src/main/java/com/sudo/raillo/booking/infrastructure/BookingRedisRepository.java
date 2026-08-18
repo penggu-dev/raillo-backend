@@ -18,7 +18,7 @@ import org.springframework.stereotype.Repository;
 
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.global.redis.exception.RedisError;
 import com.sudo.raillo.global.redis.exception.RedisException;
 import com.sudo.raillo.global.redis.util.RedisKeyGenerator;

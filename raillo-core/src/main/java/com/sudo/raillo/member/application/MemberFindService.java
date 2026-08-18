@@ -5,7 +5,7 @@ import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
 import com.sudo.raillo.auth.application.dto.response.TemporaryTokenResponse;
 import com.sudo.raillo.auth.exception.AuthError;
 import com.sudo.raillo.auth.security.jwt.TokenGenerator;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.application.dto.response.VerifyMemberNoResponse;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;

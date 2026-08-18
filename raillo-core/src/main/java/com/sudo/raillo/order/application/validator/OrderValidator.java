@@ -1,7 +1,7 @@
 package com.sudo.raillo.order.application.validator;
 
 import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.order.exception.OrderError;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;

@@ -20,7 +20,7 @@ import com.sudo.raillo.auth.exception.TokenError;
 import com.sudo.raillo.auth.security.jwt.TokenExtractor;
 import com.sudo.raillo.auth.success.AuthSuccess;
 import com.sudo.raillo.auth.util.CookieManager;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.global.success.SuccessResponse;
 
 import jakarta.servlet.http.HttpServletRequest;

@@ -22,7 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.support.fixture.train.StationFareFixture;
 import com.sudo.raillo.support.fixture.train.StationFixture;
 import com.sudo.raillo.support.fixture.train.TrainFixture;

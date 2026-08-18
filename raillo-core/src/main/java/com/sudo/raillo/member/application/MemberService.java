@@ -5,7 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sudo.raillo.auth.application.AuthService;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.application.dto.response.MemberInfoResponse;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.domain.MemberDetail;

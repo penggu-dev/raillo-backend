@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.global.exception.error.DomainException;
+import com.sudo.raillo.common.exception.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.support.fixture.BookingFixture;

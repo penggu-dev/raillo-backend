@@ -1,6 +1,6 @@
 package com.sudo.raillo.train.application.service;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.train.application.dto.TrainCarSeatInfo;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;

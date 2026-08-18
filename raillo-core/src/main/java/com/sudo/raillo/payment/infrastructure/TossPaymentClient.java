@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.payment.infrastructure.dto.TossErrorResponseV1;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentCancelResponse;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;

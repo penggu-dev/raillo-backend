@@ -8,7 +8,7 @@ import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.booking.infrastructure.TicketRepository;
 import com.sudo.raillo.booking.util.TicketNumberGenerator;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.order.domain.OrderBooking;

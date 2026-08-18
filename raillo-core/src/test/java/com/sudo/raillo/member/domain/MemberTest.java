@@ -3,7 +3,7 @@ package com.sudo.raillo.member.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sudo.raillo.global.exception.error.DomainException;
+import com.sudo.raillo.common.exception.DomainException;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import java.time.LocalDate;

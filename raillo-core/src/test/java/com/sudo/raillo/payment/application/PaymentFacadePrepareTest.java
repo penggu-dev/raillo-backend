@@ -16,7 +16,7 @@ import com.sudo.raillo.booking.domain.PendingSeatBooking;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRedisRepository;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;

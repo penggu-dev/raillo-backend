@@ -18,7 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;

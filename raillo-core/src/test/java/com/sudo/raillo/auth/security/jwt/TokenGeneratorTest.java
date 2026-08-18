@@ -14,7 +14,7 @@ import org.mockito.Mock;
 import org.springframework.security.core.Authentication;
 
 import com.sudo.raillo.auth.exception.TokenError;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.support.annotation.ServiceTest;
 
 import io.jsonwebtoken.Jwts;

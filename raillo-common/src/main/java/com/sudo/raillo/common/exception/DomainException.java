@@ -1,4 +1,4 @@
-package com.sudo.raillo.global.exception.error;
+package com.sudo.raillo.common.exception;
 
 import lombok.Getter;
 

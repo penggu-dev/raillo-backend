@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 import org.hibernate.annotations.Comment;
 
-import com.sudo.raillo.global.exception.error.DomainException;
+import com.sudo.raillo.common.exception.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.domain.status.PaymentStatus;

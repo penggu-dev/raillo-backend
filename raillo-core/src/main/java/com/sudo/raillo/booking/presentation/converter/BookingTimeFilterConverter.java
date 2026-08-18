@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.application.dto.BookingTimeFilter;
 import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 
 @Component
 public class BookingTimeFilterConverter implements Converter<String, BookingTimeFilter> {

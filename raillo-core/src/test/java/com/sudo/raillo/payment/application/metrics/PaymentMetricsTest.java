@@ -25,7 +25,7 @@ import com.sudo.raillo.payment.application.PaymentFacade;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentPrepareResponse;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.payment.exception.PaymentError;
 import com.sudo.raillo.payment.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.TossPaymentClient;

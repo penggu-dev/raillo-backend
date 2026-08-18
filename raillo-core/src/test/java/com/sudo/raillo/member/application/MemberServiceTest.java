@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import com.sudo.raillo.auth.application.AuthService;
 import com.sudo.raillo.auth.application.dto.response.TokenResponse;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.application.dto.response.MemberInfoResponse;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;

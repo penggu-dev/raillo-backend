@@ -1,7 +1,7 @@
 package com.sudo.raillo.global.domain;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.global.exception.error.GlobalError;
+import com.sudo.raillo.common.exception.BusinessException;
+import com.sudo.raillo.common.exception.GlobalError;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

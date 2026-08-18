@@ -9,7 +9,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.sudo.raillo.auth.exception.TokenError;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.auth.infrastructure.AuthRedisRepository;
 
 import io.jsonwebtoken.Claims;

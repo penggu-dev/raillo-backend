@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
-import com.sudo.raillo.global.exception.error.GlobalError;
+import com.sudo.raillo.common.exception.BusinessException;
+import com.sudo.raillo.common.exception.GlobalError;
 import com.sudo.raillo.global.success.SuccessCode;
 import com.sudo.raillo.global.success.SuccessResponse;
 import com.sudo.raillo.member.exception.MemberError;

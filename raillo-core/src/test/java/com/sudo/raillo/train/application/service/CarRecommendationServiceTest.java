@@ -7,7 +7,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.train.application.dto.response.TrainCarInfo;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainError;

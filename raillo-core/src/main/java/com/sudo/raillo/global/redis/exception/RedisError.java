@@ -2,7 +2,7 @@ package com.sudo.raillo.global.redis.exception;
 
 import org.springframework.http.HttpStatus;
 
-import com.sudo.raillo.global.exception.error.ErrorCode;
+import com.sudo.raillo.common.exception.ErrorCode;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

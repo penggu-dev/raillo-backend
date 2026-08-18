@@ -9,7 +9,7 @@ import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.train.application.dto.SeatBookingInfo;
 import com.sudo.raillo.train.application.dto.TrainBasicInfo;
 import com.sudo.raillo.train.application.dto.TrainScheduleBasicInfo;

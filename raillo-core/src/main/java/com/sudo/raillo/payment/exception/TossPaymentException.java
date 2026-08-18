@@ -1,6 +1,6 @@
 package com.sudo.raillo.payment.exception;
 
-import com.sudo.raillo.global.exception.error.ExternalApiException;
+import com.sudo.raillo.common.exception.ExternalApiException;
 
 public class TossPaymentException extends ExternalApiException {
 

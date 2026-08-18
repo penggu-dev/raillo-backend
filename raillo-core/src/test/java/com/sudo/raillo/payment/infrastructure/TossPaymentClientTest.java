@@ -22,7 +22,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
 import com.sudo.raillo.payment.exception.PaymentError;

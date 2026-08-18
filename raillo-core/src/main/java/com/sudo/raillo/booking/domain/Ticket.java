@@ -4,7 +4,7 @@ import com.sudo.raillo.booking.domain.status.TicketStatus;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.domain.BaseEntity;
-import com.sudo.raillo.global.exception.error.DomainException;
+import com.sudo.raillo.common.exception.DomainException;
 import com.sudo.raillo.train.domain.Seat;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

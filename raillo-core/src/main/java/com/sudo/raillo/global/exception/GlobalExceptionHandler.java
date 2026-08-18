@@ -19,10 +19,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
 import com.sudo.raillo.auth.exception.TokenError;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.global.exception.error.ErrorResponse;
-import com.sudo.raillo.global.exception.error.ExternalApiException;
-import com.sudo.raillo.global.exception.error.GlobalError;
+import com.sudo.raillo.common.exception.ExternalApiException;
+import com.sudo.raillo.common.exception.GlobalError;
 import com.sudo.raillo.global.redis.exception.RedisError;
 import com.sudo.raillo.global.redis.exception.RedisException;
 

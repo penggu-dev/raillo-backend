@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 import org.springframework.stereotype.Component;
 
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;

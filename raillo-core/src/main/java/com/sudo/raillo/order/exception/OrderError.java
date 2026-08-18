@@ -1,6 +1,6 @@
 package com.sudo.raillo.order.exception;
 
-import com.sudo.raillo.global.exception.error.ErrorCode;
+import com.sudo.raillo.common.exception.ErrorCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

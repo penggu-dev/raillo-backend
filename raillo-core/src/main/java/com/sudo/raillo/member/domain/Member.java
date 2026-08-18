@@ -1,7 +1,7 @@
 package com.sudo.raillo.member.domain;
 
 import com.sudo.raillo.global.domain.BaseEntity;
-import com.sudo.raillo.global.exception.error.DomainException;
+import com.sudo.raillo.common.exception.DomainException;
 import com.sudo.raillo.member.exception.MemberError;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;

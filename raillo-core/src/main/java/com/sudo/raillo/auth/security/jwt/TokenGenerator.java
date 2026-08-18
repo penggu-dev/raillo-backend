@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import com.sudo.raillo.auth.application.dto.response.ReissueTokenResponse;
 import com.sudo.raillo.auth.application.dto.response.TokenResponse;
 import com.sudo.raillo.auth.exception.TokenError;
-import com.sudo.raillo.global.exception.error.BusinessException;
+import com.sudo.raillo.common.exception.BusinessException;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Header;
