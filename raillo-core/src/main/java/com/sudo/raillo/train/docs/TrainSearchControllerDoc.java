@@ -4,8 +4,8 @@ import java.util.List;
 
 import org.springframework.data.domain.Pageable;
 
-import com.sudo.raillo.global.exception.error.ErrorResponse;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.ErrorResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 import com.sudo.raillo.train.application.dto.request.TrainCarListRequest;
 import com.sudo.raillo.train.application.dto.request.TrainCarSeatDetailRequest;
 import com.sudo.raillo.train.application.dto.request.TrainSearchRequest;

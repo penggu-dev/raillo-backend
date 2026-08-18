@@ -9,7 +9,7 @@ import com.sudo.raillo.auth.application.dto.request.VerifyCodeRequest;
 import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
 import com.sudo.raillo.auth.application.dto.response.TemporaryTokenResponse;
 import com.sudo.raillo.auth.success.AuthSuccess;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 import com.sudo.raillo.member.application.MemberFindService;
 import com.sudo.raillo.member.application.dto.request.FindMemberNoRequest;
 import com.sudo.raillo.member.application.dto.request.FindPasswordRequest;

@@ -106,14 +106,19 @@ subprojects {
 ```gradle
 // 여러 서비스가 공유하는 순수 라이브러리 모듈 (Spring Boot 실행 플러그인 미적용).
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-web'       // ApiResponse/ErrorResponse가 참조하는 Spring MVC 타입
+    implementation 'org.springframework.boot:spring-boot-starter-web'       // Spring MVC 타입 (ErrorResponse, ResponseBodyAdvice 등)
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'  // BaseEntity의 @MappedSuperclass·AuditingEntityListener
+    implementation 'org.springframework.boot:spring-boot-starter-validation' // ConstraintViolationException (CommonExceptionHandler)
+
+    // CommonExceptionHandler가 AccessDeniedException(도메인 무관 403)을 참조하기 때문에 컴파일에만 필요.
+    // implementation으로 두면 인증 미사용 서비스에도 시큐리티 기본 보안이 강제되므로 compileOnly.
+    compileOnly 'org.springframework.boot:spring-boot-starter-security'
 }
 
 jar { enabled = true }
 ```
 
-security 관련 의존성은 넣지 않는다. Auth의 JWT 필터/Provider는 이번 단계 스코프 밖(F 항목 참조)이라 common이 이걸 컴파일할 이유가 없다. 나중에 필요해지면 그 시점에 판단하고, 지금 미리 두면 스코프 결정과 코드가 어긋난다.
+Auth의 JWT 필터/Provider는 이번 스코프 밖이라 넣지 않는다(F 항목). security compileOnly는 그것과 별개로, `AccessDeniedException` 같은 Spring Security 표준 예외를 다루는 공통 handler를 컴파일하기 위함이다.
 
 ### `raillo-core/build.gradle`
 

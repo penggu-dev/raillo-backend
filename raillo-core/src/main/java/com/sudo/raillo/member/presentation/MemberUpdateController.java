@@ -3,7 +3,7 @@ package com.sudo.raillo.member.presentation;
 import com.sudo.raillo.auth.application.dto.request.SendCodeRequest;
 import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;
 import com.sudo.raillo.auth.success.AuthSuccess;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 import com.sudo.raillo.member.application.MemberUpdateService;
 import com.sudo.raillo.member.application.dto.request.UpdateEmailRequest;
 import com.sudo.raillo.member.application.dto.request.UpdatePasswordRequest;

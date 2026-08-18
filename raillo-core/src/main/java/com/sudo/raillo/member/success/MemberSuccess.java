@@ -2,7 +2,7 @@ package com.sudo.raillo.member.success;
 
 import org.springframework.http.HttpStatus;
 
-import com.sudo.raillo.global.success.SuccessCode;
+import com.sudo.raillo.common.response.SuccessCode;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

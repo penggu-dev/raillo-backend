@@ -19,7 +19,7 @@ import com.sudo.raillo.booking.application.facade.PendingBookingFacade;
 import com.sudo.raillo.booking.application.service.PendingBookingService;
 import com.sudo.raillo.booking.docs.PendingBookingControllerDoc;
 import com.sudo.raillo.booking.success.BookingSuccess;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

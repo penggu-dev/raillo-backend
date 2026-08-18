@@ -1,8 +1,8 @@
 package com.sudo.raillo.booking.docs;
 
 import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
-import com.sudo.raillo.global.exception.error.ErrorResponse;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.ErrorResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;

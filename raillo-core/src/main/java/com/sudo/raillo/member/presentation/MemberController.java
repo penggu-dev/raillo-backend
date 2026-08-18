@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.auth.security.jwt.TokenExtractor;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 import com.sudo.raillo.member.application.MemberService;
 import com.sudo.raillo.member.application.dto.response.MemberInfoResponse;
 import com.sudo.raillo.member.docs.MemberControllerDoc;

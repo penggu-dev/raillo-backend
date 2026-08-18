@@ -1,4 +1,4 @@
-package com.sudo.raillo.global.exception.error;
+package com.sudo.raillo.common.response;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;

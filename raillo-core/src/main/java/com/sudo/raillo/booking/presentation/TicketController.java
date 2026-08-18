@@ -4,7 +4,7 @@ import com.sudo.raillo.booking.application.dto.response.ReceiptResponse;
 import com.sudo.raillo.booking.application.service.TicketService;
 import com.sudo.raillo.booking.docs.TicketControllerDoc;
 import com.sudo.raillo.booking.success.BookingSuccess;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;

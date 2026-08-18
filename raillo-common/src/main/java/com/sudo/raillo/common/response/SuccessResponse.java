@@ -1,4 +1,4 @@
-package com.sudo.raillo.global.success;
+package com.sudo.raillo.common.response;
 
 import org.springframework.http.HttpStatus;
 

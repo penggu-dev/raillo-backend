@@ -1,6 +1,6 @@
 package com.sudo.raillo.train.presentation;
 
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 import com.sudo.raillo.train.application.dto.response.OperationCalendarItemResponse;
 import com.sudo.raillo.train.application.facade.CachedTrainSearchFacade;
 import com.sudo.raillo.train.docs.CachedTrainSearchControllerDoc;

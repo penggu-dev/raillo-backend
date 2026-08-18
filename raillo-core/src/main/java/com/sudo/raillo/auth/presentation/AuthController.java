@@ -21,7 +21,7 @@ import com.sudo.raillo.auth.security.jwt.TokenExtractor;
 import com.sudo.raillo.auth.success.AuthSuccess;
 import com.sudo.raillo.auth.util.CookieManager;
 import com.sudo.raillo.common.exception.BusinessException;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.common.exception.GlobalError;
-import com.sudo.raillo.global.success.SuccessCode;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.SuccessCode;
+import com.sudo.raillo.common.response.SuccessResponse;
 import com.sudo.raillo.member.exception.MemberError;
 
 import jakarta.validation.Valid;

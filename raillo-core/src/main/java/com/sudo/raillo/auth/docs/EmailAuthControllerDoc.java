@@ -1,7 +1,7 @@
 package com.sudo.raillo.auth.docs;
 
-import com.sudo.raillo.global.exception.error.ErrorResponse;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.ErrorResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 import com.sudo.raillo.auth.application.dto.request.SendCodeRequest;
 import com.sudo.raillo.auth.application.dto.request.VerifyCodeRequest;
 import com.sudo.raillo.auth.application.dto.response.SendCodeResponse;

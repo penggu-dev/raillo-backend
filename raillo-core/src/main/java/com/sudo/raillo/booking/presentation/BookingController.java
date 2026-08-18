@@ -18,7 +18,7 @@ import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.booking.application.service.BookingService;
 import com.sudo.raillo.booking.docs.BookingControllerDoc;
 import com.sudo.raillo.booking.success.BookingSuccess;
-import com.sudo.raillo.global.success.SuccessResponse;
+import com.sudo.raillo.common.response.SuccessResponse;
 
 import lombok.RequiredArgsConstructor;
 
