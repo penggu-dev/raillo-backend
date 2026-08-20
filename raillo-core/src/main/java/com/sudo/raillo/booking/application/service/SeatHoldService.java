@@ -1,10 +1,10 @@
 package com.sudo.raillo.booking.application.service;
 
 import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.booking.infrastructure.SeatHoldKeyGenerator;
 import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
 import com.sudo.raillo.booking.infrastructure.SeatHoldResult;
 import com.sudo.raillo.common.exception.BusinessException;
-import com.sudo.raillo.booking.infrastructure.SeatHoldKeyGenerator;
 import com.sudo.raillo.train.domain.ScheduleStop;
 import java.time.Duration;
 import java.util.ArrayList;

@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.validation.FieldError;
-import com.sudo.raillo.common.exception.ErrorCode;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.sudo.raillo.common.exception.ErrorCode;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -20,7 +20,6 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-
 public class ErrorResponse {
 
 	@Builder.Default
