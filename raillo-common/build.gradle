@@ -1,0 +1,14 @@
+// 여러 서비스가 공유하는 순수 라이브러리 모듈 (Spring Boot 실행 플러그인 미적용).
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // CommonExceptionHandler에서 AccessDeniedException(도메인 무관 403)을 참조.
+    // implementation으로 두면 인증 미사용 서비스에도 시큐리티 기본 보안이 강제되므로 compileOnly.
+    compileOnly 'org.springframework.boot:spring-boot-starter-security'
+}
+
+jar {
+    enabled = true
+}
