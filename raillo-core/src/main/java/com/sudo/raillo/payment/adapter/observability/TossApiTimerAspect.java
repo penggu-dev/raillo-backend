@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.application.metrics;
+package com.sudo.raillo.payment.adapter.observability;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -18,12 +18,12 @@ public class TossApiTimerAspect {
 
 	private final MeterRegistry meterRegistry;
 
-	@Around("execution(* com.sudo.raillo.payment.infrastructure.TossPaymentClient.confirmPayment(..))")
+	@Around("execution(* com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient.confirmPayment(..))")
 	public Object timeConfirmPayment(ProceedingJoinPoint joinPoint) throws Throwable {
 		return timeApiCall(joinPoint, "confirm");
 	}
 
-	@Around("execution(* com.sudo.raillo.payment.infrastructure.TossPaymentClient.cancelPayment(..))")
+	@Around("execution(* com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient.cancelPayment(..))")
 	public Object timeCancelPayment(ProceedingJoinPoint joinPoint) throws Throwable {
 		return timeApiCall(joinPoint, "cancel");
 	}

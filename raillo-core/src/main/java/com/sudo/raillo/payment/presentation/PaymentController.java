@@ -12,8 +12,8 @@ import com.sudo.raillo.payment.application.PaymentFacade;
 import com.sudo.raillo.payment.application.PaymentService;
 import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.domain.PaymentPrepareRequest;
-import com.sudo.raillo.payment.application.dto.response.PaymentConfirmResponse;
-import com.sudo.raillo.payment.application.dto.response.PaymentPrepareResponse;
+import com.sudo.raillo.payment.adapter.webapi.dto.PaymentConfirmResponse;
+import com.sudo.raillo.payment.adapter.webapi.dto.PaymentPrepareResponse;
 import com.sudo.raillo.payment.domain.success.PaymentSuccess;
 
 import io.swagger.v3.oas.annotations.Operation;

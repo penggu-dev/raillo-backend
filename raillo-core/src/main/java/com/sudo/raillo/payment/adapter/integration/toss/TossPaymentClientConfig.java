@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.config;
+package com.sudo.raillo.payment.adapter.integration.toss;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;

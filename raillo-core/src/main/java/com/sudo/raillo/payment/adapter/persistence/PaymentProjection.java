@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.application.dto.projection;
+package com.sudo.raillo.payment.adapter.persistence;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.application.metrics;
+package com.sudo.raillo.payment.adapter.observability;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;

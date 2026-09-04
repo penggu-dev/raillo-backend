@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.infrastructure;
+package com.sudo.raillo.payment.adapter.persistence;
 
 import static com.sudo.raillo.booking.domain.QBooking.*;
 import static com.sudo.raillo.member.domain.QMember.*;
@@ -9,14 +9,14 @@ import java.util.List;
 import org.springframework.stereotype.Repository;
 
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.sudo.raillo.payment.application.dto.projection.PaymentProjection;
-import com.sudo.raillo.payment.application.dto.projection.QPaymentProjection;
+import com.sudo.raillo.payment.adapter.persistence.PaymentProjection;
+import com.sudo.raillo.payment.adapter.persistence.QPaymentProjection;
 
 import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
-public class PaymentQueryRepository {
+public class PaymentQueryDao {
 
 	private final JPAQueryFactory queryFactory;
 

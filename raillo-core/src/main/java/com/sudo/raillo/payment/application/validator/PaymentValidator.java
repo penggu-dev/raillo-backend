@@ -7,12 +7,12 @@ import org.springframework.stereotype.Component;
 import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
+import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentConfirmResponse;
 import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
-import com.sudo.raillo.payment.infrastructure.PaymentRepository;
+import com.sudo.raillo.payment.adapter.persistence.PaymentJpaRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PaymentValidator {
 
-	private final PaymentRepository paymentRepository;
+	private final PaymentJpaRepository paymentRepository;
 
 	/**
 	 * 결제 소유자 검증

@@ -10,7 +10,7 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
-import com.sudo.raillo.payment.infrastructure.PaymentRepository;
+import com.sudo.raillo.payment.adapter.persistence.PaymentJpaRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional
 public class PaymentService {
 
-	private final PaymentRepository paymentRepository;
+	private final PaymentJpaRepository paymentRepository;
 
 	/**
 	 * Payment 생성 (PENDING 상태)

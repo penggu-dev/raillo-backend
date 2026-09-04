@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.infrastructure;
+package com.sudo.raillo.payment.adapter.persistence;
 
 import java.util.Optional;
 
@@ -10,7 +10,7 @@ import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 
 @Repository
-public interface PaymentRepository extends JpaRepository<Payment, Long> {
+public interface PaymentJpaRepository extends JpaRepository<Payment, Long> {
 
 	/**
 	 * 결제 키로 결제 정보 조회

@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.infrastructure;
+package com.sudo.raillo.payment.adapter.integration.toss;
 
 
 import java.io.IOException;
@@ -11,12 +11,12 @@ import org.springframework.web.client.RestClient;
 
 import tools.jackson.databind.ObjectMapper;
 import com.sudo.raillo.common.exception.BusinessException;
-import com.sudo.raillo.payment.infrastructure.dto.TossErrorResponseV1;
-import com.sudo.raillo.payment.infrastructure.dto.TossPaymentCancelResponse;
-import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
+import com.sudo.raillo.payment.adapter.integration.toss.TossErrorResponseV1;
+import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentCancelResponse;
+import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentConfirmResponse;
 import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
-import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
-import com.sudo.raillo.payment.infrastructure.metrics.TossApiMetrics;
+import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentCancelRequest;
+import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.payment.domain.exception.TossPaymentException;
 

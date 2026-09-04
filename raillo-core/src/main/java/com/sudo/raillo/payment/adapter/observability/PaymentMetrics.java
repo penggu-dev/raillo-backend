@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.application.metrics;
+package com.sudo.raillo.payment.adapter.observability;
 
 import org.springframework.stereotype.Component;
 

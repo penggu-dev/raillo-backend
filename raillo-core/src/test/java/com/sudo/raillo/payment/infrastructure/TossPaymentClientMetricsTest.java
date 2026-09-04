@@ -22,8 +22,9 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
-import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
-import com.sudo.raillo.payment.infrastructure.metrics.TossApiMetrics;
+import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentCancelRequest;
+import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient;
+import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;

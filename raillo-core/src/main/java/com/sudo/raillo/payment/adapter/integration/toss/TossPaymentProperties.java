@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.config;
+package com.sudo.raillo.payment.adapter.integration.toss;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;

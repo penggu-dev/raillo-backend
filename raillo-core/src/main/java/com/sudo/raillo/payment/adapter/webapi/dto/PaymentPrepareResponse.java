@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.application.dto.response;
+package com.sudo.raillo.payment.adapter.webapi.dto;
 
 import java.math.BigDecimal;
 

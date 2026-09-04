@@ -30,16 +30,16 @@ import com.sudo.raillo.order.domain.status.OrderStatus;
 import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.domain.PaymentPrepareRequest;
-import com.sudo.raillo.payment.application.dto.response.PaymentConfirmResponse;
-import com.sudo.raillo.payment.application.dto.response.PaymentPrepareResponse;
+import com.sudo.raillo.payment.adapter.webapi.dto.PaymentConfirmResponse;
+import com.sudo.raillo.payment.adapter.webapi.dto.PaymentPrepareResponse;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.domain.PaymentMethod;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.payment.domain.exception.TossPaymentException;
-import com.sudo.raillo.payment.infrastructure.PaymentRepository;
-import com.sudo.raillo.payment.infrastructure.TossPaymentClient;
-import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
+import com.sudo.raillo.payment.adapter.persistence.PaymentJpaRepository;
+import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient;
+import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentConfirmResponse;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.PendingBookingFixture;
@@ -68,7 +68,7 @@ class PaymentScenarioTest {
 	private OrderRepository orderRepository;
 
 	@Autowired
-	private PaymentRepository paymentRepository;
+	private PaymentJpaRepository paymentRepository;
 
 	@Autowired
 	private BookingRepository bookingRepository;

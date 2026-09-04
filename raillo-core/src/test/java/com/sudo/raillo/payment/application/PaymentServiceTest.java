@@ -17,7 +17,7 @@ import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
-import com.sudo.raillo.payment.infrastructure.PaymentRepository;
+import com.sudo.raillo.payment.adapter.persistence.PaymentJpaRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.OrderFixture;
@@ -35,7 +35,7 @@ class PaymentServiceTest {
 	private OrderRepository orderRepository;
 
 	@Autowired
-	private PaymentRepository paymentRepository;
+	private PaymentJpaRepository paymentRepository;
 
 	private Member member;
 	private Order order;
