@@ -10,7 +10,9 @@ import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 
 import com.sudo.raillo.auth.exception.TokenError;
@@ -18,11 +20,11 @@ import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.support.annotation.ServiceTest;
 
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
 @ServiceTest
+@ExtendWith(MockitoExtension.class)
 class TokenGeneratorTest {
 
 	private static final String TEST_SECRET_KEY = "crailotestjwtsecretkey2025fordevelopmentandtestingonlylonglonglonglonglonglonglonglonglong==";
@@ -104,11 +106,11 @@ class TokenGeneratorTest {
 		String memberNo = "test";
 		String authorities = "ROLE_MEMBER";
 		String invalidRefreshToken = Jwts.builder()
-			.setSubject(memberNo)
+			.subject(memberNo)
 			.claim("auth", authorities)
 			.claim("isRefreshToken", true)
-			.setExpiration(new Date(System.currentTimeMillis() - 1000))
-			.signWith(testKey, SignatureAlgorithm.HS512)
+			.expiration(new Date(System.currentTimeMillis() - 1000))
+			.signWith(testKey)
 			.compact();
 
 		// when & then
@@ -124,10 +126,10 @@ class TokenGeneratorTest {
 		String memberNo = "test";
 		String authorities = "ROLE_MEMBER";
 		String tokenWithoutClaim = Jwts.builder()
-			.setSubject(memberNo)
+			.subject(memberNo)
 			.claim("auth", authorities)
-			.setExpiration(new Date(System.currentTimeMillis() + 1000 * 60))
-			.signWith(testKey, SignatureAlgorithm.HS512)
+			.expiration(new Date(System.currentTimeMillis() + 1000 * 60))
+			.signWith(testKey)
 			.compact();
 
 		// when & then
@@ -143,11 +145,11 @@ class TokenGeneratorTest {
 		String memberNo = "test";
 		String authorities = "ROLE_MEMBER";
 		String tokenWithFalseClaim = Jwts.builder()
-			.setSubject(memberNo)
+			.subject(memberNo)
 			.claim("auth", authorities)
 			.claim("isRefreshToken", false)
-			.setExpiration(new Date(System.currentTimeMillis() + 1000 * 60))
-			.signWith(testKey, SignatureAlgorithm.HS512)
+			.expiration(new Date(System.currentTimeMillis() + 1000 * 60))
+			.signWith(testKey)
 			.compact();
 
 		// when & then

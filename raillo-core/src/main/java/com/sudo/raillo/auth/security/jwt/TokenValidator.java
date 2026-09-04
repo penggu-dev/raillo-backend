@@ -1,6 +1,6 @@
 package com.sudo.raillo.auth.security.jwt;
 
-import java.security.Key;
+import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class TokenValidator {
 
-	private final Key key;
+	private final SecretKey key;
 
 	public TokenValidator(@Value("${jwt.secret}") String secretKey) {
 		byte[] keyBytes = Decoders.BASE64.decode(secretKey);
@@ -29,10 +29,10 @@ public class TokenValidator {
 	 * */
 	public boolean validateToken(String token) {
 		try {
-			Jwts.parserBuilder()
-				.setSigningKey(key)
+			Jwts.parser()
+				.verifyWith(key)
 				.build()
-				.parseClaimsJws(token);
+				.parseSignedClaims(token);
 			return true;
 		} catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
 			log.error("잘못된 JWT 서명입니다.");

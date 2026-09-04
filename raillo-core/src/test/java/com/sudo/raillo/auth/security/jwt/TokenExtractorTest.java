@@ -19,7 +19,6 @@ import com.sudo.raillo.support.annotation.ServiceTest;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
@@ -129,9 +128,9 @@ class TokenExtractorTest {
 	void getAuthenticationWithoutAuthorities() {
 		// given
 		String tokenWithoutAuth = Jwts.builder()
-			.setSubject(MEMBER_NO)
-			.setExpiration(new Date(System.currentTimeMillis() + 1000 * 60))
-			.signWith(testKey, SignatureAlgorithm.HS512)
+			.subject(MEMBER_NO)
+			.expiration(new Date(System.currentTimeMillis() + 1000 * 60))
+			.signWith(testKey)
 			.compact();
 
 		// when & then
@@ -159,10 +158,10 @@ class TokenExtractorTest {
 	void parseClaimsFromExpiredToken() {
 		// given
 		String expiredToken = Jwts.builder()
-			.setSubject(MEMBER_NO)
+			.subject(MEMBER_NO)
 			.claim(TokenExtractor.AUTHORITIES_KEY, AUTHORITIES)
-			.setExpiration(new Date(System.currentTimeMillis() - 1000))
-			.signWith(testKey, SignatureAlgorithm.HS512)
+			.expiration(new Date(System.currentTimeMillis() - 1000))
+			.signWith(testKey)
 			.compact();
 
 		// when
@@ -175,19 +174,19 @@ class TokenExtractorTest {
 
 	private String createValidToken() {
 		return Jwts.builder()
-			.setSubject(MEMBER_NO)
+			.subject(MEMBER_NO)
 			.claim(TokenExtractor.AUTHORITIES_KEY, AUTHORITIES)
-			.setExpiration(new Date(System.currentTimeMillis() + 1000 * 60))
-			.signWith(testKey, SignatureAlgorithm.HS512)
+			.expiration(new Date(System.currentTimeMillis() + 1000 * 60))
+			.signWith(testKey)
 			.compact();
 	}
 
 	private String createTokenWithExpiration(long expirationTime) {
 		return Jwts.builder()
-			.setSubject(MEMBER_NO)
+			.subject(MEMBER_NO)
 			.claim(TokenExtractor.AUTHORITIES_KEY, AUTHORITIES)
-			.setExpiration(new Date(expirationTime))
-			.signWith(testKey, SignatureAlgorithm.HS512)
+			.expiration(new Date(expirationTime))
+			.signWith(testKey)
 			.compact();
 	}
 }
