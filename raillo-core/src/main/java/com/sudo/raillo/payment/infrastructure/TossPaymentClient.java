@@ -9,7 +9,7 @@ import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.payment.infrastructure.dto.TossErrorResponseV1;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentCancelResponse;
@@ -160,7 +160,7 @@ public class TossPaymentClient {
 		TossErrorResponseV1 error;
 		try {
 			error = objectMapper.readValue(raw, TossErrorResponseV1.class);
-		} catch (IOException e) {
+		} catch (RuntimeException e) {
 			String bodySnippet = truncateForLog(raw);
 			String message = "토스 에러 응답 파싱 실패 (httpStatus=" + statusCode + ")";
 			log.error("[TOSS] {} 실패 ({}): {} bodySnippet={}", operation, statusCode, message, bodySnippet, e);

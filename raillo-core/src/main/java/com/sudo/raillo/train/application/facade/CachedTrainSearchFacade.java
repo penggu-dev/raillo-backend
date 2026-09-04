@@ -2,6 +2,7 @@ package com.sudo.raillo.train.application.facade;
 
 import com.sudo.raillo.train.application.dto.response.OperationCalendarItemResponse;
 import com.sudo.raillo.train.application.service.TrainCalendarService;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,6 @@ public class CachedTrainSearchFacade {
 	@Cacheable("train:calendar")
 	public List<OperationCalendarItemResponse> getOperationCalendar() {
 		log.info("운행 캘린더 캐시 미스 - DB 조회 실행");
-		return trainCalendarService.getOperationCalendar();
+		return new ArrayList<>(trainCalendarService.getOperationCalendar());
 	}
 }
