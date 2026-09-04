@@ -14,11 +14,11 @@ import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.payment.infrastructure.dto.TossErrorResponseV1;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentCancelResponse;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
-import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
+import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
 import com.sudo.raillo.payment.infrastructure.metrics.TossApiMetrics;
-import com.sudo.raillo.payment.exception.PaymentError;
-import com.sudo.raillo.payment.exception.TossPaymentException;
+import com.sudo.raillo.payment.domain.exception.PaymentError;
+import com.sudo.raillo.payment.domain.exception.TossPaymentException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

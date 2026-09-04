@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.exception;
+package com.sudo.raillo.payment.domain.exception;
 
 import org.springframework.http.HttpStatus;
 

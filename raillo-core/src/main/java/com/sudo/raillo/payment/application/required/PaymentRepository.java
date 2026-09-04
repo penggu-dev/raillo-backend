@@ -1,20 +1,22 @@
-package com.sudo.raillo.payment.infrastructure;
+package com.sudo.raillo.payment.application.required;
 
 import java.util.Optional;
-
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 
-@Repository
-public interface PaymentRepository extends JpaRepository<Payment, Long> {
+/**
+ * Payment 영속화 required port.
+ *
+ * <p>Spring Data JPA 등 특정 기술에 의존하지 않는 순수 인터페이스로 둔다.
+ */
+public interface PaymentRepository {
 
-	/**
-	 * 결제 키로 결제 정보 조회
-	 */
+	Payment save(Payment payment);
+
+	Optional<Payment> findById(Long paymentId);
+
 	Optional<Payment> findByPaymentKey(String paymentKey);
 
 	Optional<Payment> findByOrder(Order order);

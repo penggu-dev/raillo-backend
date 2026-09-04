@@ -14,7 +14,7 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.domain.type.PaymentMethod;
+import com.sudo.raillo.payment.domain.PaymentMethod;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;

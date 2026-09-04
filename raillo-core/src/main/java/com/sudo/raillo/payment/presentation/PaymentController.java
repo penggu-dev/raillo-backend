@@ -10,11 +10,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.sudo.raillo.common.response.SuccessResponse;
 import com.sudo.raillo.payment.application.PaymentFacade;
 import com.sudo.raillo.payment.application.PaymentService;
-import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
-import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
+import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
+import com.sudo.raillo.payment.domain.PaymentPrepareRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentConfirmResponse;
 import com.sudo.raillo.payment.application.dto.response.PaymentPrepareResponse;
-import com.sudo.raillo.payment.success.PaymentSuccess;
+import com.sudo.raillo.payment.domain.success.PaymentSuccess;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

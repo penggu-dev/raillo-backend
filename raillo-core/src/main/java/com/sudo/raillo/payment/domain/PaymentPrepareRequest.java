@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.application.dto.request;
+package com.sudo.raillo.payment.domain;
 
 import java.util.List;
 

@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.domain.status.PaymentStatus;
-import com.sudo.raillo.payment.domain.type.PaymentMethod;
+import com.sudo.raillo.payment.domain.PaymentStatus;
+import com.sudo.raillo.payment.domain.PaymentMethod;
 
 public record PaymentConfirmResponse(
 	Long paymentId,

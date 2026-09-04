@@ -21,7 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
-import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
+import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
 import com.sudo.raillo.payment.infrastructure.metrics.TossApiMetrics;
 

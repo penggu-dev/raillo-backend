@@ -23,7 +23,7 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.order.domain.status.OrderStatus;
 import com.sudo.raillo.order.infrastructure.OrderRepository;
-import com.sudo.raillo.payment.application.dto.request.PaymentPrepareRequest;
+import com.sudo.raillo.payment.domain.PaymentPrepareRequest;
 import com.sudo.raillo.payment.application.dto.response.PaymentPrepareResponse;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;

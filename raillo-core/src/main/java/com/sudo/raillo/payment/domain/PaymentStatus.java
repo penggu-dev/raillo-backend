@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.domain.status;
+package com.sudo.raillo.payment.domain;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

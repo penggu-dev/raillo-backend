@@ -8,10 +8,10 @@ import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
-import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
+import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.domain.status.PaymentStatus;
-import com.sudo.raillo.payment.exception.PaymentError;
+import com.sudo.raillo.payment.domain.PaymentStatus;
+import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.payment.infrastructure.PaymentRepository;
 
 import lombok.RequiredArgsConstructor;

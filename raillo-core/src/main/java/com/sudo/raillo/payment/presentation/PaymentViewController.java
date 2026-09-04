@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
-import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
+import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.infrastructure.TossPaymentClient;
 
 import lombok.RequiredArgsConstructor;

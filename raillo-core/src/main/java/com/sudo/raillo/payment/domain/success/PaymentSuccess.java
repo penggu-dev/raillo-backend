@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.success;
+package com.sudo.raillo.payment.domain.success;
 
 import org.springframework.http.HttpStatus;
 

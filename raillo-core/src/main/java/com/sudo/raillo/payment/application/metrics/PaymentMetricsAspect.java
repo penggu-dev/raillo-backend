@@ -6,7 +6,7 @@ import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.common.exception.BusinessException;
-import com.sudo.raillo.payment.exception.TossPaymentException;
+import com.sudo.raillo.payment.domain.exception.TossPaymentException;
 
 import lombok.RequiredArgsConstructor;
 

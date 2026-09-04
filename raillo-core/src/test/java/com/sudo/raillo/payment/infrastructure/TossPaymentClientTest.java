@@ -23,10 +23,10 @@ import org.springframework.web.client.RestClient;
 
 import tools.jackson.databind.ObjectMapper;
 import com.sudo.raillo.common.exception.BusinessException;
-import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
+import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.application.dto.request.TossPaymentCancelRequest;
-import com.sudo.raillo.payment.exception.PaymentError;
-import com.sudo.raillo.payment.exception.TossPaymentException;
+import com.sudo.raillo.payment.domain.exception.PaymentError;
+import com.sudo.raillo.payment.domain.exception.TossPaymentException;
 import com.sudo.raillo.payment.infrastructure.metrics.TossApiMetrics;
 import com.sudo.raillo.payment.infrastructure.dto.TossCancelDetail;
 import com.sudo.raillo.payment.infrastructure.dto.TossPaymentCancelResponse;
