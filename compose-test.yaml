@@ -1,6 +1,6 @@
 services:
   raillo-server:
-    image: amazoncorretto:17-alpine-jdk
+    image: amazoncorretto:25-alpine-jdk
     container_name: raillo-server
     ports:
       - "8080:8080"
