@@ -1,32 +1,25 @@
-package com.sudo.raillo.payment.presentation;
+package com.sudo.raillo.payment.adapter.webapi;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentConfirmResponse;
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
-import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient;
-
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * 토스 결제 위젯 테스트 페이지 뷰 컨트롤러. 개발/테스트 편의용이며 실제 결제 승인은
+ * {@link PaymentApi#confirmPayment}가 담당한다.
+ */
 @Slf4j
 @Controller
-@RequiredArgsConstructor
 @RequestMapping("/test/payments")
-public class PaymentViewController {
-
-	private final TossPaymentClient tossPaymentClient;
+public class PaymentViewApi {
 
 	@GetMapping
 	public String paymentPage(Model model) {
-		log.info(">>> PaymentViewController /payments/test HIT");
+		log.info(">>> PaymentViewApi /test/payments HIT");
 		model.addAttribute("clientKey", "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm");
 		model.addAttribute("orderId", "ORDER_" + System.currentTimeMillis());
 		model.addAttribute("amount", 1000);
@@ -57,12 +50,5 @@ public class PaymentViewController {
 		model.addAttribute("errorMessage", message);
 		model.addAttribute("orderId", orderId);
 		return "payment-fail";
-	}
-
-	@PostMapping("/confirm-toss")
-	@ResponseBody
-	public TossPaymentConfirmResponse confirmTossOnly(
-		@RequestBody PaymentConfirmRequest request) {
-		return tossPaymentClient.confirmPayment(request);
 	}
 }

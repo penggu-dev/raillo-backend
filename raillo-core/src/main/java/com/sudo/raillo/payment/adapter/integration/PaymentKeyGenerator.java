@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.util;
+package com.sudo.raillo.payment.adapter.integration;
 
 import java.time.Instant;
 import java.time.LocalDate;
