@@ -1,11 +1,12 @@
 package com.sudo.raillo.auth.security.jwt;
 
-import java.security.Key;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.stream.Collectors;
+
+import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,7 +31,7 @@ import jakarta.servlet.http.HttpServletRequest;
 @Component
 public class TokenExtractor {
 
-	private final Key key;
+	private final SecretKey key;
 
 	public static final String AUTHORITIES_KEY = "auth";
 	public static final String AUTHORIZATION_HEADER = "Authorization";
@@ -59,11 +60,11 @@ public class TokenExtractor {
 	 * 회원번호 추출
 	 * */
 	public String getMemberNo(String token) {
-		return Jwts.parserBuilder()
-			.setSigningKey(key)
+		return Jwts.parser()
+			.verifyWith(key)
 			.build()
-			.parseClaimsJws(token)
-			.getBody()
+			.parseSignedClaims(token)
+			.getPayload()
 			.getSubject();
 	}
 
@@ -107,11 +108,11 @@ public class TokenExtractor {
 	 * */
 	public Claims parseClaims(String accessToken) {
 		try {
-			return Jwts.parserBuilder()
-				.setSigningKey(key)
+			return Jwts.parser()
+				.verifyWith(key)
 				.build()
-				.parseClaimsJws(accessToken)
-				.getBody();
+				.parseSignedClaims(accessToken)
+				.getPayload();
 		} catch (ExpiredJwtException e) {
 			// 토큰이 만료되어 예외가 발생하더라도 클레임 값들은 뽑을 수 있음
 			return e.getClaims();

@@ -1,8 +1,9 @@
 package com.sudo.raillo.auth.security.jwt;
 
-import java.security.Key;
 import java.util.Date;
 import java.util.stream.Collectors;
+
+import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -15,9 +16,7 @@ import com.sudo.raillo.auth.exception.TokenError;
 import com.sudo.raillo.common.exception.BusinessException;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Header;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
@@ -26,7 +25,7 @@ public class TokenGenerator {
 
 	private final TokenValidator tokenValidator;
 	private final TokenExtractor tokenExtractor;
-	private final Key key;
+	private final SecretKey key;
 
 	private static final String AUTHORITIES_KEY = "auth";
 	private static final String BEARER_TYPE = "Bearer";
@@ -102,11 +101,10 @@ public class TokenGenerator {
 		long now = System.currentTimeMillis();
 		Date temporaryTokenExpiresIn = new Date(now + TEMPORARY_TOKEN_EXPIRE_TIME);
 		return Jwts.builder()
-			.setHeaderParam(Header.TYPE, Header.JWT_TYPE)
-			.setSubject(memberNo)
+			.subject(memberNo)
 			.claim(AUTHORITIES_KEY, "TEMPORARY_TOKEN")
-			.setExpiration(temporaryTokenExpiresIn)
-			.signWith(key, SignatureAlgorithm.HS512)
+			.expiration(temporaryTokenExpiresIn)
+			.signWith(key)
 			.compact();
 	}
 
@@ -117,11 +115,10 @@ public class TokenGenerator {
 		long now = System.currentTimeMillis();
 		Date accessTokenExpiresIn = new Date(now + ACCESS_TOKEN_EXPIRE_TIME);
 		return Jwts.builder()
-			.setHeaderParam(Header.TYPE, Header.JWT_TYPE)
-			.setSubject(memberNo)
+			.subject(memberNo)
 			.claim(AUTHORITIES_KEY, authorities)
-			.setExpiration(accessTokenExpiresIn)
-			.signWith(key, SignatureAlgorithm.HS512)
+			.expiration(accessTokenExpiresIn)
+			.signWith(key)
 			.compact();
 	}
 
@@ -132,12 +129,11 @@ public class TokenGenerator {
 		long now = System.currentTimeMillis();
 		Date refreshTokenExpiresIn = new Date(now + REFRESH_TOKEN_EXPIRE_TIME);
 		return Jwts.builder()
-			.setHeaderParam(Header.TYPE, Header.JWT_TYPE)
-			.setSubject(memberNo)
+			.subject(memberNo)
 			.claim(AUTHORITIES_KEY, authorities)
-			.setExpiration(refreshTokenExpiresIn)
+			.expiration(refreshTokenExpiresIn)
 			.claim("isRefreshToken", true) // refreshToken 임을 나타내는 클레임 추가
-			.signWith(key, SignatureAlgorithm.HS512)
+			.signWith(key)
 			.compact();
 	}
 

@@ -36,7 +36,7 @@ main 브랜치 push
 ```
 
 ### GitHub Actions (`.github/workflows/`)
-- **`gradle_build_and_test.yml`** — `develop` 으로의 push/PR에서 실행. Java 17 (Temurin), Gradle 빌드, 테스트 수행 및 JUnit 리포트 발행.
+- **`gradle_build_and_test.yml`** — `develop` 으로의 push/PR에서 실행. Java 25 (Temurin), Gradle 빌드, 테스트 수행 및 JUnit 리포트 발행.
 - **`deploy_raillo_with_k8s.yml`** — `main` push에서 실행. AWS 자격 증명 구성 → `aws eks update-kubeconfig --name raillo-cluster` → ECR 로그인 → Docker 이미지 빌드/푸시(`:latest`) → `kubectl rollout restart deployment raillo-backend -n raillo`.
 
 ## Production (AWS EKS)
@@ -86,12 +86,12 @@ Multi-stage build (`Dockerfile`):
 
 ```dockerfile
 # Stage 1: Build with Gradle
-FROM eclipse-temurin:17-jdk-alpine AS stage1
+FROM eclipse-temurin:25-jdk-alpine AS stage1
 WORKDIR /app
 # ... copy sources, ./gradlew bootJar ...
 
 # Stage 2: Runtime
-FROM eclipse-temurin:17-jdk-alpine
+FROM eclipse-temurin:25-jdk-alpine
 RUN apk add --no-cache tzdata
 ENV TZ=Asia/Seoul
 ENV JAVA_TOOL_OPTIONS="-Duser.timezone=Asia/Seoul"
