@@ -17,14 +17,14 @@ public class PaymentMetricsAspect {
 
 	private final PaymentMetrics paymentMetrics;
 
-	@Around("execution(* com.sudo.raillo.payment.application.PaymentFacade.preparePayment(..))")
+	@Around("execution(* com.sudo.raillo.payment.application.PaymentPrepareService.prepare(..))")
 	public Object measurePrepare(ProceedingJoinPoint joinPoint) throws Throwable {
 		Object result = joinPoint.proceed();
 		paymentMetrics.incrementPrepare();
 		return result;
 	}
 
-	@Around("execution(* com.sudo.raillo.payment.application.PaymentFacade.confirmPayment(..))")
+	@Around("execution(* com.sudo.raillo.payment.application.PaymentConfirmService.confirm(..))")
 	public Object measureConfirm(ProceedingJoinPoint joinPoint) throws Throwable {
 		try {
 			Object result = joinPoint.proceed();

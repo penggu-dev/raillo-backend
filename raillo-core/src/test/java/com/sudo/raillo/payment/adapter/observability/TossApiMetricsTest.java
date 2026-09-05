@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.infrastructure.metrics;
+package com.sudo.raillo.payment.adapter.observability;
 
 import static org.assertj.core.api.Assertions.*;
 

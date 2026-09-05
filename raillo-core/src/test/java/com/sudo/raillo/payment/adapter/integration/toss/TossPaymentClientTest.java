@@ -1,4 +1,4 @@
-package com.sudo.raillo.payment.infrastructure;
+package com.sudo.raillo.payment.adapter.integration.toss;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.http.HttpMethod.*;
