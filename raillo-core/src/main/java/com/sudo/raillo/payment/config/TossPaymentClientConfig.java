@@ -40,7 +40,8 @@ public class TossPaymentClientConfig {
 	}
 
 	private Map<String, List<String>> maskSensitiveHeaders(HttpHeaders headers) {
-		Map<String, List<String>> masked = new LinkedHashMap<>(headers);
+		Map<String, List<String>> masked = new LinkedHashMap<>();
+		headers.forEach((name, values) -> masked.put(name, List.copyOf(values)));
 		if (masked.containsKey(HttpHeaders.AUTHORIZATION)) {
 			masked.put(HttpHeaders.AUTHORIZATION, List.of("Basic ***"));
 		}

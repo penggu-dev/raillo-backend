@@ -15,7 +15,7 @@ This file provides guidance to coding agents (Claude Code, Codex 등) when worki
 
 ## Architecture
 
-Spring Boot 3.5 + Java 17 + DDD. Gradle multi-module 구조.
+Spring Boot 4.1 + Java 25 + DDD. Gradle multi-module 구조.
 
 ### 모듈 구조
 
@@ -156,7 +156,7 @@ public enum BookingError implements ErrorCode {
 
 ## Technology Stack
 
-Java 17, Spring Boot 3.5.0, MySQL, Redis, Testcontainers, QueryDSL 5.0.0, JWT, Spring Batch.
+Java 25, Spring Boot 4.1.0, MySQL, Redis, Testcontainers, QueryDSL 5.1.0, JWT, Spring Batch.
 
 ## Git Workflow
 
@@ -172,23 +172,6 @@ Java 17, Spring Boot 3.5.0, MySQL, Redis, Testcontainers, QueryDSL 5.0.0, JWT, S
 4. `/pr` — 변경사항 분석 + 이슈 본문 기반 PR 생성
 
 배포 환경, K8s/ArgoCD/Docker 상세 → [docs/deployment.md](./docs/deployment.md)
-
-## Development Workflow (superpowers 기반)
-
-**팀 표준 워크플로우. `superpowers` 시리즈를 모든 작업의 기본으로 사용한다.** 프로젝트 커스텀 skill(`/test`, `/pr`, `/issue`, `/validator`, `/api-doc` 등)은 superpowers와 결합해 사용한다.
-
-1. **이슈 생성** — `/issue <작업 내용>` (팀 GitHub Issue 컨벤션에 맞춘 제목·본문·라벨 생성)
-2. **요구사항 탐색** — `superpowers:brainstorming` (새 기능/컴포넌트/동작 변경 전, 요구사항이 모호할 때 사용자와 합의 형성)
-3. **계획** — `superpowers:writing-plans` (요구사항 합의 후, 코드 작성 전 — brainstorming 결과를 실행 가능한 계획으로 변환)
-4. **구현** — `/branch <이슈>`로 브랜치 생성 후 도메인별 skill(`/validator`, `/api-doc` 등) 결합. 본 프로젝트는 **구현 → 테스트 순서**를 표준으로 한다.
-5. **테스트 작성** — `/test <대상>` (BDD/Fixture/Helper 컨벤션 자동 적용; 단순 설정/문서 변경 등은 생략 가능)
-6. **검증** — `superpowers:verification-before-completion` ("완료" 선언 전 `./gradlew test` 등 증거 확보)
-7. **문서 반영** — 작업으로 바뀐 내용을 관련 문서에 반영한다. 영향받는 기존 문서(`AGENTS.md`, `README.md`, `docs/*`)를 수정하고, 새 도메인·아키텍처·배포 변경처럼 기존 문서로 담기 어려우면 적절한 문서를 새로 생성한다. 변경 문서는 같은 PR에 포함한다.
-8. **PR** — `/commit`으로 커밋 후 `/pr` 실행 (변경사항 자동 분석 + 이슈 기반 PR 생성)
-
-**버그 발생 시** → 가장 먼저 `superpowers:systematic-debugging`.
-**코드리뷰 받았을 때** → `superpowers:receiving-code-review`로 맹목적 적용을 방지.
-**병렬 작업 가능 시** → `superpowers:dispatching-parallel-agents`.
 
 ## Situational References
 

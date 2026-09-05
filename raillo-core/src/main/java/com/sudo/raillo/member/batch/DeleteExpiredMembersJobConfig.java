@@ -8,16 +8,16 @@ import java.util.Map;
 
 import javax.sql.DataSource;
 
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.Step;
+import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.database.JdbcPagingItemReader;
-import org.springframework.batch.item.database.Order;
-import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
-import org.springframework.batch.item.database.support.MySqlPagingQueryProvider;
+import org.springframework.batch.infrastructure.item.ItemWriter;
+import org.springframework.batch.infrastructure.item.database.JdbcPagingItemReader;
+import org.springframework.batch.infrastructure.item.database.Order;
+import org.springframework.batch.infrastructure.item.database.builder.JdbcPagingItemReaderBuilder;
+import org.springframework.batch.infrastructure.item.database.support.MySqlPagingQueryProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
@@ -43,23 +43,24 @@ public class DeleteExpiredMembersJobConfig {
 	private static final int CHUNK_SIZE = 100; // 100개씩 처리
 
 	@Bean
-	public Job deleteExpiredMembersJob() {
+	public Job deleteExpiredMembersJob() throws Exception {
 		return new JobBuilder("deleteExpiredMembersJob", jobRepository)
 			.start(deleteExpiredMembersStep())
 			.build();
 	}
 
 	@Bean
-	public Step deleteExpiredMembersStep() {
+	public Step deleteExpiredMembersStep() throws Exception {
 		return new StepBuilder("deleteExpiredMembersStep", jobRepository)
-			.<Long, Long>chunk(CHUNK_SIZE, transactionManager)
+			.<Long, Long>chunk(CHUNK_SIZE)
+			.transactionManager(transactionManager)
 			.reader(expiredMembersReader())
 			.writer(expiredMembersWriter())
 			.build();
 	}
 
 	@Bean
-	public JdbcPagingItemReader<Long> expiredMembersReader() {
+	public JdbcPagingItemReader<Long> expiredMembersReader() throws Exception {
 
 		MySqlPagingQueryProvider queryProvider = new MySqlPagingQueryProvider();
 		queryProvider.setSelectClause("m.id");

@@ -1,6 +1,6 @@
 // 여러 서비스가 공유하는 순수 라이브러리 모듈 (Spring Boot 실행 플러그인 미적용).
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 

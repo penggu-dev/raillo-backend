@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import com.sudo.raillo.support.annotation.ServiceTest;
 
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
@@ -55,9 +54,9 @@ class TokenValidatorTest {
 		SecretKey invalidSecretKey = Keys.hmacShaKeyFor(invalidKeyBytes);
 
 		String tokenWithInvalidSignature = Jwts.builder()
-			.setSubject(MEMBER_NO)
-			.setExpiration(new Date(System.currentTimeMillis() + 1000 * 60))
-			.signWith(invalidSecretKey, SignatureAlgorithm.HS512)
+			.subject(MEMBER_NO)
+			.expiration(new Date(System.currentTimeMillis() + 1000 * 60))
+			.signWith(invalidSecretKey)
 			.compact();
 
 		// when
@@ -72,9 +71,9 @@ class TokenValidatorTest {
 	void validateExpiredToken() {
 		// given
 		String expiredToken = Jwts.builder()
-			.setSubject(MEMBER_NO)
-			.setExpiration(new Date(System.currentTimeMillis() - 1000))
-			.signWith(testKey, SignatureAlgorithm.HS512)
+			.subject(MEMBER_NO)
+			.expiration(new Date(System.currentTimeMillis() - 1000))
+			.signWith(testKey)
 			.compact();
 
 		// when
@@ -114,8 +113,8 @@ class TokenValidatorTest {
 	void validateUnsupportedToken() {
 		// given
 		String unsignedToken = Jwts.builder()
-			.setSubject(MEMBER_NO)
-			.setExpiration(new Date(System.currentTimeMillis() + 1000 * 60))
+			.subject(MEMBER_NO)
+			.expiration(new Date(System.currentTimeMillis() + 1000 * 60))
 			.compact();
 
 		// when
@@ -127,9 +126,9 @@ class TokenValidatorTest {
 
 	private String createValidToken() {
 		return Jwts.builder()
-			.setSubject(MEMBER_NO)
-			.setExpiration(new Date(System.currentTimeMillis() + 1000 * 60))
-			.signWith(testKey, SignatureAlgorithm.HS512)
+			.subject(MEMBER_NO)
+			.expiration(new Date(System.currentTimeMillis() + 1000 * 60))
+			.signWith(testKey)
 			.compact();
 	}
 }

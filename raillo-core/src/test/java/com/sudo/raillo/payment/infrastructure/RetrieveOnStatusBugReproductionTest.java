@@ -20,7 +20,7 @@ import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.payment.application.dto.request.PaymentConfirmRequest;
 import com.sudo.raillo.payment.exception.PaymentError;
@@ -33,31 +33,19 @@ import com.sudo.raillo.payment.infrastructure.dto.TossPaymentConfirmResponse;
  * retrieve() + onStatus() 버그 재현 테스트
  *
  * <h2>검증 가설</h2>
- * Spring의 readWithMessageConverters()는 내부 try-catch 안에서 onStatus 핸들러를 실행한다.
- * 핸들러가 IOException(예: MismatchedInputException)을 던지면 Spring이 이를 가로채
- * RestClientException으로 감싸버린다. 결과적으로 TossPaymentException은 절대 전파되지 않는다.
+ * 빈 오류 body를 역직렬화하면 TossPaymentException 대신 일반 예외 경로로 처리된다.
+ * Jackson 3은 역직렬화 예외를 runtime exception으로 던지므로, 이전 Spring의
+ * IOException wrapping 메시지에 의존하지 않고 애플리케이션 예외 계약만 검증한다.
  *
  * <h2>시나리오</h2>
  * <ol>
  *   <li>정상 JSON body → TossPaymentException 전파 (retrieve+onStatus 자체는 문제없음)</li>
- *   <li>빈 body + no Content-Type → Spring이 MismatchedInputException을 삼킴 → BusinessException</li>
+ *   <li>빈 body + no Content-Type → BusinessException</li>
  *   <li>빈 body + application/json → Content-Type과 무관하게 body가 없으면 동일하게 실패</li>
  * </ol>
  *
- * <h2>Spring 내부 흐름</h2>
- * <pre>
- * readWithMessageConverters() {
- *     MediaType contentType = getContentType(response); // ← try 블록 밖에서 캡처
- *     try {
- *         callback.run(); // ← onStatus 핸들러 실행
- *         // body 읽기...
- *     } catch (IOException exc) { // ← 핸들러의 MismatchedInputException도 여기서 잡힘!
- *         throw new RestClientException("... content type [" + contentType + "]", exc);
- *     }
- * }
- * </pre>
  */
-@DisplayName("retrieve() + onStatus() 버그 재현: Spring catch 블록의 IOException 삼킴 현상")
+@DisplayName("retrieve() + onStatus(): 빈 오류 body 처리")
 class RetrieveOnStatusBugReproductionTest {
 
 	private MockRestServiceServer server;
@@ -161,14 +149,11 @@ class RetrieveOnStatusBugReproductionTest {
 				.andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
 			// when & then
-			// MismatchedInputException → Spring catch(IOException) → RestClientException
-			// → catch(Exception e) → BusinessException (TossPaymentException이 아님!)
+			// Jackson 역직렬화 실패 → catch(Exception e) → BusinessException
 			assertThatThrownBy(() -> legacyClient.confirmPayment(request))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
-				// Spring의 RestClientException 메시지가 BusinessException 메시지에 포함됨
-				// "content type [application/octet-stream]" → 실제 운영 에러 로그와 동일한 패턴
-				.hasMessageContaining("application/octet-stream");
+				.hasMessageContaining("결제 승인 처리 중 알 수 없는 오류");
 
 			server.verify();
 		}
@@ -194,11 +179,10 @@ class RetrieveOnStatusBugReproductionTest {
 
 			// when & then
 			// body가 없으면 Content-Type이 application/json이어도 동일하게 실패
-			// → "content type [application/json]"으로 달라지지만 여전히 BusinessException
 			assertThatThrownBy(() -> legacyClient.confirmPayment(request))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
-				.hasMessageContaining("application/json");
+				.hasMessageContaining("결제 승인 처리 중 알 수 없는 오류");
 
 			server.verify();
 		}
