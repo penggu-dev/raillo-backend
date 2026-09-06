@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: redis
+spec:
+  serviceName: redis-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      # raillo-redis=true label이 있는 Worker에만 배치
+      nodeSelector:
+        raillo-redis: "true"
+      # hostPath 디렉터리를 Redis가 쓸 수 있도록 권한 설정
+      initContainers:
+        - name: init-redis-data
+          image: docker.io/library/busybox:1.36.1
+          command:
+            - sh
+            - -c
+            - chown -R 999:999 /data
+
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      containers:
+        - name: redis
+          image: docker.io/library/redis:7.4.11
+          command:
+            - sh
+            - -c
+            - |
+              exec redis-server \
+                --dir /data \
+                --requirepass "$REDIS_PASSWORD" \
+                --appendonly yes \
+                --appendfsync everysec
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: REDIS_PASSWORD
+          ports:
+            - name: redis
+              containerPort: 6379
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: redis-data
+          hostPath:
+            path: /var/lib/raillo/redis
+            type: DirectoryOrCreate
