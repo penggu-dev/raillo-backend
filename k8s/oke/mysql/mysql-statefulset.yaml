@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: mysql
+spec:
+  serviceName: mysql-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: mysql
+          image: docker.io/library/mysql:8.4
+          ports:
+            - name: mysql
+              containerPort: 3306
+          envFrom:
+            - secretRef:
+                name: mysql-secret
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          startupProbe:
+            tcpSocket:
+              port: mysql
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: mysql
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: mysql
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-pvc
