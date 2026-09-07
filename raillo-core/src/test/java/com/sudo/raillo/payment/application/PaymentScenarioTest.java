@@ -30,8 +30,8 @@ import com.sudo.raillo.order.domain.status.OrderStatus;
 import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
 import com.sudo.raillo.payment.application.provided.PaymentPreparer;
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
-import com.sudo.raillo.payment.domain.PaymentPrepareRequest;
+import com.sudo.raillo.payment.application.PaymentConfirmCommand;
+import com.sudo.raillo.payment.application.PaymentPrepareCommand;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.domain.PaymentMethod;
@@ -115,7 +115,7 @@ class PaymentScenarioTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// 준비 단계 검증
 		assertThat(preparedOrder.getOrderCode()).isNotNull();
@@ -124,10 +124,10 @@ class PaymentScenarioTest {
 		// given - 토스 승인 성공 Mock
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, preparedOrder.getOrderCode(), "카드", amount.longValue(), "DONE");
-		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when - 결제 승인
@@ -170,13 +170,13 @@ class PaymentScenarioTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// given - 토스 승인 실패 Mock (4xx 에러)
-		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willThrow(new TossPaymentException(400, "REJECT_CARD_PAYMENT", "카드 결제가 거절되었습니다."));
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when & then - 예외 발생
@@ -209,15 +209,15 @@ class PaymentScenarioTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// given - 토스 응답 금액 불일치 Mock (요청은 50000인데 토스가 60000 응답)
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, preparedOrder.getOrderCode(), "카드", 60000L, "DONE");
-		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when & then
@@ -236,15 +236,15 @@ class PaymentScenarioTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// given - 알 수 없는 결제수단 Mock
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, preparedOrder.getOrderCode(), "비트코인", amount.longValue(), "DONE");
-		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when & then
@@ -285,16 +285,16 @@ class PaymentScenarioTest {
 
 		// given - 결제 준비 (2건 묶음)
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pb1.getId(), pb2.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pb1.getId(), pb2.getId())), memberNo);
 
 		BigDecimal totalAmount = preparedOrder.getTotalAmount();
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, preparedOrder.getOrderCode(), "카드", totalAmount.longValue(), "DONE");
-		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), totalAmount);
 
 		// when

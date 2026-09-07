@@ -1,6 +1,8 @@
-package com.sudo.raillo.payment.domain;
+package com.sudo.raillo.payment.adapter.webapi.dto;
 
 import java.math.BigDecimal;
+
+import com.sudo.raillo.payment.application.PaymentConfirmCommand;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -20,4 +22,7 @@ public record PaymentConfirmRequest(
 	@Positive(message = "amount는 0보다 커야 합니다")
 	BigDecimal amount
 ) {
+	public PaymentConfirmCommand toCommand() {
+		return new PaymentConfirmCommand(paymentKey, orderId, amount);
+	}
 }

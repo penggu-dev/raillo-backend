@@ -14,7 +14,6 @@ import com.sudo.raillo.payment.application.required.OrderRegister;
 import com.sudo.raillo.payment.application.required.PendingBookingReader;
 import com.sudo.raillo.payment.application.required.SeatConflictValidator;
 import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.domain.PaymentPrepareRequest;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,8 +39,8 @@ public class PaymentPrepareService implements PaymentPreparer {
 	private final SeatConflictValidator seatConflictValidator;
 
 	@Override
-	public Order prepare(PaymentPrepareRequest request, String memberNo) {
-		List<PendingBooking> pendingBookings = pendingBookingReader.getPendingBookings(request.pendingBookingIds(), memberNo);
+	public Order prepare(PaymentPrepareCommand command, String memberNo) {
+		List<PendingBooking> pendingBookings = pendingBookingReader.getPendingBookings(command.pendingBookingIds(), memberNo);
 		seatConflictValidator.validateSeatConflicts(pendingBookings);
 
 		Member member = memberFinder.getMemberByMemberNo(memberNo);

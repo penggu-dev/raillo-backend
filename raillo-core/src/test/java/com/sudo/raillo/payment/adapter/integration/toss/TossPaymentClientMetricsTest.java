@@ -21,7 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
+import com.sudo.raillo.payment.application.PaymentConfirmCommand;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentCancelRequest;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
@@ -76,7 +76,7 @@ class TossPaymentClientMetricsTest {
 		@DisplayName("4xx 응답 시 toss_api_failure_total 카운터가 증가한다")
 		void fail_4xx_incrementsFailureCounter() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
 			String errorBody = """
@@ -108,7 +108,7 @@ class TossPaymentClientMetricsTest {
 		@DisplayName("5xx 응답 시 toss_api_failure_total 카운터가 증가한다")
 		void fail_5xx_incrementsFailureCounter() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
 			String errorBody = """
@@ -140,7 +140,7 @@ class TossPaymentClientMetricsTest {
 		@DisplayName("5xx 응답 본문이 비어 있을 때 EMPTY_ERROR_BODY toss_api_failure_total 카운터가 증가한다")
 		void fail_5xx_emptyBody_incrementsFailureCounter() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
@@ -165,7 +165,7 @@ class TossPaymentClientMetricsTest {
 		@DisplayName("예상치 못한 예외 발생 시 CLIENT_ERROR toss_api_failure_total 카운터가 증가한다")
 		void fail_unexpectedException_incrementsFailureCounter() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))

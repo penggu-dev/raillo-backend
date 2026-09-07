@@ -31,8 +31,8 @@ import com.sudo.raillo.order.exception.OrderError;
 import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.application.provided.PaymentPreparer;
 import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
-import com.sudo.raillo.payment.domain.PaymentPrepareRequest;
+import com.sudo.raillo.payment.application.PaymentConfirmCommand;
+import com.sudo.raillo.payment.application.PaymentPrepareCommand;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.domain.PaymentMethod;
@@ -117,14 +117,14 @@ class PaymentConfirmServiceTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, preparedOrder.getOrderCode(), "카드", amount.longValue(), "DONE");
-		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when
@@ -146,14 +146,14 @@ class PaymentConfirmServiceTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, preparedOrder.getOrderCode(), "카드", amount.longValue(), "DONE");
-		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when
@@ -183,13 +183,13 @@ class PaymentConfirmServiceTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// 토스 API 실패 → 바깥 트랜잭션 롤백
-		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willThrow(new TossPaymentException(400, "INVALID_REQUEST", "test error"));
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when - 바깥 트랜잭션 롤백
@@ -226,14 +226,14 @@ class PaymentConfirmServiceTest {
 		Long seatId = pendingBooking.getPendingSeatBookings().get(0).seatId();
 
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
 			paymentKey, preparedOrder.getOrderCode(), "카드", amount.longValue(), "DONE");
-		given(tossPaymentClient.confirmPayment(any(PaymentConfirmRequest.class)))
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when
@@ -266,12 +266,12 @@ class PaymentConfirmServiceTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// PendingBooking을 Redis에서 삭제하여 TTL 만료 시뮬레이션
 		bookingRedisRepository.deletePendingBooking(pendingBooking.getId());
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when & then
@@ -290,7 +290,7 @@ class PaymentConfirmServiceTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// 다른 회원 생성
 		Member otherMember = memberRepository.save(MemberFixture.createOther());
@@ -307,7 +307,7 @@ class PaymentConfirmServiceTest {
 			.build();
 		bookingRedisRepository.savePendingBooking(otherPendingBooking);
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when & then
@@ -327,9 +327,9 @@ class PaymentConfirmServiceTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(orderAmount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), wrongRequestAmount);
 
 		// when & then
@@ -348,7 +348,7 @@ class PaymentConfirmServiceTest {
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
 		Order preparedOrder = paymentPreparer.prepare(
-			new PaymentPrepareRequest(List.of(pendingBooking.getId())), memberNo);
+			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// 기존 Payment를 PAID 상태로 변경
 		Order order = orderRepository.findByOrderCode(preparedOrder.getOrderCode()).orElseThrow();
@@ -356,7 +356,7 @@ class PaymentConfirmServiceTest {
 		existingPayment.approve(PaymentMethod.CREDIT_CARD);
 		paymentRepository.saveAndFlush(existingPayment);
 
-		PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest(
+		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
 			paymentKey, preparedOrder.getOrderCode(), amount);
 
 		// when & then

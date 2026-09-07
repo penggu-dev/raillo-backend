@@ -18,7 +18,7 @@ import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.adapter.persistence.PaymentJpaRepository;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
 import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
+import com.sudo.raillo.payment.application.PaymentConfirmCommand;
 import com.sudo.raillo.payment.domain.PaymentMethod;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.support.annotation.ServiceTest;
@@ -151,7 +151,7 @@ class PaymentValidatorTest {
 
 			PaymentGateway.PaymentConfirmResult result = new PaymentGateway.PaymentConfirmResult(
 				paymentKey, "ORDER_001", amount, PaymentMethod.CREDIT_CARD);
-			PaymentConfirmRequest request = new PaymentConfirmRequest(paymentKey, "ORDER_001", amount);
+			PaymentConfirmCommand request = new PaymentConfirmCommand(paymentKey, "ORDER_001", amount);
 
 			assertThatCode(() -> paymentValidator.validateGatewayResponseMatchesRequest(result, request))
 				.doesNotThrowAnyException();
@@ -164,7 +164,7 @@ class PaymentValidatorTest {
 
 			PaymentGateway.PaymentConfirmResult result = new PaymentGateway.PaymentConfirmResult(
 				paymentKey, "ORDER_001", BigDecimal.valueOf(60000), PaymentMethod.CREDIT_CARD);
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				paymentKey, "ORDER_001", BigDecimal.valueOf(50000));
 
 			assertThatThrownBy(() -> paymentValidator.validateGatewayResponseMatchesRequest(result, request))
@@ -179,7 +179,7 @@ class PaymentValidatorTest {
 
 			PaymentGateway.PaymentConfirmResult result = new PaymentGateway.PaymentConfirmResult(
 				"gw_pk_different", "ORDER_001", amount, PaymentMethod.CREDIT_CARD);
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"gw_pk_original", "ORDER_001", amount);
 
 			assertThatThrownBy(() -> paymentValidator.validateGatewayResponseMatchesRequest(result, request))

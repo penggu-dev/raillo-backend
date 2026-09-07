@@ -10,7 +10,6 @@ import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.application.required.PaymentGateway.PaymentConfirmResult;
 import com.sudo.raillo.payment.application.required.PaymentRepository;
 import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 
@@ -59,20 +58,20 @@ public class PaymentValidator {
 	/**
 	 * 게이트웨이 응답이 원 요청과 일치하는지 검증한다.
 	 */
-	public void validateGatewayResponseMatchesRequest(PaymentConfirmResult result, PaymentConfirmRequest request) {
-		if (result.totalAmount().compareTo(request.amount()) != 0) {
-			log.error("[게이트웨이 응답 금액 불일치] gatewayAmount={}, requestAmount={}", result.totalAmount(), request.amount());
+	public void validateGatewayResponseMatchesRequest(PaymentConfirmResult result, PaymentConfirmCommand command) {
+		if (result.totalAmount().compareTo(command.amount()) != 0) {
+			log.error("[게이트웨이 응답 금액 불일치] gatewayAmount={}, requestAmount={}", result.totalAmount(), command.amount());
 			throw new BusinessException(
 				PaymentError.PAYMENT_AMOUNT_MISMATCH,
-				String.format("게이트웨이 결제 금액이 요청 금액과 일치하지 않습니다. (게이트웨이: %s, 요청: %s)", result.totalAmount(), request.amount())
+				String.format("게이트웨이 결제 금액이 요청 금액과 일치하지 않습니다. (게이트웨이: %s, 요청: %s)", result.totalAmount(), command.amount())
 			);
 		}
 
-		if (!result.paymentKey().equals(request.paymentKey())) {
-			log.error("[게이트웨이 응답 paymentKey 불일치] gatewayPaymentKey={}, requestPaymentKey={}", result.paymentKey(), request.paymentKey());
+		if (!result.paymentKey().equals(command.paymentKey())) {
+			log.error("[게이트웨이 응답 paymentKey 불일치] gatewayPaymentKey={}, requestPaymentKey={}", result.paymentKey(), command.paymentKey());
 			throw new BusinessException(
 				PaymentError.PAYMENT_KEY_MISMATCH,
-				String.format("게이트웨이 결제 키가 요청 키와 일치하지 않습니다. (게이트웨이: %s, 요청: %s)", result.paymentKey(), request.paymentKey())
+				String.format("게이트웨이 결제 키가 요청 키와 일치하지 않습니다. (게이트웨이: %s, 요청: %s)", result.paymentKey(), command.paymentKey())
 			);
 		}
 

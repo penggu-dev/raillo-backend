@@ -22,7 +22,7 @@ import org.springframework.web.client.RestClient;
 
 import tools.jackson.databind.ObjectMapper;
 import com.sudo.raillo.common.exception.BusinessException;
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
+import com.sudo.raillo.payment.application.PaymentConfirmCommand;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.payment.domain.exception.TossPaymentException;
 import com.sudo.raillo.payment.adapter.integration.toss.TossErrorResponseV1;
@@ -65,7 +65,7 @@ class RetrieveOnStatusBugReproductionTest {
 			this.objectMapper = objectMapper;
 		}
 
-		TossPaymentConfirmResponse confirmPayment(PaymentConfirmRequest request) {
+		TossPaymentConfirmResponse confirmPayment(PaymentConfirmCommand request) {
 			try {
 				return restClient.post()
 					.uri("/v1/payments/confirm")
@@ -107,7 +107,7 @@ class RetrieveOnStatusBugReproductionTest {
 		@DisplayName("4xx + JSON body → TossPaymentException 정상 전파 (retrieve+onStatus 자체는 문제없음)")
 		void properJsonBody_tossPaymentException_propagates() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest("pk", "oid", BigDecimal.valueOf(1000));
+			PaymentConfirmCommand request = new PaymentConfirmCommand("pk", "oid", BigDecimal.valueOf(1000));
 			String errorBody = """
 				{"code": "UNAUTHORIZED_KEY", "message": "인증되지 않은 시크릿 키"}
 				""";
@@ -140,7 +140,7 @@ class RetrieveOnStatusBugReproductionTest {
 		@DisplayName("4xx + 빈 body + no Content-Type → TossPaymentException 대신 BusinessException 발생")
 		void emptyBodyNoContentType_businessException_not_tossPaymentException() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest("pk", "oid", BigDecimal.valueOf(1000));
+			PaymentConfirmCommand request = new PaymentConfirmCommand("pk", "oid", BigDecimal.valueOf(1000));
 
 			// Content-Type 없음 → Spring getContentType() = null → APPLICATION_OCTET_STREAM 기본값
 			// body 없음 → readAllBytes() = [] → Jackson 파싱 실패 → MismatchedInputException(IOException)
@@ -167,7 +167,7 @@ class RetrieveOnStatusBugReproductionTest {
 		@DisplayName("4xx + 빈 body + application/json → Content-Type과 무관하게 BusinessException 발생")
 		void emptyBodyWithContentType_still_businessException() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest("pk", "oid", BigDecimal.valueOf(1000));
+			PaymentConfirmCommand request = new PaymentConfirmCommand("pk", "oid", BigDecimal.valueOf(1000));
 
 			// Content-Type은 있지만 body가 없음
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))

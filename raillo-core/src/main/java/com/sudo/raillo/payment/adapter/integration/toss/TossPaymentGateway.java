@@ -5,8 +5,8 @@ import java.math.BigDecimal;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.common.exception.BusinessException;
+import com.sudo.raillo.payment.application.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.domain.PaymentMethod;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 
@@ -21,8 +21,8 @@ public class TossPaymentGateway implements PaymentGateway {
 	private final TossPaymentClient tossPaymentClient;
 
 	@Override
-	public PaymentConfirmResult confirm(PaymentConfirmRequest request) {
-		TossPaymentConfirmResponse response = tossPaymentClient.confirmPayment(request);
+	public PaymentConfirmResult confirm(PaymentConfirmCommand command) {
+		TossPaymentConfirmResponse response = tossPaymentClient.confirmPayment(command);
 		return new PaymentConfirmResult(
 			response.paymentKey(),
 			response.orderId(),

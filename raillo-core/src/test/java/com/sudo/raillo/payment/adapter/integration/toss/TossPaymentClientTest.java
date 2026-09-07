@@ -23,7 +23,7 @@ import org.springframework.web.client.RestClient;
 
 import tools.jackson.databind.ObjectMapper;
 import com.sudo.raillo.common.exception.BusinessException;
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
+import com.sudo.raillo.payment.application.PaymentConfirmCommand;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentCancelRequest;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.payment.domain.exception.TossPaymentException;
@@ -83,7 +83,7 @@ class TossPaymentClientTest {
 		@DisplayName("200 응답 시 TossPaymentConfirmResponse로 정상 매핑된다")
 		void success() throws Exception {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
 			String responseBody = """
@@ -120,7 +120,7 @@ class TossPaymentClientTest {
 		@DisplayName("4xx 응답 시 TossPaymentException으로 변환된다")
 		void fail_4xx() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
 			String errorBody = """
@@ -148,7 +148,7 @@ class TossPaymentClientTest {
 		@DisplayName("5xx 응답 시 TossPaymentException으로 변환된다")
 		void fail_5xx() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
 			String errorBody = """
@@ -176,7 +176,7 @@ class TossPaymentClientTest {
 		@DisplayName("5xx 응답 본문이 비어 있어도 TossPaymentException으로 변환된다")
 		void fail_5xx_emptyBody() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
@@ -197,7 +197,7 @@ class TossPaymentClientTest {
 		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_SYSTEM_ERROR BusinessException으로 래핑된다")
 		void fail_unexpectedException() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
 			// 응답 body 없이 연결 실패 시뮬레이션 - 잘못된 JSON으로 파싱 실패 유도
@@ -360,7 +360,7 @@ class TossPaymentClientTest {
 		@DisplayName("secretKey가 Base64로 인코딩되어 Authorization 헤더에 포함된다")
 		void authorizationHeaderContainsBase64EncodedSecretKey() {
 			// given
-			PaymentConfirmRequest request = new PaymentConfirmRequest(
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_auth_test", "ORDER_AUTH", BigDecimal.valueOf(10000));
 
 			String expectedAuth = "Basic " + Base64.getEncoder()

@@ -2,7 +2,7 @@ package com.sudo.raillo.payment.application.required;
 
 import java.math.BigDecimal;
 
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
+import com.sudo.raillo.payment.application.PaymentConfirmCommand;
 import com.sudo.raillo.payment.domain.PaymentMethod;
 
 /**
@@ -12,7 +12,7 @@ import com.sudo.raillo.payment.domain.PaymentMethod;
  */
 public interface PaymentGateway {
 
-	PaymentConfirmResult confirm(PaymentConfirmRequest request);
+	PaymentConfirmResult confirm(PaymentConfirmCommand command);
 
 	record PaymentConfirmResult(
 		String paymentKey,

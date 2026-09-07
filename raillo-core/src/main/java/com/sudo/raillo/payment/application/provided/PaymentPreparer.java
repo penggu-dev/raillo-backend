@@ -1,7 +1,7 @@
 package com.sudo.raillo.payment.application.provided;
 
 import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.payment.domain.PaymentPrepareRequest;
+import com.sudo.raillo.payment.application.PaymentPrepareCommand;
 
 /**
  * 결제 준비 유스케이스 provided port.
@@ -11,5 +11,5 @@ import com.sudo.raillo.payment.domain.PaymentPrepareRequest;
  */
 public interface PaymentPreparer {
 
-	Order prepare(PaymentPrepareRequest request, String memberNo);
+	Order prepare(PaymentPrepareCommand command, String memberNo);
 }

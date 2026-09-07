@@ -25,7 +25,6 @@ import com.sudo.raillo.payment.application.required.SeatHoldReleaser;
 import com.sudo.raillo.payment.application.required.TrainScheduleReader;
 import com.sudo.raillo.payment.application.required.TrainSeatReader;
 import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.domain.exception.TossPaymentException;
 import com.sudo.raillo.train.domain.ScheduleStop;
 
@@ -58,43 +57,43 @@ public class PaymentConfirmService implements PaymentConfirmer {
 	private final TrainSeatReader trainSeatReader;
 
 	@Override
-	public Payment confirm(PaymentConfirmRequest request, String memberNo) {
+	public Payment confirm(PaymentConfirmCommand command, String memberNo) {
 		log.info("[결제 승인 시작] orderId={}, paymentKey={}, amount={}",
-			request.orderId(), request.paymentKey(), request.amount());
+			command.orderId(), command.paymentKey(), command.amount());
 
-		Order order = orderRegister.getOrderByOrderCode(request.orderId());
+		Order order = orderRegister.getOrderByOrderCode(command.orderId());
 		List<PendingBooking> pendingBookings = validateAndGetPendingBookings(order, memberNo);
 		Member member = memberFinder.getMemberByMemberNo(memberNo);
 		Payment payment = paymentModifier.getPaymentByOrder(order);
 
 		orderRegister.validateOrderOwner(order, member);
 		paymentValidator.validatePaymentOwner(payment, member);
-		paymentValidator.validateAmounts(request.amount(), order.getTotalAmount(), payment.getAmount());
+		paymentValidator.validateAmounts(command.amount(), order.getTotalAmount(), payment.getAmount());
 		paymentValidator.validateDuplicatePayment(order);
 
-		paymentModifier.updatePaymentKeyInNewTransaction(payment.getId(), request.paymentKey());
+		paymentModifier.updatePaymentKeyInNewTransaction(payment.getId(), command.paymentKey());
 		// REQUIRES_NEW로 별도 커밋된 paymentKey를 바깥 트랜잭션 엔티티에도 동기화
 		// (미동기화 시 바깥 트랜잭션 커밋 때 Hibernate가 paymentKey=null로 덮어씀)
-		payment.updatePaymentKey(request.paymentKey());
+		payment.updatePaymentKey(command.paymentKey());
 
 		PaymentConfirmResult result;
 		try {
-			result = paymentGateway.confirm(request);
+			result = paymentGateway.confirm(command);
 		} catch (TossPaymentException e) {
 			paymentModifier.failPaymentInNewTransaction(payment.getId(), e.getErrorCode(), e.getMessage());
 			log.info("[게이트웨이 결제 승인 실패] orderCode={}, httpStatus={}, code={}, message={}",
-				request.orderId(), e.getHttpStatus(), e.getErrorCode(), e.getMessage());
+				command.orderId(), e.getHttpStatus(), e.getErrorCode(), e.getMessage());
 			throw e;
 		}
 
-		paymentValidator.validateGatewayResponseMatchesRequest(result, request);
+		paymentValidator.validateGatewayResponseMatchesRequest(result, command);
 
 		order.completePayment();
 		bookingCreator.createBookingFromOrder(order);
 		payment.approve(result.method());
 		cleanupPendingBookings(pendingBookings);
 
-		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), request.orderId());
+		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), command.orderId());
 		return payment;
 	}
 

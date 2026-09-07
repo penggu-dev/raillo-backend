@@ -1,6 +1,8 @@
-package com.sudo.raillo.payment.domain;
+package com.sudo.raillo.payment.adapter.webapi.dto;
 
 import java.util.List;
+
+import com.sudo.raillo.payment.application.PaymentPrepareCommand;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -15,4 +17,7 @@ public record PaymentPrepareRequest(
 	@Size(min = 1, max = 5, message = "한 번에 최대 5개의 예약까지 결제 가능합니다")
 	List<@NotBlank(message = "예약 ID는 공백일 수 없습니다") String> pendingBookingIds
 ) {
+	public PaymentPrepareCommand toCommand() {
+		return new PaymentPrepareCommand(pendingBookingIds);
+	}
 }

@@ -67,4 +67,15 @@ class PaymentHexagonalArchitectureTest {
 			.and().areTopLevelClasses()
 			.should().beInterfaces()
 			.because("provided port(top-level)는 인터페이스여야 합니다.");
+
+	@ArchTest
+	static final ArchRule domainMustNotDependOnFrameworkAnnotations =
+		noClasses().that().resideInAPackage(DOMAIN)
+			.should().dependOnClassesThat()
+			.resideInAnyPackage(
+				"jakarta.validation..",
+				"io.swagger..",
+				"org.springframework.web..")
+			.because("payment.domain은 웹/검증/문서화 프레임워크에 의존해서는 안 됩니다. "
+				+ "입력 DTO는 adapter.webapi.dto에 두고, 애플리케이션은 순수 Command/Value를 전달받아야 합니다.");
 }

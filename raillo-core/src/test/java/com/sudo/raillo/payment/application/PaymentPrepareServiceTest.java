@@ -23,7 +23,7 @@ import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.order.domain.status.OrderStatus;
 import com.sudo.raillo.order.infrastructure.OrderRepository;
-import com.sudo.raillo.payment.domain.PaymentPrepareRequest;
+import com.sudo.raillo.payment.application.PaymentPrepareCommand;
 import com.sudo.raillo.payment.application.provided.PaymentPreparer;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
@@ -96,7 +96,7 @@ class PaymentPrepareServiceTest {
 			.build();
 		bookingRedisRepository.savePendingBooking(pendingBooking);
 
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getId()));
+		PaymentPrepareCommand request = new PaymentPrepareCommand(List.of(pendingBooking.getId()));
 
 		// when
 		Order order = paymentPreparer.prepare(request, memberNo);
@@ -148,7 +148,7 @@ class PaymentPrepareServiceTest {
 			.build();
 		bookingRedisRepository.savePendingBooking(pendingBooking2);
 
-		PaymentPrepareRequest request = new PaymentPrepareRequest(
+		PaymentPrepareCommand request = new PaymentPrepareCommand(
 			List.of(pendingBooking1.getId(), pendingBooking2.getId())
 		);
 
@@ -170,7 +170,7 @@ class PaymentPrepareServiceTest {
 		String memberNo = member.getMemberDetail().getMemberNo();
 		String nonExistentId = UUID.randomUUID().toString();
 
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(nonExistentId));
+		PaymentPrepareCommand request = new PaymentPrepareCommand(List.of(nonExistentId));
 
 		// when & then
 		assertThatThrownBy(() -> paymentPreparer.prepare(request, memberNo))
@@ -210,7 +210,7 @@ class PaymentPrepareServiceTest {
 			.build();
 		bookingRedisRepository.savePendingBooking(othersPendingBooking);
 
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(othersPendingBooking.getId()));
+		PaymentPrepareCommand request = new PaymentPrepareCommand(List.of(othersPendingBooking.getId()));
 
 		// when & then (현재 사용자가 다른 사용자의 PendingBooking으로 결제 시도)
 		assertThatThrownBy(() -> paymentPreparer.prepare(request, currentMemberNo))
@@ -250,7 +250,7 @@ class PaymentPrepareServiceTest {
 		// 회원 탈퇴
 		memberRepository.delete(member);
 
-		PaymentPrepareRequest request = new PaymentPrepareRequest(List.of(pendingBooking.getId()));
+		PaymentPrepareCommand request = new PaymentPrepareCommand(List.of(pendingBooking.getId()));
 
 		// when & then (탈퇴한 회원의 토큰으로 결제 시도)
 		assertThatThrownBy(() -> paymentPreparer.prepare(request, memberNo))

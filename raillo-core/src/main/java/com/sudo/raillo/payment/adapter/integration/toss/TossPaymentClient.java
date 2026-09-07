@@ -14,9 +14,9 @@ import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.payment.adapter.integration.toss.TossErrorResponseV1;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentCancelResponse;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentConfirmResponse;
-import com.sudo.raillo.payment.domain.PaymentConfirmRequest;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentCancelRequest;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
+import com.sudo.raillo.payment.application.PaymentConfirmCommand;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.payment.domain.exception.TossPaymentException;
 
@@ -37,21 +37,21 @@ public class TossPaymentClient {
 	/**
 	 * 토스페이먼츠 결제 승인 API 호출
 	 *
-	 * @param request 결제 승인 요청 (paymentKey, orderId, amount)
+	 * @param command 결제 승인 커맨드 (paymentKey, orderId, amount)
 	 * @return Payment 객체 -> TossPaymentConfirmResponse 변환
 	 * <ul>
 	 * 	   <li>성공: 200 OK + Payment 객체</li>
 	 *     <li>실패: 4xx, 5xx 에러</li>
 	 * </ul>
 	 */
-	public TossPaymentConfirmResponse confirmPayment(PaymentConfirmRequest request) {
+	public TossPaymentConfirmResponse confirmPayment(PaymentConfirmCommand command) {
 		log.info("토스 결제 승인 요청: paymentKey={}, orderId={}, amount={}",
-			request.paymentKey(), request.orderId(), request.amount());
+			command.paymentKey(), command.orderId(), command.amount());
 
 		try {
 			TossPaymentConfirmResponse response = tossPaymentRestClient.post()
 				.uri("/v1/payments/confirm")
-				.body(request)
+				.body(command)
 				.exchange((req, res) -> {
 					if (res.getStatusCode().isError()) {
 						handleErrorResponse(res, "confirm");
