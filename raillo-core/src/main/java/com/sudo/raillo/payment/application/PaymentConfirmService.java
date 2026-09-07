@@ -115,6 +115,9 @@ public class PaymentConfirmService implements PaymentConfirmer {
 		try {
 			pendingBookingReader.deletePendingBookings(pendingBookingIds, memberNo);
 		} catch (Exception e) {
+			// Payment는 이미 approve된 상태이므로 정리 실패로 트랜잭션을 롤백해선 안 된다.
+			// 로그만 남기고 지나가면 PendingBooking과 Redis Hold는 TTL(seat-hold-architecture Lazy Cleanup)로 회수된다.
+			// TODO(#254 후속): 승인 완료 이벤트 발행 + 아웃박스로 신뢰성 있는 정리 처리로 전환.
 			log.error("[PendingBooking 삭제 실패] error={}", e.getMessage(), e);
 		}
 
