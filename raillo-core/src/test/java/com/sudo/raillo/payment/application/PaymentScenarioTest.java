@@ -31,7 +31,9 @@ import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
 import com.sudo.raillo.payment.application.provided.PaymentPreparer;
 import com.sudo.raillo.payment.application.PaymentConfirmCommand;
+import com.sudo.raillo.payment.application.PaymentConfirmResult;
 import com.sudo.raillo.payment.application.PaymentPrepareCommand;
+import com.sudo.raillo.payment.application.PaymentPrepareResult;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.domain.PaymentMethod;
@@ -114,34 +116,34 @@ class PaymentScenarioTest {
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// 준비 단계 검증
-		assertThat(preparedOrder.getOrderCode()).isNotNull();
-		assertThat(preparedOrder.getTotalAmount()).isEqualByComparingTo(amount);
+		assertThat(preparedResult.orderCode()).isNotNull();
+		assertThat(preparedResult.totalAmount()).isEqualByComparingTo(amount);
 
 		// given - 토스 승인 성공 Mock
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
-			paymentKey, preparedOrder.getOrderCode(), "카드", amount.longValue(), "DONE");
+			paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE");
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when - 결제 승인
-		Payment confirmedPayment = paymentConfirmer.confirm(confirmRequest, memberNo);
+		PaymentConfirmResult confirmedResult = paymentConfirmer.confirm(confirmRequest, memberNo);
 
 		// then - Payment 상태 검증
-		Payment payment = paymentRepository.findById(confirmedPayment.getId()).orElseThrow();
+		Payment payment = paymentRepository.findById(confirmedResult.paymentId()).orElseThrow();
 		assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
 		assertThat(payment.getPaymentKey()).isEqualTo(paymentKey);
 		assertThat(payment.getPaymentMethod()).isEqualTo(PaymentMethod.CREDIT_CARD);
 		assertThat(payment.getPaidAt()).isNotNull();
 
 		// then - Order 상태 검증
-		Order order = orderRepository.findByOrderCode(preparedOrder.getOrderCode()).orElseThrow();
+		Order order = orderRepository.findByOrderCode(preparedResult.orderCode()).orElseThrow();
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.ORDERED);
 
 		// then - Booking 생성 검증
@@ -169,7 +171,7 @@ class PaymentScenarioTest {
 		String paymentKey = "toss_pk_scenario_fail";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// given - 토스 승인 실패 Mock (4xx 에러)
@@ -177,7 +179,7 @@ class PaymentScenarioTest {
 			.willThrow(new TossPaymentException(400, "REJECT_CARD_PAYMENT", "카드 결제가 거절되었습니다."));
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when & then - 예외 발생
 		assertThatThrownBy(() -> paymentConfirmer.confirm(confirmRequest, memberNo))
@@ -193,7 +195,7 @@ class PaymentScenarioTest {
 		assertThat(payment.getFailureMessage()).isEqualTo("카드 결제가 거절되었습니다.");
 
 		// then - Order는 PENDING 유지 (바깥 트랜잭션 롤백)
-		Order order = orderRepository.findByOrderCode(preparedOrder.getOrderCode()).orElseThrow();
+		Order order = orderRepository.findByOrderCode(preparedResult.orderCode()).orElseThrow();
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
 
 		// then - Booking은 생성되지 않음
@@ -208,17 +210,17 @@ class PaymentScenarioTest {
 		String paymentKey = "toss_pk_scenario_amount_mismatch";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// given - 토스 응답 금액 불일치 Mock (요청은 50000인데 토스가 60000 응답)
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
-			paymentKey, preparedOrder.getOrderCode(), "카드", 60000L, "DONE");
+			paymentKey, preparedResult.orderCode(), "카드", 60000L, "DONE");
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when & then
 		assertThatThrownBy(() -> paymentConfirmer.confirm(confirmRequest, memberNo))
@@ -235,17 +237,17 @@ class PaymentScenarioTest {
 		String paymentKey = "toss_pk_scenario_unknown_method";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// given - 알 수 없는 결제수단 Mock
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
-			paymentKey, preparedOrder.getOrderCode(), "비트코인", amount.longValue(), "DONE");
+			paymentKey, preparedResult.orderCode(), "비트코인", amount.longValue(), "DONE");
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when & then
 		assertThatThrownBy(() -> paymentConfirmer.confirm(confirmRequest, memberNo))
@@ -284,18 +286,18 @@ class PaymentScenarioTest {
 		bookingRedisRepository.savePendingBooking(pb2);
 
 		// given - 결제 준비 (2건 묶음)
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pb1.getId(), pb2.getId())), memberNo);
 
-		BigDecimal totalAmount = preparedOrder.getTotalAmount();
+		BigDecimal totalAmount = preparedResult.totalAmount();
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
-			paymentKey, preparedOrder.getOrderCode(), "카드", totalAmount.longValue(), "DONE");
+			paymentKey, preparedResult.orderCode(), "카드", totalAmount.longValue(), "DONE");
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), totalAmount);
+			paymentKey, preparedResult.orderCode(), totalAmount);
 
 		// when
 		paymentConfirmer.confirm(confirmRequest, memberNo);
@@ -317,7 +319,7 @@ class PaymentScenarioTest {
 		assertThat(bookingRedisRepository.getPendingBooking(pb2.getId())).isEmpty();
 
 		// then - Order, Payment 상태 검증
-		Order order = orderRepository.findByOrderCode(preparedOrder.getOrderCode()).orElseThrow();
+		Order order = orderRepository.findByOrderCode(preparedResult.orderCode()).orElseThrow();
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.ORDERED);
 
 		Payment payment = paymentRepository.findByOrder(order).orElseThrow();

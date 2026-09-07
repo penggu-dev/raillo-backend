@@ -21,9 +21,9 @@ public class TossPaymentGateway implements PaymentGateway {
 	private final TossPaymentClient tossPaymentClient;
 
 	@Override
-	public PaymentConfirmResult confirm(PaymentConfirmCommand command) {
+	public GatewayConfirmResult confirm(PaymentConfirmCommand command) {
 		TossPaymentConfirmResponse response = tossPaymentClient.confirmPayment(command);
-		return new PaymentConfirmResult(
+		return new GatewayConfirmResult(
 			response.paymentKey(),
 			response.orderId(),
 			BigDecimal.valueOf(response.totalAmount()),

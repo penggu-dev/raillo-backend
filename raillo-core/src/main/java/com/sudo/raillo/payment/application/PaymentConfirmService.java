@@ -19,7 +19,7 @@ import com.sudo.raillo.payment.application.required.BookingCreator;
 import com.sudo.raillo.payment.application.required.MemberFinder;
 import com.sudo.raillo.payment.application.required.OrderReader;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
-import com.sudo.raillo.payment.application.required.PaymentGateway.PaymentConfirmResult;
+import com.sudo.raillo.payment.application.required.PaymentGateway.GatewayConfirmResult;
 import com.sudo.raillo.payment.application.required.PendingBookingReader;
 import com.sudo.raillo.payment.application.required.SeatHoldReleaser;
 import com.sudo.raillo.payment.application.required.TrainScheduleReader;
@@ -57,7 +57,7 @@ public class PaymentConfirmService implements PaymentConfirmer {
 	private final TrainSeatReader trainSeatReader;
 
 	@Override
-	public Payment confirm(PaymentConfirmCommand command, String memberNo) {
+	public PaymentConfirmResult confirm(PaymentConfirmCommand command, String memberNo) {
 		log.info("[결제 승인 시작] orderId={}, paymentKey={}, amount={}",
 			command.orderId(), command.paymentKey(), command.amount());
 
@@ -76,7 +76,7 @@ public class PaymentConfirmService implements PaymentConfirmer {
 		// (미동기화 시 바깥 트랜잭션 커밋 때 Hibernate가 paymentKey=null로 덮어씀)
 		payment.updatePaymentKey(command.paymentKey());
 
-		PaymentConfirmResult result;
+		GatewayConfirmResult result;
 		try {
 			result = paymentGateway.confirm(command);
 		} catch (TossPaymentException e) {
@@ -94,7 +94,7 @@ public class PaymentConfirmService implements PaymentConfirmer {
 		cleanupPendingBookings(pendingBookings);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", payment.getId(), command.orderId());
-		return payment;
+		return PaymentConfirmResult.from(payment);
 	}
 
 	private List<PendingBooking> validateAndGetPendingBookings(Order order, String memberNo) {

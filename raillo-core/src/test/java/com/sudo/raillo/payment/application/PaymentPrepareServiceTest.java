@@ -24,6 +24,7 @@ import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.order.domain.status.OrderStatus;
 import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.application.PaymentPrepareCommand;
+import com.sudo.raillo.payment.application.PaymentPrepareResult;
 import com.sudo.raillo.payment.application.provided.PaymentPreparer;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
@@ -99,12 +100,12 @@ class PaymentPrepareServiceTest {
 		PaymentPrepareCommand request = new PaymentPrepareCommand(List.of(pendingBooking.getId()));
 
 		// when
-		Order order = paymentPreparer.prepare(request, memberNo);
+		PaymentPrepareResult result = paymentPreparer.prepare(request, memberNo);
 
 		// then
-		Order saved = orderRepository.findByOrderCode(order.getOrderCode()).orElseThrow();
+		Order saved = orderRepository.findByOrderCode(result.orderCode()).orElseThrow();
 		assertThat(saved.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
-		assertThat(order.getTotalAmount()).isEqualByComparingTo(pendingBooking.getTotalFare());
+		assertThat(result.totalAmount()).isEqualByComparingTo(pendingBooking.getTotalFare());
 	}
 
 	@Test
@@ -153,14 +154,14 @@ class PaymentPrepareServiceTest {
 		);
 
 		// when
-		Order order = paymentPreparer.prepare(request, memberNo);
+		PaymentPrepareResult result = paymentPreparer.prepare(request, memberNo);
 
 		// then
 		// 실제 운임 계산: 성인(50000×1.0) + 어린이(50000×0.6) + 성인(50000×1.0) + 경로(50000×0.7) = 165,000원
 		BigDecimal expectedAmount = BigDecimal.valueOf(50000 + 30000 + 50000 + 35000);
-		Order saved = orderRepository.findByOrderCode(order.getOrderCode()).orElseThrow();
+		Order saved = orderRepository.findByOrderCode(result.orderCode()).orElseThrow();
 		assertThat(saved.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
-		assertThat(order.getTotalAmount()).isEqualByComparingTo(expectedAmount);
+		assertThat(result.totalAmount()).isEqualByComparingTo(expectedAmount);
 	}
 
 	@Test

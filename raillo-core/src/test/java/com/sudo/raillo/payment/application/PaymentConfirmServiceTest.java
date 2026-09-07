@@ -32,7 +32,9 @@ import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.application.provided.PaymentPreparer;
 import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
 import com.sudo.raillo.payment.application.PaymentConfirmCommand;
+import com.sudo.raillo.payment.application.PaymentConfirmResult;
 import com.sudo.raillo.payment.application.PaymentPrepareCommand;
+import com.sudo.raillo.payment.application.PaymentPrepareResult;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.domain.PaymentMethod;
@@ -116,22 +118,22 @@ class PaymentConfirmServiceTest {
 		String paymentKey = "toss_pk_test_12345";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
-			paymentKey, preparedOrder.getOrderCode(), "카드", amount.longValue(), "DONE");
+			paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE");
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when
-		Payment confirmedPayment = paymentConfirmer.confirm(confirmRequest, memberNo);
+		PaymentConfirmResult confirmedResult = paymentConfirmer.confirm(confirmRequest, memberNo);
 
 		// then - DB에서 직접 조회하여 paymentKey가 null이 아닌지 검증
-		Payment savedPayment = paymentRepository.findById(confirmedPayment.getId()).orElseThrow();
+		Payment savedPayment = paymentRepository.findById(confirmedResult.paymentId()).orElseThrow();
 		assertThat(savedPayment.getPaymentKey())
 			.as("REQUIRES_NEW 트랜잭션으로 저장한 paymentKey가 바깥 트랜잭션 커밋 시 덮어쓰이면 안 된다")
 			.isEqualTo(paymentKey);
@@ -145,26 +147,26 @@ class PaymentConfirmServiceTest {
 		String paymentKey = "toss_pk_test_67890";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
-			paymentKey, preparedOrder.getOrderCode(), "카드", amount.longValue(), "DONE");
+			paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE");
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when
-		Payment confirmedPayment = paymentConfirmer.confirm(confirmRequest, memberNo);
+		PaymentConfirmResult confirmedResult = paymentConfirmer.confirm(confirmRequest, memberNo);
 
 		// then
-		Payment savedPayment = paymentRepository.findById(confirmedPayment.getId()).orElseThrow();
+		Payment savedPayment = paymentRepository.findById(confirmedResult.paymentId()).orElseThrow();
 		assertThat(savedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
 		assertThat(savedPayment.getPaidAt()).isNotNull();
 
-		Order savedOrder = orderRepository.findByOrderCode(preparedOrder.getOrderCode()).orElseThrow();
+		Order savedOrder = orderRepository.findByOrderCode(preparedResult.orderCode()).orElseThrow();
 		assertThat(savedOrder.getOrderStatus()).isEqualTo(OrderStatus.ORDERED);
 	}
 
@@ -182,7 +184,7 @@ class PaymentConfirmServiceTest {
 		String paymentKey = "toss_pk_requires_new_test";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// 토스 API 실패 → 바깥 트랜잭션 롤백
@@ -190,7 +192,7 @@ class PaymentConfirmServiceTest {
 			.willThrow(new TossPaymentException(400, "INVALID_REQUEST", "test error"));
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when - 바깥 트랜잭션 롤백
 		assertThatThrownBy(() -> paymentConfirmer.confirm(confirmRequest, memberNo))
@@ -209,7 +211,7 @@ class PaymentConfirmServiceTest {
 			.isEqualTo(PaymentStatus.FAILED);
 
 		// 바깥 트랜잭션은 롤백되었으므로 Order는 PENDING 상태 그대로
-		Order savedOrder = orderRepository.findByOrderCode(preparedOrder.getOrderCode()).orElseThrow();
+		Order savedOrder = orderRepository.findByOrderCode(preparedResult.orderCode()).orElseThrow();
 		assertThat(savedOrder.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
 	}
 
@@ -225,16 +227,16 @@ class PaymentConfirmServiceTest {
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
 		Long seatId = pendingBooking.getPendingSeatBookings().get(0).seatId();
 
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
-			paymentKey, preparedOrder.getOrderCode(), "카드", amount.longValue(), "DONE");
+			paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE");
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when
 		paymentConfirmer.confirm(confirmRequest, memberNo);
@@ -265,14 +267,14 @@ class PaymentConfirmServiceTest {
 		String paymentKey = "toss_pk_expired_test";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// PendingBooking을 Redis에서 삭제하여 TTL 만료 시뮬레이션
 		bookingRedisRepository.deletePendingBooking(pendingBooking.getId());
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when & then
 		assertThatThrownBy(() -> paymentConfirmer.confirm(confirmRequest, memberNo))
@@ -289,7 +291,7 @@ class PaymentConfirmServiceTest {
 		String paymentKey = "toss_pk_owner_test";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// 다른 회원 생성
@@ -308,7 +310,7 @@ class PaymentConfirmServiceTest {
 		bookingRedisRepository.savePendingBooking(otherPendingBooking);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when & then
 		assertThatThrownBy(() -> paymentConfirmer.confirm(confirmRequest, otherMemberNo))
@@ -326,11 +328,11 @@ class PaymentConfirmServiceTest {
 		String paymentKey = "toss_pk_amount_test";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(orderAmount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), wrongRequestAmount);
+			paymentKey, preparedResult.orderCode(), wrongRequestAmount);
 
 		// when & then
 		assertThatThrownBy(() -> paymentConfirmer.confirm(confirmRequest, memberNo))
@@ -347,17 +349,17 @@ class PaymentConfirmServiceTest {
 		String paymentKey = "toss_pk_duplicate_test";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		// 기존 Payment를 PAID 상태로 변경
-		Order order = orderRepository.findByOrderCode(preparedOrder.getOrderCode()).orElseThrow();
+		Order order = orderRepository.findByOrderCode(preparedResult.orderCode()).orElseThrow();
 		Payment existingPayment = paymentRepository.findByOrder(order).orElseThrow();
 		existingPayment.approve(PaymentMethod.CREDIT_CARD);
 		paymentRepository.saveAndFlush(existingPayment);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		// when & then
 		assertThatThrownBy(() -> paymentConfirmer.confirm(confirmRequest, memberNo))

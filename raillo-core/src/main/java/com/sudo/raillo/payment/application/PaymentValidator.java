@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
-import com.sudo.raillo.payment.application.required.PaymentGateway.PaymentConfirmResult;
+import com.sudo.raillo.payment.application.required.PaymentGateway.GatewayConfirmResult;
 import com.sudo.raillo.payment.application.required.PaymentRepository;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentStatus;
@@ -58,7 +58,7 @@ public class PaymentValidator {
 	/**
 	 * 게이트웨이 응답이 원 요청과 일치하는지 검증한다.
 	 */
-	public void validateGatewayResponseMatchesRequest(PaymentConfirmResult result, PaymentConfirmCommand command) {
+	public void validateGatewayResponseMatchesRequest(GatewayConfirmResult result, PaymentConfirmCommand command) {
 		if (result.totalAmount().compareTo(command.amount()) != 0) {
 			log.error("[게이트웨이 응답 금액 불일치] gatewayAmount={}, requestAmount={}", result.totalAmount(), command.amount());
 			throw new BusinessException(

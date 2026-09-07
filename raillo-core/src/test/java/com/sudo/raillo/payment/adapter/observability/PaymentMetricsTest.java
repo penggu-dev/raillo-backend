@@ -25,7 +25,9 @@ import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.application.provided.PaymentPreparer;
 import com.sudo.raillo.payment.application.PaymentConfirmCommand;
+import com.sudo.raillo.payment.application.PaymentConfirmResult;
 import com.sudo.raillo.payment.application.PaymentPrepareCommand;
+import com.sudo.raillo.payment.application.PaymentPrepareResult;
 import com.sudo.raillo.common.exception.BusinessException;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.payment.domain.exception.TossPaymentException;
@@ -111,16 +113,16 @@ class PaymentMetricsTest {
 		String paymentKey = "toss_pk_metrics_success";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
-			paymentKey, preparedOrder.getOrderCode(), "카드", amount.longValue(), "DONE");
+			paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE");
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willReturn(tossResponse);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		double before = meterRegistry.counter("payment_confirm_success_total").count();
 
@@ -140,14 +142,14 @@ class PaymentMetricsTest {
 		String paymentKey = "toss_pk_metrics_toss_fail";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willThrow(new TossPaymentException(400, "INVALID_REQUEST", "test error"));
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		double before = meterRegistry.counter("payment_confirm_failure_total",
 			"reason", "toss_error", "http_status", "400", "error_code", "INVALID_REQUEST").count();
@@ -171,11 +173,11 @@ class PaymentMetricsTest {
 		String paymentKey = "toss_pk_metrics_validation_fail";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(orderAmount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), wrongAmount);
+			paymentKey, preparedResult.orderCode(), wrongAmount);
 
 		double before = meterRegistry.counter("payment_confirm_failure_total",
 			"reason", "validation_error",
@@ -203,14 +205,14 @@ class PaymentMetricsTest {
 		String paymentKey = "toss_pk_metrics_unexpected";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willThrow(new RuntimeException("unexpected error"));
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		double before = meterRegistry.counter("payment_confirm_failure_total",
 			"reason", "system_error", "http_status", "500", "error_code", "UNKNOWN").count();
@@ -233,14 +235,14 @@ class PaymentMetricsTest {
 		String paymentKey = "toss_pk_metrics_system_error";
 
 		PendingBooking pendingBooking = createPendingBookingWithHold(amount);
-		Order preparedOrder = paymentPreparer.prepare(
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(pendingBooking.getId())), memberNo);
 
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
 			.willThrow(new BusinessException(PaymentError.PAYMENT_SYSTEM_ERROR));
 
 		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedOrder.getOrderCode(), amount);
+			paymentKey, preparedResult.orderCode(), amount);
 
 		double before = meterRegistry.counter("payment_confirm_failure_total",
 			"reason", "system_error",

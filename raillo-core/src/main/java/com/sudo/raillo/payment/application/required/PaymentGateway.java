@@ -12,9 +12,9 @@ import com.sudo.raillo.payment.domain.PaymentMethod;
  */
 public interface PaymentGateway {
 
-	PaymentConfirmResult confirm(PaymentConfirmCommand command);
+	GatewayConfirmResult confirm(PaymentConfirmCommand command);
 
-	record PaymentConfirmResult(
+	record GatewayConfirmResult(
 		String paymentKey,
 		String orderCode,
 		BigDecimal totalAmount,

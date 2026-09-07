@@ -39,7 +39,7 @@ public class PaymentPrepareService implements PaymentPreparer {
 	private final SeatConflictValidator seatConflictValidator;
 
 	@Override
-	public Order prepare(PaymentPrepareCommand command, String memberNo) {
+	public PaymentPrepareResult prepare(PaymentPrepareCommand command, String memberNo) {
 		List<PendingBooking> pendingBookings = pendingBookingReader.getPendingBookings(command.pendingBookingIds(), memberNo);
 		seatConflictValidator.validateSeatConflicts(pendingBookings);
 
@@ -50,6 +50,6 @@ public class PaymentPrepareService implements PaymentPreparer {
 		log.info("[결제 준비 완료] orderId={}, paymentId={}, amount={}, pendingBookingCount={}",
 			order.getOrderCode(), payment.getId(), order.getTotalAmount(), pendingBookings.size());
 
-		return order;
+		return PaymentPrepareResult.from(order);
 	}
 }

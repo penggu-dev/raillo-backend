@@ -8,14 +8,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.common.response.SuccessResponse;
-import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.adapter.webapi.dto.PaymentConfirmRequest;
 import com.sudo.raillo.payment.adapter.webapi.dto.PaymentConfirmResponse;
 import com.sudo.raillo.payment.adapter.webapi.dto.PaymentPrepareRequest;
 import com.sudo.raillo.payment.adapter.webapi.dto.PaymentPrepareResponse;
+import com.sudo.raillo.payment.application.PaymentConfirmResult;
+import com.sudo.raillo.payment.application.PaymentPrepareResult;
 import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
 import com.sudo.raillo.payment.application.provided.PaymentPreparer;
-import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.success.PaymentSuccess;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,9 +39,8 @@ public class PaymentApi {
 		@RequestBody @Valid PaymentPrepareRequest request,
 		@AuthenticationPrincipal UserDetails userDetails) {
 		String memberNo = userDetails.getUsername();
-		Order order = paymentPreparer.prepare(request.toCommand(), memberNo);
-		return SuccessResponse.of(PaymentSuccess.PAYMENT_PREPARE_SUCCESS,
-			new PaymentPrepareResponse(order.getOrderCode(), order.getTotalAmount()));
+		PaymentPrepareResult result = paymentPreparer.prepare(request.toCommand(), memberNo);
+		return SuccessResponse.of(PaymentSuccess.PAYMENT_PREPARE_SUCCESS, PaymentPrepareResponse.from(result));
 	}
 
 	@Operation(summary = "결제 승인", description = "토스페이먼츠 결제 승인 처리를 수행합니다. 클라이언트가 토스로부터 받은 paymentKey, orderId, amount를 전달받아 결제를 승인합니다.")
@@ -50,8 +49,7 @@ public class PaymentApi {
 		@RequestBody @Valid PaymentConfirmRequest request,
 		@AuthenticationPrincipal UserDetails userDetails) {
 		String memberNo = userDetails.getUsername();
-		Payment payment = paymentConfirmer.confirm(request.toCommand(), memberNo);
-		return SuccessResponse.of(PaymentSuccess.PAYMENT_CONFIRM_SUCCESS,
-			PaymentConfirmResponse.from(payment));
+		PaymentConfirmResult result = paymentConfirmer.confirm(request.toCommand(), memberNo);
+		return SuccessResponse.of(PaymentSuccess.PAYMENT_CONFIRM_SUCCESS, PaymentConfirmResponse.from(result));
 	}
 }

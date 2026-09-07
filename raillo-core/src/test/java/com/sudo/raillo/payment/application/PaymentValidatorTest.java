@@ -149,7 +149,7 @@ class PaymentValidatorTest {
 			String paymentKey = "gw_pk_test";
 			BigDecimal amount = BigDecimal.valueOf(50000);
 
-			PaymentGateway.PaymentConfirmResult result = new PaymentGateway.PaymentConfirmResult(
+			PaymentGateway.GatewayConfirmResult result = new PaymentGateway.GatewayConfirmResult(
 				paymentKey, "ORDER_001", amount, PaymentMethod.CREDIT_CARD);
 			PaymentConfirmCommand request = new PaymentConfirmCommand(paymentKey, "ORDER_001", amount);
 
@@ -162,7 +162,7 @@ class PaymentValidatorTest {
 		void fail_amountMismatch() {
 			String paymentKey = "gw_pk_test";
 
-			PaymentGateway.PaymentConfirmResult result = new PaymentGateway.PaymentConfirmResult(
+			PaymentGateway.GatewayConfirmResult result = new PaymentGateway.GatewayConfirmResult(
 				paymentKey, "ORDER_001", BigDecimal.valueOf(60000), PaymentMethod.CREDIT_CARD);
 			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				paymentKey, "ORDER_001", BigDecimal.valueOf(50000));
@@ -177,7 +177,7 @@ class PaymentValidatorTest {
 		void fail_paymentKeyMismatch() {
 			BigDecimal amount = BigDecimal.valueOf(50000);
 
-			PaymentGateway.PaymentConfirmResult result = new PaymentGateway.PaymentConfirmResult(
+			PaymentGateway.GatewayConfirmResult result = new PaymentGateway.GatewayConfirmResult(
 				"gw_pk_different", "ORDER_001", amount, PaymentMethod.CREDIT_CARD);
 			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"gw_pk_original", "ORDER_001", amount);
