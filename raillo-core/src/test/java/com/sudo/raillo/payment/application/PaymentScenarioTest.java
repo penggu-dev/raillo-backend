@@ -226,7 +226,7 @@ class PaymentScenarioTest {
 		assertThatThrownBy(() -> paymentConfirmer.confirm(confirmRequest, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_AMOUNT_MISMATCH)
-			.hasMessageContaining("토스 결제 금액이 요청 금액과 일치하지 않습니다");
+			.hasMessageContaining("게이트웨이 결제 금액이 요청 금액과 일치하지 않습니다");
 	}
 
 	@Test
