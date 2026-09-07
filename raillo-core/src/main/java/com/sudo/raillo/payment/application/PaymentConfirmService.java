@@ -17,7 +17,7 @@ import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
 import com.sudo.raillo.payment.application.required.BookingCreator;
 import com.sudo.raillo.payment.application.required.MemberFinder;
-import com.sudo.raillo.payment.application.required.OrderRegister;
+import com.sudo.raillo.payment.application.required.OrderReader;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
 import com.sudo.raillo.payment.application.required.PaymentGateway.PaymentConfirmResult;
 import com.sudo.raillo.payment.application.required.PendingBookingReader;
@@ -48,7 +48,7 @@ public class PaymentConfirmService implements PaymentConfirmer {
 	private final PaymentModifier paymentModifier;
 	private final PaymentValidator paymentValidator;
 	private final PaymentGateway paymentGateway;
-	private final OrderRegister orderRegister;
+	private final OrderReader orderReader;
 	private final MemberFinder memberFinder;
 	private final PendingBookingReader pendingBookingReader;
 	private final BookingCreator bookingCreator;
@@ -61,12 +61,12 @@ public class PaymentConfirmService implements PaymentConfirmer {
 		log.info("[결제 승인 시작] orderId={}, paymentKey={}, amount={}",
 			command.orderId(), command.paymentKey(), command.amount());
 
-		Order order = orderRegister.getOrderByOrderCode(command.orderId());
+		Order order = orderReader.getOrderByOrderCode(command.orderId());
 		List<PendingBooking> pendingBookings = validateAndGetPendingBookings(order, memberNo);
 		Member member = memberFinder.getMemberByMemberNo(memberNo);
 		Payment payment = paymentModifier.getPaymentByOrder(order);
 
-		orderRegister.validateOrderOwner(order, member);
+		orderReader.validateOrderOwner(order, member);
 		paymentValidator.validatePaymentOwner(payment, member);
 		paymentValidator.validateAmounts(command.amount(), order.getTotalAmount(), payment.getAmount());
 		paymentValidator.validateDuplicatePayment(order);
@@ -98,7 +98,7 @@ public class PaymentConfirmService implements PaymentConfirmer {
 	}
 
 	private List<PendingBooking> validateAndGetPendingBookings(Order order, String memberNo) {
-		List<String> pendingBookingIds = orderRegister.getPendingBookingIds(order);
+		List<String> pendingBookingIds = orderReader.getPendingBookingIds(order);
 		if (pendingBookingIds.isEmpty()) {
 			log.error("[PendingBooking 검증 실패] pendingBookingIds가 없음: orderCode={}", order.getOrderCode());
 			throw new BusinessException(BookingError.PENDING_BOOKING_IDS_REQUIRED);
