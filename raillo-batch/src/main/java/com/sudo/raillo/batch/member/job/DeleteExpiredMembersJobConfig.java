@@ -34,6 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DeleteExpiredMembersJobConfig {
 
+	public static final String JOB_NAME = "deleteExpiredMembers";
+
 	private final JobRepository jobRepository;
 	private final PlatformTransactionManager transactionManager;
 	private final DataSource dataSource;
@@ -43,7 +45,7 @@ public class DeleteExpiredMembersJobConfig {
 
 	@Bean
 	public Job deleteExpiredMembersJob() throws Exception {
-		return new JobBuilder("deleteExpiredMembersJob", jobRepository)
+		return new JobBuilder(JOB_NAME, jobRepository)
 			.start(deleteExpiredMembersStep())
 			.build();
 	}

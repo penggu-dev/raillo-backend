@@ -12,6 +12,10 @@ spring:
     job:
       enabled: false
 
+batch:
+  launcher:
+    enabled: false
+
 train:
   schedule:
     excel:

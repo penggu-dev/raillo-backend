@@ -33,7 +33,7 @@ spring:
     jdbc:
       initialize-schema: never
     job:
-      enabled: true
+      enabled: false # BatchJobLauncher가 --job 옵션으로 Job을 실행한다
 
 train:
   schedule:

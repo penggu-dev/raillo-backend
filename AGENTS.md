@@ -11,9 +11,12 @@ This file provides guidance to coding agents (Claude Code, Codex 등) when worki
 ./gradlew :raillo-api:test --tests "...BookingServiceTest.method_name"   # 단일 메서드
 ./gradlew clean build                                        # 클린 리빌드
 ./gradlew :raillo-api:bootRun                                # API 실행 (MySQL 필요, Redis는 compose로 자동 기동)
-./gradlew :raillo-batch:bootRun --args='--spring.batch.job.name=trainDailyScheduleJob run.id=1'  # Batch Job 실행
-./gradlew :raillo-batch:bootRun --args='--spring.batch.job.name=trainDailyScheduleJob operationDate=2026-01-01 run.id=2'
+./gradlew :raillo-batch:bootRun -Pjob=trainDailySchedule    # Batch Job 실행 (run.id는 자동 부여)
+./gradlew :raillo-batch:bootRun -Pjob=trainDailySchedule -PoperationDate=2026-01-01
+java -jar raillo-batch.jar --job=trainDailySchedule --operationDate=2026-01-01  # JAR 실행
 ```
+
+Batch Job: `trainParse`(Excel 파싱, DB당 1회), `trainDailySchedule`, `trainMonthlySchedule`, `trainInitialize`(parse → monthly), `deleteExpiredMembers`. 종료 코드는 성공 0, 실패 1.
 
 ## Architecture
 
@@ -70,7 +73,16 @@ raillo/
 │           ├── exception/        # BusinessException, ExternalApiException, API handler
 │           └── response/         # Success/Error 응답과 전역 응답 handler
 └── raillo-batch/                 # Non-Web Spring Batch 실행 앱
+    └── src/main/java/com/sudo/raillo/batch/
+        ├── global/launcher/      # BatchJobLauncher: --job 옵션으로 Job 실행, run.id 자동 부여, 종료 코드 반환
+        └── {domain}/
+            ├── job/              # Job당 {Name}JobConfig 하나 (Job·Step·Tasklet 정의, JOB_NAME 상수)
+            ├── application/{facade,service,dto,util}/
+            ├── infrastructure/   # Batch 전용 JPA Repository, excel/, jdbc/
+            └── config/           # Batch 전용 설정 프로퍼티
 ```
+
+테스트 데이터 생성 방식은 모듈별로 다르다. `raillo-domain` 단위 테스트는 Entity 정적 팩토리로 객체를 직접 생성하고, `raillo-api` 테스트는 `support/fixture/`의 Fixture와 `support/helper/`의 TestHelper를 사용한다.
 
 ### Layer Rules
 

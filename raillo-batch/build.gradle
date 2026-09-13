@@ -18,3 +18,13 @@ dependencies {
     testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
     testImplementation 'org.testcontainers:mysql:1.21.4'
 }
+
+// ./gradlew :raillo-batch:bootRun -Pjob=trainDailySchedule -PoperationDate=2026-10-20
+tasks.named('bootRun') {
+    ['job', 'operationDate'].each { name ->
+        def value = providers.gradleProperty(name).orNull
+        if (value) {
+            args "--${name}=${value}"
+        }
+    }
+}

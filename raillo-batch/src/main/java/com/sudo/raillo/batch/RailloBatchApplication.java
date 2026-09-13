@@ -11,12 +11,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication
 @ConfigurationPropertiesScan
 @EntityScan(basePackageClasses = {Booking.class, Member.class, Order.class, Payment.class, Train.class})
-@EnableJpaRepositories(basePackages = "com.sudo.raillo.batch.infrastructure")
 public class RailloBatchApplication {
 
 	public static void main(String[] args) {

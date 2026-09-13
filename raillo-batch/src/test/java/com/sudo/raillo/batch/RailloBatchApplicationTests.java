@@ -2,9 +2,15 @@ package com.sudo.raillo.batch;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sudo.raillo.batch.member.job.DeleteExpiredMembersJobConfig;
 import com.sudo.raillo.batch.support.BatchTestContainerInitializer;
+import com.sudo.raillo.batch.train.job.TrainDailyScheduleJobConfig;
+import com.sudo.raillo.batch.train.job.TrainInitializeJobConfig;
+import com.sudo.raillo.batch.train.job.TrainMonthlyScheduleJobConfig;
+import com.sudo.raillo.batch.train.job.TrainParseJobConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.batch.core.job.Job;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -27,6 +33,26 @@ class RailloBatchApplicationTests {
 		// then
 		assertThat(webApplicationType).isEqualTo("none");
 		assertThat(context.getClass().getName()).doesNotContain("WebServer");
+	}
+
+	@DisplayName("--job 옵션으로 실행할 수 있는 Job이 모두 등록된다")
+	@Test
+	void registers_all_jobs_by_command_line_name(ApplicationContext context) {
+		// given
+
+		// when
+		var jobNames = context.getBeansOfType(Job.class).values().stream()
+			.map(Job::getName)
+			.toList();
+
+		// then
+		assertThat(jobNames).containsExactlyInAnyOrder(
+			TrainParseJobConfig.JOB_NAME,
+			TrainDailyScheduleJobConfig.JOB_NAME,
+			TrainMonthlyScheduleJobConfig.JOB_NAME,
+			TrainInitializeJobConfig.JOB_NAME,
+			DeleteExpiredMembersJobConfig.JOB_NAME
+		);
 	}
 
 }
