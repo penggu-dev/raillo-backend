@@ -11,7 +11,8 @@ This file provides guidance to coding agents (Claude Code, Codex 등) when worki
 ./gradlew :raillo-api:test --tests "...BookingServiceTest.method_name"   # 단일 메서드
 ./gradlew clean build                                        # 클린 리빌드
 ./gradlew :raillo-api:bootRun                                # API 실행 (MySQL 필요, Redis는 compose로 자동 기동)
-./gradlew :raillo-batch:bootRun --args='--spring.batch.job.name=trainDailyScheduleJob --run.id=1'
+./gradlew :raillo-batch:bootRun --args='--spring.batch.job.name=trainDailyScheduleJob run.id=1'  # Batch Job 실행
+./gradlew :raillo-batch:bootRun --args='--spring.batch.job.name=trainDailyScheduleJob operationDate=2026-01-01 run.id=2'
 ```
 
 ## Architecture

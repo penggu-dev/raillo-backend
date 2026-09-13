@@ -35,7 +35,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: build and push API docker image to ecr
+      - name: build and push docker image to ecr
         env:
           REGISTRY: 052104148083.dkr.ecr.ap-northeast-2.amazonaws.com
           REPOSITORY: raillo-backend
@@ -44,17 +44,6 @@ jobs:
           docker build \
           -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
           -f ./Dockerfile .
-          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
-
-      - name: build and push Batch docker image to ecr
-        env:
-          REGISTRY: 052104148083.dkr.ecr.ap-northeast-2.amazonaws.com
-          REPOSITORY: raillo-batch
-          IMAGE_TAG: latest
-        run: |
-          docker build \
-          -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
-          -f ./Dockerfile.batch .
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
       - name: eks kubectl apply
