@@ -3,6 +3,7 @@ package com.sudo.raillo.order.domain;
 import static org.assertj.core.api.Assertions.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,7 +12,6 @@ import com.sudo.raillo.global.exception.DomainException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.status.OrderStatus;
 import com.sudo.raillo.order.exception.OrderError;
-import com.sudo.raillo.support.fixture.MemberFixture;
 
 class OrderTest {
 
@@ -19,7 +19,7 @@ class OrderTest {
 	@DisplayName("주문 생성 시 상태가 PENDING이고 주문 코드가 생성된다")
 	void create() {
 		// given
-		Member member = MemberFixture.create();
+		Member member = createMember();
 		BigDecimal totalAmount = BigDecimal.valueOf(10000);
 
 		// when
@@ -37,7 +37,7 @@ class OrderTest {
 	@DisplayName("총 주문 금액이 0으로 주문을 생성할 수 있다")
 	void invalidTotalAmountZero() {
 		// given
-		Member member = MemberFixture.create();
+		Member member = createMember();
 		BigDecimal totalAmount = BigDecimal.ZERO;
 
 		// when
@@ -53,7 +53,7 @@ class OrderTest {
 	@DisplayName("음수 금액으로 주문 생성 시 예외가 발생한다")
 	void invalidTotalAmountNegative() {
 		// given
-		Member member = MemberFixture.create();
+		Member member = createMember();
 		BigDecimal invalidAmount = BigDecimal.valueOf(-1000);
 
 		// when & then
@@ -66,7 +66,7 @@ class OrderTest {
 	@DisplayName("PENDING 상태의 주문을 결제 완료 처리하면 상태가 ORDERED로 변경된다")
 	void completePayment() {
 		// given
-		Member member = MemberFixture.create();
+		Member member = createMember();
 		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
@@ -80,7 +80,7 @@ class OrderTest {
 	@DisplayName("PENDING 상태가 아닌 주문을 결제 완료 처리하면 예외가 발생한다")
 	void completePaymentFail() {
 		// given
-		Member member = MemberFixture.create();
+		Member member = createMember();
 		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
@@ -96,7 +96,7 @@ class OrderTest {
 	@DisplayName("PENDING 상태의 주문을 만료 처리하면 상태가 EXPIRED로 변경되고 만료 시간이 설정된다")
 	void expired() {
 		// given
-		Member member = MemberFixture.create();
+		Member member = createMember();
 		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
@@ -111,7 +111,7 @@ class OrderTest {
 	@DisplayName("PENDING 상태가 아닌 주문을 만료 처리하면 예외가 발생한다")
 	void expiredFail() {
 		// given
-		Member member = MemberFixture.create();
+		Member member = createMember();
 		Order order = Order.create(member, BigDecimal.valueOf(10000));
 
 		// when
@@ -121,5 +121,17 @@ class OrderTest {
 		assertThatThrownBy(order::expired)
 			.isInstanceOf(DomainException.class)
 			.hasMessage(OrderError.NOT_PENDING.getMessage());
+	}
+
+	private Member createMember() {
+		return Member.create(
+			"member",
+			"testPassword",
+			"010-1111-1111",
+			"202507300001",
+			"test@example.com",
+			LocalDate.of(2000, 1, 1),
+			"M"
+		);
 	}
 }

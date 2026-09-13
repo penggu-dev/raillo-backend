@@ -3,6 +3,7 @@ package com.sudo.raillo.payment.domain;
 import static org.assertj.core.api.Assertions.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,8 +15,6 @@ import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.domain.PaymentMethod;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
-import com.sudo.raillo.support.fixture.MemberFixture;
-import com.sudo.raillo.support.fixture.OrderFixture;
 
 class PaymentTest {
 
@@ -24,11 +23,16 @@ class PaymentTest {
 
 	@BeforeEach
 	void setUp() {
-		member = MemberFixture.create();
-		order = OrderFixture.builder()
-			.withMember(member)
-			.withTotalAmount(BigDecimal.valueOf(10000))
-			.build();
+		member = Member.create(
+			"member",
+			"testPassword",
+			"010-1111-1111",
+			"202507300001",
+			"test@example.com",
+			LocalDate.of(2000, 1, 1),
+			"M"
+		);
+		order = Order.create(member, BigDecimal.valueOf(10000));
 	}
 
 	@Test

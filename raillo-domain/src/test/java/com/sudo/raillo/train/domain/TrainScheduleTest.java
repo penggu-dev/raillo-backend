@@ -5,13 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import com.sudo.raillo.support.fixture.train.ScheduleStopFixture;
-import com.sudo.raillo.support.fixture.train.TrainScheduleFixture;
-import com.sudo.raillo.train.domain.status.OperationStatus;
 
 @DisplayName("TrainSchedule - getDepartureDateTimeAt 테스트")
 class TrainScheduleTest {
@@ -21,15 +18,9 @@ class TrainScheduleTest {
 	void sameDayDeparture() {
 		// given - 열차 출발 05:00, 정차역 출발 07:00
 		LocalDate operationDate = LocalDate.of(2026, 1, 1);
-		TrainSchedule schedule = TrainScheduleFixture.create(
-			"KTX 001", operationDate,
-			LocalTime.of(5, 0), LocalTime.of(9, 0),
-			OperationStatus.ACTIVE, null, null, null
-		);
-
-		ScheduleStop stop = ScheduleStopFixture.create(
-			1, LocalTime.of(6, 50), LocalTime.of(7, 0), schedule, null
-		);
+		ScheduleStopTemplate stopTemplate = ScheduleStopTemplate.create(1, LocalTime.of(6, 50), LocalTime.of(7, 0), null);
+		TrainSchedule schedule = createSchedule(operationDate, LocalTime.of(5, 0), LocalTime.of(9, 0), stopTemplate);
+		ScheduleStop stop = ScheduleStop.create(stopTemplate, schedule);
 
 		// when
 		LocalDateTime result = schedule.getDepartureDateTimeAt(stop);
@@ -43,15 +34,9 @@ class TrainScheduleTest {
 	void nextDayDeparture_whenStopTimeBeforeTrainDepartureTime() {
 		// given - 열차 출발 23:00, 정차역 출발 01:00 (자정 경과)
 		LocalDate operationDate = LocalDate.of(2026, 1, 1);
-		TrainSchedule schedule = TrainScheduleFixture.create(
-			"KTX 001", operationDate,
-			LocalTime.of(23, 0), LocalTime.of(2, 0),
-			OperationStatus.ACTIVE, null, null, null
-		);
-
-		ScheduleStop stop = ScheduleStopFixture.create(
-			1, LocalTime.of(0, 50), LocalTime.of(1, 0), schedule, null
-		);
+		ScheduleStopTemplate stopTemplate = ScheduleStopTemplate.create(1, LocalTime.of(0, 50), LocalTime.of(1, 0), null);
+		TrainSchedule schedule = createSchedule(operationDate, LocalTime.of(23, 0), LocalTime.of(2, 0), stopTemplate);
+		ScheduleStop stop = ScheduleStop.create(stopTemplate, schedule);
 
 		// when
 		LocalDateTime result = schedule.getDepartureDateTimeAt(stop);
@@ -65,20 +50,33 @@ class TrainScheduleTest {
 	void sameDayDeparture_whenSameTime() {
 		// given - 열차 출발 05:00, 정차역(출발역) 출발 05:00
 		LocalDate operationDate = LocalDate.of(2026, 1, 1);
-		TrainSchedule schedule = TrainScheduleFixture.create(
-			"KTX 001", operationDate,
-			LocalTime.of(5, 0), LocalTime.of(9, 0),
-			OperationStatus.ACTIVE, null, null, null
-		);
-
-		ScheduleStop stop = ScheduleStopFixture.create(
-			0, null, LocalTime.of(5, 0), schedule, null
-		);
+		ScheduleStopTemplate stopTemplate = ScheduleStopTemplate.create(0, null, LocalTime.of(5, 0), null);
+		TrainSchedule schedule = createSchedule(operationDate, LocalTime.of(5, 0), LocalTime.of(9, 0), stopTemplate);
+		ScheduleStop stop = ScheduleStop.create(stopTemplate, schedule);
 
 		// when
 		LocalDateTime result = schedule.getDepartureDateTimeAt(stop);
 
 		// then
 		assertThat(result).isEqualTo(LocalDateTime.of(2026, 1, 1, 5, 0));
+	}
+
+	private TrainSchedule createSchedule(
+		LocalDate operationDate,
+		LocalTime departureTime,
+		LocalTime arrivalTime,
+		ScheduleStopTemplate stopTemplate
+	) {
+		TrainScheduleTemplate template = TrainScheduleTemplate.create(
+			"KTX 001",
+			0b1111111,
+			departureTime,
+			arrivalTime,
+			null,
+			null,
+			null,
+			List.of(stopTemplate)
+		);
+		return TrainSchedule.create(operationDate, template);
 	}
 }

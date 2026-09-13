@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.global.exception.DomainException;
 import com.sudo.raillo.member.exception.MemberError;
-import com.sudo.raillo.support.fixture.MemberFixture;
 import java.time.LocalDate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,7 +42,7 @@ class MemberTest {
 	@DisplayName("전화번호를 새로운 번호로 변경할 수 있다")
 	void updatePhoneNumber() {
 		// given
-		Member member = MemberFixture.create();
+		Member member = createMember();
 		String newPhoneNumber = "010-9999-8888";
 
 		// when
@@ -57,10 +56,8 @@ class MemberTest {
 	@DisplayName("현재와 동일한 전화번호로 변경하면 예외가 발생한다")
 	void updatePhoneNumberFail() {
 		// given
-		Member member = MemberFixture.builder()
-			.withPhoneNumber("010-1111-1111")
-			.build();
-		String samePhoneNumber = "010-1111-1111";
+		Member member = createMember();
+		String samePhoneNumber = member.getPhoneNumber();
 
 		// when & then
 		assertThatThrownBy(() -> member.updatePhoneNumber(samePhoneNumber))
@@ -72,7 +69,7 @@ class MemberTest {
 	@DisplayName("비밀번호를 새로운 비밀번호로 변경할 수 있다")
 	void updatePassword() {
 		// given
-		Member member = MemberFixture.create();
+		Member member = createMember();
 		String newPassword = "newPassword123";
 
 		// when
@@ -86,10 +83,8 @@ class MemberTest {
 	@DisplayName("현재와 동일한 비밀번호로 변경하면 예외가 발생한다")
 	void updatePasswordFail() {
 		// given
-		Member member = MemberFixture.builder()
-			.withPassword("samePassword")
-			.build();
-		String samePassword = "samePassword";
+		Member member = createMember();
+		String samePassword = member.getPassword();
 
 		// when & then
 		assertThatThrownBy(() -> member.updatePassword(samePassword))
@@ -101,7 +96,7 @@ class MemberTest {
 	@DisplayName("이메일을 새로운 이메일로 변경할 수 있다")
 	void updateEmail() {
 		// given
-		Member member = MemberFixture.create();
+		Member member = createMember();
 		String newEmail = "new@example.com";
 
 		// when
@@ -115,14 +110,24 @@ class MemberTest {
 	@DisplayName("현재와 동일한 이메일로 변경하면 예외가 발생한다")
 	void updateEmailFail() {
 		// given
-		Member member = MemberFixture.builder()
-			.withEmail("same@example.com")
-			.build();
-		String sameEmail = "same@example.com";
+		Member member = createMember();
+		String sameEmail = member.getMemberDetail().getEmail();
 
 		// when & then
 		assertThatThrownBy(() -> member.updateEmail(sameEmail))
 			.isInstanceOf(DomainException.class)
 			.hasMessage(MemberError.SAME_EMAIL.getMessage());
+	}
+
+	private Member createMember() {
+		return Member.create(
+			"member",
+			"testPassword",
+			"010-1111-1111",
+			"202507300001",
+			"test@example.com",
+			LocalDate.of(2000, 1, 1),
+			"M"
+		);
 	}
 }

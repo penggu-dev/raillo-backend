@@ -9,7 +9,8 @@ description: 테스트 대상 코드를 분석하고 프로젝트 테스트 컨�
 1. 대상 클래스, 대상 메서드, 관련 예외와 의존 객체를 읽는다.
 2. 기존 테스트 파일이 있으면 먼저 읽고 패턴을 따른다.
 3. 패키지 위치로 테스트 유형을 결정한다.
-    - `domain/`, `application/calculator/`: 도메인 단위 테스트
+    - `raillo-domain`의 `domain/`: 도메인 단위 테스트 (`raillo-domain/src/test`)
+    - `raillo-api`의 `application/calculator/`: 단위 테스트 (`raillo-api/src/test`)
     - `application/service/`, `application/facade/`, `application/validator/`: 서비스 통합 테스트
 4. 테스트 케이스를 도출한다.
     - 성공 케이스
@@ -26,7 +27,8 @@ description: 테스트 대상 코드를 분석하고 프로젝트 테스트 컨�
 
 ## Conventions
 - 파일명은 `{ClassName}Test.java` 를 사용한다.
-- 도메인 테스트는 Fixture만 사용하고 DB를 사용하지 않는다.
+- `raillo-domain` 도메인 테스트는 Fixture 없이 Entity 정적 팩토리 메서드로 객체를 직접 생성하고 DB를 사용하지 않는다. 반복되는 생성 코드는 테스트 클래스의 private 메서드로 둔다.
+- `raillo-api` 테스트는 `support/fixture/`의 Fixture와 `support/helper/`의 TestHelper로 데이터를 만든다.
 - 서비스 통합 테스트는 `@ServiceTest` 를 사용한다.
 - 서비스 통합 테스트의 공통 데이터는 `@BeforeEach` 에서 준비한다.
 - Member는 `memberRepository.save(MemberFixture.create())` 방식으로 저장한다.

@@ -33,8 +33,8 @@ testcontainers.reuse.enable=true
 
 | Type | Target | Annotation | Data Setup |
 |------|--------|------------|------------|
-| Domain Unit Test | Entity | None (POJO) | Fixture |
-| Service Integration Test | Service | `@ServiceTest` | Helper |
+| Domain Unit Test (`raillo-domain`) | Entity | None (POJO) | Entity 정적 팩토리로 직접 생성 |
+| Service Integration Test (`raillo-api`) | Service | `@ServiceTest` | Helper + Fixture |
 
 ## Test Writing Conventions
 
@@ -76,8 +76,10 @@ void cancel_success() {
 
 | | Fixture | Helper |
 |--|---------|--------|
-| Purpose | In-memory POJO (domain tests) | DB-persisted entity (service tests) |
-| Location | `support/fixture/` | `support/helper/` |
+| Purpose | In-memory POJO (`raillo-api` tests) | DB-persisted entity (service tests) |
+| Location | `raillo-api/src/test/.../support/fixture/` | `raillo-api/src/test/.../support/helper/` |
+
+`raillo-domain` 테스트는 Fixture를 사용하지 않는다 (API 모듈의 테스트 코드에 접근할 수 없음).
 
 ### Available Fixtures
 
