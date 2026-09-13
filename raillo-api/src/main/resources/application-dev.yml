@@ -23,9 +23,9 @@ spring:
       port: 6379
 
   datasource:
-    url: ${TEST_DB_URL}
-    username: ${TEST_DB_USERNAME}
-    password: ${TEST_DB_PW}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PW}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: ${HIKARI_MAXIMUM_POOL_SIZE:10}
