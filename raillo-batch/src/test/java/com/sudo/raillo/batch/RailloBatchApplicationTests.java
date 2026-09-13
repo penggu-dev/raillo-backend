@@ -8,6 +8,7 @@ import com.sudo.raillo.batch.train.job.TrainDailyScheduleJobConfig;
 import com.sudo.raillo.batch.train.job.TrainInitializeJobConfig;
 import com.sudo.raillo.batch.train.job.TrainMonthlyScheduleJobConfig;
 import com.sudo.raillo.batch.train.job.TrainParseJobConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.job.Job;
@@ -33,6 +34,20 @@ class RailloBatchApplicationTests {
 		// then
 		assertThat(webApplicationType).isEqualTo("none");
 		assertThat(context.getClass().getName()).doesNotContain("WebServer");
+	}
+
+	@DisplayName("배치 데이터소스는 JDBC 배치 INSERT를 한 문장으로 재작성하는 MySQL 옵션을 사용한다")
+	@Test
+	void datasource_enables_rewrite_batched_statements(ApplicationContext context) {
+		// given
+		HikariDataSource dataSource = context.getBean(HikariDataSource.class);
+
+		// when
+		String rewriteBatchedStatements = dataSource.getDataSourceProperties()
+			.getProperty("rewriteBatchedStatements");
+
+		// then
+		assertThat(rewriteBatchedStatements).isEqualTo("true");
 	}
 
 	@DisplayName("--job 옵션으로 실행할 수 있는 Job이 모두 등록된다")

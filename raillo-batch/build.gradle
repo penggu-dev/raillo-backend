@@ -19,8 +19,8 @@ dependencies {
     testImplementation 'org.testcontainers:mysql:1.21.4'
 }
 
-// ./gradlew :raillo-batch:bootRun -Pjob=trainDailySchedule -PoperationDate=2026-10-20
 tasks.named('bootRun') {
+    workingDir = rootProject.projectDir
     ['job', 'operationDate'].each { name ->
         def value = providers.gradleProperty(name).orNull
         if (value) {

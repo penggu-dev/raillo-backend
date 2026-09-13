@@ -55,7 +55,7 @@
 
 - JDK 25. `bootRun`은 Gradle toolchain이 처리하지만, `java -jar`로 직접 실행하려면 JDK 25가 필요하다.
 - MySQL
-- `raillo-batch/.env` 파일. 루트 `.gitignore`에 포함되어 커밋되지 않는다.
+- 프로젝트 루트의 `.env` 파일. `raillo-api`와 같은 파일을 쓰며, `.gitignore`에 포함되어 커밋되지 않는다.
 
 ```properties
 DB_URL=jdbc:mysql://localhost:3306/raillo
@@ -63,7 +63,7 @@ DB_USERNAME=root
 DB_PW=비밀번호
 ```
 
-`.env`는 **실행 위치 기준**으로 읽는다. `bootRun`은 `raillo-batch` 폴더에서 실행되므로 위 위치에 두면 된다. 쉘 환경변수로 넣으면 `.env`보다 우선한다.
+`.env`는 **실행 위치 기준**으로 읽는다. `bootRun`은 작업 폴더가 프로젝트 루트로 고정되어 있어 루트 `.env`를 읽는다. 쉘 환경변수로 넣으면 `.env`보다 우선한다.
 
 ### 2. 처음 한 번: 테이블 생성 + 초기 데이터 적재
 
@@ -103,7 +103,7 @@ SPRING_BATCH_JDBC_INITIALIZE_SCHEMA=always SPRING_JPA_HIBERNATE_DDL_AUTO=update 
 ```
 
 ```bash
-cd raillo-batch && java -jar build/libs/raillo-batch-0.0.1-SNAPSHOT.jar --job=trainDailySchedule --operationDate=2026-10-20
+java -jar raillo-batch/build/libs/raillo-batch-0.0.1-SNAPSHOT.jar --job=trainDailySchedule --operationDate=2026-10-20
 ```
 
 ### IntelliJ에서 실행
@@ -112,7 +112,7 @@ cd raillo-batch && java -jar build/libs/raillo-batch-0.0.1-SNAPSHOT.jar --job=tr
 
 - Program arguments: `--job=trainDailySchedule` (필요하면 `--operationDate=2026-10-20` 추가)
 - Environment variables: `DB_URL=...;DB_USERNAME=...;DB_PW=...`
-- Working directory: `raillo-batch` (`.env`를 쓸 경우)
+- Working directory: 프로젝트 루트 (`.env`를 쓸 경우)
 - JDK: 25
 
 ### 결과 확인

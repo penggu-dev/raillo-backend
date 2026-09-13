@@ -16,6 +16,9 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PW}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      data-source-properties:
+        rewriteBatchedStatements: true # JDBC batchUpdate를 multi-row INSERT로 전송 (DB_URL과 무관하게 적용)
   jpa:
     hibernate:
       ddl-auto: none
