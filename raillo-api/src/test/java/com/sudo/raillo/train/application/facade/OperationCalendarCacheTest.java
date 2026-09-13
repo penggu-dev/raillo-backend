@@ -8,7 +8,7 @@ import static org.mockito.Mockito.verify;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.train.application.dto.response.OperationCalendarItemResponse;
 import com.sudo.raillo.train.application.service.TrainCalendarService;
-import com.sudo.raillo.train.batch.CalendarCacheEvictScheduler;
+import com.sudo.raillo.train.scheduler.CalendarCacheEvictScheduler;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
