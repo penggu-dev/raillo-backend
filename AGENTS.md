@@ -16,7 +16,7 @@ This file provides guidance to coding agents (Claude Code, Codex 등) when worki
 java -jar raillo-batch.jar --job=trainDailySchedule --operationDate=2026-01-01  # JAR 실행
 ```
 
-Batch Job: `trainParse`(Excel 파싱, DB당 1회), `trainDailySchedule`, `trainMonthlySchedule`, `trainInitialize`(parse → monthly), `deleteExpiredMembers`. 종료 코드는 성공 0, 실패 1.
+Batch Job: `trainParse`(Excel 파싱, 재실행 시 템플릿·운임 교체), `trainDailySchedule`, `trainMonthlySchedule`, `trainInitialize`(parse → monthly), `deleteExpiredMembers`. 종료 코드는 성공 0, 실패 1.
 
 ## Architecture
 
