@@ -74,6 +74,31 @@ public class TrainSchedule {
 	@JoinColumn(name = "arrival_station_id")
 	private Station arrivalStation;
 
+	private TrainSchedule(String scheduleName, LocalDate operationDate, LocalTime departureTime,
+		LocalTime arrivalTime, Train train, Station departureStation, Station arrivalStation) {
+		this.scheduleName = scheduleName;
+		this.operationDate = operationDate;
+		this.departureTime = departureTime;
+		this.arrivalTime = arrivalTime;
+		this.operationStatus = OperationStatus.ACTIVE;
+		this.delayMinutes = 0;
+		this.train = train;
+		this.departureStation = departureStation;
+		this.arrivalStation = arrivalStation;
+	}
+
+	public static TrainSchedule create(LocalDate operationDate, TrainScheduleTemplate template) {
+		return new TrainSchedule(
+			template.getScheduleName(),
+			operationDate,
+			template.getDepartureTime(),
+			template.getArrivalTime(),
+			template.getTrain(),
+			template.getDepartureStation(),
+			template.getArrivalStation()
+		);
+	}
+
 	/* 비즈니스 메서드 */
 	public void updateOperationStatus(OperationStatus status) {
 		this.operationStatus = status;

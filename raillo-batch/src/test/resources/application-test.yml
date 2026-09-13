@@ -1,0 +1,21 @@
+spring:
+  config.activate.on-profile: test
+  main:
+    web-application-type: none
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+train:
+  schedule:
+    excel:
+      location: classpath:files/train_schedule.xlsx
+  station-fare:
+    excel:
+      location: classpath:files/station_fare.xls

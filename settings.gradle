@@ -2,3 +2,4 @@ rootProject.name = 'raillo'
 
 include 'raillo-domain'
 include 'raillo-api'
+include 'raillo-batch'

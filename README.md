@@ -80,15 +80,13 @@
 
 ### 도메인 주도 설계 (DDD)
 ```
-src/main/java/com/sudo/raillo/
-├── auth/       # 인증
-├── booking/    # 예약·예매
-├── member/     # 회원
-├── order/      # 주문
-├── payment/    # 결제
-├── train/      # 열차
-└── global/     # 공통 인프라
+raillo-domain ← raillo-api
+              ← raillo-batch
 ```
+
+- `raillo-domain`: Booking·Member·Order·Payment·Train 도메인 모델과 Domain 공통 기반 클래스의 단일 원본
+- `raillo-api`: REST API와 application/infrastructure, Payment 헥사고날 port/adapter
+- `raillo-batch`: Non-Web Spring Batch Job과 Batch 전용 Repository/JDBC 구현
 
 ### Layer 아키텍처
 ```
@@ -201,4 +199,3 @@ Controller → Facade → Service → Repository
 | `/test` | 도메인/서비스/Validator 테스트 자동 작성 (BDD, `@DisplayName` 한국어) |
 | `/validator` | `application/validator/{Domain}Validator.java` 클래스/메서드 생성 |
 | `/api-doc` | Controller 기반 Swagger `{Domain}ControllerDoc` 인터페이스 생성 |
-

@@ -36,4 +36,17 @@ public class StationFare {
 	private BigDecimal standardFare;
 
 	private BigDecimal firstClassFare;
+
+	private StationFare(Station departureStation, Station arrivalStation, BigDecimal standardFare,
+		BigDecimal firstClassFare) {
+		this.departureStation = departureStation;
+		this.arrivalStation = arrivalStation;
+		this.standardFare = standardFare;
+		this.firstClassFare = firstClassFare;
+	}
+
+	public static StationFare create(Station departureStation, Station arrivalStation,
+		BigDecimal standardFare, BigDecimal firstClassFare) {
+		return new StationFare(departureStation, arrivalStation, standardFare, firstClassFare);
+	}
 }

@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: raillo-batch
+  main:
+    web-application-type: none
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - classpath:train-template.yml
+
+  jackson:
+    time-zone: Asia/Seoul
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PW}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        order_inserts: true
+        order_updates: true
+        jdbc:
+          batch_size: 500
+          batch_versioned_data: true
+        generate_statistics: false
+
+  batch:
+    jdbc:
+      initialize-schema: never
+    job:
+      enabled: true
+
+train:
+  schedule:
+    excel:
+      location: ${TRAIN_SCHEDULE_LOCATION:classpath:files/train_schedule.xlsx}
+  station-fare:
+    excel:
+      location: ${STATION_FARE_LOCATION:classpath:files/station_fare.xls}

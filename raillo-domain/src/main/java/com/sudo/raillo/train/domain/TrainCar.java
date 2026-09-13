@@ -43,4 +43,19 @@ public class TrainCar {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "train_id")
 	private Train train;
+
+	private TrainCar(int carNumber, CarType carType, int seatRowCount, int totalSeats,
+		String seatArrangement, Train train) {
+		this.carNumber = carNumber;
+		this.carType = carType;
+		this.seatRowCount = seatRowCount;
+		this.totalSeats = totalSeats;
+		this.seatArrangement = seatArrangement;
+		this.train = train;
+	}
+
+	public static TrainCar create(int carNumber, CarType carType, int seatRowCount, int totalSeats,
+		String seatArrangement, Train train) {
+		return new TrainCar(carNumber, carType, seatRowCount, totalSeats, seatArrangement, train);
+	}
 }

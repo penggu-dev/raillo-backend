@@ -32,4 +32,15 @@ public class Train {
 	private String trainName;
 
 	private int totalCars;
+
+	private Train(int trainNumber, TrainType trainType, String trainName, int totalCars) {
+		this.trainNumber = trainNumber;
+		this.trainType = trainType;
+		this.trainName = trainName;
+		this.totalCars = totalCars;
+	}
+
+	public static Train create(int trainNumber, TrainType trainType, String trainName, int totalCars) {
+		return new Train(trainNumber, trainType, trainName, totalCars);
+	}
 }
