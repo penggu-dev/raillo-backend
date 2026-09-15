@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "confirm · 호출 순서",
+    "viewBox": [1600, 760],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "happy-path",
+        "label": "정상 승인 경로",
+        "focus": ["api", "confirmService", "starter", "db", "gateway", "finalizer", "redis"],
+        "note": "TX A, Toss 승인 요청, TX B, Redis 정리로 이어지는 정상 승인의 단일 경로를 강조한다."
+      },
+      {
+        "id": "reentry",
+        "label": "기존 attempt 재요청",
+        "focus": ["api", "confirmService", "starter", "db"],
+        "note": "같은 attemptId로 다시 들어온 요청은 Starter에서 조기 종료되며 Toss 호출은 발생하지 않는다."
+      },
+      {
+        "id": "gateway-failures",
+        "label": "Toss 오류 분류",
+        "focus": ["confirmService", "gateway", "db"],
+        "note": "확정 실패로 판정되는 4xx만 FAILED로 커밋한다. 5xx·타임아웃·응답 유실은 IN_PROGRESS 상태로 유지한다."
+      },
+      {
+        "id": "post-approval-failures",
+        "label": "확정·정리 실패",
+        "focus": ["confirmService", "finalizer", "db", "redis"],
+        "note": "TX B가 실패하면 Toss 승인 상태는 그대로 남는다. Redis 정리 오류는 승인 결과를 되돌리지 않는다."
+      }
+    ]
+  },
+  "participants": [
+    { "id": "api", "type": "frontend", "label": "PaymentApi" },
+    { "id": "confirmService", "type": "backend", "label": "ConfirmService" },
+    { "id": "starter", "type": "backend", "label": "ApprovalStarter" },
+    { "id": "db", "type": "database", "label": "MySQL" },
+    { "id": "gateway", "type": "external", "label": "TossPayments" },
+    { "id": "finalizer", "type": "backend", "label": "Finalizer" },
+    { "id": "redis", "type": "database", "label": "Redis" }
+  ],
+  "segments": [
+    { "from": 160, "to": 275, "label": "TX A · 승인 시작" },
+    { "from": 285, "to": 340, "label": "Toss 승인 (DB TX 없음)" },
+    { "from": 350, "to": 435, "label": "TX B · 승인 확정" },
+    { "from": 445, "to": 500, "label": "커밋 후 정리 · 응답" },
+    { "from": 510, "to": 695, "label": "예외 분기" }
+  ],
+  "messages": [
+    {
+      "id": "api-in",
+      "from": "api",
+      "to": "confirmService",
+      "y": 170,
+      "label": "confirm(command, memberNo)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "confirm-call",
+      "from": "confirmService",
+      "to": "starter",
+      "y": 200,
+      "label": "start(command, memberNo)",
+      "variant": "default",
+      "note": "Order·Member·Payment 조회, 소유권·금액 검증, PendingBooking 조회, 중복 결제 검증을 이 단계에서 모두 수행한다."
+    },
+    {
+      "id": "start-call",
+      "from": "starter",
+      "to": "db",
+      "y": 230,
+      "label": "TX A · Payment 잠금 + attempt(IN_PROGRESS) INSERT",
+      "variant": "emphasis",
+      "note": "REQUIRES_NEW 트랜잭션에서 paymentKey 갱신과 attempt INSERT를 함께 커밋하고, Toss 호출 전에 잠금을 해제한다."
+    },
+    {
+      "id": "start-return",
+      "from": "starter",
+      "to": "confirmService",
+      "y": 260,
+      "label": "TX A COMMIT · attemptDbId 반환",
+      "variant": "return"
+    },
+    {
+      "id": "toss-call",
+      "from": "confirmService",
+      "to": "gateway",
+      "y": 295,
+      "label": "PaymentGateway.confirm(command)",
+      "variant": "emphasis",
+      "note": "활성 DB 트랜잭션이 없는 상태에서 호출한다. confirm() 자체는 트랜잭션을 열지 않으며 OSIV도 비활성화되어 있다."
+    },
+    {
+      "id": "toss-return",
+      "from": "gateway",
+      "to": "confirmService",
+      "y": 325,
+      "label": "GatewayConfirmResult(method)",
+      "variant": "return"
+    },
+    {
+      "id": "finalize-call",
+      "from": "confirmService",
+      "to": "finalizer",
+      "y": 360,
+      "label": "finalizeApproval(paymentId, attemptDbId, ...)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tx-b",
+      "from": "finalizer",
+      "to": "db",
+      "y": 390,
+      "label": "TX B · SELECT FOR UPDATE + 재검증 + 확정",
+      "variant": "emphasis",
+      "note": "Order.completePayment, Booking 생성, Payment.approve, Attempt.markSucceeded, PaymentOutbox INSERT를 하나의 트랜잭션에서 원자적으로 커밋한다."
+    },
+    {
+      "id": "finalize-return",
+      "from": "finalizer",
+      "to": "confirmService",
+      "y": 420,
+      "label": "TX B COMMIT · PaymentConfirmResult",
+      "variant": "return"
+    },
+    {
+      "id": "cleanup-call",
+      "from": "confirmService",
+      "to": "redis",
+      "y": 455,
+      "label": "cleanupPendingBookings · Hold 해제",
+      "variant": "dashed",
+      "note": "TX B 커밋 이후 인라인으로 실행한다. 후속 이슈 #266에서 OutboxWorker로 이관할 예정이다."
+    },
+    {
+      "id": "api-return",
+      "from": "confirmService",
+      "to": "api",
+      "y": 485,
+      "label": "PaymentConfirmResult · 200",
+      "variant": "return"
+    },
+    {
+      "id": "reentry-branch",
+      "from": "starter",
+      "to": "db",
+      "y": 530,
+      "label": "기존 attempt 조회 (attemptId 매칭) → Toss 미호출",
+      "variant": "security",
+      "note": "SUCCEEDED이면 최신 DB 결과를 재조회해 반환하고, FAILED는 PAYMENT_ATTEMPT_ALREADY_FAILED, IN_PROGRESS는 PAYMENT_ATTEMPT_IN_PROGRESS 예외로 조기 종료한다."
+    },
+    {
+      "id": "toss-4xx",
+      "from": "gateway",
+      "to": "confirmService",
+      "y": 565,
+      "label": "TossPaymentException · 4xx (isDefinitiveFailure)",
+      "variant": "security",
+      "note": "ConfirmService가 Attempt와 Payment를 각각 REQUIRES_NEW 트랜잭션에서 FAILED로 마킹한다. 두 커밋 사이 장애로 인한 정합성 공백은 후속 이슈에서 보완한다."
+    },
+    {
+      "id": "toss-5xx",
+      "from": "gateway",
+      "to": "confirmService",
+      "y": 600,
+      "label": "5xx · 타임아웃 · 응답 유실 → attempt IN_PROGRESS 유지",
+      "variant": "dashed",
+      "note": "실패로 확정하지 않는다. 후속 Recovery Worker(#257 후속)가 paymentKey로 Toss 상태를 조회해 롤포워드 또는 보상을 결정한다."
+    },
+    {
+      "id": "tx-b-rollback",
+      "from": "finalizer",
+      "to": "db",
+      "y": 635,
+      "label": "TX B 롤백 → Toss 승인 유지 · Recovery 롤포워드 대상",
+      "variant": "security",
+      "note": "Attempt는 IN_PROGRESS 상태로 남고 Redis 정리는 수행되지 않는다. 클라이언트 재요청으로는 복구되지 않으며 Recovery Worker의 롤포워드가 유일한 복구 경로다."
+    },
+    {
+      "id": "cleanup-error",
+      "from": "redis",
+      "to": "confirmService",
+      "y": 670,
+      "label": "정리 실패 → 승인 결과 유지",
+      "variant": "security",
+      "note": "PendingBooking 삭제 실패는 로그만 남기고 TTL로 회수하며, Seat Hold 해제 실패는 API 예외로 전파한다."
+    }
+  ],
+  "activations": [
+    { "participant": "confirmService", "from": 170, "to": 490, "type": "backend" },
+    { "participant": "starter", "from": 200, "to": 265, "type": "backend" },
+    { "participant": "db", "from": 228, "to": 258, "type": "database" },
+    { "participant": "gateway", "from": 293, "to": 327, "type": "external" },
+    { "participant": "finalizer", "from": 360, "to": 423, "type": "backend" },
+    { "participant": "db", "from": 388, "to": 418, "type": "database" },
+    { "participant": "redis", "from": 453, "to": 485, "type": "database" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "정상 승인의 단일 경로",
+      "items": [
+        "PaymentApi가 요청을 수신하면 ConfirmService가 TX A, Toss 승인 요청, TX B, Redis 정리를 순서대로 연결한 뒤 결과를 응답한다.",
+        "confirm()과 상위 API는 자체 트랜잭션을 열지 않는다. TX A와 TX B는 서로 독립된 짧은 커밋이며, Toss 호출은 두 커밋 사이의 트랜잭션 밖 구간에서 이뤄진다."
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "TX A와 TX B의 역할",
+      "items": [
+        "TX A(PaymentAttemptManager.startApprovalInNewTransaction)는 Payment를 잠근 상태에서 paymentKey를 갱신하고 IN_PROGRESS attempt를 함께 커밋한 뒤 잠금을 해제한다.",
+        "TX B(PaymentApprovalFinalizer.finalizeApproval)는 커밋된 최신 상태를 다시 조회·검증한 뒤 Order, Booking, Payment, Attempt, PaymentOutbox를 하나의 트랜잭션에서 원자적으로 확정한다."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "재요청과 오류 분기",
+      "items": [
+        "같은 attemptId로 다시 들어온 요청은 Starter에서 조기 종료된다. SUCCEEDED는 최신 DB 결과를 재조회해 반환하고, FAILED와 IN_PROGRESS는 각각 예외를 반환한다.",
+        "확정 실패로 판정되는 Toss 4xx만 FAILED로 커밋한다. 5xx·타임아웃·응답 유실 및 TX B 실패는 Attempt를 IN_PROGRESS로 남겨 후속 Recovery Worker(#257 후속)의 대사 대상으로 넘긴다.",
+        "Redis 정리 오류는 승인 결과를 되돌리지 않는다. PendingBooking 삭제 실패는 로그만 남기고 TTL로 회수하며, Seat Hold 해제 실패는 API 예외로 전파한다."
+      ]
+    }
+  ]
+}

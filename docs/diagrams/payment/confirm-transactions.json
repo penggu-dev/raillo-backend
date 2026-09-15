@@ -1,0 +1,250 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "confirm · 트랜잭션 경계",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "approval",
+      "label": "현재 · 정상 승인"
+    },
+    {
+      "id": "exceptions",
+      "label": "현재 · 재요청과 오류",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "before",
+      "label": "사전 확인",
+      "fromCol": 0,
+      "toCol": 0
+    },
+    {
+      "id": "start",
+      "label": "독립 커밋 A",
+      "fromCol": 1,
+      "toCol": 1,
+      "variant": "emphasis"
+    },
+    {
+      "id": "external",
+      "label": "외부 I/O",
+      "fromCol": 2,
+      "toCol": 2
+    },
+    {
+      "id": "final",
+      "label": "승인 커밋 B",
+      "fromCol": 3,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "after",
+      "label": "커밋 이후",
+      "fromCol": 4,
+      "toCol": 4
+    }
+  ],
+  "mainPath": [
+    "precheck",
+    "tx-a",
+    "toss",
+    "tx-b",
+    "cleanup"
+  ],
+  "nodes": [
+    {
+      "id": "precheck",
+      "lane": "approval",
+      "col": 0,
+      "type": "backend",
+      "label": "사전 검증",
+      "sublabel": "Starter.start()",
+      "tag": "자체 TX 없음",
+      "width": 155
+    },
+    {
+      "id": "tx-a",
+      "lane": "approval",
+      "col": 1,
+      "type": "database",
+      "label": "TX A · 승인 시작",
+      "sublabel": "기록 → COMMIT",
+      "tag": "REQUIRES_NEW",
+      "width": 155
+    },
+    {
+      "id": "toss",
+      "lane": "approval",
+      "col": 2,
+      "type": "external",
+      "label": "Toss 승인 요청",
+      "sublabel": "Gateway.confirm()",
+      "tag": "DB TX · 잠금 없음",
+      "width": 155
+    },
+    {
+      "id": "tx-b",
+      "lane": "approval",
+      "col": 3,
+      "type": "database",
+      "label": "TX B · 승인 확정",
+      "sublabel": "확정 → COMMIT",
+      "tag": "REQUIRED",
+      "width": 155
+    },
+    {
+      "id": "cleanup",
+      "lane": "approval",
+      "col": 4,
+      "type": "backend",
+      "label": "Redis 정리 · 응답",
+      "sublabel": "예약 삭제 · Hold 해제",
+      "tag": "커밋 이후",
+      "width": 155
+    },
+    {
+      "id": "existing",
+      "lane": "exceptions",
+      "col": 0,
+      "type": "backend",
+      "label": "기존 attempt",
+      "sublabel": "성공 결과 / 상태 오류",
+      "tag": "Toss 생략",
+      "width": 155
+    },
+    {
+      "id": "toss-error",
+      "lane": "exceptions",
+      "col": 2,
+      "type": "security",
+      "label": "Toss 오류 분류",
+      "sublabel": "4xx / 결과 불명",
+      "tag": "TX A 유지",
+      "width": 155
+    },
+    {
+      "id": "db-error",
+      "lane": "exceptions",
+      "col": 3,
+      "type": "security",
+      "label": "TX B 롤백",
+      "sublabel": "Payment PENDING",
+      "tag": "IN_PROGRESS 유지",
+      "width": 155
+    },
+    {
+      "id": "redis-error",
+      "lane": "exceptions",
+      "col": 4,
+      "type": "security",
+      "label": "Redis 정리 오류",
+      "sublabel": "승인 상태 유지",
+      "tag": "Hold 오류 전파",
+      "width": 155
+    }
+  ],
+  "edges": [
+    {
+      "id": "normal-0",
+      "from": "precheck",
+      "to": "tx-a",
+      "label": "신규 시도",
+      "role": "main",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "normal-1",
+      "from": "tx-a",
+      "to": "toss",
+      "label": "커밋 후",
+      "role": "main",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "normal-2",
+      "from": "toss",
+      "to": "tx-b",
+      "label": "승인 성공",
+      "role": "main",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "normal-3",
+      "from": "tx-b",
+      "to": "cleanup",
+      "label": "커밋 후",
+      "role": "main",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "precheck-branch",
+      "from": "precheck",
+      "to": "existing",
+      "label": "기존 시도",
+      "role": "branch",
+      "variant": "security"
+    },
+    {
+      "id": "toss-branch",
+      "from": "toss",
+      "to": "toss-error",
+      "label": "승인 오류",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "tx-b-branch",
+      "from": "tx-b",
+      "to": "db-error",
+      "label": "확정 실패",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "cleanup-branch",
+      "from": "cleanup",
+      "to": "redis-error",
+      "label": "정리 오류",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "TX A와 TX B의 저장 · 잠금 범위",
+      "items": [
+        "TX A는 PaymentAttemptManager.startApprovalInNewTransaction에서 REQUIRES_NEW로 열린다. Payment를 비관 잠금한 뒤 paymentKey를 갱신하고 IN_PROGRESS attempt를 함께 커밋한 다음 잠금을 해제한다. Toss 호출은 이 잠금이 풀린 후 트랜잭션 밖에서 수행된다.",
+        "TX B는 PaymentApprovalFinalizer.finalizeApproval에서 REQUIRED로 새로 열린다. Payment를 다시 잠근 상태에서 Order를 ORDERED로, Payment를 PAID로 전환하고 Booking 생성, Attempt SUCCEEDED, PaymentOutbox(PENDING) INSERT까지 하나의 트랜잭션에서 원자적으로 확정한다."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "실패 지점별 잔존 상태",
+      "items": [
+        "Toss 4xx로 확정 실패가 명확한 경우 Attempt와 Payment를 각각 별도 REQUIRES_NEW 트랜잭션에서 FAILED로 마킹한다. 두 커밋 사이 장애가 발생하면 상태가 어긋날 여지가 남으며, 원자적 처리는 후속 이슈에서 보완한다.",
+        "Toss 5xx·타임아웃·응답 유실 등 결과를 확정할 수 없는 오류는 Attempt를 IN_PROGRESS로 유지해 Recovery Worker(#257 후속)의 대사 대상으로 넘긴다.",
+        "TX B가 실패하면 Toss 승인 상태는 유지되고 DB 확정만 롤백된다. Redis 정리는 커밋 이후에 실행되므로 이 지점에서는 수행되지 않는다. Redis 정리 자체가 실패한 경우 PendingBooking 삭제 오류는 로그만 남기고 계속 진행하며, Seat Hold 해제 오류는 API 예외로 전파된다."
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "전제 · 재요청 · 시각 규약",
+      "items": [
+        "PaymentConfirmService.confirm과 상위 API는 자체 트랜잭션을 열지 않으며 dev·prod·test 모두 OSIV를 비활성화한다. Starter의 조회는 각 컴포넌트의 짧은 트랜잭션에서 수행되고, 커밋 지점은 TX A와 TX B 두 곳뿐이다.",
+        "같은 attemptId로 재요청이 들어오면 Starter가 조기 종료를 결정한다. SUCCEEDED 상태에서는 최신 DB 결과를 재조회해 반환하고, FAILED와 IN_PROGRESS 상태에서는 각각 예외를 반환한다. 새 attempt를 생성한(created=true) 호출만 Toss 승인 API를 실제로 호출한다.",
+        "빨간 점선 테두리로 감싼 아래 lane은 예외 경로다. 그 안의 붉은 노드는 Archify의 시각 스타일 표기로, 실패·롤백 분기를 나타낼 뿐 도메인상 보안 개념과는 무관하다."
+      ]
+    }
+  ]
+}

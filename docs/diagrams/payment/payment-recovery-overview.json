@@ -1,0 +1,220 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "결제 승인 · 후처리 · 복구 전체 흐름",
+    "quality_profile": "standard"
+  },
+  "lanes": [
+    { "id": "current", "label": "현재 구현 · 결제 승인" },
+    { "id": "outbox", "label": "후속 · OutboxWorker (#266)" },
+    { "id": "recovery", "label": "후속 · PaymentRecoveryWorker (#257 후속)", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "prepare-phase", "label": "결제 준비", "fromCol": 0, "toCol": 0 },
+    { "id": "confirm-phase", "label": "TX A · Toss", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
+    { "id": "finalize-phase", "label": "TX B · 승인 확정", "fromCol": 3, "toCol": 3, "variant": "emphasis" },
+    { "id": "post-phase", "label": "커밋 이후 · 후처리 · 복구", "fromCol": 4, "toCol": 4, "variant": "dashed" }
+  ],
+  "mainPath": [
+    "current-prepare",
+    "current-start",
+    "current-toss",
+    "current-finalize",
+    "current-cleanup"
+  ],
+  "nodes": [
+    {
+      "id": "current-prepare",
+      "lane": "current",
+      "col": 0,
+      "type": "backend",
+      "label": "prepare",
+      "sublabel": "Order · Payment PENDING",
+      "tag": "구현 완료",
+      "width": 150
+    },
+    {
+      "id": "current-start",
+      "lane": "current",
+      "col": 1,
+      "type": "database",
+      "label": "TX A · 승인 시작",
+      "sublabel": "attempt IN_PROGRESS",
+      "tag": "REQUIRES_NEW",
+      "width": 150
+    },
+    {
+      "id": "current-toss",
+      "lane": "current",
+      "col": 2,
+      "type": "external",
+      "label": "Toss 승인 요청",
+      "sublabel": "PaymentGateway.confirm",
+      "tag": "DB TX 없음",
+      "width": 150
+    },
+    {
+      "id": "current-finalize",
+      "lane": "current",
+      "col": 3,
+      "type": "database",
+      "label": "TX B · 승인 확정",
+      "sublabel": "Order/Payment/Attempt 커밋",
+      "tag": "원자 커밋",
+      "width": 155
+    },
+    {
+      "id": "current-cleanup",
+      "lane": "current",
+      "col": 4,
+      "type": "messagebus",
+      "label": "Redis 정리 · 인라인",
+      "sublabel": "cleanupPendingBookings",
+      "tag": "임시",
+      "width": 155
+    },
+    {
+      "id": "outbox-insert",
+      "lane": "outbox",
+      "col": 3,
+      "type": "messagebus",
+      "label": "outbox INSERT",
+      "sublabel": "PENDING · TX B와 원자",
+      "tag": "구현 완료",
+      "width": 155
+    },
+    {
+      "id": "outbox-worker",
+      "lane": "outbox",
+      "col": 4,
+      "type": "backend",
+      "label": "OutboxWorker",
+      "sublabel": "폴링 → Redis 정리 → DONE",
+      "tag": "#266 미구현",
+      "width": 165
+    },
+    {
+      "id": "attempt-source",
+      "lane": "recovery",
+      "col": 2,
+      "type": "security",
+      "label": "IN_PROGRESS attempt",
+      "sublabel": "결과 불명 · TX B 실패",
+      "tag": "데이터는 남음",
+      "width": 155
+    },
+    {
+      "id": "recovery-worker",
+      "lane": "recovery",
+      "col": 4,
+      "type": "backend",
+      "label": "RecoveryWorker",
+      "sublabel": "Toss 조회 → 롤포워드/보상/대기",
+      "tag": "#257 후속",
+      "width": 170
+    }
+  ],
+  "edges": [
+    {
+      "id": "current-1",
+      "from": "current-prepare",
+      "to": "current-start",
+      "label": "confirm 진입",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "current-2",
+      "from": "current-start",
+      "to": "current-toss",
+      "label": "커밋 후",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "current-3",
+      "from": "current-toss",
+      "to": "current-finalize",
+      "label": "승인 성공",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "current-4",
+      "from": "current-finalize",
+      "to": "current-cleanup",
+      "label": "커밋 후",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "outbox-1",
+      "from": "current-finalize",
+      "to": "outbox-insert",
+      "label": "같은 TX",
+      "role": "branch",
+      "variant": "default"
+    },
+    {
+      "id": "outbox-2",
+      "from": "outbox-insert",
+      "to": "outbox-worker",
+      "label": "폴링·처리",
+      "role": "async",
+      "variant": "dashed"
+    },
+    {
+      "id": "recovery-1",
+      "from": "current-toss",
+      "to": "attempt-source",
+      "label": "결과 불명",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "recovery-2",
+      "from": "current-finalize",
+      "to": "attempt-source",
+      "label": "TX B 롤백",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "id": "recovery-3",
+      "from": "attempt-source",
+      "to": "recovery-worker",
+      "label": "대사 대상",
+      "role": "async",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "현재 구현 (#257 브랜치)",
+      "items": [
+        "결제 준비부터 응답까지 prepare → TX A → Toss → TX B → 인라인 Redis 정리 → 응답 순으로 진행한다. TX B는 Order, Booking, Payment, Attempt, PaymentOutbox(PENDING)를 하나의 트랜잭션에서 원자적으로 확정한다.",
+        "현재 브랜치에는 OutboxWorker와 PaymentRecoveryWorker가 존재하지 않는다. Redis 정리는 승인 커밋 이후 인라인으로 수행되며, 정리가 실패하더라도 승인 결과는 되돌리지 않는다."
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Outbox 폴링(#266)과 Recovery 대사(#257 후속)의 구분",
+      "items": [
+        "OutboxWorker는 승인 확정과 함께 저장된 payment_outbox(PENDING) 행을 소비해 Redis 정리를 완료 상태로 확정하는 후처리 소비자다. 폴링 주기, backoff 정책, 최대 재시도 횟수 등 세부 값은 후속 이슈 #266에서 확정한다.",
+        "PaymentRecoveryWorker는 오랫동안 IN_PROGRESS로 남은 attempt를 대상으로 paymentKey를 이용해 Toss 상태를 조회한 뒤 결과를 확정한다. 승인 성공이 확인되고 DB가 미확정이면 롤포워드, 실패가 확인되면 보상, 결과가 불명확하면 다음 폴링까지 대기하며, 승인 API를 다시 호출하는 방식이 아니다.",
+        "복구가 완료된 attempt에 같은 attemptId로 재요청이 들어오면 Starter가 SUCCEEDED 상태를 인지해 최신 DB 결과를 반환한다."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "후속 확장 · 현재의 한계 · 시각 규약",
+      "items": [
+        "결제 취소 흐름은 후속 이슈 #259에서 대칭 구조로 확장한다. 이 그림은 승인 흐름만 다루므로 취소 관련 노드는 포함하지 않는다.",
+        "이관 과도기에 OutboxWorker가 NoOp 처리기를 사용한다면 payment_outbox의 DONE 상태는 Redis 정리 완료를 보장하지 않는다. 인라인 cleanup은 실제 정리 처리기가 도입되는 시점에 제거한다. 폴링 주기, stale 판정 기준, 최대 재시도 횟수 등 세부 정책 값은 후속 이슈에서 확정한다.",
+        "빨간 점선으로 감싼 아래 lane은 예외 경로다. 그 안의 붉은 노드는 Archify의 시각 스타일 표기로, 실패·복구 분기를 나타낼 뿐 도메인상 보안 개념과는 무관하다."
+      ]
+    }
+  ]
+}
