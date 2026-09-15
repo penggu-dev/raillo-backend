@@ -1,13 +1,14 @@
-# Stage 1: 빌드용 (Gradle multi-module → raillo-core bootJar)
+# Stage 1: 빌드용 (Gradle multi-module → raillo-api bootJar)
 FROM eclipse-temurin:25-jdk-alpine AS stage1
 WORKDIR /app
 COPY gradle gradle
 COPY gradlew .
 COPY settings.gradle build.gradle ./
-COPY raillo-common raillo-common
-COPY raillo-core raillo-core
+COPY raillo-domain raillo-domain
+COPY raillo-api raillo-api
+COPY raillo-batch raillo-batch
 RUN chmod +x gradlew
-RUN ./gradlew :raillo-core:bootJar --no-daemon
+RUN ./gradlew :raillo-api:bootJar --no-daemon
 
 # Stage 2: 실행용
 FROM eclipse-temurin:25-jdk-alpine
@@ -20,6 +21,6 @@ ENV TZ=Asia/Seoul
 ENV JAVA_TOOL_OPTIONS="-Duser.timezone=Asia/Seoul"
 
 WORKDIR /app
-COPY --from=stage1 /app/raillo-core/build/libs/*.jar app.jar
+COPY --from=stage1 /app/raillo-api/build/libs/*.jar app.jar
 
 ENTRYPOINT ["java", "-Dspring.profiles.active=prod", "-jar", "app.jar"]

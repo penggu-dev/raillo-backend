@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: raillo-batch
+  main:
+    web-application-type: none
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - classpath:train-template.yml
+
+  jackson:
+    time-zone: Asia/Seoul
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PW}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      data-source-properties:
+        rewriteBatchedStatements: true # JDBC batchUpdate를 multi-row INSERT로 전송 (DB_URL과 무관하게 적용)
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        order_inserts: true
+        order_updates: true
+        jdbc:
+          batch_size: 500
+          batch_versioned_data: true
+        generate_statistics: false
+
+  batch:
+    jdbc:
+      initialize-schema: never
+    job:
+      enabled: false # BatchJobLauncher가 --job 옵션으로 Job을 실행한다
+
+train:
+  schedule:
+    excel:
+      location: ${TRAIN_SCHEDULE_LOCATION:classpath:files/train_schedule.xlsx}
+  station-fare:
+    excel:
+      location: ${STATION_FARE_LOCATION:classpath:files/station_fare.xls}
