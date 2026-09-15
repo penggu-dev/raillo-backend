@@ -6,6 +6,7 @@ COPY gradlew .
 COPY settings.gradle build.gradle ./
 COPY raillo-domain raillo-domain
 COPY raillo-api raillo-api
+COPY raillo-batch raillo-batch
 RUN chmod +x gradlew
 RUN ./gradlew :raillo-api:bootJar --no-daemon
 
