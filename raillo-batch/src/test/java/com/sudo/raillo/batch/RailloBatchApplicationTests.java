@@ -14,6 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.job.Job;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 
@@ -48,6 +51,19 @@ class RailloBatchApplicationTests {
 
 		// then
 		assertThat(rewriteBatchedStatements).isEqualTo("true");
+	}
+
+	@DisplayName("기준정보 적재에 쓸 Redis 연결이 동작한다")
+	@Test
+	void redis_connection_is_available(ApplicationContext context) {
+		// given
+		StringRedisTemplate redisTemplate = context.getBean(StringRedisTemplate.class);
+
+		// when
+		String pong = redisTemplate.execute((RedisCallback<String>) RedisConnection::ping);
+
+		// then
+		assertThat(pong).isEqualTo("PONG");
 	}
 
 	@DisplayName("--job 옵션으로 실행할 수 있는 Job이 모두 등록된다")

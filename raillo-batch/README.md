@@ -37,6 +37,8 @@
 | `DB_URL` | ✅ | 예: `jdbc:mysql://localhost:3306/raillo` |
 | `DB_USERNAME` | ✅ | DB 계정 |
 | `DB_PW` | ✅ | DB 비밀번호 |
+| `REDIS_HOST` | | Redis 호스트. 기본값 `localhost` |
+| `REDIS_PORT` | | Redis 포트. 기본값 `6379` |
 | `TRAIN_SCHEDULE_LOCATION` | | 시간표 Excel 위치. 기본값 `classpath:files/train_schedule.xlsx` |
 | `STATION_FARE_LOCATION` | | 운임 Excel 위치. 기본값 `classpath:files/station_fare.xls` |
 
@@ -55,6 +57,7 @@
 
 - JDK 25. `bootRun`은 Gradle toolchain이 처리하지만, `java -jar`로 직접 실행하려면 JDK 25가 필요하다.
 - MySQL
+- Redis. 기준정보 적재에 쓴다.
 - 프로젝트 루트의 `.env` 파일. `raillo-api`와 같은 파일을 쓰며, `.gitignore`에 포함되어 커밋되지 않는다.
 
 ```properties

@@ -9,6 +9,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-batch-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
     runtimeOnly 'com.mysql:mysql-connector-j'
 
@@ -21,7 +22,7 @@ dependencies {
 
 tasks.named('bootRun') {
     workingDir = rootProject.projectDir
-    ['job', 'operationDate'].each { name ->
+    ['job', 'operationDate', 'fromDate', 'toDate'].each { name ->
         def value = providers.gradleProperty(name).orNull
         if (value) {
             args "--${name}=${value}"
