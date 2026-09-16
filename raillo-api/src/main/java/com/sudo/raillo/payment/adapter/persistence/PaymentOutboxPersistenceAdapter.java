@@ -43,4 +43,9 @@ public class PaymentOutboxPersistenceAdapter implements PaymentOutboxRepository 
 	public List<PaymentOutbox> lockProcessable(LocalDateTime now, int limit) {
 		return jpaRepository.lockProcessable(PaymentOutboxStatus.PENDING, now, Limit.of(limit));
 	}
+
+	@Override
+	public long countByStatus(PaymentOutboxStatus status) {
+		return jpaRepository.countByStatus(status);
+	}
 }
