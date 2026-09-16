@@ -53,14 +53,13 @@ if (start.isAlreadyConfirmed()) {
 // 2. Toss 승인 요청 (DB 트랜잭션 없음)
 GatewayConfirmResult approval = requestTossApproval(command, start.paymentId(), start.attemptDbId());
 
-// 3. TX B - 승인 확정
+// 3. TX B - 승인 확정 (Outbox INSERT까지 원자적으로 커밋)
 PaymentConfirmResult result = paymentApprovalFinalizer.finalizeApproval(
     start.paymentId(), start.attemptDbId(), command, approval, start.pendingBookings()
 );
-
-// TX B 커밋 이후 실행한다. 후속 PR에서 OutboxWorker로 완전히 이관한다.
-cleanupPendingBookings(start.pendingBookings());
 ```
+
+승인 확정 TX B는 `payment_outbox`에 `BOOKING_CONFIRMED` 행을 함께 INSERT하고, PendingBooking 삭제·Seat Hold 해제는 별도 스케줄러(`PaymentOutboxWorker`, #266)가 비동기로 처리한다. 정리 실패는 backoff 재시도되며, 승인 응답에는 영향을 주지 않는다.
 
 ### 승인 시작
 
