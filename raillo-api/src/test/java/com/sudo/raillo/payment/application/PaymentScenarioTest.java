@@ -160,7 +160,7 @@ class PaymentScenarioTest {
 		assertThat(seatBookings).hasSize(1);
 
 		// PendingBooking 삭제와 Seat Hold 해제는 PaymentOutboxWorker가 비동기로 수행하므로
-		// 별도 통합 테스트(PaymentApprovalOutboxE2ETest)에서 검증한다.
+		// PaymentConfirmServiceTest.confirmPayment_holdReleasedAfterWorkerTick에서 Worker tick 후 검증한다.
 	}
 
 	@Test
