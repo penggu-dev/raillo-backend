@@ -1,7 +1,5 @@
 package com.sudo.raillo.payment.application.outbox;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.application.BookingConfirmedPayload;
 import com.sudo.raillo.payment.application.required.PendingBookingReader;
@@ -19,6 +17,8 @@ import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Component
@@ -53,7 +53,7 @@ public class BookingConfirmedProcessor implements OutboxEventProcessor {
 	private BookingConfirmedPayload deserialize(String payload) {
 		try {
 			return objectMapper.readValue(payload, BookingConfirmedPayload.class);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			throw new BusinessException(PaymentError.PAYMENT_OUTBOX_PAYLOAD_DESERIALIZATION_FAILED, e);
 		}
 	}

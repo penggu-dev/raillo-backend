@@ -9,8 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sudo.raillo.global.exception.BusinessException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.sudo.raillo.payment.application.BookingConfirmedPayload;
 import com.sudo.raillo.payment.application.required.PendingBookingReader;
 import com.sudo.raillo.payment.application.required.SeatHoldReleaser;
@@ -30,7 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class BookingConfirmedProcessorTest {
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
 	@Mock
 	private PendingBookingReader pendingBookingReader;
