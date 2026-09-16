@@ -116,6 +116,9 @@ class PaymentConfirmServiceTest {
 	@Autowired
 	private PaymentAttemptRepository paymentAttemptRepository;
 
+	@Autowired
+	private com.sudo.raillo.payment.application.outbox.PaymentOutboxWorker paymentOutboxWorker;
+
 	@MockitoSpyBean
 	private PaymentOutboxRepository paymentOutboxRepository;
 
@@ -498,8 +501,8 @@ class PaymentConfirmServiceTest {
 	}
 
 	@Test
-	@DisplayName("결제 승인 성공 시 Seat Hold가 해제된다")
-	void confirmPayment_holdReleasedAfterSuccess() {
+	@DisplayName("결제 승인 후 OutboxWorker가 tick하면 Seat Hold가 해제된다")
+	void confirmPayment_holdReleasedAfterWorkerTick() {
 		// given
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_hold_release_test";
@@ -522,8 +525,9 @@ class PaymentConfirmServiceTest {
 
 		// when
 		paymentConfirmer.confirm(confirmRequest, memberNo);
+		paymentOutboxWorker.poll();
 
-		// then - Hold가 해제되어 다른 사용자가 같은 좌석을 Hold 할 수 있어야 함
+		// then - Worker가 처리한 뒤에는 Hold가 해제되어 다른 사용자가 같은 좌석을 Hold 할 수 있어야 함
 		Long trainCarId = trainTestHelper.getSeats(
 			trainScheduleResult.trainSchedule().getTrain(), CarType.STANDARD, 1
 			).get(0).getTrainCar().getId();
