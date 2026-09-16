@@ -13,25 +13,29 @@ import org.springframework.batch.core.step.Step;
 
 class TrainInitializeJobConfigTest {
 
-	@DisplayName("초기화 Job은 파싱, 정적 기준정보 적재, 월간 스케줄 순으로 실행한다")
+	@DisplayName("초기화 Job은 생성한 데이터를 곧바로 캐시에 반영하는 순서로 실행한다")
 	@Test
-	void initialize_job_defines_parse_static_cache_then_monthly_step() {
+	void initialize_job_caches_right_after_each_generation_step() {
 		// given
-		Step parseStep = mock(Step.class);
-		Step staticCacheStep = mock(Step.class);
-		Step monthlyStep = mock(Step.class);
-		when(parseStep.getName()).thenReturn("trainParseStep");
-		when(staticCacheStep.getName()).thenReturn("trainStaticCacheStep");
-		when(monthlyStep.getName()).thenReturn("trainMonthlyScheduleStep");
+		Step parseStep = mockStep("trainParseStep");
+		Step staticCacheStep = mockStep("trainStaticCacheStep");
+		Step monthlyStep = mockStep("trainMonthlyScheduleStep");
+		Step scheduleCacheStep = mockStep("trainScheduleCacheStep");
 
 		// when
-		Job job = new TrainInitializeJobConfig()
-			.trainInitializeJob(mock(JobRepository.class), parseStep, staticCacheStep, monthlyStep);
+		Job job = new TrainInitializeJobConfig().trainInitializeJob(
+			mock(JobRepository.class), parseStep, staticCacheStep, monthlyStep, scheduleCacheStep);
 
-		// then - 정적 기준정보는 파싱으로 바뀌므로 반드시 파싱 뒤에 적재해야 한다
+		// then - 적재 Step은 각각 대상 데이터를 만든 Step 뒤에 와야 한다
 		assertThat(job).isInstanceOf(SimpleJob.class);
 		assertThat(job.getName()).isEqualTo(TrainInitializeJobConfig.JOB_NAME);
-		assertThat(((SimpleJob)job).getStepNames())
-			.containsExactly("trainParseStep", "trainStaticCacheStep", "trainMonthlyScheduleStep");
+		assertThat(((SimpleJob)job).getStepNames()).containsExactly(
+			"trainParseStep", "trainStaticCacheStep", "trainMonthlyScheduleStep", "trainScheduleCacheStep");
+	}
+
+	private Step mockStep(String name) {
+		Step step = mock(Step.class);
+		when(step.getName()).thenReturn(name);
+		return step;
 	}
 }

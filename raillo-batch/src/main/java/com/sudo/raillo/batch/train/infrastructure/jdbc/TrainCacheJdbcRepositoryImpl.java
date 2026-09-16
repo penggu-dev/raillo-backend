@@ -1,5 +1,7 @@
 package com.sudo.raillo.batch.train.infrastructure.jdbc;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -8,10 +10,14 @@ import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import com.sudo.raillo.batch.train.application.dto.ScheduleStopCacheEntry;
 import com.sudo.raillo.batch.train.application.dto.StationFareCacheEntry;
+import com.sudo.raillo.train.cache.ScheduleInfoCacheValue;
+import com.sudo.raillo.train.cache.ScheduleStopCacheValue;
 import com.sudo.raillo.train.cache.SeatCacheValue;
 import com.sudo.raillo.train.cache.StationFareCacheValue;
 import com.sudo.raillo.train.cache.TrainCarCacheValue;
+import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.domain.type.SeatType;
 
@@ -42,6 +48,26 @@ public class TrainCacheJdbcRepositoryImpl implements TrainCacheJdbcRepository {
 	private static final String STATION_FARE_SQL = """
 		SELECT departure_station_id, arrival_station_id, standard_fare, first_class_fare
 		FROM station_fare
+		""";
+
+	private static final String SCHEDULE_SQL = """
+		SELECT ts.train_schedule_id, ts.operation_date, ts.departure_time, ts.arrival_time,
+		       ts.operation_status, ts.delay_minutes,
+		       ts.train_id, t.train_number, t.train_name,
+		       ts.departure_station_id, ts.arrival_station_id
+		FROM train_schedule ts
+		JOIN train t ON t.train_id = ts.train_id
+		WHERE ts.operation_date BETWEEN ? AND ?
+		""";
+
+	private static final String SCHEDULE_STOP_SQL = """
+		SELECT ss.train_schedule_id, ss.schedule_stop_id, ss.stop_order,
+		       ss.station_id, st.station_name, ss.arrival_time, ss.departure_time
+		FROM schedule_stop ss
+		JOIN station st ON st.station_id = ss.station_id
+		JOIN train_schedule ts ON ts.train_schedule_id = ss.train_schedule_id
+		WHERE ts.operation_date BETWEEN ? AND ?
+		ORDER BY ss.train_schedule_id, ss.stop_order
 		""";
 
 	private final JdbcTemplate jdbcTemplate;
@@ -109,5 +135,49 @@ public class TrainCacheJdbcRepositoryImpl implements TrainCacheJdbcRepository {
 			}
 			return fares;
 		});
+	}
+
+	@Override
+	public List<ScheduleInfoCacheValue> findSchedulesBetween(LocalDate startDate, LocalDate endDate) {
+		return jdbcTemplate.query(SCHEDULE_SQL, rs -> {
+			List<ScheduleInfoCacheValue> schedules = new ArrayList<>();
+			while (rs.next()) {
+				schedules.add(new ScheduleInfoCacheValue(
+					rs.getLong("train_schedule_id"),
+					rs.getObject("operation_date", LocalDate.class),
+					rs.getObject("departure_time", LocalTime.class),
+					rs.getObject("arrival_time", LocalTime.class),
+					OperationStatus.valueOf(rs.getString("operation_status")),
+					rs.getInt("delay_minutes"),
+					rs.getLong("train_id"),
+					rs.getInt("train_number"),
+					rs.getString("train_name"),
+					rs.getLong("departure_station_id"),
+					rs.getLong("arrival_station_id")
+				));
+			}
+			return schedules;
+		}, startDate, endDate);
+	}
+
+	@Override
+	public List<ScheduleStopCacheEntry> findScheduleStopsBetween(LocalDate startDate, LocalDate endDate) {
+		return jdbcTemplate.query(SCHEDULE_STOP_SQL, rs -> {
+			List<ScheduleStopCacheEntry> stops = new ArrayList<>();
+			while (rs.next()) {
+				stops.add(new ScheduleStopCacheEntry(
+					rs.getLong("train_schedule_id"),
+					new ScheduleStopCacheValue(
+						rs.getLong("schedule_stop_id"),
+						rs.getInt("stop_order"),
+						rs.getLong("station_id"),
+						rs.getString("station_name"),
+						rs.getObject("arrival_time", LocalTime.class),
+						rs.getObject("departure_time", LocalTime.class)
+					)
+				));
+			}
+			return stops;
+		}, startDate, endDate);
 	}
 }

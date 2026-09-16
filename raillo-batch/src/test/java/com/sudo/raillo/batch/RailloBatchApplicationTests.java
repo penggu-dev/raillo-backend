@@ -8,6 +8,7 @@ import com.sudo.raillo.batch.train.job.TrainDailyScheduleJobConfig;
 import com.sudo.raillo.batch.train.job.TrainInitializeJobConfig;
 import com.sudo.raillo.batch.train.job.TrainMonthlyScheduleJobConfig;
 import com.sudo.raillo.batch.train.job.TrainParseJobConfig;
+import com.sudo.raillo.batch.train.job.TrainScheduleCacheJobConfig;
 import com.sudo.raillo.batch.train.job.TrainStaticCacheJobConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.junit.jupiter.api.DisplayName;
@@ -81,6 +82,7 @@ class RailloBatchApplicationTests {
 		assertThat(jobNames).containsExactlyInAnyOrder(
 			TrainParseJobConfig.JOB_NAME,
 			TrainStaticCacheJobConfig.JOB_NAME,
+			TrainScheduleCacheJobConfig.JOB_NAME,
 			TrainDailyScheduleJobConfig.JOB_NAME,
 			TrainMonthlyScheduleJobConfig.JOB_NAME,
 			TrainInitializeJobConfig.JOB_NAME,
