@@ -112,14 +112,20 @@ public class PendingBookingFacade {
 			return new PendingBookingCreateResponse(pendingBooking.getId());
 		} catch (Exception e) {
 			log.error("[PendingBooking 저장 실패 - Seat Hold 롤백] pendingBookingId={}, error={}", pendingBookingId, e.getMessage());
-			seatHoldService.releaseSeats(
-				pendingBookingId,
-				request.trainScheduleId(),
-				request.seatIds(),
-				trainCarId,
-				departureStop.getStopOrder(),
-				arrivalStop.getStopOrder()
-			);
+			try {
+				seatHoldService.releaseSeats(
+					pendingBookingId,
+					request.trainScheduleId(),
+					request.seatIds(),
+					trainCarId,
+					departureStop.getStopOrder(),
+					arrivalStop.getStopOrder()
+				);
+			} catch (Exception rollbackFailure) {
+				// 롤백 실패로 원본 저장 예외를 가리지 않는다. Hold는 TTL로 회수될 수 있으나 관측 지점을 남긴다.
+				log.error("[Seat Hold 롤백 실패] pendingBookingId={}, error={}",
+					pendingBookingId, rollbackFailure.getMessage());
+			}
 			throw e;
 		}
 	}
