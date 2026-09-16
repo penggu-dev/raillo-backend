@@ -44,6 +44,9 @@ spring:
       enabled: false # BatchJobLauncher가 --job 옵션으로 Job을 실행한다
 
 train:
+  cache:
+    retention-days: 2 # 운행일로부터 캐시를 유지할 일수
+    pipeline-size: 1000 # 파이프라인 한 묶음에 보낼 명령 수
   schedule:
     excel:
       location: ${TRAIN_SCHEDULE_LOCATION:classpath:files/train_schedule.xlsx}
