@@ -60,6 +60,15 @@ payment:
       secret-key: test_sk_stub
       version: v1
 
+raillo:
+  payment:
+    outbox:
+      polling-interval: 500ms
+      batch-size: 10
+      initial-backoff: 100ms
+      max-backoff: 1s
+      max-retries: 3
+
 # redis TTL
 redis:
   ttl:
