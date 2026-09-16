@@ -11,12 +11,6 @@ spring:
         highlight_sql: true
     open-in-view: false
 
-  batch:
-    jdbc:
-      initialize-schema: always
-    job:
-      enabled: false
-
   mail:
     host: localhost
     port: 3025
