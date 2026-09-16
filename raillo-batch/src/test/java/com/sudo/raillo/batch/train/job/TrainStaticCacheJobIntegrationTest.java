@@ -172,6 +172,55 @@ class TrainStaticCacheJobIntegrationTest {
 		assertThat(scanCount(TrainCacheKey.seatKeyPattern())).isEqualTo(afterFirst).isEqualTo(1);
 	}
 
+	@DisplayName("DB에서 사라진 좌석의 키는 지우고 살아 있는 키는 남긴다")
+	@Test
+	void prunes_keys_whose_row_is_gone() throws Exception {
+		// given - 이전 적재 때 있었지만 지금은 DB에 없는 좌석
+		long trainId = insertTrain(101, "KTX");
+		long trainCarId = insertTrainCar(trainId, 3, "STANDARD");
+		long liveSeatId = insertSeat(trainCarId, 12, "A", "WINDOW");
+		stringRedisTemplate.opsForValue().set(TrainCacheKey.seat(999999L), "{\"stale\":true}");
+
+		// when
+		runJob();
+
+		// then
+		assertThat(stringRedisTemplate.opsForValue().get(TrainCacheKey.seat(999999L))).isNull();
+		assertThat(stringRedisTemplate.opsForValue().get(TrainCacheKey.seat(liveSeatId))).isNotNull();
+	}
+
+	@DisplayName("없어진 구간의 운임 field는 지운다")
+	@Test
+	void prunes_fare_fields_of_removed_sections() throws Exception {
+		// given - 시간표를 다시 파싱하면 운임표가 통째로 교체된다
+		long seoul = insertStation("서울");
+		long busan = insertStation("부산");
+		insertStationFare(seoul, busan, "59800.00", "83700.00");
+		stringRedisTemplate.opsForHash().put(TrainCacheKey.fare(), "777:888", "100:200");
+
+		// when
+		runJob();
+
+		// then
+		assertThat(stringRedisTemplate.<String, String>opsForHash()
+			.hasKey(TrainCacheKey.fare(), "777:888")).isFalse();
+		assertThat(stringRedisTemplate.<String, String>opsForHash()
+			.get(TrainCacheKey.fare(), TrainCacheKey.fareField(seoul, busan))).isEqualTo("59800:83700");
+	}
+
+	@DisplayName("DB에서 한 건도 읽지 못하면 기존 캐시를 지우지 않는다")
+	@Test
+	void keeps_cache_when_database_returns_nothing() throws Exception {
+		// given - 조회 실패로 전체 캐시가 날아가는 것이 오래된 키보다 나쁘다
+		stringRedisTemplate.opsForValue().set(TrainCacheKey.seat(999999L), "{\"stale\":true}");
+
+		// when - 좌석이 한 건도 없는 상태로 적재
+		runJob();
+
+		// then
+		assertThat(stringRedisTemplate.opsForValue().get(TrainCacheKey.seat(999999L))).isNotNull();
+	}
+
 	private BatchStatus runJob() throws Exception {
 		jobOperatorTestUtils.setJob(trainStaticCacheLoadJob);
 		JobExecution execution = jobOperatorTestUtils.startJob();

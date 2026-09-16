@@ -1,8 +1,10 @@
 package com.sudo.raillo.batch.train.application.service;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
@@ -44,8 +46,7 @@ public class TrainStaticCacheService {
 		trainCacheJdbcRepository.findAllSeats().forEach((seatId, seat) ->
 			entries.put(TrainCacheKey.seat(seatId), trainCacheJsonConverter.toJson(seat)));
 
-		trainCacheRedisRepository.saveValues(entries);
-		log.info("좌석 {}건 적재", entries.size());
+		saveAndPruneStale(entries, TrainCacheKey.seatKeyPattern(), "좌석");
 	}
 
 	private void loadTrainCars() {
@@ -53,8 +54,7 @@ public class TrainStaticCacheService {
 		trainCacheJdbcRepository.findAllTrainCars().forEach((trainCarId, trainCar) ->
 			entries.put(TrainCacheKey.trainCar(trainCarId), trainCacheJsonConverter.toJson(trainCar)));
 
-		trainCacheRedisRepository.saveValues(entries);
-		log.info("객차 {}건 적재", entries.size());
+		saveAndPruneStale(entries, TrainCacheKey.trainCarKeyPattern(), "객차");
 	}
 
 	/**
@@ -65,8 +65,7 @@ public class TrainStaticCacheService {
 		trainCacheJdbcRepository.findAllStationNames().forEach((stationId, stationName) ->
 			entries.put(TrainCacheKey.station(stationId), stationName));
 
-		trainCacheRedisRepository.saveValues(entries);
-		log.info("역 {}건 적재", entries.size());
+		saveAndPruneStale(entries, TrainCacheKey.stationKeyPattern(), "역");
 	}
 
 	private void loadStationFares() {
@@ -78,6 +77,29 @@ public class TrainStaticCacheService {
 			entry.fare().serialize()));
 
 		trainCacheRedisRepository.saveHashFields(TrainCacheKey.fare(), fields);
-		log.info("구간 운임 {}건 적재", fields.size());
+
+		Set<String> staleFields = new HashSet<>(trainCacheRedisRepository.hashFieldNames(TrainCacheKey.fare()));
+		staleFields.removeAll(fields.keySet());
+		trainCacheRedisRepository.deleteHashFields(TrainCacheKey.fare(), staleFields);
+
+		log.info("구간 운임 {}건 적재, {}건 정리", fields.size(), staleFields.size());
+	}
+
+	/**
+	 * 저장한 뒤 DB에 없는 키를 지운다. 순서를 지켜야 키가 비는 구간이 생기지 않는다.
+	 */
+	private void saveAndPruneStale(Map<String, String> entries, String keyPattern, String label) {
+		trainCacheRedisRepository.saveValues(entries);
+
+		if (entries.isEmpty()) {
+			log.warn("[{} 정리 건너뜀] DB에서 한 건도 읽지 못해 기존 캐시를 지우지 않는다.", label);
+			return;
+		}
+
+		Set<String> staleKeys = new HashSet<>(trainCacheRedisRepository.scanKeys(keyPattern));
+		staleKeys.removeAll(entries.keySet());
+		trainCacheRedisRepository.deleteKeys(staleKeys);
+
+		log.info("{} {}건 적재, {}건 정리", label, entries.size(), staleKeys.size());
 	}
 }
