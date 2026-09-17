@@ -206,7 +206,7 @@ Java 25, Spring Boot 4.1.0, MySQL, Redis, Testcontainers, QueryDSL 5.1.0, JWT, S
 - **테스트 작성/수정 시** → **`/test` skill 호출**. 자동 호출 안 됐다면 명시적으로 `/test <대상>` 실행. 상세 예제는 [docs/testing-guide.md](./docs/testing-guide.md).
 
 - **예약 생성 / 좌석 점유 / Lua 작업 시** → [docs/reservation-cache-schema.md](./docs/reservation-cache-schema.md)
-  핵심: 키·값 계약은 `raillo-domain`의 `booking/cache`가 단일 원본. 점유 Hash field `{seatId}:{sectionIndex}` → `H:{rid}`/`B:{bookingId}`. 회원 인덱스를 Lua보다 먼저 쓰고 실패 시 HDEL. Hold 만료는 HEXPIRE(Valkey 9).
+  핵심: 키·값 계약은 `raillo-domain`의 `booking/cache`가 단일 원본. 점유 Hash field `{seatId}:{sectionIndex}` → `R:{rid}`(예약)/`B:{bookingId}`(예매). 회원 인덱스를 Lua보다 먼저 쓰고 실패 시 HDEL. 예약 field 만료는 HEXPIRE(Valkey 9).
 
 - **기준정보 캐시 적재/조회 작업 시** → [docs/train-cache-schema.md](./docs/train-cache-schema.md)
   핵심: 키 포맷과 값 타입은 `raillo-domain`의 `train/cache` 패키지가 단일 원본. 운행 키 만료는 운행일 기준 절대 시각(`EXPIREAT`)이며 상대 TTL 금지. 값에 Java 타입 메타데이터(`@class`)를 넣지 않는다.

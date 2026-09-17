@@ -2,7 +2,7 @@
 
 예약 생성이 DB 없이 Redis(Valkey 9)만으로 조회·검증·원자적 점유를 끝내기 위한 키 계약이다. 기준정보 읽기 쪽 계약은 [train-cache-schema.md](./train-cache-schema.md)를 본다.
 
-키 포맷은 `raillo-domain`의 `booking/cache` 패키지가 단일 원본이다. Batch가 나중에 확정 판매 좌석을 다시 채울 때도 같은 클래스를 쓴다.
+키 포맷은 `raillo-domain`의 `booking/cache` 패키지가 단일 원본이다. Batch가 나중에 예매 좌석을 다시 채울 때도 같은 클래스를 쓴다.
 
 - 키: `ReservationCacheKey`
 - 점유 값: `SeatOccupancyValue`
@@ -12,7 +12,7 @@
 
 | 키 | 타입 | 만료 | 내용 |
 |---|---|---|---|
-| `{schedule:{sid}}:car:{carId}:seats` | Hash | 키: 운행일 기준 EXPIREAT, Hold field: HEXPIRE | 객차 하나의 좌석 점유 상태 |
+| `{schedule:{sid}}:car:{carId}:seats` | Hash | 키: 운행일 기준 EXPIREAT, 예약 field: HEXPIRE | 객차 하나의 좌석 점유 상태 |
 | `{schedule:{sid}}:reservation:{rid}` | String | EX = 예약 TTL | 예약 본문 JSON |
 | `member:{memberNo}:reservations` | Hash | field별 HEXPIRE = 예약 TTL | 회원별 예약 인덱스. field rid → sid |
 
@@ -22,16 +22,16 @@
 
 ```text
 {schedule:1001}:car:231:seats
-  field  46456:0   value  H:RV20260917120000A1B2C3    임시 점유 (예약 TTL만큼 HEXPIRE)
-  field  46456:1   value  H:RV20260917120000A1B2C3
-  field  46457:2   value  B:77                        확정 판매 (만료 없음)
+  field  46456:0   value  R:RV20260917120000A1B2C3    예약 점유 (예약 TTL만큼 HEXPIRE)
+  field  46456:1   value  R:RV20260917120000A1B2C3
+  field  46457:2   value  B:77                        예매 점유 (만료 없음)
 ```
 
 - field는 `{seatId}:{sectionIndex}`. 구간 index는 정차 순서 i에서 i+1로 가는 한 칸이며 값은 i다. 출발 stopOrder d, 도착 stopOrder a인 요청은 d..a-1 구간 field를 점유한다.
-- 값은 `H:{reservationId}`(Hold) 또는 `B:{bookingId}`(Sold)다. 그 외 형식은 데이터 오염으로 보고 `SEAT_HOLD_SCRIPT_ERROR`를 낸다.
+- 값은 `R:{reservationId}`(예약) 또는 `B:{bookingId}`(예매)다. 그 외 형식은 데이터 오염으로 보고 `SEAT_OCCUPANCY_SCRIPT_ERROR`를 낸다.
 - 키는 점유가 처음 생길 때 만들어지고, TTL이 없을 때만 `TrainCacheKey.expireAtEpochSecond(운행일)`로 EXPIREAT을 건다. 빈 열차는 키가 없다.
-- Hold field는 HEXPIRE로 예약과 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다. 필드 단위 만료는 Redis 7.4, Valkey 9.0부터 지원한다.
-- 확정 판매(`B:`) 기록은 결제 확정 PR에서 붙는다. 그 전까지는 테스트 헬퍼만 이 값을 쓴다.
+- 예약 field는 HEXPIRE로 예약과 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다. 필드 단위 만료는 Redis 7.4, Valkey 9.0부터 지원한다.
+- 예매 점유(`B:`) 기록은 결제 확정 PR에서 붙는다. 그 전까지는 테스트 헬퍼만 이 값을 쓴다.
 
 ## 3. 예약 본문
 
@@ -69,9 +69,9 @@ KEYS[2..]  객차 Hash (중복 없이, 처음 등장 순서)
 ARGV       rid, ttlSec(>=1), keyExpireAt, json, depOrder, arrOrder, "seatId:carKeyIndex"...
 
 반환  {1}                               성공
-      {0, seatId, sectionIndex, "H"}    다른 예약이 점유 중  → SEAT_CONFLICT_WITH_HOLD (409)
-      {0, seatId, sectionIndex, "B"}    이미 판매됨          → SEAT_CONFLICT_WITH_SOLD (409)
-      {0, seatId, sectionIndex, "X"}    알 수 없는 값 형식   → SEAT_HOLD_SCRIPT_ERROR (500)
+      {0, seatId, sectionIndex, "R"}    다른 예약이 점유 중  → SEAT_CONFLICT_WITH_RESERVATION (409)
+      {0, seatId, sectionIndex, "B"}    이미 예매됨          → SEAT_CONFLICT_WITH_BOOKING (409)
+      {0, seatId, sectionIndex, "X"}    알 수 없는 값 형식   → SEAT_OCCUPANCY_SCRIPT_ERROR (500)
 ```
 
 같은 `rid`로 다시 실행하면 자기 점유는 충돌로 보지 않는다.

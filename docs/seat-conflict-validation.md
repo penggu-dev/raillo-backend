@@ -5,15 +5,15 @@
 | Layer | When | What | How |
 |-------|------|------|-----|
 | **Layer 1** | `createReservation` | 요청·운행 규칙 | `ReservationValidator` — 기준정보 캐시 값만 검사 |
-| **Layer 2** | `createReservation` | 임시 점유 vs 확정 판매 | `reservation_create.lua` — 객차 Hash의 `H:`/`B:` field를 원자적으로 검사하고 점유 |
+| **Layer 2** | `createReservation` | 예약 점유 vs 예매 점유 | `reservation_create.lua` — 객차 Hash의 `R:`/`B:` field를 원자적으로 검사하고 점유 |
 | **Layer 3** | `preparePayment` | 예약 vs 확정 예매(DB) | `BookingValidator.validateSeatConflicts` — SQL 구간 중첩 재검증 |
-| **Layer 4** | 만료 | 예약 TTL | 예약 키 EX, Hold field HEXPIRE, 회원 인덱스 field HEXPIRE가 같은 TTL로 함께 사라진다 |
+| **Layer 4** | 만료 | 예약 TTL | 예약 키 EX, 예약 field HEXPIRE, 회원 인덱스 field HEXPIRE가 같은 TTL로 함께 사라진다 |
 
-## Layer 2 — 임시 점유와 확정 판매를 한 번에 검사한다
+## Layer 2 — 예약 점유와 예매 점유를 한 번에 검사한다
 
-객차 점유 Hash에는 임시 점유(`H:{reservationId}`)와 확정 판매(`B:{bookingId}`)가 같은 field 형식으로 들어간다. Lua가 요청 구간의 field를 HMGET 한 번으로 읽어 두 경우를 모두 막고, 충돌이 없을 때만 점유를 쓴다. 검사와 쓰기가 한 스크립트 안에서 끝나므로 동시 요청 사이에 race가 없다.
+객차 점유 Hash에는 예약 점유(`R:{reservationId}`)와 예매 점유(`B:{bookingId}`)가 같은 field 형식으로 들어간다. Lua가 요청 구간의 field를 HMGET 한 번으로 읽어 두 경우를 모두 막고, 충돌이 없을 때만 점유를 쓴다. 검사와 쓰기가 한 스크립트 안에서 끝나므로 동시 요청 사이에 race가 없다.
 
-확정 판매 기록은 결제 확정 시 `H:` → `B:` 전환으로 붙고, Batch 복구 Step이 `SeatBooking`으로 다시 채운다.
+예매 점유 기록은 결제 확정 시 `R:` → `B:` 전환으로 붙고, Batch 복구 Step이 `SeatBooking`으로 다시 채운다.
 
 ## Layer 3 — 결제 직전 DB 재검증을 유지하는 이유
 
@@ -26,4 +26,4 @@ sb.departureStopOrder < :arrivalStopOrder AND sb.arrivalStopOrder > :departureSt
 
 ## Layer 4 — TTL
 
-예약 본문, Hold field, 회원 인덱스 field가 같은 TTL을 가지므로 예약이 만료되면 세 곳이 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다.
+예약 본문, 예약 field, 회원 인덱스 field가 같은 TTL을 가지므로 예약이 만료되면 세 곳이 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다.

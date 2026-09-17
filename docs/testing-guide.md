@@ -183,10 +183,10 @@ OrderResult result = orderTestHelper.builder(member)
 // DB에 만든 열차·스케줄을 Batch와 같은 형식으로 Redis에 적재 (좌석·객차·운행·정차역·운임)
 trainCacheTestHelper.seed(train, scheduleResult);
 
-// 좌석 점유를 직접 기록 (다른 예약의 Hold, 확정 판매)
-seatOccupancyTestHelper.markHeld(scheduleId, trainCarId, seatId, 0, 2, "OTHER");
-seatOccupancyTestHelper.markSold(scheduleId, trainCarId, seatId, 0, 2, "77");
-seatOccupancyTestHelper.valueOf(scheduleId, trainCarId, seatId, 1);   // "H:RV..." / "B:77" / null
+// 좌석 점유를 직접 기록 (다른 예약의 점유, 예매 점유)
+seatOccupancyTestHelper.markReserved(scheduleId, trainCarId, seatId, 0, 2, "OTHER");
+seatOccupancyTestHelper.markBooked(scheduleId, trainCarId, seatId, 0, 2, "77");
+seatOccupancyTestHelper.valueOf(scheduleId, trainCarId, seatId, 1);   // "R:RV..." / "B:77" / null
 
 // 예약을 점유 없이 Redis에 저장 (본문 + 회원 인덱스)
 Reservation reservation = reservationTestHelper.save(
