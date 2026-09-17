@@ -2,7 +2,7 @@ package com.sudo.raillo.payment.application.outbox;
 
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.application.BookingConfirmedPayload;
-import com.sudo.raillo.payment.application.required.PendingBookingReader;
+import com.sudo.raillo.payment.application.required.PendingBookingDeleter;
 import com.sudo.raillo.payment.application.required.SeatHoldReleaser;
 import com.sudo.raillo.payment.application.required.TrainScheduleReader;
 import com.sudo.raillo.payment.application.required.TrainSeatReader;
@@ -26,7 +26,7 @@ import tools.jackson.databind.ObjectMapper;
 public class BookingConfirmedProcessor implements OutboxEventProcessor {
 
 	private final ObjectMapper objectMapper;
-	private final PendingBookingReader pendingBookingReader;
+	private final PendingBookingDeleter pendingBookingDeleter;
 	private final SeatHoldReleaser seatHoldReleaser;
 	private final TrainScheduleReader trainScheduleReader;
 	private final TrainSeatReader trainSeatReader;
@@ -63,7 +63,7 @@ public class BookingConfirmedProcessor implements OutboxEventProcessor {
 			.map(BookingConfirmedPayload.Entry::pendingBookingId)
 			.toList();
 		String memberNo = entries.get(0).memberNo();
-		pendingBookingReader.deletePendingBookings(pendingBookingIds, memberNo);
+		pendingBookingDeleter.deletePendingBookings(pendingBookingIds, memberNo);
 	}
 
 	private void releaseAllSeatHolds(List<BookingConfirmedPayload.Entry> entries) {
