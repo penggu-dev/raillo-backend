@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 
 import java.time.Duration;
@@ -151,6 +152,44 @@ class ReservationServiceTest {
 			// given
 			doThrow(new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR))
 				.when(seatOccupancyRepository).hold(any());
+			Reservation reservation = reservation("RV1", 11L);
+
+			// when
+
+			// then
+			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_HOLD_SCRIPT_ERROR);
+			assertThat(memberIndexValue("RV1")).isNull();
+		}
+
+		@Test
+		@DisplayName("점유 스크립트가 저장을 마친 뒤 응답만 실패하면 예약을 성공으로 처리하고 회원 인덱스를 유지한다")
+		void keeps_reservation_when_script_stored_but_response_failed() {
+			// given - 스크립트는 실행되고 클라이언트에는 오류가 돌아온 상황
+			doAnswer(invocation -> {
+				invocation.callRealMethod();
+				throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
+			}).when(seatOccupancyRepository).hold(any());
+			Reservation reservation = reservation("RV1", 11L);
+
+			// when
+			reservationService.reserve(reservation, TTL);
+
+			// then
+			assertThat(memberIndexValue("RV1")).isEqualTo(String.valueOf(SCHEDULE_ID));
+			assertThat(stringRedisTemplate.hasKey(ReservationCacheKey.reservation(SCHEDULE_ID, "RV1"))).isTrue();
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("H:RV1");
+		}
+
+		@Test
+		@DisplayName("점유 스크립트가 실패하고 저장 여부 확인도 실패하면 회원 인덱스를 되돌리고 원래 예외를 던진다")
+		void rolls_back_index_when_store_check_fails() {
+			// given
+			doThrow(new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR))
+				.when(seatOccupancyRepository).hold(any());
+			doThrow(new QueryTimeoutException("redis timeout"))
+				.when(reservationRedisRepository).exists(anyLong(), anyString());
 			Reservation reservation = reservation("RV1", 11L);
 
 			// when

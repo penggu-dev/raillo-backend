@@ -67,8 +67,13 @@ public class ReservationService {
 		try {
 			result = seatOccupancyRepository.hold(toHoldCommand(reservation, ttl));
 		} catch (RuntimeException e) {
-			rollbackMemberIndex(memberNo, reservationId);
-			throw e;
+			// 응답 타임아웃처럼 스크립트가 이미 저장했을 수 있으니, 저장됐으면 성공으로 보고 인덱스를 남긴다
+			if (!isStored(reservation)) {
+				rollbackMemberIndex(memberNo, reservationId);
+				throw e;
+			}
+			log.warn("[좌석 점유 응답 실패 - 저장 확인] reservationId={}, error={}", reservationId, e.getMessage());
+			result = SeatOccupancyResult.succeeded();
 		}
 
 		if (!result.success()) {
@@ -114,6 +119,15 @@ public class ReservationService {
 	private static long toTtlSeconds(Duration ttl) {
 		long seconds = (ttl.toMillis() + 999) / 1000;
 		return Math.max(1L, seconds);
+	}
+
+	private boolean isStored(Reservation reservation) {
+		try {
+			return reservationRedisRepository.exists(reservation.trainScheduleId(), reservation.reservationId());
+		} catch (RuntimeException e) {
+			log.warn("[예약 저장 여부 확인 실패] reservationId={}, error={}", reservation.reservationId(), e.getMessage());
+			return false;
+		}
 	}
 
 	private void rollbackMemberIndex(String memberNo, String reservationId) {

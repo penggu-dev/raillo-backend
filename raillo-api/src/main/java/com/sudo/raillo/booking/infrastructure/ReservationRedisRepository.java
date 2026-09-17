@@ -62,6 +62,12 @@ public class ReservationRedisRepository {
 		return scheduleIds;
 	}
 
+	/** 예약 본문 키가 있는지 확인한다. 점유와 본문은 한 스크립트에서 저장되므로 점유 저장 여부로도 쓴다. */
+	public boolean exists(long trainScheduleId, String reservationId) {
+		return Boolean.TRUE.equals(
+			stringRedisTemplate.hasKey(ReservationCacheKey.reservation(trainScheduleId, reservationId)));
+	}
+
 	public Optional<Reservation> find(long trainScheduleId, String reservationId) {
 		String json = stringRedisTemplate.opsForValue()
 			.get(ReservationCacheKey.reservation(trainScheduleId, reservationId));

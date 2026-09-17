@@ -21,6 +21,10 @@ public record SeatOccupancyResult(
 	private static final long SUCCESS_CODE = 1L;
 	private static final SeatOccupancyResult SUCCESS = new SeatOccupancyResult(true, null, null, null);
 
+	public static SeatOccupancyResult succeeded() {
+		return SUCCESS;
+	}
+
 	/**
 	 * Lua 반환값 {@code {1}} 또는 {@code {0, seatId, sectionIndex, "H"|"B"}}를 파싱한다.
 	 *

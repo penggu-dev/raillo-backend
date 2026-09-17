@@ -148,4 +148,19 @@ class ReservationRedisRepositoryTest {
 		assertThat(json).contains("\"departureAt\":\"2026-10-20T06:00:00\"");
 		assertThat(json).contains("\"time\":\"06:00:00\"");
 	}
+
+	@Test
+	@DisplayName("예약 본문 키가 있으면 true, 없으면 false를 돌려준다")
+	void exists_reflects_reservation_key() {
+		// given
+		store(reservation("RV1", 1001L));
+
+		// when
+		boolean stored = reservationRedisRepository.exists(1001L, "RV1");
+		boolean missing = reservationRedisRepository.exists(1001L, "RV9");
+
+		// then
+		assertThat(stored).isTrue();
+		assertThat(missing).isFalse();
+	}
 }
