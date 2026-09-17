@@ -154,7 +154,7 @@ public class BookingRedisRepository {
 	private Duration normalizeTtl(Duration ttl) {
 		if (ttl == null || ttl.isNegative() || ttl.isZero()) {
 			log.error("[PendingBooking TTL 비정상] ttl={}. redis.ttl.pending-booking 설정값을 확인하세요.", ttl);
-			throw new BusinessException(BookingError.INVALID_RESERVATION_TTL);
+			throw new BusinessException(BookingError.INVALID_PENDING_BOOKING_TTL);
 		}
 		return ttl;
 	}

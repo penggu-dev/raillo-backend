@@ -19,8 +19,7 @@ public class BookingMetricsAspect {
 
 	private final BookingMetrics bookingMetrics;
 
-	@Around("execution(* com.sudo.raillo.booking.application.facade.ReservationFacade.createReservation(..))"
-		+ " || execution(* com.sudo.raillo.booking.application.facade.PendingBookingFacade.createPendingBooking(..))")
+	@Around("execution(* com.sudo.raillo.booking.application.facade.ReservationFacade.createReservation(..))")
 	public Object measurePendingBookingCreation(ProceedingJoinPoint joinPoint) throws Throwable {
 		Sample sample = Timer.start();
 		try {
@@ -39,8 +38,7 @@ public class BookingMetricsAspect {
 		}
 	}
 
-	@Around("execution(* com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository.hold(..))"
-		+ " || execution(* com.sudo.raillo.booking.application.service.SeatHoldService.holdSeats(..))")
+	@Around("execution(* com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository.hold(..))")
 	public Object timeSeatHold(ProceedingJoinPoint joinPoint) throws Throwable {
 		return recordTime(joinPoint, bookingMetrics.getSeatHoldTimer());
 	}

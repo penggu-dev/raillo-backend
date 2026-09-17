@@ -542,7 +542,7 @@ class PaymentConfirmServiceTest {
 	// ========== 실패 시나리오 테스트 ==========
 
 	@Test
-	@DisplayName("PendingBooking이 TTL 만료되면 RESERVATION_EXPIRED 예외가 발생한다")
+	@DisplayName("PendingBooking이 TTL 만료되면 PENDING_BOOKING_EXPIRED 예외가 발생한다")
 	void confirmPayment_pendingBookingExpired_throwsException() {
 		// given
 		BigDecimal amount = BigDecimal.valueOf(50000);
@@ -561,8 +561,8 @@ class PaymentConfirmServiceTest {
 		// when & then
 		assertThatThrownBy(() -> paymentConfirmer.confirm(confirmRequest, memberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_EXPIRED)
-			.hasMessage(BookingError.RESERVATION_EXPIRED.getMessage());
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_EXPIRED)
+			.hasMessage(BookingError.PENDING_BOOKING_EXPIRED.getMessage());
 	}
 
 	@Test
