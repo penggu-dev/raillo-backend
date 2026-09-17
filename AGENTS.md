@@ -174,7 +174,7 @@ public enum BookingError implements ErrorCode {
 
 테스트 작성/수정은 **`/test` skill**을 사용한다. 컨벤션과 워크플로우 전체가 skill에 포함되어 있다.
 
-- 환경: Testcontainers **MySQL 8.4.10 + Redis 7.4** (운영과 동일 버전, 실행에 Docker 필요), 통합 테스트는 `@ServiceTest`
+- 환경: Testcontainers **MySQL 8.4.10 + Valkey 9** (운영과 동일 버전, 실행에 Docker 필요), 통합 테스트는 `@ServiceTest`
 - 컨테이너는 `TestContainerInitializer`가 JVM당 한 번 기동한다.
 - `@SpringBootTest`를 직접 쓰는 테스트는 `@ContextConfiguration(initializers = TestContainerInitializer.class)`를 함께 붙여야 한다
 - ⚠️ **테스트 메서드 `@Transactional` 절대 금지** — `@ServiceTest`의 cleanup(`DatabaseCleanupExtension`, `RedisCleanupExtension`)을 우회한다

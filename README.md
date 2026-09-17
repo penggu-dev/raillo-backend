@@ -66,7 +66,7 @@
 
 ### Testing
 - **Framework** : JUnit, Spring Boot Test
-- **Test Environment** : Testcontainers (MySQL 8.4.10, Redis 7.4) — 운영과 동일 버전, Docker 필요
+- **Test Environment** : Testcontainers (MySQL 8.4.10, Valkey 9) — 운영과 동일 버전, Docker 필요
 - **Test Utils** : AssertJ
 - **Performance Testing** : K6
 - **Email Testing** : GreenMail

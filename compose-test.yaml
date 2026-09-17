@@ -31,11 +31,11 @@ services:
           memory: 1G # application server 메모리 용량
 
   redis:
-    image: 'redis:alpine'
+    image: 'valkey/valkey:9.0-alpine'
     ports:
       - '6379:6379'
     command: >
-      redis-server
+      valkey-server
       --maxmemory 512mb
     # Redis 메모리 용량
 

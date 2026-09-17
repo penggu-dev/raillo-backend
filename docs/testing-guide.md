@@ -2,7 +2,7 @@
 
 ## Test Environment
 
-테스트는 Testcontainers로 띄운 **MySQL 8.4.10 / Redis 7.4** 컨테이너를 사용한다. 운영(RDS MySQL 8.4.10, Redis 7.4)과 **동일한 버전**으로 맞춘 것이며, 실행에 **Docker가 필요**하다. 통합 테스트는 `@ServiceTest`를 사용한다:
+테스트는 Testcontainers로 띄운 **MySQL 8.4.10 / Valkey 9** 컨테이너를 사용한다. 운영(RDS MySQL 8.4.10, Valkey 9)과 **동일한 버전**으로 맞춘 것이며, 실행에 **Docker가 필요**하다. 통합 테스트는 `@ServiceTest`를 사용한다:
 
 - `@ActiveProfiles("test")` — 테스트 프로파일 활성화
 - `TestContainerInitializer` — MySQL/Redis 컨테이너를 JVM당 한 번 기동하고 접속 정보를 컨텍스트에 주입
