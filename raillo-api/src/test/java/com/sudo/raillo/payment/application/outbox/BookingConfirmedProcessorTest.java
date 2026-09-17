@@ -24,7 +24,6 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -44,13 +43,6 @@ class BookingConfirmedProcessorTest {
 
 	@Mock
 	private TrainSeatReader trainSeatReader;
-
-	@InjectMocks
-	private BookingConfirmedProcessor processor;
-
-	BookingConfirmedProcessorTest() {
-		// InjectMocks가 objectMapper 필드도 채워야 하므로 아래 헬퍼로 명시 세팅.
-	}
 
 	private BookingConfirmedProcessor buildProcessor() {
 		return new BookingConfirmedProcessor(
