@@ -112,7 +112,7 @@ public class PaymentApprovalStarter {
 		List<String> pendingBookingIds = orderReader.getPendingBookingIds(order);
 		if (pendingBookingIds.isEmpty()) {
 			log.error("[PendingBooking 검증 실패] pendingBookingIds가 없음: orderCode={}", order.getOrderCode());
-			throw new BusinessException(BookingError.PENDING_BOOKING_IDS_REQUIRED);
+			throw new BusinessException(BookingError.RESERVATION_IDS_REQUIRED);
 		}
 		return pendingBookingReader.getPendingBookings(pendingBookingIds, memberNo);
 	}

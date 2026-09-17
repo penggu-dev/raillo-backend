@@ -176,8 +176,8 @@ class PaymentPrepareServiceTest {
 		// when & then
 		assertThatThrownBy(() -> paymentPreparer.prepare(request, memberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_EXPIRED)
-			.hasMessage(BookingError.PENDING_BOOKING_EXPIRED.getMessage());
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_EXPIRED)
+			.hasMessage(BookingError.RESERVATION_EXPIRED.getMessage());
 	}
 
 	@Test
@@ -216,8 +216,8 @@ class PaymentPrepareServiceTest {
 		// when & then (현재 사용자가 다른 사용자의 PendingBooking으로 결제 시도)
 		assertThatThrownBy(() -> paymentPreparer.prepare(request, currentMemberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_ACCESS_DENIED)
-			.hasMessage(BookingError.PENDING_BOOKING_ACCESS_DENIED.getMessage());
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_ACCESS_DENIED)
+			.hasMessage(BookingError.RESERVATION_ACCESS_DENIED.getMessage());
 	}
 
 	@Test

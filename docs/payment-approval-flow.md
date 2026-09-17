@@ -169,7 +169,7 @@ Toss를 호출하기 전이므로 외부 부작용이 없다. 사용자는 안�
 | 요청 금액과 주문·결제 금액 불일치 | 금액 검증 실패 |
 | 같은 attemptId가 다른 paymentId·paymentKey로 재사용됨 | `PAYMENT_114` |
 | 같은 attemptId가 이미 `IN_PROGRESS` / `FAILED` | `PAYMENT_ATTEMPT_IN_PROGRESS` / `PAYMENT_ATTEMPT_ALREADY_FAILED` |
-| PendingBooking 없음 또는 만료 | `PENDING_BOOKING_IDS_REQUIRED` 등 |
+| Reservation 없음 또는 만료 | `RESERVATION_IDS_REQUIRED` 등 |
 | Payment가 이미 FAILED/CANCELLED/REFUNDED | 승인 가능 상태 검증 실패 |
 | 동시 요청 중 잠금 경쟁에서 패배 | `PAYMENT_ATTEMPT_IN_PROGRESS` |
 | `attempt_id` unique 제약 충돌 | 실제 attempt를 재확인 후 멱등 응답 |

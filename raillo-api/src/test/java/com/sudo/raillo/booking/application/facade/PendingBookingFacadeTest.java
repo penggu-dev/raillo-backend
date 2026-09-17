@@ -148,7 +148,7 @@ class PendingBookingFacadeTest {
 				List.of(pendingBooking.getId()),
 				nonOwnerMemberNo
 			)).isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", BookingError.PENDING_BOOKING_ACCESS_DENIED);
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_ACCESS_DENIED);
 	}
 
 	@Test

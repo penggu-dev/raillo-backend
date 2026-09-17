@@ -103,7 +103,7 @@ public class BookingValidator {
 		if (!pendingBooking.getMemberNo().equals(memberNo)) {
 			log.error("[예약 소유자 불일치] pendingBookingMemberNo={}, requestMemberNo={}",
 				pendingBooking.getMemberNo(), memberNo);
-			throw new BusinessException(BookingError.PENDING_BOOKING_ACCESS_DENIED);
+			throw new BusinessException(BookingError.RESERVATION_ACCESS_DENIED);
 		}
 	}
 
@@ -117,7 +117,7 @@ public class BookingValidator {
 
 		if (!notFoundIds.isEmpty()) {
 			log.warn("[예약 만료] pendingBookingIds={} - TTL 만료 또는 이미 사용됨", notFoundIds);
-			throw new BusinessException(BookingError.PENDING_BOOKING_EXPIRED);
+			throw new BusinessException(BookingError.RESERVATION_EXPIRED);
 		}
 	}
 
