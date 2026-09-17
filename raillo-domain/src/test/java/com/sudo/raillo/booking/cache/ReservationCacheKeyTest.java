@@ -18,7 +18,7 @@ class ReservationCacheKeyTest {
 
 		@Test
 		@DisplayName("좌석 점유 키는 운행과 객차 ID로 만들어진다")
-		void buildsCarSeatsKey() {
+		void builds_car_seats_key() {
 			// given
 
 			// when
@@ -30,7 +30,7 @@ class ReservationCacheKeyTest {
 
 		@Test
 		@DisplayName("예약 키는 운행 ID와 예약 ID로 만들어진다")
-		void buildsReservationKey() {
+		void builds_reservation_key() {
 			// given
 
 			// when
@@ -42,7 +42,7 @@ class ReservationCacheKeyTest {
 
 		@Test
 		@DisplayName("운행 단위 키는 기준정보 캐시와 같은 hash tag를 써서 같은 slot에 놓인다")
-		void sharesHashTagWithTrainCache() {
+		void shares_hash_tag_with_train_cache() {
 			// given
 			long trainScheduleId = 1001L;
 			String hashTag = TrainCacheKey.scheduleInfo(trainScheduleId).substring(0, "{schedule:1001}:".length());
@@ -61,7 +61,7 @@ class ReservationCacheKeyTest {
 
 		@Test
 		@DisplayName("회원 인덱스는 회원번호로 만들어지고 운행 hash tag를 쓰지 않는다")
-		void buildsMemberKeyWithoutScheduleTag() {
+		void builds_member_key_without_schedule_tag() {
 			// given
 
 			// when
@@ -79,7 +79,7 @@ class ReservationCacheKeyTest {
 
 		@Test
 		@DisplayName("좌석 field는 좌석 ID와 구간 index를 이어 붙인다")
-		void buildsSeatField() {
+		void builds_seat_field() {
 			// given
 
 			// when
@@ -91,7 +91,7 @@ class ReservationCacheKeyTest {
 
 		@Test
 		@DisplayName("구간 index는 출발 stopOrder부터 도착 stopOrder 직전까지다")
-		void sectionsAreHalfOpenRange() {
+		void sections_are_half_open_range() {
 			// given - 서울(0) → 대전(1) → 동대구(2) → 부산(3)
 
 			// when
@@ -103,7 +103,7 @@ class ReservationCacheKeyTest {
 
 		@Test
 		@DisplayName("출발이 도착보다 앞서지 않으면 거부한다")
-		void rejectsNonForwardRange() {
+		void rejects_non_forward_range() {
 			// given
 
 			// when

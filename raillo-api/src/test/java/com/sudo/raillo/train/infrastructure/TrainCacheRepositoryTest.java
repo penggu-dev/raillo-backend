@@ -65,7 +65,7 @@ class TrainCacheRepositoryTest {
 
 	@Test
 	@DisplayName("운행·정차역·좌석·운임을 한 번에 읽어 캐시 값 타입으로 돌려준다")
-	void fetchesAllForReservation() {
+	void fetches_all_for_reservation() {
 		// given
 
 		// when
@@ -84,7 +84,7 @@ class TrainCacheRepositoryTest {
 
 	@Test
 	@DisplayName("캐시에 없는 항목은 예외 없이 null 자리로 돌려준다")
-	void returnsNullForMissingEntries() {
+	void returns_null_for_missing_entries() {
 		// given
 		long unknownSchedule = 9999L;
 
@@ -103,7 +103,7 @@ class TrainCacheRepositoryTest {
 
 	@Test
 	@DisplayName("좌석 목록은 요청한 좌석 ID 순서를 그대로 따른다")
-	void keepsSeatRequestOrder() {
+	void keeps_seat_request_order() {
 		// given
 
 		// when

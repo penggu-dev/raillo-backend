@@ -51,7 +51,7 @@ class ReservationServiceTtlTest {
 
 	@Test
 	@DisplayName("마감까지 남은 시간이 기본 TTL보다 길면 기본 TTL을 돌려준다")
-	void defaultTtlWhenFarFromClose() {
+	void default_ttl_when_far_from_close() {
 		// given
 		LocalDateTime now = LocalDateTime.of(2026, 10, 20, 7, 0);
 
@@ -64,7 +64,7 @@ class ReservationServiceTtlTest {
 
 	@Test
 	@DisplayName("마감까지 남은 시간이 기본 TTL보다 짧으면 남은 시간을 돌려준다")
-	void remainingWhenCloseToDeparture() {
+	void remaining_when_close_to_departure() {
 		// given
 		LocalDateTime now = LocalDateTime.of(2026, 10, 20, 8, 52);
 
@@ -77,7 +77,7 @@ class ReservationServiceTtlTest {
 
 	@Test
 	@DisplayName("남은 시간이 1초 미만이면 1초로 올린다")
-	void clampsToOneSecond() {
+	void clamps_to_one_second() {
 		// given - 마감 300ms 전
 		LocalDateTime now = CLOSE_AT.minusNanos(300_000_000);
 
@@ -90,7 +90,7 @@ class ReservationServiceTtlTest {
 
 	@Test
 	@DisplayName("출발 5분 전 마감 시각부터는 DEPARTURE_TIME_PASSED 예외가 발생해 예약할 수 없다")
-	void rejectsFromCloseTime() {
+	void rejects_from_close_time() {
 		// given
 
 		// when

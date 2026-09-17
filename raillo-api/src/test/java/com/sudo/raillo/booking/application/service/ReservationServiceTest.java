@@ -81,7 +81,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("예약에 성공하면 회원 인덱스, 좌석 점유 field, 예약 본문이 모두 남는다")
-		void reserveSuccess() {
+		void reserve_success() {
 			// given - 서울(0) → 부산(1), 좌석 2개
 			Reservation reservation = reservation("RV1", 11L, 12L);
 
@@ -101,7 +101,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("TTL이 정수 초가 아니면 올림해서 적용한다")
-		void roundsTtlUp() {
+		void rounds_ttl_up() {
 			// given
 			Reservation reservation = reservation("RV1", 11L);
 
@@ -115,7 +115,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("다른 예약이 점유한 구간이면 SEAT_CONFLICT_WITH_HOLD 예외가 발생하고 회원 인덱스는 남지 않는다")
-		void conflictWithHold() {
+		void conflict_with_hold() {
 			// given
 			seatOccupancyTestHelper.markHeld(SCHEDULE_ID, CAR_ID, 11L, 0, 1, "OTHER");
 			Reservation reservation = reservation("RV1", 11L);
@@ -132,7 +132,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("이미 판매된 구간이면 SEAT_CONFLICT_WITH_SOLD 예외가 발생하고 회원 인덱스는 남지 않는다")
-		void conflictWithSold() {
+		void conflict_with_sold() {
 			// given
 			seatOccupancyTestHelper.markSold(SCHEDULE_ID, CAR_ID, 11L, 0, 1, "77");
 			Reservation reservation = reservation("RV1", 11L);
@@ -148,7 +148,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("점유 스크립트가 실패하면 예외가 전파되고 회원 인덱스는 되돌려진다")
-		void scriptFailureRollsBackIndex() {
+		void script_failure_rolls_back_index() {
 			// given
 			doThrow(new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR))
 				.when(seatOccupancyRepository).hold(any());
@@ -203,7 +203,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("회원 인덱스 등록이 실패하면 좌석 점유를 시도하지 않는다")
-		void indexFailureSkipsHold() {
+		void index_failure_skips_hold() {
 			// given
 			doThrow(new QueryTimeoutException("redis timeout"))
 				.when(reservationRedisRepository).indexForMember(anyString(), anyString(), anyLong(), any());
@@ -225,7 +225,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("회원의 예약을 요청한 순서대로 돌려준다")
-		void returnsInRequestOrder() {
+		void returns_in_request_order() {
 			// given
 			Reservation first = reservationTestHelper.save(reservation("RV1", 11L));
 			Reservation second = reservationTestHelper.save(
@@ -241,7 +241,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("회원 인덱스에 없는 예약이 있으면 RESERVATION_EXPIRED 예외가 발생한다")
-		void missingIndex() {
+		void missing_index() {
 			// given
 			reservationTestHelper.save(reservation("RV1", 11L));
 
@@ -255,7 +255,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("인덱스는 있지만 본문이 만료됐으면 RESERVATION_EXPIRED 예외가 발생한다")
-		void missingBody() {
+		void missing_body() {
 			// given
 			reservationTestHelper.saveIndexOnly(reservation("RV1", 11L));
 
@@ -269,7 +269,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("다른 회원의 예약 ID로는 조회할 수 없다")
-		void otherMember() {
+		void other_member() {
 			// given
 			reservationTestHelper.save(reservation("RV1", 11L));
 
@@ -283,7 +283,7 @@ class ReservationServiceTest {
 
 		@Test
 		@DisplayName("예약 ID 목록이 비어 있으면 RESERVATION_IDS_REQUIRED 예외가 발생한다")
-		void emptyIds() {
+		void empty_ids() {
 			// given
 
 			// when

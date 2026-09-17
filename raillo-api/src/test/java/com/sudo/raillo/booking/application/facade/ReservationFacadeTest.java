@@ -126,7 +126,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("예약이 생성되면 표시용 정보가 담긴 본문, 구간별 좌석 점유, 회원 인덱스가 Redis에 남는다")
-		void createsReservation() {
+		void creates_reservation() {
 			// given
 			Seat seatA = standardSeats.get(0);
 			Seat seatB = standardSeats.get(1);
@@ -176,7 +176,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("객차가 달라도 객차 타입이 같으면 한 예약으로 만들 수 있다")
-		void allowsSeatsAcrossCarsOfSameType() {
+		void allows_seats_across_cars_of_same_type() {
 			// given - 일반실 3량 열차에서 서로 다른 객차의 좌석 두 개
 			Train mediumTrain = trainTestHelper.createMediumTestTrain();
 			TrainScheduleResult mediumSchedule = trainScheduleTestHelper.builder()
@@ -207,7 +207,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("같은 좌석이라도 겹치지 않는 구간은 다른 예약이 있어도 예약할 수 있다")
-		void allowsNonOverlappingSection() {
+		void allows_non_overlapping_section() {
 			// given - 다른 예약이 서울→대전(구간 0) 점유
 			Seat seat = standardSeats.get(0);
 			seatOccupancyTestHelper.markHeld(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 1, "OTHER");
@@ -231,7 +231,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("다른 사용자가 점유 중인 구간이면 SEAT_CONFLICT_WITH_HOLD 예외가 발생한다")
-		void conflictWithHold() {
+		void conflict_with_hold() {
 			// given
 			Seat seat = standardSeats.get(0);
 			seatOccupancyTestHelper.markHeld(scheduleId, seat.getTrainCar().getId(), seat.getId(), 1, 2, "OTHER");
@@ -248,7 +248,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("이미 판매된 구간이면 SEAT_CONFLICT_WITH_SOLD 예외가 발생한다")
-		void conflictWithSold() {
+		void conflict_with_sold() {
 			// given
 			Seat seat = standardSeats.get(0);
 			seatOccupancyTestHelper.markSold(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 2, "77");
@@ -269,7 +269,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("기준정보 캐시가 비어 있으면 TRAIN_SCHEDULE_NOT_FOUND 예외가 발생한다")
-		void cacheMissing() {
+		void cache_missing() {
 			// given
 			stringRedisTemplate.getConnectionFactory().getConnection().serverCommands().flushDb();
 
@@ -302,7 +302,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("운행이 취소된 스케줄이면 TRAIN_OPERATION_CANCELLED 예외가 발생한다")
-		void cancelledSchedule() {
+		void cancelled_schedule() {
 			// given
 			TrainSchedule schedule = trainScheduleRepository.findById(scheduleId).orElseThrow();
 			schedule.updateOperationStatus(OperationStatus.CANCELLED);
@@ -320,7 +320,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("출발 시각이 지난 운행이면 DEPARTURE_TIME_PASSED 예외가 발생한다")
-		void departurePassed() {
+		void departure_passed() {
 			// given - 어제 05:00 출발
 			TrainScheduleResult yesterday = trainScheduleTestHelper.builder()
 				.train(train)
@@ -342,7 +342,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("출발역과 도착역이 같으면 INVALID_ROUTE 예외가 발생한다")
-		void sameStation() {
+		void same_station() {
 			// given
 
 			// when
@@ -385,7 +385,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("승객 수와 좌석 수가 다르면 BOOKING_CREATE_SEATS_INVALID 예외가 발생한다")
-		void passengerSeatMismatch() {
+		void passenger_seat_mismatch() {
 			// given
 
 			// when
@@ -399,7 +399,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("같은 좌석을 두 번 고르면 DUPLICATE_SEAT_IDS 예외가 발생한다")
-		void duplicateSeat() {
+		void duplicate_seat() {
 			// given
 			Long seatId = standardSeats.get(0).getId();
 
@@ -414,7 +414,7 @@ class ReservationFacadeTest {
 
 		@Test
 		@DisplayName("일반실과 특실 좌석을 섞으면 INVALID_CAR_TYPE 예외가 발생한다")
-		void mixedCarTypes() {
+		void mixed_car_types() {
 			// given
 			Seat firstClass = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, 1).get(0);
 

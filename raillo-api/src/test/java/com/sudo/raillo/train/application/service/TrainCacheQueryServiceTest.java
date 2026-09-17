@@ -70,7 +70,7 @@ class TrainCacheQueryServiceTest {
 
 		@Test
 		@DisplayName("캐시에 있는 운행·정차역·좌석·운임을 하나의 컨텍스트로 돌려준다")
-		void returnsContext() {
+		void returns_context() {
 			// given
 			List<Long> seatIds = standardSeats.stream().map(Seat::getId).toList();
 
@@ -90,7 +90,7 @@ class TrainCacheQueryServiceTest {
 
 		@Test
 		@DisplayName("출발 일시는 운행일과 출발 정차역의 출발 시각을 합친 값이다")
-		void departureAtUsesStopDepartureTime() {
+		void departure_at_uses_stop_departure_time() {
 			// given
 			ScheduleStop departureStop = scheduleResult.scheduleStops().get(0);
 			LocalDate operationDate = scheduleResult.trainSchedule().getOperationDate();
@@ -106,7 +106,7 @@ class TrainCacheQueryServiceTest {
 
 		@Test
 		@DisplayName("정차역 출발 시각이 열차 출발 시각보다 이르면 자정을 넘긴 것이므로 다음 날로 계산한다")
-		void departureAtRollsOverMidnight() {
+		void departure_at_rolls_over_midnight() {
 			// given - 서울 23:30 출발, 대전 00:30 출발
 			TrainScheduleResult overnight = trainScheduleTestHelper.builder()
 				.train(train)
@@ -135,7 +135,7 @@ class TrainCacheQueryServiceTest {
 
 		@Test
 		@DisplayName("운행 정보가 없으면 TRAIN_SCHEDULE_NOT_FOUND 예외가 발생한다")
-		void scheduleMissing() {
+		void schedule_missing() {
 			// given
 			long unknownScheduleId = scheduleResult.trainSchedule().getId() + 1000;
 
@@ -150,7 +150,7 @@ class TrainCacheQueryServiceTest {
 
 		@Test
 		@DisplayName("운행에 없는 역을 요청하면 STATION_NOT_FOUND 예외가 발생한다")
-		void stopMissing() {
+		void stop_missing() {
 			// given
 			Station daegu = trainScheduleTestHelper.getOrCreateStation("동대구");
 
@@ -166,7 +166,7 @@ class TrainCacheQueryServiceTest {
 
 		@Test
 		@DisplayName("좌석 하나라도 캐시에 없으면 SEAT_NOT_FOUND 예외가 발생한다")
-		void seatMissing() {
+		void seat_missing() {
 			// given
 			List<Long> seatIds = List.of(standardSeats.get(0).getId(), 999_999L);
 
@@ -214,7 +214,7 @@ class TrainCacheQueryServiceTest {
 
 		@Test
 		@DisplayName("구간 운임이 없으면 예외 없이 운임 자리를 null로 돌려준다")
-		void fareMissing() {
+		void fare_missing() {
 			// given
 			stringRedisTemplate.opsForHash().delete(TrainCacheKey.fare(),
 				TrainCacheKey.fareField(seoul.getId(), busan.getId()));

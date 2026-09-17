@@ -11,7 +11,7 @@ class SeatOccupancyValueTest {
 
 	@Test
 	@DisplayName("임시 점유는 H 접두사와 예약 ID로 직렬화된다")
-	void serializesHold() {
+	void serializes_hold() {
 		// given
 		SeatOccupancyValue hold = SeatOccupancyValue.hold("RV1");
 
@@ -24,7 +24,7 @@ class SeatOccupancyValueTest {
 
 	@Test
 	@DisplayName("확정 판매는 B 접두사와 예매 ID로 직렬화된다")
-	void serializesSold() {
+	void serializes_sold() {
 		// given
 		SeatOccupancyValue sold = SeatOccupancyValue.sold("77");
 
@@ -37,7 +37,7 @@ class SeatOccupancyValueTest {
 
 	@Test
 	@DisplayName("직렬화한 값을 다시 읽으면 같은 점유 정보가 된다")
-	void roundTrips() {
+	void round_trips() {
 		// given
 		SeatOccupancyValue original = SeatOccupancyValue.hold("RV20260917120000ABC123");
 
@@ -52,7 +52,7 @@ class SeatOccupancyValueTest {
 
 	@Test
 	@DisplayName("자기 예약이 점유한 field인지 예약 ID로 판별한다")
-	void identifiesOwner() {
+	void identifies_owner() {
 		// given
 		SeatOccupancyValue hold = SeatOccupancyValue.parse("H:RV1");
 		SeatOccupancyValue sold = SeatOccupancyValue.parse("B:RV1");
@@ -67,7 +67,7 @@ class SeatOccupancyValueTest {
 
 	@Test
 	@DisplayName("접두사나 ID가 없는 값은 거부한다")
-	void rejectsMalformedValue() {
+	void rejects_malformed_value() {
 		// given
 
 		// when

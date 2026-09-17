@@ -97,7 +97,7 @@ class ReservationMetricsTest {
 
 	@Test
 	@DisplayName("예약 생성에 성공하면 생성 카운터와 두 타이머가 증가한다")
-	void successIncrementsCreatedAndTimers() {
+	void success_increments_created_and_timers() {
 		// given
 		double createdBefore = created();
 		long facadeTimerBefore = timerCount("pending_booking_duration_seconds");
@@ -114,7 +114,7 @@ class ReservationMetricsTest {
 
 	@Test
 	@DisplayName("Hold 충돌이면 hold 충돌 카운터만 증가하고 생성 카운터는 그대로다")
-	void holdConflictIncrementsHoldCounter() {
+	void hold_conflict_increments_hold_counter() {
 		// given
 		seatOccupancyTestHelper.markHeld(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 1, "OTHER");
 		double createdBefore = created();
@@ -132,7 +132,7 @@ class ReservationMetricsTest {
 
 	@Test
 	@DisplayName("판매 충돌이면 sold 충돌 카운터만 증가하고 타이머는 기록된다")
-	void soldConflictIncrementsSoldCounter() {
+	void sold_conflict_increments_sold_counter() {
 		// given
 		seatOccupancyTestHelper.markSold(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 1, "77");
 		double holdBefore = conflicts("hold");

@@ -41,7 +41,7 @@ class TrainCacheTestHelperTest {
 
 	@Test
 	@DisplayName("적재한 값은 Batch와 같은 키·형식이라 기준정보 캐시 타입으로 다시 읽힌다")
-	void seedsInBatchFormat() {
+	void seeds_in_batch_format() {
 		// given
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);
@@ -79,7 +79,7 @@ class TrainCacheTestHelperTest {
 
 	@Test
 	@DisplayName("운행 키에는 운행일 기준 만료가 걸리고 정적 키에는 만료가 없다")
-	void expiresOnlyScheduleKeys() {
+	void expires_only_schedule_keys() {
 		// given
 		Train train = trainTestHelper.createKTX();
 		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);

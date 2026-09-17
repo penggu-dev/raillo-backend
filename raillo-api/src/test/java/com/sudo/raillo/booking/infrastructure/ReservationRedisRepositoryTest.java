@@ -58,7 +58,7 @@ class ReservationRedisRepositoryTest {
 
 	@Test
 	@DisplayName("회원 인덱스에 예약을 등록하면 field 값은 운행 ID이고 field에 TTL이 걸린다")
-	void indexForMember() {
+	void index_for_member() {
 		// given
 		String key = ReservationCacheKey.memberReservations(MEMBER_NO);
 
@@ -76,7 +76,7 @@ class ReservationRedisRepositoryTest {
 
 	@Test
 	@DisplayName("인덱스에서 운행 ID를 찾을 때 없는 예약은 결과에서 빠진다")
-	void findScheduleIds() {
+	void find_schedule_ids() {
 		// given
 		reservationRedisRepository.indexForMember(MEMBER_NO, "RV1", 1001L, Duration.ofMinutes(10));
 		reservationRedisRepository.indexForMember(MEMBER_NO, "RV2", 1002L, Duration.ofMinutes(10));
@@ -90,7 +90,7 @@ class ReservationRedisRepositoryTest {
 
 	@Test
 	@DisplayName("인덱스에서 제거한 예약은 더 이상 찾을 수 없다")
-	void removeMemberIndex() {
+	void remove_member_index() {
 		// given
 		reservationRedisRepository.indexForMember(MEMBER_NO, "RV1", 1001L, Duration.ofMinutes(10));
 
@@ -119,7 +119,7 @@ class ReservationRedisRepositoryTest {
 
 	@Test
 	@DisplayName("여러 예약을 한 번에 읽을 때 만료된 예약은 결과에서 빠진다")
-	void findAllSkipsMissing() {
+	void find_all_skips_missing() {
 		// given
 		store(reservation("RV1", 1001L));
 		store(reservation("RV2", 1002L));
@@ -135,7 +135,7 @@ class ReservationRedisRepositoryTest {
 
 	@Test
 	@DisplayName("예약 JSON에는 Java 타입 메타데이터가 들어가지 않는다")
-	void storesPlainJson() {
+	void stores_plain_json() {
 		// given
 		Reservation reservation = reservation("RV1", 1001L);
 

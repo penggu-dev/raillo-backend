@@ -138,7 +138,7 @@ class ReservationConcurrencyTest {
 
 	@Test
 	@DisplayName("같은 좌석, 같은 구간에 10개 스레드가 동시 예약하면 1개만 성공하고 나머지는 Hold 충돌이다")
-	void sameSeatSameSection() throws InterruptedException {
+	void same_seat_same_section() throws InterruptedException {
 		// given
 		Seat seat = trainTestHelper.getSeats(train, CarType.STANDARD, 1).get(0);
 
@@ -159,7 +159,7 @@ class ReservationConcurrencyTest {
 
 	@Test
 	@DisplayName("같은 좌석, 겹치는 구간에 동시 예약하면 1개만 성공한다")
-	void sameSeatOverlappingSections() throws InterruptedException {
+	void same_seat_overlapping_sections() throws InterruptedException {
 		// given - 짝수 스레드는 서울→동대구(0,1), 홀수 스레드는 대전→부산(1,2). 구간 1이 겹친다
 		Seat seat = trainTestHelper.getSeats(train, CarType.STANDARD, 1).get(0);
 
@@ -176,7 +176,7 @@ class ReservationConcurrencyTest {
 
 	@Test
 	@DisplayName("서로 다른 좌석에 동시 예약하면 모두 성공한다")
-	void differentSeats() throws InterruptedException {
+	void different_seats() throws InterruptedException {
 		// given
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, THREAD_COUNT);
 		assertThat(seats).hasSize(THREAD_COUNT);

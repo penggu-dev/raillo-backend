@@ -54,7 +54,7 @@ class ReservationValidatorTest {
 
 		@Test
 		@DisplayName("운행이 취소된 스케줄이면 TRAIN_OPERATION_CANCELLED 예외가 발생한다")
-		void cancelledSchedule() {
+		void cancelled_schedule() {
 			// given
 			ScheduleInfoCacheValue cancelled = schedule(OperationStatus.CANCELLED);
 
@@ -85,7 +85,7 @@ class ReservationValidatorTest {
 
 		@Test
 		@DisplayName("출발 정차역이 도착 정차역보다 앞서지 않으면 INVALID_ROUTE 예외가 발생한다")
-		void stopSequence() {
+		void stop_sequence() {
 			// given
 
 			// when
@@ -102,7 +102,7 @@ class ReservationValidatorTest {
 
 		@Test
 		@DisplayName("출발 5분 전부터는 예약이 마감되어 DEPARTURE_TIME_PASSED 예외가 발생한다")
-		void bookingCloseBoundary() {
+		void booking_close_boundary() {
 			// given
 			LocalDateTime departureAt = LocalDateTime.of(2026, 10, 20, 9, 0);
 			LocalDateTime closeAt = Reservation.bookingCloseAt(departureAt);
@@ -127,7 +127,7 @@ class ReservationValidatorTest {
 
 		@Test
 		@DisplayName("승객 수와 좌석 수가 다르면 BOOKING_CREATE_SEATS_INVALID 예외가 발생한다")
-		void passengerSeatCount() {
+		void passenger_seat_count() {
 			// given
 			List<PassengerType> twoPassengers = List.of(PassengerType.ADULT, PassengerType.CHILD);
 
@@ -143,7 +143,7 @@ class ReservationValidatorTest {
 
 		@Test
 		@DisplayName("같은 좌석을 두 번 고르면 DUPLICATE_SEAT_IDS 예외가 발생한다")
-		void duplicateSeats() {
+		void duplicate_seats() {
 			// given
 
 			// when
@@ -157,7 +157,7 @@ class ReservationValidatorTest {
 
 		@Test
 		@DisplayName("좌석의 객차 타입이 하나면 그 타입을 돌려주고 섞여 있으면 INVALID_CAR_TYPE 예외가 발생한다")
-		void singleCarType() {
+		void single_car_type() {
 			// given
 			List<SeatCacheValue> sameType = List.of(seat(CarType.FIRST_CLASS), seat(CarType.FIRST_CLASS));
 			List<SeatCacheValue> mixed = List.of(seat(CarType.STANDARD), seat(CarType.FIRST_CLASS));
@@ -179,7 +179,7 @@ class ReservationValidatorTest {
 
 		@Test
 		@DisplayName("예약 ID 목록이 비어 있으면 RESERVATION_IDS_REQUIRED 예외가 발생한다")
-		void idsRequired() {
+		void ids_required() {
 			// given
 
 			// when
@@ -192,7 +192,7 @@ class ReservationValidatorTest {
 
 		@Test
 		@DisplayName("요청한 예약 중 하나라도 없으면 RESERVATION_EXPIRED 예외가 발생한다")
-		void allExist() {
+		void all_exist() {
 			// given
 			Map<String, Long> found = Map.of("RV1", 1L);
 

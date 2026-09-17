@@ -212,7 +212,7 @@ class FareCalculatorTest {
 
 		@Test
 		@DisplayName("승객 유형 순서대로 할인이 적용된 좌석별 운임을 돌려준다")
-		void calculateFares_keepsOrder() {
+		void calculate_fares_keeps_order() {
 			// given
 			List<PassengerType> passengerTypes = List.of(PassengerType.ADULT, PassengerType.CHILD, PassengerType.SENIOR);
 
@@ -228,7 +228,7 @@ class FareCalculatorTest {
 
 		@Test
 		@DisplayName("특실은 특실 운임을 기준으로 할인한다")
-		void calculateFare_firstClass() {
+		void calculate_fare_first_class() {
 			// given
 
 			// when
@@ -242,7 +242,7 @@ class FareCalculatorTest {
 
 		@Test
 		@DisplayName("캐시 운임과 DB 운임으로 계산한 총액이 같다")
-		void matchesDatabaseCalculation() {
+		void matches_database_calculation() {
 			// given
 			Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 			Station busan = trainScheduleTestHelper.getOrCreateStation("부산");

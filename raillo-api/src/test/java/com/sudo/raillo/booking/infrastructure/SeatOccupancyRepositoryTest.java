@@ -62,7 +62,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("빈 좌석은 요청 구간마다 H 값으로 점유되고 예약 본문이 저장된다")
-		void holdsEverySectionAndStoresReservation() {
+		void holds_every_section_and_stores_reservation() {
 			// given - 서울(0) → 부산(3)
 			SeatOccupancyHoldCommand command = command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1));
 
@@ -81,7 +81,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("점유 field와 예약 키는 TTL만큼, 객차 Hash 키는 운행일 기준 만료 시각으로 만료된다")
-		void appliesExpirations() {
+		void applies_expirations() {
 			// given
 			SeatOccupancyHoldCommand command = command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1));
 			String carKey = ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_1);
@@ -105,7 +105,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("객차 Hash 키에 이미 만료가 걸려 있으면 덮어쓰지 않는다")
-		void keepsExistingKeyExpiration() {
+		void keeps_existing_key_expiration() {
 			// given
 			String carKey = ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_1);
 			stringRedisTemplate.opsForHash().put(carKey, field(99L, 0), "B:1");
@@ -120,7 +120,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("여러 객차의 좌석은 각 객차 Hash에 나뉘어 점유된다")
-		void holdsAcrossCars() {
+		void holds_across_cars() {
 			// given
 			SeatOccupancyHoldCommand command = command("RV1", 1, 3,
 				new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2));
@@ -136,7 +136,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("같은 좌석이라도 겹치지 않는 구간은 다른 예약이 점유할 수 있다")
-		void allowsNonOverlappingSections() {
+		void allows_non_overlapping_sections() {
 			// given - RV1: 0→2, RV2: 2→4
 			seatOccupancyRepository.hold(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
 
@@ -151,7 +151,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("같은 예약 ID로 다시 실행하면 자기 점유는 충돌로 보지 않는다")
-		void isIdempotentForSameReservation() {
+		void is_idempotent_for_same_reservation() {
 			// given
 			SeatOccupancyHoldCommand command = command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1));
 			seatOccupancyRepository.hold(command);
@@ -166,7 +166,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("TTL이 지나면 점유 field와 예약 키가 함께 사라진다")
-		void expiresHoldAndReservation() throws InterruptedException {
+		void expires_hold_and_reservation() throws InterruptedException {
 			// given
 			String carKey = ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_1);
 			seatOccupancyRepository.hold(command("RV1", 1L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
@@ -186,7 +186,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("다른 예약이 임시 점유한 구간과 겹치면 H 충돌을 돌려주고 아무것도 쓰지 않는다")
-		void conflictsWithHold() {
+		void conflicts_with_hold() {
 			// given - RV1: 0→3, RV2: 2→4 (구간 2 겹침)
 			seatOccupancyRepository.hold(command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1)));
 
@@ -204,7 +204,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("이미 판매된 구간과 겹치면 B 충돌을 돌려준다")
-		void conflictsWithSold() {
+		void conflicts_with_sold() {
 			// given
 			stringRedisTemplate.opsForHash().put(ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_1),
 				field(SEAT_A, 1), SeatOccupancyValue.sold("77").serialize());
@@ -222,7 +222,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("두 번째 객차에서 충돌하면 첫 번째 객차도 점유되지 않는다")
-		void isAtomicAcrossCars() {
+		void is_atomic_across_cars() {
 			// given
 			stringRedisTemplate.opsForHash().put(ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_2),
 				field(SEAT_B, 0), "H:OTHER");
@@ -239,7 +239,7 @@ class SeatOccupancyRepositoryTest {
 
 		@Test
 		@DisplayName("알 수 없는 형식의 점유 값을 만나면 SEAT_HOLD_SCRIPT_ERROR 예외가 발생한다")
-		void rejectsUnknownValue() {
+		void rejects_unknown_value() {
 			// given
 			stringRedisTemplate.opsForHash().put(ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_1),
 				field(SEAT_A, 0), "X:1");

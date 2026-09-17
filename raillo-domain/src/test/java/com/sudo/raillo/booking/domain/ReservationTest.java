@@ -48,7 +48,7 @@ class ReservationTest {
 
 	@Test
 	@DisplayName("여러 객차의 좌석을 예약하면 객차 ID는 중복 없이 나열된다")
-	void distinctTrainCarIds() {
+	void distinct_train_car_ids() {
 		// given
 		List<ReservationSeat> seats = List.of(
 			seat(1L, 231L), seat(2L, 231L), seat(3L, 232L)
@@ -63,7 +63,7 @@ class ReservationTest {
 
 	@Test
 	@DisplayName("좌석 목록은 생성 이후 바꿀 수 없다")
-	void seatsAreImmutable() {
+	void seats_are_immutable() {
 		// given
 		List<ReservationSeat> seats = new ArrayList<>(List.of(seat(1L, 231L)));
 		Reservation reservation = createWith(seats);
