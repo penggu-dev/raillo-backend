@@ -1,12 +1,17 @@
 package com.sudo.raillo.booking.cache;
 
+/**
+ * 좌석 점유 Hash field의 값. {@code R:{reservationId}}(예약) 또는 {@code B:{bookingId}}(예매)다.
+ *
+ * <p>예약 field는 예약 TTL만큼 HEXPIRE로 만료되고, 예매 field는 만료가 없다.</p>
+ */
 public record SeatOccupancyValue(Type type, String id) {
 
 	private static final String DELIMITER = ":";
 
 	public enum Type {
-		HOLD("H"),
-		SOLD("B");
+		RESERVED("R"),
+		BOOKED("B");
 
 		private final String code;
 
@@ -18,7 +23,7 @@ public record SeatOccupancyValue(Type type, String id) {
 			return code;
 		}
 
-		static Type fromCode(String code) {
+		public static Type fromCode(String code) {
 			for (Type type : values()) {
 				if (type.code.equals(code)) {
 					return type;
@@ -34,12 +39,12 @@ public record SeatOccupancyValue(Type type, String id) {
 		}
 	}
 
-	public static SeatOccupancyValue hold(String reservationId) {
-		return new SeatOccupancyValue(Type.HOLD, reservationId);
+	public static SeatOccupancyValue reserved(String reservationId) {
+		return new SeatOccupancyValue(Type.RESERVED, reservationId);
 	}
 
-	public static SeatOccupancyValue sold(String bookingId) {
-		return new SeatOccupancyValue(Type.SOLD, bookingId);
+	public static SeatOccupancyValue booked(String bookingId) {
+		return new SeatOccupancyValue(Type.BOOKED, bookingId);
 	}
 
 	public String serialize() {
@@ -57,15 +62,15 @@ public record SeatOccupancyValue(Type type, String id) {
 		);
 	}
 
-	public boolean isHold() {
-		return type == Type.HOLD;
+	public boolean isReserved() {
+		return type == Type.RESERVED;
 	}
 
-	public boolean isSold() {
-		return type == Type.SOLD;
+	public boolean isBooked() {
+		return type == Type.BOOKED;
 	}
 
-	public boolean isHeldBy(String reservationId) {
-		return isHold() && id.equals(reservationId);
+	public boolean isReservedBy(String reservationId) {
+		return isReserved() && id.equals(reservationId);
 	}
 }

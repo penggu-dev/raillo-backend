@@ -90,8 +90,8 @@ class ReservationServiceTest {
 
 			// then
 			assertThat(memberIndexValue("RV1")).isEqualTo(String.valueOf(SCHEDULE_ID));
-			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("H:RV1");
-			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 12L, 0)).isEqualTo("H:RV1");
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("R:RV1");
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 12L, 0)).isEqualTo("R:RV1");
 
 			String json = stringRedisTemplate.opsForValue().get(ReservationCacheKey.reservation(SCHEDULE_ID, "RV1"));
 			assertThat(redisJsonConverter.fromJson(json, Reservation.class)).isEqualTo(reservation);
@@ -114,10 +114,10 @@ class ReservationServiceTest {
 		}
 
 		@Test
-		@DisplayName("다른 예약이 점유한 구간이면 SEAT_CONFLICT_WITH_HOLD 예외가 발생하고 회원 인덱스는 남지 않는다")
+		@DisplayName("다른 예약이 점유한 구간이면 SEAT_CONFLICT_WITH_RESERVATION 예외가 발생하고 회원 인덱스는 남지 않는다")
 		void conflict_with_hold() {
 			// given
-			seatOccupancyTestHelper.markHeld(SCHEDULE_ID, CAR_ID, 11L, 0, 1, "OTHER");
+			seatOccupancyTestHelper.markReserved(SCHEDULE_ID, CAR_ID, 11L, 0, 1, "OTHER");
 			Reservation reservation = reservation("RV1", 11L);
 
 			// when
@@ -125,16 +125,16 @@ class ReservationServiceTest {
 			// then
 			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_HOLD);
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_RESERVATION);
 			assertThat(memberIndexValue("RV1")).isNull();
 			assertThat(stringRedisTemplate.hasKey(ReservationCacheKey.reservation(SCHEDULE_ID, "RV1"))).isFalse();
 		}
 
 		@Test
-		@DisplayName("이미 판매된 구간이면 SEAT_CONFLICT_WITH_SOLD 예외가 발생하고 회원 인덱스는 남지 않는다")
+		@DisplayName("이미 판매된 구간이면 SEAT_CONFLICT_WITH_BOOKING 예외가 발생하고 회원 인덱스는 남지 않는다")
 		void conflict_with_sold() {
 			// given
-			seatOccupancyTestHelper.markSold(SCHEDULE_ID, CAR_ID, 11L, 0, 1, "77");
+			seatOccupancyTestHelper.markBooked(SCHEDULE_ID, CAR_ID, 11L, 0, 1, "77");
 			Reservation reservation = reservation("RV1", 11L);
 
 			// when
@@ -142,7 +142,7 @@ class ReservationServiceTest {
 			// then
 			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD);
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING);
 			assertThat(memberIndexValue("RV1")).isNull();
 		}
 
@@ -150,8 +150,8 @@ class ReservationServiceTest {
 		@DisplayName("점유 스크립트가 실패하면 예외가 전파되고 회원 인덱스는 되돌려진다")
 		void script_failure_rolls_back_index() {
 			// given
-			doThrow(new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR))
-				.when(seatOccupancyRepository).hold(any());
+			doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR))
+				.when(seatOccupancyRepository).occupy(any());
 			Reservation reservation = reservation("RV1", 11L);
 
 			// when
@@ -159,7 +159,7 @@ class ReservationServiceTest {
 			// then
 			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_HOLD_SCRIPT_ERROR);
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
 			assertThat(memberIndexValue("RV1")).isNull();
 		}
 
@@ -169,8 +169,8 @@ class ReservationServiceTest {
 			// given - 스크립트는 실행되고 클라이언트에는 오류가 돌아온 상황
 			doAnswer(invocation -> {
 				invocation.callRealMethod();
-				throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
-			}).when(seatOccupancyRepository).hold(any());
+				throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
+			}).when(seatOccupancyRepository).occupy(any());
 			Reservation reservation = reservation("RV1", 11L);
 
 			// when
@@ -179,15 +179,15 @@ class ReservationServiceTest {
 			// then
 			assertThat(memberIndexValue("RV1")).isEqualTo(String.valueOf(SCHEDULE_ID));
 			assertThat(stringRedisTemplate.hasKey(ReservationCacheKey.reservation(SCHEDULE_ID, "RV1"))).isTrue();
-			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("H:RV1");
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("R:RV1");
 		}
 
 		@Test
 		@DisplayName("점유 스크립트가 실패하고 저장 여부 확인도 실패하면 회원 인덱스를 되돌리고 원래 예외를 던진다")
 		void rolls_back_index_when_store_check_fails() {
 			// given
-			doThrow(new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR))
-				.when(seatOccupancyRepository).hold(any());
+			doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR))
+				.when(seatOccupancyRepository).occupy(any());
 			doThrow(new QueryTimeoutException("redis timeout"))
 				.when(reservationRedisRepository).exists(anyLong(), anyString());
 			Reservation reservation = reservation("RV1", 11L);
@@ -197,7 +197,7 @@ class ReservationServiceTest {
 			// then
 			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_HOLD_SCRIPT_ERROR);
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
 			assertThat(memberIndexValue("RV1")).isNull();
 		}
 

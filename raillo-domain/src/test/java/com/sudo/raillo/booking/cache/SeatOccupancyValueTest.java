@@ -10,26 +10,26 @@ import org.junit.jupiter.api.Test;
 class SeatOccupancyValueTest {
 
 	@Test
-	@DisplayName("임시 점유는 H 접두사와 예약 ID로 직렬화된다")
-	void serializes_hold() {
+	@DisplayName("예약 점유는 R 접두사와 예약 ID로 직렬화된다")
+	void serializes_reserved() {
 		// given
-		SeatOccupancyValue hold = SeatOccupancyValue.hold("RV1");
+		SeatOccupancyValue reserved = SeatOccupancyValue.reserved("RV1");
 
 		// when
-		String value = hold.serialize();
+		String value = reserved.serialize();
 
 		// then
-		assertThat(value).isEqualTo("H:RV1");
+		assertThat(value).isEqualTo("R:RV1");
 	}
 
 	@Test
-	@DisplayName("확정 판매는 B 접두사와 예매 ID로 직렬화된다")
-	void serializes_sold() {
+	@DisplayName("예매 점유는 B 접두사와 예매 ID로 직렬화된다")
+	void serializes_booked() {
 		// given
-		SeatOccupancyValue sold = SeatOccupancyValue.sold("77");
+		SeatOccupancyValue booked = SeatOccupancyValue.booked("77");
 
 		// when
-		String value = sold.serialize();
+		String value = booked.serialize();
 
 		// then
 		assertThat(value).isEqualTo("B:77");
@@ -39,30 +39,30 @@ class SeatOccupancyValueTest {
 	@DisplayName("직렬화한 값을 다시 읽으면 같은 점유 정보가 된다")
 	void round_trips() {
 		// given
-		SeatOccupancyValue original = SeatOccupancyValue.hold("RV20260917120000ABC123");
+		SeatOccupancyValue original = SeatOccupancyValue.reserved("RV20260917120000ABC123");
 
 		// when
 		SeatOccupancyValue parsed = SeatOccupancyValue.parse(original.serialize());
 
 		// then
 		assertThat(parsed).isEqualTo(original);
-		assertThat(parsed.isHold()).isTrue();
-		assertThat(parsed.isSold()).isFalse();
+		assertThat(parsed.isReserved()).isTrue();
+		assertThat(parsed.isBooked()).isFalse();
 	}
 
 	@Test
 	@DisplayName("자기 예약이 점유한 field인지 예약 ID로 판별한다")
 	void identifies_owner() {
 		// given
-		SeatOccupancyValue hold = SeatOccupancyValue.parse("H:RV1");
-		SeatOccupancyValue sold = SeatOccupancyValue.parse("B:RV1");
+		SeatOccupancyValue reserved = SeatOccupancyValue.parse("R:RV1");
+		SeatOccupancyValue booked = SeatOccupancyValue.parse("B:RV1");
 
 		// when
 
 		// then
-		assertThat(hold.isHeldBy("RV1")).isTrue();
-		assertThat(hold.isHeldBy("RV2")).isFalse();
-		assertThat(sold.isHeldBy("RV1")).isFalse();
+		assertThat(reserved.isReservedBy("RV1")).isTrue();
+		assertThat(reserved.isReservedBy("RV2")).isFalse();
+		assertThat(booked.isReservedBy("RV1")).isFalse();
 	}
 
 	@Test
@@ -74,9 +74,9 @@ class SeatOccupancyValueTest {
 
 		// then
 		assertThatThrownBy(() -> SeatOccupancyValue.parse("X:1")).isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> SeatOccupancyValue.parse("H:")).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> SeatOccupancyValue.parse("R:")).isInstanceOf(IllegalArgumentException.class);
 		assertThatThrownBy(() -> SeatOccupancyValue.parse("RV1")).isInstanceOf(IllegalArgumentException.class);
 		assertThatThrownBy(() -> SeatOccupancyValue.parse(null)).isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> SeatOccupancyValue.hold(" ")).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> SeatOccupancyValue.reserved(" ")).isInstanceOf(IllegalArgumentException.class);
 	}
 }

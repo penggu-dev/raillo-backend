@@ -145,7 +145,7 @@ public class BookingValidator {
 				overlappingSeatBookings.get(0).getDepartureStopOrder(),
 				overlappingSeatBookings.get(0).getArrivalStopOrder(),
 				departureStop.getStopOrder(), arrivalStop.getStopOrder());
-			throw new BusinessException(BookingError.SEAT_CONFLICT_WITH_SOLD);
+			throw new BusinessException(BookingError.SEAT_CONFLICT_WITH_BOOKING);
 		}
 	}
 

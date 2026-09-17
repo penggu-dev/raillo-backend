@@ -15,32 +15,32 @@ import lombok.RequiredArgsConstructor;
 @Aspect
 @Component
 @RequiredArgsConstructor
-public class BookingMetricsAspect {
+public class ReservationMetricsAspect {
 
-	private final BookingMetrics bookingMetrics;
+	private final ReservationMetrics reservationMetrics;
 
 	@Around("execution(* com.sudo.raillo.booking.application.facade.ReservationFacade.createReservation(..))")
-	public Object measurePendingBookingCreation(ProceedingJoinPoint joinPoint) throws Throwable {
+	public Object measureReservationCreation(ProceedingJoinPoint joinPoint) throws Throwable {
 		Sample sample = Timer.start();
 		try {
 			Object result = joinPoint.proceed();
-			bookingMetrics.incrementPendingBookingCreated();
+			reservationMetrics.incrementReservationCreated();
 			return result;
 		} catch (BusinessException e) {
-			if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_HOLD) {
-				bookingMetrics.incrementSeatConflictHold();
-			} else if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_SOLD) {
-				bookingMetrics.incrementSeatConflictSold();
+			if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_RESERVATION) {
+				reservationMetrics.incrementSeatConflictWithReservation();
+			} else if (e.getErrorCode() == BookingError.SEAT_CONFLICT_WITH_BOOKING) {
+				reservationMetrics.incrementSeatConflictWithBooking();
 			}
 			throw e;
 		} finally {
-			sample.stop(bookingMetrics.getPendingBookingTimer());
+			sample.stop(reservationMetrics.getReservationTimer());
 		}
 	}
 
-	@Around("execution(* com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository.hold(..))")
-	public Object timeSeatHold(ProceedingJoinPoint joinPoint) throws Throwable {
-		return recordTime(joinPoint, bookingMetrics.getSeatHoldTimer());
+	@Around("execution(* com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository.occupy(..))")
+	public Object timeSeatOccupancy(ProceedingJoinPoint joinPoint) throws Throwable {
+		return recordTime(joinPoint, reservationMetrics.getSeatOccupancyTimer());
 	}
 
 	private Object recordTime(ProceedingJoinPoint joinPoint, Timer timer) throws Throwable {

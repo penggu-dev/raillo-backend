@@ -17,7 +17,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import com.sudo.raillo.booking.cache.ReservationCacheKey;
 import com.sudo.raillo.booking.cache.SeatOccupancyValue;
 import com.sudo.raillo.booking.exception.BookingError;
-import com.sudo.raillo.booking.infrastructure.SeatOccupancyHoldCommand.SeatCar;
+import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand.SeatCar;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.support.annotation.RedisTest;
 
@@ -39,13 +39,13 @@ class SeatOccupancyRepositoryTest {
 	@Autowired
 	private StringRedisTemplate stringRedisTemplate;
 
-	private static SeatOccupancyHoldCommand command(String reservationId, int dep, int arr, SeatCar... seats) {
+	private static SeatOccupancyCommand command(String reservationId, int dep, int arr, SeatCar... seats) {
 		return command(reservationId, TTL_SECONDS, dep, arr, seats);
 	}
 
-	private static SeatOccupancyHoldCommand command(String reservationId, long ttl, int dep, int arr, SeatCar... seats) {
+	private static SeatOccupancyCommand command(String reservationId, long ttl, int dep, int arr, SeatCar... seats) {
 		long expireAt = Instant.now().plusSeconds(3600).getEpochSecond();
-		return new SeatOccupancyHoldCommand(SCHEDULE_ID, reservationId, ttl, expireAt, JSON, dep, arr, List.of(seats));
+		return new SeatOccupancyCommand(SCHEDULE_ID, reservationId, ttl, expireAt, JSON, dep, arr, List.of(seats));
 	}
 
 	private String field(long seatId, int section) {
@@ -64,17 +64,17 @@ class SeatOccupancyRepositoryTest {
 		@DisplayName("빈 좌석은 요청 구간마다 H 값으로 점유되고 예약 본문이 저장된다")
 		void holds_every_section_and_stores_reservation() {
 			// given - 서울(0) → 부산(3)
-			SeatOccupancyHoldCommand command = command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1));
+			SeatOccupancyCommand command = command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1));
 
 			// when
-			SeatOccupancyResult result = seatOccupancyRepository.hold(command);
+			SeatOccupancyResult result = seatOccupancyRepository.occupy(command);
 
 			// then
 			assertThat(result.success()).isTrue();
 			assertThat(carHash(CAR_1)).containsOnly(
-				Map.entry(field(SEAT_A, 0), "H:RV1"),
-				Map.entry(field(SEAT_A, 1), "H:RV1"),
-				Map.entry(field(SEAT_A, 2), "H:RV1"));
+				Map.entry(field(SEAT_A, 0), "R:RV1"),
+				Map.entry(field(SEAT_A, 1), "R:RV1"),
+				Map.entry(field(SEAT_A, 2), "R:RV1"));
 			assertThat(stringRedisTemplate.opsForValue().get(ReservationCacheKey.reservation(SCHEDULE_ID, "RV1")))
 				.isEqualTo(JSON);
 		}
@@ -83,11 +83,11 @@ class SeatOccupancyRepositoryTest {
 		@DisplayName("점유 field와 예약 키는 TTL만큼, 객차 Hash 키는 운행일 기준 만료 시각으로 만료된다")
 		void applies_expirations() {
 			// given
-			SeatOccupancyHoldCommand command = command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1));
+			SeatOccupancyCommand command = command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1));
 			String carKey = ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_1);
 
 			// when
-			seatOccupancyRepository.hold(command);
+			seatOccupancyRepository.occupy(command);
 
 			// then
 			var fieldTtls = stringRedisTemplate.opsForHash()
@@ -112,7 +112,7 @@ class SeatOccupancyRepositoryTest {
 			stringRedisTemplate.expire(carKey, 100L, TimeUnit.SECONDS);
 
 			// when
-			seatOccupancyRepository.hold(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
 
 			// then
 			assertThat(stringRedisTemplate.getExpire(carKey, TimeUnit.SECONDS)).isBetween(95L, 100L);
@@ -122,11 +122,11 @@ class SeatOccupancyRepositoryTest {
 		@DisplayName("여러 객차의 좌석은 각 객차 Hash에 나뉘어 점유된다")
 		void holds_across_cars() {
 			// given
-			SeatOccupancyHoldCommand command = command("RV1", 1, 3,
+			SeatOccupancyCommand command = command("RV1", 1, 3,
 				new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2));
 
 			// when
-			SeatOccupancyResult result = seatOccupancyRepository.hold(command);
+			SeatOccupancyResult result = seatOccupancyRepository.occupy(command);
 
 			// then
 			assertThat(result.success()).isTrue();
@@ -138,26 +138,26 @@ class SeatOccupancyRepositoryTest {
 		@DisplayName("같은 좌석이라도 겹치지 않는 구간은 다른 예약이 점유할 수 있다")
 		void allows_non_overlapping_sections() {
 			// given - RV1: 0→2, RV2: 2→4
-			seatOccupancyRepository.hold(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
 
 			// when
-			SeatOccupancyResult result = seatOccupancyRepository.hold(command("RV2", 2, 4, new SeatCar(SEAT_A, CAR_1)));
+			SeatOccupancyResult result = seatOccupancyRepository.occupy(command("RV2", 2, 4, new SeatCar(SEAT_A, CAR_1)));
 
 			// then
 			assertThat(result.success()).isTrue();
-			assertThat(carHash(CAR_1)).containsEntry(field(SEAT_A, 1), "H:RV1")
-				.containsEntry(field(SEAT_A, 2), "H:RV2");
+			assertThat(carHash(CAR_1)).containsEntry(field(SEAT_A, 1), "R:RV1")
+				.containsEntry(field(SEAT_A, 2), "R:RV2");
 		}
 
 		@Test
 		@DisplayName("같은 예약 ID로 다시 실행하면 자기 점유는 충돌로 보지 않는다")
 		void is_idempotent_for_same_reservation() {
 			// given
-			SeatOccupancyHoldCommand command = command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1));
-			seatOccupancyRepository.hold(command);
+			SeatOccupancyCommand command = command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1));
+			seatOccupancyRepository.occupy(command);
 
 			// when
-			SeatOccupancyResult result = seatOccupancyRepository.hold(command);
+			SeatOccupancyResult result = seatOccupancyRepository.occupy(command);
 
 			// then
 			assertThat(result.success()).isTrue();
@@ -169,7 +169,7 @@ class SeatOccupancyRepositoryTest {
 		void expires_hold_and_reservation() throws InterruptedException {
 			// given
 			String carKey = ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_1);
-			seatOccupancyRepository.hold(command("RV1", 1L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.occupy(command("RV1", 1L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
 
 			// when
 			Thread.sleep(1500);
@@ -188,14 +188,14 @@ class SeatOccupancyRepositoryTest {
 		@DisplayName("다른 예약이 임시 점유한 구간과 겹치면 H 충돌을 돌려주고 아무것도 쓰지 않는다")
 		void conflicts_with_hold() {
 			// given - RV1: 0→3, RV2: 2→4 (구간 2 겹침)
-			seatOccupancyRepository.hold(command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.occupy(command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1)));
 
 			// when
-			SeatOccupancyResult result = seatOccupancyRepository.hold(command("RV2", 2, 4, new SeatCar(SEAT_A, CAR_1)));
+			SeatOccupancyResult result = seatOccupancyRepository.occupy(command("RV2", 2, 4, new SeatCar(SEAT_A, CAR_1)));
 
 			// then
 			assertThat(result.success()).isFalse();
-			assertThat(result.isConflictWithHold()).isTrue();
+			assertThat(result.isConflictWithReservation()).isTrue();
 			assertThat(result.conflictSeatId()).isEqualTo(SEAT_A);
 			assertThat(result.conflictSectionIndex()).isEqualTo(2);
 			assertThat(carHash(CAR_1)).doesNotContainKey(field(SEAT_A, 3));
@@ -207,14 +207,14 @@ class SeatOccupancyRepositoryTest {
 		void conflicts_with_sold() {
 			// given
 			stringRedisTemplate.opsForHash().put(ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_1),
-				field(SEAT_A, 1), SeatOccupancyValue.sold("77").serialize());
+				field(SEAT_A, 1), SeatOccupancyValue.booked("77").serialize());
 
 			// when
-			SeatOccupancyResult result = seatOccupancyRepository.hold(command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1)));
+			SeatOccupancyResult result = seatOccupancyRepository.occupy(command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1)));
 
 			// then
 			assertThat(result.success()).isFalse();
-			assertThat(result.isConflictWithSold()).isTrue();
+			assertThat(result.isConflictWithBooking()).isTrue();
 			assertThat(result.conflictSeatId()).isEqualTo(SEAT_A);
 			assertThat(result.conflictSectionIndex()).isEqualTo(1);
 			assertThat(carHash(CAR_1)).hasSize(1);
@@ -225,10 +225,10 @@ class SeatOccupancyRepositoryTest {
 		void is_atomic_across_cars() {
 			// given
 			stringRedisTemplate.opsForHash().put(ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_2),
-				field(SEAT_B, 0), "H:OTHER");
+				field(SEAT_B, 0), "R:OTHER");
 
 			// when
-			SeatOccupancyResult result = seatOccupancyRepository.hold(command("RV1", 0, 2,
+			SeatOccupancyResult result = seatOccupancyRepository.occupy(command("RV1", 0, 2,
 				new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2)));
 
 			// then
@@ -238,7 +238,7 @@ class SeatOccupancyRepositoryTest {
 		}
 
 		@Test
-		@DisplayName("알 수 없는 형식의 점유 값을 만나면 SEAT_HOLD_SCRIPT_ERROR 예외가 발생한다")
+		@DisplayName("알 수 없는 형식의 점유 값을 만나면 SEAT_OCCUPANCY_SCRIPT_ERROR 예외가 발생한다")
 		void rejects_unknown_value() {
 			// given
 			stringRedisTemplate.opsForHash().put(ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_1),
@@ -247,9 +247,9 @@ class SeatOccupancyRepositoryTest {
 			// when
 
 			// then
-			assertThatThrownBy(() -> seatOccupancyRepository.hold(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1))))
+			assertThatThrownBy(() -> seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1))))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_HOLD_SCRIPT_ERROR);
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
 		}
 	}
 }

@@ -26,7 +26,7 @@ public record SeatOccupancyResult(
 	}
 
 	/**
-	 * Lua 반환값 {@code {1}} 또는 {@code {0, seatId, sectionIndex, "H"|"B"}}를 파싱한다.
+	 * Lua 반환값 {@code {1}} 또는 {@code {0, seatId, sectionIndex, "R"|"B"}}를 파싱한다.
 	 *
 	 * @throws IllegalStateException 반환 형식이 계약과 다르거나 알 수 없는 점유 값을 만났을 때
 	 */
@@ -41,12 +41,12 @@ public record SeatOccupancyResult(
 			throw new IllegalStateException("충돌 응답 형식이 아닙니다: " + result);
 		}
 
-		String typeCode = (String)result.get(3);
-		SeatOccupancyValue.Type conflictType = switch (typeCode) {
-			case "H" -> SeatOccupancyValue.Type.HOLD;
-			case "B" -> SeatOccupancyValue.Type.SOLD;
-			default -> throw new IllegalStateException("알 수 없는 좌석 점유 값을 만났습니다: " + result);
-		};
+		SeatOccupancyValue.Type conflictType;
+		try {
+			conflictType = SeatOccupancyValue.Type.fromCode((String)result.get(3));
+		} catch (IllegalArgumentException e) {
+			throw new IllegalStateException("알 수 없는 좌석 점유 값을 만났습니다: " + result, e);
+		}
 
 		return new SeatOccupancyResult(
 			false,
@@ -56,11 +56,11 @@ public record SeatOccupancyResult(
 		);
 	}
 
-	public boolean isConflictWithHold() {
-		return conflictType == SeatOccupancyValue.Type.HOLD;
+	public boolean isConflictWithReservation() {
+		return conflictType == SeatOccupancyValue.Type.RESERVED;
 	}
 
-	public boolean isConflictWithSold() {
-		return conflictType == SeatOccupancyValue.Type.SOLD;
+	public boolean isConflictWithBooking() {
+		return conflictType == SeatOccupancyValue.Type.BOOKED;
 	}
 }

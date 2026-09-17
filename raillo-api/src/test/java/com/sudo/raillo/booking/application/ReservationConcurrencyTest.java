@@ -149,10 +149,10 @@ class ReservationConcurrencyTest {
 		// then
 		assertThat(outcome.success()).isEqualTo(1);
 		assertThat(outcome.failureCodes()).hasSize(THREAD_COUNT - 1)
-			.allMatch(BookingError.SEAT_CONFLICT_WITH_HOLD.getCode()::equals);
+			.allMatch(BookingError.SEAT_CONFLICT_WITH_RESERVATION.getCode()::equals);
 		assertThat(seatOccupancyTestHelper.entries(scheduleId, seat.getTrainCar().getId()))
 			.hasSize(3)
-			.allSatisfy((field, value) -> assertThat(value.toString()).startsWith("H:"));
+			.allSatisfy((field, value) -> assertThat(value.toString()).startsWith("R:"));
 		assertThat(seatOccupancyTestHelper.entries(scheduleId, seat.getTrainCar().getId()).values().stream().distinct())
 			.hasSize(1);
 	}
@@ -171,7 +171,7 @@ class ReservationConcurrencyTest {
 		// then
 		assertThat(outcome.success()).isEqualTo(1);
 		assertThat(outcome.failureCodes()).hasSize(THREAD_COUNT - 1)
-			.allMatch(BookingError.SEAT_CONFLICT_WITH_HOLD.getCode()::equals);
+			.allMatch(BookingError.SEAT_CONFLICT_WITH_RESERVATION.getCode()::equals);
 	}
 
 	@Test

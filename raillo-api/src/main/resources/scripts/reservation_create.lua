@@ -14,8 +14,8 @@
 --
 -- 반환값
 --   {1}                                성공
---   {0, seatId, sectionIndex, "H"}     다른 예약이 임시 점유 중인 구간
---   {0, seatId, sectionIndex, "B"}     이미 판매된 구간
+--   {0, seatId, sectionIndex, "R"}     다른 예약이 점유 중인 구간
+--   {0, seatId, sectionIndex, "B"}     이미 예매된 구간
 --   {0, seatId, sectionIndex, "X"}     알 수 없는 값 형식 (데이터 오염)
 -- 충돌 시 아무것도 쓰지 않는다.
 
@@ -26,7 +26,7 @@ local keyExpireAt = tonumber(ARGV[3])
 local reservationJson = ARGV[4]
 local departureStopOrder = tonumber(ARGV[5])
 local arrivalStopOrder = tonumber(ARGV[6])
-local holdValue = "H:" .. reservationId
+local reservedValue = "R:" .. reservationId
 
 -- 객차별로 점유할 field 목록을 만든다
 local fieldsByCar = {}
@@ -52,15 +52,15 @@ for carIndex, fields in pairs(fieldsByCar) do
     local values = redis.call("HMGET", carKey, unpack(fields))
 
     for i, value in ipairs(values) do
-        if value and value ~= holdValue then
+        if value and value ~= reservedValue then
             local field = fields[i]
             local separator = string.find(field, ":", 1, true)
             local seatId = string.sub(field, 1, separator - 1)
             local section = tonumber(string.sub(field, separator + 1))
             local prefix = string.sub(value, 1, 2)
 
-            if prefix == "H:" then
-                return {0, seatId, section, "H"}
+            if prefix == "R:" then
+                return {0, seatId, section, "R"}
             elseif prefix == "B:" then
                 return {0, seatId, section, "B"}
             else
@@ -70,14 +70,14 @@ for carIndex, fields in pairs(fieldsByCar) do
     end
 end
 
--- 2. 쓰기: 점유 field 생성, field 만료, 키 만료(최초 1회), 예약 저장
+-- 2. 쓰기: 예약 점유 field 생성, field 만료, 키 만료(최초 1회), 예약 저장
 for carIndex, fields in pairs(fieldsByCar) do
     local carKey = KEYS[carIndex + 1]
 
     local hsetArgs = {}
     for _, field in ipairs(fields) do
         table.insert(hsetArgs, field)
-        table.insert(hsetArgs, holdValue)
+        table.insert(hsetArgs, reservedValue)
     end
     redis.call("HSET", carKey, unpack(hsetArgs))
     redis.call("HEXPIRE", carKey, ttl, "FIELDS", #fields, unpack(fields))

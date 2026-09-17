@@ -163,10 +163,10 @@ class ReservationFacadeTest {
 			assertThat(stored.totalFare()).isEqualByComparingTo("48000");
 
 			long carId = seatA.getTrainCar().getId();
-			String hold = "H:" + response.reservationId();
-			assertThat(seatOccupancyTestHelper.valueOf(scheduleId, carId, seatA.getId(), 0)).isEqualTo(hold);
-			assertThat(seatOccupancyTestHelper.valueOf(scheduleId, carId, seatA.getId(), 1)).isEqualTo(hold);
-			assertThat(seatOccupancyTestHelper.valueOf(scheduleId, carId, seatB.getId(), 1)).isEqualTo(hold);
+			String reserved = "R:" + response.reservationId();
+			assertThat(seatOccupancyTestHelper.valueOf(scheduleId, carId, seatA.getId(), 0)).isEqualTo(reserved);
+			assertThat(seatOccupancyTestHelper.valueOf(scheduleId, carId, seatA.getId(), 1)).isEqualTo(reserved);
+			assertThat(seatOccupancyTestHelper.valueOf(scheduleId, carId, seatB.getId(), 1)).isEqualTo(reserved);
 			assertThat(seatOccupancyTestHelper.entries(scheduleId, carId)).hasSize(4);
 			assertThat(stringRedisTemplate.opsForHash().get(ReservationCacheKey.memberReservations(memberNo), response.reservationId()))
 				.isEqualTo(String.valueOf(scheduleId));
@@ -200,9 +200,9 @@ class ReservationFacadeTest {
 			// then
 			long mediumScheduleId = mediumSchedule.trainSchedule().getId();
 			assertThat(seatOccupancyTestHelper.valueOf(mediumScheduleId, first.getTrainCar().getId(), first.getId(), 0))
-				.isEqualTo("H:" + response.reservationId());
+				.isEqualTo("R:" + response.reservationId());
 			assertThat(seatOccupancyTestHelper.valueOf(mediumScheduleId, other.getTrainCar().getId(), other.getId(), 0))
-				.isEqualTo("H:" + response.reservationId());
+				.isEqualTo("R:" + response.reservationId());
 		}
 
 		@Test
@@ -210,7 +210,7 @@ class ReservationFacadeTest {
 		void allows_non_overlapping_section() {
 			// given - 다른 예약이 서울→대전(구간 0) 점유
 			Seat seat = standardSeats.get(0);
-			seatOccupancyTestHelper.markHeld(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 1, "OTHER");
+			seatOccupancyTestHelper.markReserved(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 1, "OTHER");
 
 			// when - 대전→부산(구간 1)
 			ReservationCreateResponse response = reservationFacade.createReservation(
@@ -221,7 +221,7 @@ class ReservationFacadeTest {
 			assertThat(stored.departure().stationName()).isEqualTo("대전");
 			assertThat(stored.totalFare()).isEqualByComparingTo("20000");
 			assertThat(seatOccupancyTestHelper.valueOf(scheduleId, seat.getTrainCar().getId(), seat.getId(), 1))
-				.isEqualTo("H:" + response.reservationId());
+				.isEqualTo("R:" + response.reservationId());
 		}
 	}
 
@@ -230,11 +230,11 @@ class ReservationFacadeTest {
 	class Conflict {
 
 		@Test
-		@DisplayName("다른 사용자가 점유 중인 구간이면 SEAT_CONFLICT_WITH_HOLD 예외가 발생한다")
+		@DisplayName("다른 사용자가 점유 중인 구간이면 SEAT_CONFLICT_WITH_RESERVATION 예외가 발생한다")
 		void conflict_with_hold() {
 			// given
 			Seat seat = standardSeats.get(0);
-			seatOccupancyTestHelper.markHeld(scheduleId, seat.getTrainCar().getId(), seat.getId(), 1, 2, "OTHER");
+			seatOccupancyTestHelper.markReserved(scheduleId, seat.getTrainCar().getId(), seat.getId(), 1, 2, "OTHER");
 
 			// when
 
@@ -242,16 +242,16 @@ class ReservationFacadeTest {
 			assertThatThrownBy(() -> reservationFacade.createReservation(
 				request(seoulId, busanId, List.of(PassengerType.ADULT), List.of(seat.getId())), memberNo))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_HOLD);
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_RESERVATION);
 			assertThat(stringRedisTemplate.opsForHash().size(ReservationCacheKey.memberReservations(memberNo))).isZero();
 		}
 
 		@Test
-		@DisplayName("이미 판매된 구간이면 SEAT_CONFLICT_WITH_SOLD 예외가 발생한다")
+		@DisplayName("이미 판매된 구간이면 SEAT_CONFLICT_WITH_BOOKING 예외가 발생한다")
 		void conflict_with_sold() {
 			// given
 			Seat seat = standardSeats.get(0);
-			seatOccupancyTestHelper.markSold(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 2, "77");
+			seatOccupancyTestHelper.markBooked(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 2, "77");
 
 			// when
 
@@ -259,7 +259,7 @@ class ReservationFacadeTest {
 			assertThatThrownBy(() -> reservationFacade.createReservation(
 				request(daejeonId, busanId, List.of(PassengerType.ADULT), List.of(seat.getId())), memberNo))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD);
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING);
 		}
 	}
 

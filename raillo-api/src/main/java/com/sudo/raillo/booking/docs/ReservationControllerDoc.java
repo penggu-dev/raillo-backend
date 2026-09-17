@@ -19,7 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public interface ReservationControllerDoc {
 
 	@Operation(method = "POST", summary = "예약 생성",
-		description = "좌석을 임시 점유하고 예약을 생성합니다. 예약은 응답의 만료 시각까지 유지되며 그 전에 결제를 시작해야 합니다.",
+		description = "좌석을 점유하고 예약을 생성합니다. 예약은 응답의 만료 시각까지 유지되며 그 전에 결제를 시작해야 합니다.",
 		security = {@SecurityRequirement(name = "bearerAuth")})
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "201", description = "예약이 성공적으로 생성되었습니다."),
@@ -42,8 +42,8 @@ public interface ReservationControllerDoc {
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "409",
 			description = "좌석 충돌:\n"
-				+ "- 다른 사용자가 임시 점유 중인 구간\n"
-				+ "- 이미 판매된 구간",
+				+ "- 다른 사용자가 예약 중인 구간\n"
+				+ "- 이미 예매된 구간",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
 		@ApiResponse(responseCode = "500", description = "좌석 점유 처리 중 오류가 발생했습니다.",
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))

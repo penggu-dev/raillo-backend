@@ -4,8 +4,8 @@ import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.ReservationRedisRepository;
-import com.sudo.raillo.booking.infrastructure.SeatOccupancyHoldCommand;
-import com.sudo.raillo.booking.infrastructure.SeatOccupancyHoldCommand.SeatCar;
+import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand;
+import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand.SeatCar;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyResult;
 import com.sudo.raillo.global.exception.BusinessException;
@@ -65,7 +65,7 @@ public class ReservationService {
 
 		SeatOccupancyResult result;
 		try {
-			result = seatOccupancyRepository.hold(toHoldCommand(reservation, ttl));
+			result = seatOccupancyRepository.occupy(toOccupyCommand(reservation, ttl));
 		} catch (RuntimeException e) {
 			// 응답 타임아웃처럼 스크립트가 이미 저장했을 수 있으니, 저장됐으면 성공으로 보고 인덱스를 남긴다
 			if (!isStored(reservation)) {
@@ -78,9 +78,9 @@ public class ReservationService {
 
 		if (!result.success()) {
 			rollbackMemberIndex(memberNo, reservationId);
-			throw new BusinessException(result.isConflictWithSold()
-				? BookingError.SEAT_CONFLICT_WITH_SOLD
-				: BookingError.SEAT_CONFLICT_WITH_HOLD);
+			throw new BusinessException(result.isConflictWithBooking()
+				? BookingError.SEAT_CONFLICT_WITH_BOOKING
+				: BookingError.SEAT_CONFLICT_WITH_RESERVATION);
 		}
 
 		log.info("[예약 생성] reservationId={}, memberNo={}, trainScheduleId={}, seatCount={}, ttl={}",
@@ -101,8 +101,8 @@ public class ReservationService {
 		return reservations;
 	}
 
-	private SeatOccupancyHoldCommand toHoldCommand(Reservation reservation, Duration ttl) {
-		return new SeatOccupancyHoldCommand(
+	private SeatOccupancyCommand toOccupyCommand(Reservation reservation, Duration ttl) {
+		return new SeatOccupancyCommand(
 			reservation.trainScheduleId(),
 			reservation.reservationId(),
 			toTtlSeconds(ttl),

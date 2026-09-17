@@ -35,7 +35,7 @@ public record SeatHoldResult(
 		return new SeatHoldResult(false, status, conflictSection);
 	}
 
-	public boolean isConflictWithHold() {
+	public boolean isConflictWithReservation() {
 		return CONFLICT_WITH_HOLD.equals(status);
 	}
 }

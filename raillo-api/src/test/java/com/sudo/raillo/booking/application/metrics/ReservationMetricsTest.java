@@ -32,7 +32,7 @@ import com.sudo.raillo.train.domain.type.CarType;
 import io.micrometer.core.instrument.MeterRegistry;
 
 @ServiceTest
-@DisplayName("BookingMetrics - 예약 생성 메트릭")
+@DisplayName("ReservationMetrics - 예약 생성 메트릭")
 class ReservationMetricsTest {
 
 	@Autowired
@@ -84,7 +84,7 @@ class ReservationMetricsTest {
 	}
 
 	private double created() {
-		return meterRegistry.get("pending_booking_created_total").counter().count();
+		return meterRegistry.get("reservation_created_total").counter().count();
 	}
 
 	private double conflicts(String type) {
@@ -100,51 +100,51 @@ class ReservationMetricsTest {
 	void success_increments_created_and_timers() {
 		// given
 		double createdBefore = created();
-		long facadeTimerBefore = timerCount("pending_booking_duration_seconds");
-		long holdTimerBefore = timerCount("seat_hold_duration_seconds");
+		long facadeTimerBefore = timerCount("reservation_duration_seconds");
+		long occupancyTimerBefore = timerCount("seat_occupancy_duration_seconds");
 
 		// when
 		reservationFacade.createReservation(request, memberNo);
 
 		// then
 		assertThat(created()).isEqualTo(createdBefore + 1);
-		assertThat(timerCount("pending_booking_duration_seconds")).isEqualTo(facadeTimerBefore + 1);
-		assertThat(timerCount("seat_hold_duration_seconds")).isEqualTo(holdTimerBefore + 1);
+		assertThat(timerCount("reservation_duration_seconds")).isEqualTo(facadeTimerBefore + 1);
+		assertThat(timerCount("seat_occupancy_duration_seconds")).isEqualTo(occupancyTimerBefore + 1);
 	}
 
 	@Test
-	@DisplayName("Hold 충돌이면 hold 충돌 카운터만 증가하고 생성 카운터는 그대로다")
-	void hold_conflict_increments_hold_counter() {
+	@DisplayName("예약 충돌이면 reservation 충돌 카운터만 증가하고 생성 카운터는 그대로다")
+	void reservation_conflict_increments_reservation_counter() {
 		// given
-		seatOccupancyTestHelper.markHeld(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 1, "OTHER");
+		seatOccupancyTestHelper.markReserved(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 1, "OTHER");
 		double createdBefore = created();
-		double holdBefore = conflicts("hold");
-		double soldBefore = conflicts("sold");
+		double reservationBefore = conflicts("reservation");
+		double bookingBefore = conflicts("booking");
 
 		// when
 		assertThatThrownBy(() -> reservationFacade.createReservation(request, memberNo)).isInstanceOf(BusinessException.class);
 
 		// then
-		assertThat(conflicts("hold")).isEqualTo(holdBefore + 1);
-		assertThat(conflicts("sold")).isEqualTo(soldBefore);
+		assertThat(conflicts("reservation")).isEqualTo(reservationBefore + 1);
+		assertThat(conflicts("booking")).isEqualTo(bookingBefore);
 		assertThat(created()).isEqualTo(createdBefore);
 	}
 
 	@Test
-	@DisplayName("판매 충돌이면 sold 충돌 카운터만 증가하고 타이머는 기록된다")
-	void sold_conflict_increments_sold_counter() {
+	@DisplayName("예매 충돌이면 booking 충돌 카운터만 증가하고 타이머는 기록된다")
+	void booking_conflict_increments_booking_counter() {
 		// given
-		seatOccupancyTestHelper.markSold(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 1, "77");
-		double holdBefore = conflicts("hold");
-		double soldBefore = conflicts("sold");
-		long holdTimerBefore = timerCount("seat_hold_duration_seconds");
+		seatOccupancyTestHelper.markBooked(scheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 1, "77");
+		double reservationBefore = conflicts("reservation");
+		double bookingBefore = conflicts("booking");
+		long occupancyTimerBefore = timerCount("seat_occupancy_duration_seconds");
 
 		// when
 		assertThatThrownBy(() -> reservationFacade.createReservation(request, memberNo)).isInstanceOf(BusinessException.class);
 
 		// then
-		assertThat(conflicts("sold")).isEqualTo(soldBefore + 1);
-		assertThat(conflicts("hold")).isEqualTo(holdBefore);
-		assertThat(timerCount("seat_hold_duration_seconds")).isEqualTo(holdTimerBefore + 1);
+		assertThat(conflicts("booking")).isEqualTo(bookingBefore + 1);
+		assertThat(conflicts("reservation")).isEqualTo(reservationBefore);
+		assertThat(timerCount("seat_occupancy_duration_seconds")).isEqualTo(occupancyTimerBefore + 1);
 	}
 }

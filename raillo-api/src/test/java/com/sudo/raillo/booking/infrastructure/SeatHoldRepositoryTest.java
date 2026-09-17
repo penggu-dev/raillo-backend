@@ -90,7 +90,7 @@ class SeatHoldRepositoryTest {
 
 			// then
 			assertThat(result.success()).isFalse();
-			assertThat(result.isConflictWithHold()).isTrue();
+			assertThat(result.isConflictWithReservation()).isTrue();
 			assertThat(result.conflictSection()).isEqualTo("2-3");
 		}
 
@@ -108,7 +108,7 @@ class SeatHoldRepositoryTest {
 				TRAIN_SCHEDULE_ID, SEAT_ID, "pending_1", 0, 2, TRAIN_CAR_ID, SEAT_HOLD_TTL
 			);
 			assertThat(result2.success()).isFalse();
-			assertThat(result2.isConflictWithHold()).isTrue();
+			assertThat(result2.isConflictWithReservation()).isTrue();
 
 			// 3. 단거리 시도 - 겹침 (3-4)
 			SeatHoldResult result3 = seatHoldRepository.trySeatHold(

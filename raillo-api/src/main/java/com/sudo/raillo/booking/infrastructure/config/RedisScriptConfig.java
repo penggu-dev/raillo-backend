@@ -37,7 +37,7 @@ public class RedisScriptConfig {
 	/**
 	 * 예약 생성 스크립트. 좌석 점유 검사와 예약 저장을 원자적으로 처리한다.
 	 *
-	 * <p>반환값: {@code {1}} 또는 {@code {0, seatId, sectionIndex, "H"|"B"}}</p>
+	 * <p>반환값: {@code {1}} 또는 {@code {0, seatId, sectionIndex, "R"|"B"}}</p>
 	 *
 	 * @see com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository
 	 */

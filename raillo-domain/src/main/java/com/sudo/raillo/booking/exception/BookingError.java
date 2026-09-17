@@ -39,10 +39,10 @@ public enum BookingError implements ErrorCode {
 	INVALID_PENDING_BOOKING_TTL("예약을 처리할 수 없습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "BOOKING_304"),
 
 	// 좌석 점유·충돌 (4xx)
-	SEAT_CONFLICT_WITH_SOLD("이미 판매된 좌석이 존재하는 구간입니다.", HttpStatus.CONFLICT, "BOOKING_401"),
-	SEAT_CONFLICT_WITH_HOLD("다른 사용자가 임시 점유 중인 구간입니다.", HttpStatus.CONFLICT, "BOOKING_402"),
-	SEAT_HOLD_SCRIPT_ERROR("좌석 점유 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "BOOKING_403"),
-	SEAT_HOLD_RELEASE_FAILED("좌석 점유 해제에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "BOOKING_404"),
+	SEAT_CONFLICT_WITH_BOOKING("이미 예매된 좌석이 있는 구간입니다.", HttpStatus.CONFLICT, "BOOKING_401"),
+	SEAT_CONFLICT_WITH_RESERVATION("다른 사용자가 예약 중인 구간입니다.", HttpStatus.CONFLICT, "BOOKING_402"),
+	SEAT_OCCUPANCY_SCRIPT_ERROR("좌석 점유 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "BOOKING_403"),
+	SEAT_OCCUPANCY_RELEASE_FAILED("좌석 점유 해제에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "BOOKING_404"),
 
 	// 영수증 (5xx)
 	RECEIPT_NOT_FOUND("영수증 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "BOOKING_501");
