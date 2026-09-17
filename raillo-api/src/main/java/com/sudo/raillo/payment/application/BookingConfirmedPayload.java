@@ -5,10 +5,9 @@ import java.util.List;
 import com.sudo.raillo.booking.domain.PendingBooking;
 
 /**
- * OutboxWorker가 결제 성공 후 Redis 정리에 참조할 최소 정보.
+ * PaymentOutboxWorker의 BookingConfirmedProcessor가 승인 확정 후 Redis 정리에 참조하는 최소 정보.
  *
- * <p>실제 처리 로직은 새 Redis 아키텍처 확정 후 도입 예정이므로,
- * 이 payload 스키마는 향후 확장될 수 있다.
+ * <p>trainCarId·stopOrder는 processor가 실행 시점에 ScheduleStop·Seat 조회로 채우므로 payload에 담지 않는다.
  */
 public record BookingConfirmedPayload(List<Entry> pendingBookings) {
 

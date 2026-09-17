@@ -1,6 +1,6 @@
 package com.sudo.raillo.payment.application.outbox;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
