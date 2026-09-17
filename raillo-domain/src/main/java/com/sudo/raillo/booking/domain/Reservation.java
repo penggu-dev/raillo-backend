@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -43,8 +44,15 @@ public record Reservation(
 	LocalDateTime expiresAt
 ) {
 
+	/** 출발 시각 기준 예약 마감 여유. 이 시각 이후에는 예약을 만들 수 없고 TTL도 여기서 끊긴다. */
+	public static final Duration BOOKING_CLOSE_BEFORE_DEPARTURE = Duration.ofMinutes(5);
+
 	public Reservation {
 		seats = List.copyOf(seats);
+	}
+
+	public static LocalDateTime bookingCloseAt(LocalDateTime departureAt) {
+		return departureAt.minus(BOOKING_CLOSE_BEFORE_DEPARTURE);
 	}
 
 	public static Reservation create(
@@ -65,10 +73,11 @@ public record Reservation(
 		BigDecimal totalFare = seats.stream()
 			.map(ReservationSeat::fare)
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
+		LocalDateTime created = createdAt.truncatedTo(ChronoUnit.SECONDS);
 
 		return new Reservation(
 			reservationId, memberNo, trainScheduleId, trainNumber, trainName, operationDate,
-			departure, arrival, departureAt, carType, seats, totalFare, createdAt, createdAt.plus(ttl)
+			departure, arrival, departureAt, carType, seats, totalFare, created, created.plus(ttl)
 		);
 	}
 

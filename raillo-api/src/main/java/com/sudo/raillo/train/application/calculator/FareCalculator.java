@@ -2,6 +2,7 @@ package com.sudo.raillo.train.application.calculator;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.BusinessException;
+import com.sudo.raillo.train.cache.StationFareCacheValue;
 import com.sudo.raillo.train.domain.StationFare;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainError;
@@ -68,6 +69,32 @@ public class FareCalculator {
 		StationFare stationFare = findStationFare(departureStationId, arrivalStationId);
 		BigDecimal baseFare = getFareByCarType(stationFare, carType);
 		return baseFare.multiply(DISCOUNT_RATES.get(passengerType));
+	}
+
+	/**
+	 * 기준정보 캐시의 구간 운임으로 좌석별 운임을 계산한다. 결과는 승객 유형 순서와 같다.
+	 */
+	public List<BigDecimal> calculateFares(
+		StationFareCacheValue stationFare,
+		CarType carType,
+		List<PassengerType> passengerTypes
+	) {
+		BigDecimal baseFare = getFareByCarType(stationFare, carType);
+		return passengerTypes.stream()
+			.map(passengerType -> applyDiscount(baseFare, passengerType))
+			.toList();
+	}
+
+	public BigDecimal calculateFare(StationFareCacheValue stationFare, CarType carType, PassengerType passengerType) {
+		return applyDiscount(getFareByCarType(stationFare, carType), passengerType);
+	}
+
+	private BigDecimal applyDiscount(BigDecimal baseFare, PassengerType passengerType) {
+		return baseFare.multiply(DISCOUNT_RATES.get(passengerType));
+	}
+
+	private BigDecimal getFareByCarType(StationFareCacheValue stationFare, CarType carType) {
+		return carType == CarType.FIRST_CLASS ? stationFare.firstClassFare() : stationFare.standardFare();
 	}
 
 	/**
