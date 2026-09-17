@@ -66,6 +66,20 @@ class ReservationValidatorTest {
 		}
 
 		@Test
+		@DisplayName("출발역과 도착역이 같으면 INVALID_ROUTE 예외가 발생한다")
+		void sameStation() {
+			// given
+
+			// when
+
+			// then
+			assertThatCode(() -> validator.validateDifferentStations(1L, 5L)).doesNotThrowAnyException();
+			assertThatThrownBy(() -> validator.validateDifferentStations(1L, 1L))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", TrainError.INVALID_ROUTE);
+		}
+
+		@Test
 		@DisplayName("출발 정차역이 도착 정차역보다 앞서지 않으면 INVALID_ROUTE 예외가 발생한다")
 		void stopSequence() {
 			// given

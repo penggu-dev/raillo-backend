@@ -32,6 +32,12 @@ public class ReservationValidator {
 		}
 	}
 
+	public void validateDifferentStations(long departureStationId, long arrivalStationId) {
+		if (departureStationId == arrivalStationId) {
+			throw new BusinessException(TrainError.INVALID_ROUTE);
+		}
+	}
+
 	/**
 	 * 출발 정차역이 도착 정차역보다 앞서야 한다. 같은 역이면 점유할 구간이 없으므로 거부한다.
 	 */
