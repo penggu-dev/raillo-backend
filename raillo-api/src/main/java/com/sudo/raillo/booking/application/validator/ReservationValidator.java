@@ -16,6 +16,7 @@ import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.train.cache.ScheduleInfoCacheValue;
 import com.sudo.raillo.train.cache.ScheduleStopCacheValue;
 import com.sudo.raillo.train.cache.SeatCacheValue;
+import com.sudo.raillo.train.cache.StationFareCacheValue;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainError;
@@ -32,12 +33,6 @@ public class ReservationValidator {
 		}
 	}
 
-	public void validateDifferentStations(long departureStationId, long arrivalStationId) {
-		if (departureStationId == arrivalStationId) {
-			throw new BusinessException(TrainError.INVALID_ROUTE);
-		}
-	}
-
 	/**
 	 * 출발 정차역이 도착 정차역보다 앞서야 한다. 같은 역이면 점유할 구간이 없으므로 거부한다.
 	 */
@@ -45,6 +40,14 @@ public class ReservationValidator {
 		if (departureStop.stopOrder() >= arrivalStop.stopOrder()) {
 			throw new BusinessException(TrainError.INVALID_ROUTE);
 		}
+	}
+
+	/** 구간 운임이 있어야 한다. 구간 순서 검증 뒤에 호출해야 잘못된 구간이 404로 가려지지 않는다. */
+	public StationFareCacheValue validateFareExists(StationFareCacheValue fare) {
+		if (fare == null) {
+			throw new BusinessException(TrainError.STATION_FARE_NOT_FOUND);
+		}
+		return fare;
 	}
 
 	/**

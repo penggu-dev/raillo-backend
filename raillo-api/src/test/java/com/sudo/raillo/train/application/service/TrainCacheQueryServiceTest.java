@@ -213,20 +213,20 @@ class TrainCacheQueryServiceTest {
 		}
 
 		@Test
-		@DisplayName("구간 운임이 없으면 STATION_FARE_NOT_FOUND 예외가 발생한다")
+		@DisplayName("구간 운임이 없으면 예외 없이 운임 자리를 null로 돌려준다")
 		void fareMissing() {
 			// given
 			stringRedisTemplate.opsForHash().delete(TrainCacheKey.fare(),
 				TrainCacheKey.fareField(seoul.getId(), busan.getId()));
 
 			// when
+			ReservationTrainContext context = trainCacheQueryService.getReservationContext(
+				scheduleResult.trainSchedule().getId(), seoul.getId(), busan.getId(),
+				List.of(standardSeats.get(0).getId()));
 
 			// then
-			assertThatThrownBy(() -> trainCacheQueryService.getReservationContext(
-				scheduleResult.trainSchedule().getId(), seoul.getId(), busan.getId(),
-				List.of(standardSeats.get(0).getId())))
-				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", TrainError.STATION_FARE_NOT_FOUND);
+			assertThat(context.fare()).isNull();
+			assertThat(context.departureStop().stationName()).isEqualTo("서울");
 		}
 	}
 }

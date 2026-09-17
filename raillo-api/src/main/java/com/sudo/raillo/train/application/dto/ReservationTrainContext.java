@@ -8,6 +8,7 @@ import com.sudo.raillo.train.cache.ScheduleStopCacheValue;
 import com.sudo.raillo.train.cache.SeatCacheValue;
 import com.sudo.raillo.train.cache.StationFareCacheValue;
 
+/** 예약 생성에 쓰는 기준정보. 구간 운임은 캐시에 없으면 null이며 구간 검증 뒤에 확인한다. */
 public record ReservationTrainContext(
 	ScheduleInfoCacheValue schedule,
 	ScheduleStopCacheValue departureStop,

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -22,6 +23,7 @@ import com.sudo.raillo.support.fixture.ReservationFixture;
 import com.sudo.raillo.train.cache.ScheduleInfoCacheValue;
 import com.sudo.raillo.train.cache.ScheduleStopCacheValue;
 import com.sudo.raillo.train.cache.SeatCacheValue;
+import com.sudo.raillo.train.cache.StationFareCacheValue;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.domain.type.SeatType;
@@ -66,17 +68,19 @@ class ReservationValidatorTest {
 		}
 
 		@Test
-		@DisplayName("출발역과 도착역이 같으면 INVALID_ROUTE 예외가 발생한다")
-		void sameStation() {
+		@DisplayName("구간 운임이 없으면 STATION_FARE_NOT_FOUND 예외가 발생하고 있으면 그 운임을 돌려준다")
+		void fare_exists() {
 			// given
+			StationFareCacheValue fare = new StationFareCacheValue(new BigDecimal("59800"), new BigDecimal("83700"));
 
 			// when
+			StationFareCacheValue validated = validator.validateFareExists(fare);
 
 			// then
-			assertThatCode(() -> validator.validateDifferentStations(1L, 5L)).doesNotThrowAnyException();
-			assertThatThrownBy(() -> validator.validateDifferentStations(1L, 1L))
+			assertThat(validated).isEqualTo(fare);
+			assertThatThrownBy(() -> validator.validateFareExists(null))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", TrainError.INVALID_ROUTE);
+				.hasFieldOrPropertyWithValue("errorCode", TrainError.STATION_FARE_NOT_FOUND);
 		}
 
 		@Test

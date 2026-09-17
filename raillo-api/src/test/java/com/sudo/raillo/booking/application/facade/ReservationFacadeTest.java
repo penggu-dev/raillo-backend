@@ -35,6 +35,7 @@ import com.sudo.raillo.support.helper.TrainCacheTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
+import com.sudo.raillo.train.cache.TrainCacheKey;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.TrainSchedule;
@@ -351,6 +352,35 @@ class ReservationFacadeTest {
 				request(seoulId, seoulId, List.of(PassengerType.ADULT), List.of(standardSeats.get(0).getId())), memberNo))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", TrainError.INVALID_ROUTE);
+		}
+
+		@Test
+		@DisplayName("도착역이 출발역보다 앞선 구간이면 운임이 없어도 INVALID_ROUTE 예외가 발생한다")
+		void reversed_route_without_fare() {
+			// given - 부산 → 서울 운임은 없다
+
+			// when
+
+			// then
+			assertThatThrownBy(() -> reservationFacade.createReservation(
+				request(busanId, seoulId, List.of(PassengerType.ADULT), List.of(standardSeats.get(0).getId())), memberNo))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", TrainError.INVALID_ROUTE);
+		}
+
+		@Test
+		@DisplayName("구간 순서가 올바르지만 운임이 없으면 STATION_FARE_NOT_FOUND 예외가 발생한다")
+		void fare_missing() {
+			// given
+			stringRedisTemplate.opsForHash().delete(TrainCacheKey.fare(), TrainCacheKey.fareField(seoulId, busanId));
+
+			// when
+
+			// then
+			assertThatThrownBy(() -> reservationFacade.createReservation(
+				request(seoulId, busanId, List.of(PassengerType.ADULT), List.of(standardSeats.get(0).getId())), memberNo))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", TrainError.STATION_FARE_NOT_FOUND);
 		}
 
 		@Test

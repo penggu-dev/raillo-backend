@@ -18,6 +18,7 @@ import com.sudo.raillo.booking.util.ReservationIdGenerator;
 import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.application.dto.ReservationTrainContext;
 import com.sudo.raillo.train.application.service.TrainCacheQueryService;
+import com.sudo.raillo.train.cache.StationFareCacheValue;
 import com.sudo.raillo.train.domain.type.CarType;
 
 import lombok.RequiredArgsConstructor;
@@ -42,7 +43,6 @@ public class ReservationFacade {
 		// 1. 요청 자체 검증
 		reservationValidator.validatePassengerSeatCount(request.passengerTypes(), request.seatIds());
 		reservationValidator.validateDistinctSeats(request.seatIds());
-		reservationValidator.validateDifferentStations(request.departureStationId(), request.arrivalStationId());
 
 		// 2. 기준정보 조회 (Redis 파이프라인 1회)
 		ReservationTrainContext train = trainCacheQueryService.getReservationContext(
@@ -52,11 +52,12 @@ public class ReservationFacade {
 		LocalDateTime now = LocalDateTime.now();
 		reservationValidator.validateOperating(train.schedule());
 		reservationValidator.validateStopSequence(train.departureStop(), train.arrivalStop());
+		StationFareCacheValue fare = reservationValidator.validateFareExists(train.fare());
 		reservationValidator.validateBookingOpen(train.departureAt(), now);
 		CarType carType = reservationValidator.validateSingleCarType(train.seatsById().values());
 
 		// 4. 운임·TTL
-		List<BigDecimal> fares = fareCalculator.calculateFares(train.fare(), carType, request.passengerTypes());
+		List<BigDecimal> fares = fareCalculator.calculateFares(fare, carType, request.passengerTypes());
 		Duration ttl = reservationService.calculateTtl(train.departureAt(), now);
 
 		// 5. 예약 조립과 원자적 점유

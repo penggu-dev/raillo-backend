@@ -48,11 +48,6 @@ public class TrainCacheQueryService {
 				trainScheduleId, departureStationId, arrivalStationId);
 			throw new BusinessException(TrainError.STATION_NOT_FOUND);
 		}
-		if (snapshot.fare() == null) {
-			log.warn("[운임 캐시 없음] departureStationId={}, arrivalStationId={}", departureStationId, arrivalStationId);
-			throw new BusinessException(TrainError.STATION_FARE_NOT_FOUND);
-		}
-
 		Map<Long, SeatCacheValue> seatsById = toSeatsById(seatIds, snapshot.seats());
 		requireSeatsOnTrain(snapshot.schedule(), seatsById);
 
