@@ -282,6 +282,24 @@ class ReservationFacadeTest {
 		}
 
 		@Test
+		@DisplayName("다른 열차의 좌석으로 예약하면 SEAT_NOT_FOUND 예외가 발생하고 좌석이 점유되지 않는다")
+		void seat_of_other_train() {
+			// given
+			Train otherTrain = trainTestHelper.createKTX();
+			trainCacheTestHelper.seedTrain(otherTrain);
+			Seat otherSeat = trainTestHelper.getSeats(otherTrain, CarType.STANDARD, 1).get(0);
+
+			// when
+
+			// then
+			assertThatThrownBy(() -> reservationFacade.createReservation(
+				request(seoulId, busanId, List.of(PassengerType.ADULT), List.of(otherSeat.getId())), memberNo))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", TrainError.SEAT_NOT_FOUND);
+			assertThat(seatOccupancyTestHelper.entries(scheduleId, otherSeat.getTrainCar().getId())).isEmpty();
+		}
+
+		@Test
 		@DisplayName("운행이 취소된 스케줄이면 TRAIN_OPERATION_CANCELLED 예외가 발생한다")
 		void cancelledSchedule() {
 			// given

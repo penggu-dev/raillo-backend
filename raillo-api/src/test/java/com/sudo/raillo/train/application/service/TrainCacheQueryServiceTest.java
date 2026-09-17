@@ -180,6 +180,39 @@ class TrainCacheQueryServiceTest {
 		}
 
 		@Test
+		@DisplayName("요청 운행의 열차에 속하지 않은 좌석이면 SEAT_NOT_FOUND 예외가 발생한다")
+		void seat_of_other_train() {
+			// given
+			Train otherTrain = trainTestHelper.createKTX();
+			trainCacheTestHelper.seedTrain(otherTrain);
+			Seat otherSeat = trainTestHelper.getSeats(otherTrain, CarType.STANDARD, 1).get(0);
+
+			// when
+
+			// then
+			assertThatThrownBy(() -> trainCacheQueryService.getReservationContext(
+				scheduleResult.trainSchedule().getId(), seoul.getId(), busan.getId(), List.of(otherSeat.getId())))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", TrainError.SEAT_NOT_FOUND);
+		}
+
+		@Test
+		@DisplayName("좌석의 객차 정보가 캐시에 없으면 TRAIN_CAR_NOT_FOUND 예외가 발생한다")
+		void train_car_missing() {
+			// given
+			Seat seat = standardSeats.get(0);
+			stringRedisTemplate.delete(TrainCacheKey.trainCar(seat.getTrainCar().getId()));
+
+			// when
+
+			// then
+			assertThatThrownBy(() -> trainCacheQueryService.getReservationContext(
+				scheduleResult.trainSchedule().getId(), seoul.getId(), busan.getId(), List.of(seat.getId())))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", TrainError.TRAIN_CAR_NOT_FOUND);
+		}
+
+		@Test
 		@DisplayName("구간 운임이 없으면 STATION_FARE_NOT_FOUND 예외가 발생한다")
 		void fareMissing() {
 			// given

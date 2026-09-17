@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +22,7 @@ import com.sudo.raillo.train.cache.ScheduleStopCacheValue;
 import com.sudo.raillo.train.cache.SeatCacheValue;
 import com.sudo.raillo.train.cache.StationFareCacheValue;
 import com.sudo.raillo.train.cache.TrainCacheKey;
+import com.sudo.raillo.train.cache.TrainCarCacheValue;
 import com.sudo.raillo.train.domain.status.OperationStatus;
 import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.domain.type.SeatType;
@@ -109,5 +111,20 @@ class TrainCacheRepositoryTest {
 
 		// then
 		assertThat(snapshot.seats()).extracting(SeatCacheValue::seatColumn).containsExactly("B", "A");
+	}
+
+	@Test
+	@DisplayName("객차 정보를 한 번에 읽고 캐시에 없는 객차는 결과에서 뺀다")
+	void fetch_train_cars_skips_missing() {
+		// given
+		stringRedisTemplate.opsForValue().set(TrainCacheKey.trainCar(231L), redisJsonConverter.toJson(
+			new TrainCarCacheValue(7L, 3, CarType.STANDARD, 14, 56, "2+2")));
+
+		// when
+		Map<Long, TrainCarCacheValue> trainCars = trainCacheRepository.fetchTrainCars(List.of(231L, 999L));
+
+		// then
+		assertThat(trainCars).containsOnlyKeys(231L);
+		assertThat(trainCars.get(231L).trainId()).isEqualTo(7L);
 	}
 }

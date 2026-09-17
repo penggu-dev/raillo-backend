@@ -1,13 +1,18 @@
 package com.sudo.raillo.train.infrastructure;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
+import com.sudo.raillo.global.redis.exception.RedisError;
+import com.sudo.raillo.global.redis.exception.RedisException;
 import com.sudo.raillo.global.redis.util.RedisJsonConverter;
 import com.sudo.raillo.train.application.dto.TrainCacheSnapshot;
 import com.sudo.raillo.train.cache.ScheduleInfoCacheValue;
@@ -15,6 +20,7 @@ import com.sudo.raillo.train.cache.ScheduleStopCacheValue;
 import com.sudo.raillo.train.cache.SeatCacheValue;
 import com.sudo.raillo.train.cache.StationFareCacheValue;
 import com.sudo.raillo.train.cache.TrainCacheKey;
+import com.sudo.raillo.train.cache.TrainCarCacheValue;
 
 import lombok.RequiredArgsConstructor;
 
@@ -64,6 +70,24 @@ public class TrainCacheRepository {
 			seatJsons.stream().map(json -> parse(json, SeatCacheValue.class)).toList(),
 			fareValue == null ? null : StationFareCacheValue.parse(fareValue)
 		);
+	}
+
+	/** 객차 정보를 한 번에 읽는다. 캐시에 없는 객차는 결과에서 빠진다. */
+	public Map<Long, TrainCarCacheValue> fetchTrainCars(Collection<Long> trainCarIds) {
+		List<Long> ids = List.copyOf(trainCarIds);
+		List<String> jsons = stringRedisTemplate.opsForValue()
+			.multiGet(ids.stream().map(TrainCacheKey::trainCar).toList());
+		if (jsons == null) {
+			throw new RedisException(RedisError.MGET_OPERATION_FAIL);
+		}
+
+		Map<Long, TrainCarCacheValue> trainCars = new LinkedHashMap<>();
+		for (int i = 0; i < ids.size(); i++) {
+			if (jsons.get(i) != null) {
+				trainCars.put(ids.get(i), redisJsonConverter.fromJson(jsons.get(i), TrainCarCacheValue.class));
+			}
+		}
+		return trainCars;
 	}
 
 	private <T> T parse(String json, Class<T> type) {
