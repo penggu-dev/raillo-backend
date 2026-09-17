@@ -83,7 +83,7 @@ void cancel_success() {
 
 ### Available Fixtures
 
-`MemberFixture`, `BookingFixture`, `SeatBookingFixture`, `TicketFixture`, `OrderFixture`, `PaymentFixture`, `PendingBookingFixture`, 그리고 train 관련 fixture는 `support/fixture/train/`:
+`MemberFixture`, `BookingFixture`, `SeatBookingFixture`, `TicketFixture`, `OrderFixture`, `PaymentFixture`, `ReservationFixture`, `support/fixture/train/`:
 `TrainFixture`, `TrainCarFixture`, `SeatFixture`, `StationFixture`, `TrainScheduleFixture`, `ScheduleStopFixture`, `StationFareFixture`
 
 ## Member Setup (Fixture Pattern)
@@ -174,3 +174,27 @@ OrderResult result = orderTestHelper.builder(member)
 ```
 
 > **Note**: `addSeatsByCarType()`은 이미 예매된 좌석을 자동으로 제외한다.
+
+## Redis Helpers (예약 생성 경로)
+
+예약 생성은 DB 대신 Redis 기준정보 캐시를 읽는다. `RedisCleanupExtension`이 테스트마다 Redis를 비우므로 `@BeforeEach`에서 다시 적재한다.
+
+```java
+// DB에 만든 열차·스케줄을 Batch와 같은 형식으로 Redis에 적재 (좌석·객차·운행·정차역·운임)
+trainCacheTestHelper.seed(train, scheduleResult);
+
+// 좌석 점유를 직접 기록 (다른 예약의 Hold, 확정 판매)
+seatOccupancyTestHelper.markHeld(scheduleId, trainCarId, seatId, 0, 2, "OTHER");
+seatOccupancyTestHelper.markSold(scheduleId, trainCarId, seatId, 0, 2, "77");
+seatOccupancyTestHelper.valueOf(scheduleId, trainCarId, seatId, 1);   // "H:RV..." / "B:77" / null
+
+// 예약을 점유 없이 Redis에 저장 (본문 + 회원 인덱스)
+Reservation reservation = reservationTestHelper.save(
+    ReservationFixture.builder()
+        .withMemberNo(memberNo)
+        .withTrainSchedule(scheduleResult.trainSchedule())
+        .withDepartureStop(scheduleResult.scheduleStops().get(0))
+        .withArrivalStop(scheduleResult.scheduleStops().get(1))
+        .withSeats(List.of(ReservationFixture.seat(seatId, PassengerType.ADULT)))
+        .build());
+```
