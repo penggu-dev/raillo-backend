@@ -30,29 +30,6 @@ public class FareCalculator {
 	);
 
 	/**
-	 * 총 운임을 계산하는 메서드
-	 * @param departureStationId 출발역 ID
-	 * @param arrivalStationId 도착역 ID
-	 * @param passengerTypes 승객 유형
-	 * @param carType 객차 타입
-	 * @return 할인이 적용 된 총 운임
-	 */
-	public BigDecimal calculateTotalFare(
-		Long departureStationId,
-		Long arrivalStationId,
-		List<PassengerType> passengerTypes,
-		CarType carType
-	) {
-		// 요금 정보 조회
-		StationFare stationFare = findStationFare(departureStationId, arrivalStationId);
-		BigDecimal fare = getFareByCarType(stationFare, carType);
-
-		return passengerTypes.stream()
-			.map(passengerType -> fare.multiply(DISCOUNT_RATES.get(passengerType)))
-			.reduce(BigDecimal.ZERO, BigDecimal::add);
-	}
-
-	/**
 	 * 개별 좌석 운임을 계산하는 메서드
 	 * @param departureStationId 출발역 ID
 	 * @param arrivalStationId 도착역 ID

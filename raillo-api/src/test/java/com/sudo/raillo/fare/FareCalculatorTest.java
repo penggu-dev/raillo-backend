@@ -35,28 +35,17 @@ class FareCalculatorTest {
 	@DisplayName("일반석 승객 유형별 할인율이 적용된 총 운임을 계산한다")
 	@ParameterizedTest(name = "{index}. {0} = {2}원")
 	@MethodSource("provideStandardSeatScenarios")
-	void calculateTotalFare_standardSeat(
+	void calculate_standard_seat_fares(
 		String description,
 		List<PassengerType> passengerTypes,
 		BigDecimal expectedFare
 	) {
 		// given
-		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
-		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
-		trainScheduleTestHelper.createOrUpdateStationFare(
-			seoul.getStationName(),
-			busan.getStationName(),
-			50000,
-			100000
-		);
+		StationFareCacheValue stationFare = new StationFareCacheValue(
+			BigDecimal.valueOf(50000), BigDecimal.valueOf(100000));
 
 		// when
-		BigDecimal totalFare = fareCalculator.calculateTotalFare(
-			seoul.getId(),
-			busan.getId(),
-			passengerTypes,
-			CarType.STANDARD
-		);
+		BigDecimal totalFare = sum(fareCalculator.calculateFares(stationFare, CarType.STANDARD, passengerTypes));
 
 		// then
 		assertThat(totalFare).isEqualByComparingTo(expectedFare);
@@ -65,50 +54,42 @@ class FareCalculatorTest {
 	@DisplayName("특실 승객 유형별 할인율이 적용된 총 운임을 계산한다")
 	@ParameterizedTest(name = "{index}. {0} = {2}원")
 	@MethodSource("provideFirstClassSeatScenarios")
-	void calculateTotalFare_firstClassSeat(
+	void calculate_first_class_seat_fares(
 		String description,
 		List<PassengerType> passengerTypes,
 		BigDecimal expectedFare
 	) {
 		// given
-		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
-		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
-		trainScheduleTestHelper.createOrUpdateStationFare(
-			seoul.getStationName(),
-			busan.getStationName(),
-			50000,
-			100000
-		);
+		StationFareCacheValue stationFare = new StationFareCacheValue(
+			BigDecimal.valueOf(50000), BigDecimal.valueOf(100000));
 
 		// when
-		BigDecimal totalFare = fareCalculator.calculateTotalFare(
-			seoul.getId(),
-			busan.getId(),
-			passengerTypes,
-			CarType.FIRST_CLASS
-		);
+		BigDecimal totalFare = sum(fareCalculator.calculateFares(stationFare, CarType.FIRST_CLASS, passengerTypes));
 
 		// then
 		assertThat(totalFare).isEqualByComparingTo(expectedFare);
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 구간 요금 조회 시 예외가 발생한다")
-	void calculateTotalFare_fare_not_found() {
+	@DisplayName("DB에 없는 구간의 운임을 조회하면 예외가 발생한다")
+	void fare_not_found() {
 		// given
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station daejeon = trainScheduleTestHelper.getOrCreateStation("대전");
-		List<PassengerType> passengerTypes = List.of(PassengerType.ADULT);
 
 		// when & then
-		assertThatThrownBy(() -> fareCalculator.calculateTotalFare(
+		assertThatThrownBy(() -> fareCalculator.calculateFare(
 			seoul.getId(),
 			daejeon.getId(),
-			passengerTypes,
+			PassengerType.ADULT,
 			CarType.STANDARD
 		))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", TrainError.STATION_FARE_NOT_FOUND);
+	}
+
+	private static BigDecimal sum(List<BigDecimal> fares) {
+		return fares.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	private static Stream<Arguments> provideStandardSeatScenarios() {
@@ -250,9 +231,11 @@ class FareCalculatorTest {
 			List<PassengerType> passengerTypes = List.of(PassengerType.ADULT, PassengerType.DISABLED_HEAVY);
 
 			// when
-			BigDecimal fromDatabase = fareCalculator.calculateTotalFare(seoul.getId(), busan.getId(), passengerTypes, CarType.STANDARD);
-			BigDecimal fromCache = fareCalculator.calculateFares(fare, CarType.STANDARD, passengerTypes).stream()
+			BigDecimal fromDatabase = passengerTypes.stream()
+				.map(passengerType -> fareCalculator.calculateFare(
+					seoul.getId(), busan.getId(), passengerType, CarType.STANDARD))
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
+			BigDecimal fromCache = sum(fareCalculator.calculateFares(fare, CarType.STANDARD, passengerTypes));
 
 			// then
 			assertThat(fromCache).isEqualByComparingTo(fromDatabase);
