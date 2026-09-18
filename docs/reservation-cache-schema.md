@@ -12,9 +12,9 @@
 
 | 키 | 타입 | 만료 | 내용 |
 |---|---|---|---|
-| `{schedule:{sid}}:car:{carId}:seats` | Hash | 키: 운행일 기준 EXPIREAT, 예약 field: HEXPIRE | 객차 하나의 좌석 점유 상태 |
-| `{schedule:{sid}}:reservation:{rid}` | String | EX = 예약 TTL | 예약 본문 JSON |
-| `member:{memberNo}:reservations` | Hash | field별 HEXPIRE = 예약 TTL | 회원별 예약 인덱스. field rid → sid |
+| `{schedule:{trainScheduleId}}:car:{carId}:seats` | Hash | 키: 운행일 기준 EXPIREAT, 예약 field: HEXPIRE | 객차 하나의 좌석 점유 상태 |
+| `{schedule:{trainScheduleId}}:reservation:{reservationId}` | String | EX = 예약 TTL | 예약 본문 JSON |
+| `member:{memberNo}:reservations` | Hash | field별 HEXPIRE = 예약 TTL | 회원별 예약 인덱스. field 예약 ID → value 운행 ID |
 
 운행 단위 키는 기준정보 캐시와 같은 `{schedule:id}` hash tag를 써서 Redis Cluster에서 한 운행의 점유·예약·기준정보가 같은 slot에 놓인다. 회원 인덱스는 운행과 무관하므로 별도 slot이며 Lua 밖에서 다룬다.
 
@@ -51,9 +51,9 @@
 
 ## 4. 생성 흐름
 
-1. 요청 검증: 승객 수 = 좌석 수, 좌석 중복 없음, 출발역 ≠ 도착역.
-2. 기준정보 조회 (`TrainCacheRepository`, 파이프라인 1회): `{schedule}:info`, `{schedule}:stops`의 `st:{출발역}`·`st:{도착역}`, `train:seat:{id}` MGET, `train:fare` HGET. 하나라도 없으면 404.
-3. 운행 검증 (`ReservationValidator`): 운행 취소, 정차 순서, 출발 5분 전 마감, 객차 타입 단일(객차가 달라도 됨).
+1. 요청 검증: 승객 수 = 좌석 수, 좌석 중복 없음.
+2. 기준정보 조회 (`TrainCacheQueryService`): 파이프라인 1회로 `{schedule}:info`, `{schedule}:stops`의 `st:{출발역}`·`st:{도착역}`, `train:seat:{id}` MGET, `train:fare` HGET을 읽는다. 운행·정차역·좌석이 없으면 404. 이어서 `train:traincar:{id}` MGET으로 좌석이 이 운행의 열차에 속하는지 확인한다. 객차가 없으면 `TRAIN_CAR_NOT_FOUND`, 다른 열차의 좌석이면 `SEAT_NOT_FOUND`다. 운임은 여기서 검사하지 않는다.
+3. 운행 검증 (`ReservationValidator`): 운행 취소 → 정차 순서 → 운임 존재 → 출발 5분 전 마감 → 객차 타입 단일(객차가 달라도 됨). 출발역과 도착역이 같거나 순서가 거꾸로면 정차 순서에서 `INVALID_ROUTE`(400)로 막힌다. 운임을 정차 순서 뒤에 보는 이유는 이런 요청이 운임 없음(404)으로 응답되지 않게 하기 위해서다.
 4. 운임(`FareCalculator`, 캐시 운임)과 TTL(`ReservationService.calculateTtl`): min(10분, 마감까지 남은 시간), 정수 초 올림, 최소 1초.
 5. 회원 인덱스 등록: HSETEX(`putAndExpire`)로 값과 field TTL을 한 번에.
 6. `reservation_create.lua`: 요청 field를 HMGET해 자기 예약이 아닌 값이 하나라도 있으면 아무것도 쓰지 않고 충돌을 돌려준다. 없으면 HSET → HEXPIRE → (TTL 없을 때) EXPIREAT → SET 예약 EX.
@@ -66,7 +66,7 @@
 ```text
 KEYS[1]    예약 키
 KEYS[2..]  객차 Hash (중복 없이, 처음 등장 순서)
-ARGV       rid, ttlSec(>=1), keyExpireAt, json, depOrder, arrOrder, "seatId:carKeyIndex"...
+ARGV       reservationId, ttlSec(>=1), keyExpireAt, json, depOrder, arrOrder, "seatId:carKeyIndex"...
 
 반환  {1}                               성공
       {0, seatId, sectionIndex, "R"}    다른 예약이 점유 중  → SEAT_CONFLICT_WITH_RESERVATION (409)
@@ -74,7 +74,7 @@ ARGV       rid, ttlSec(>=1), keyExpireAt, json, depOrder, arrOrder, "seatId:carK
       {0, seatId, sectionIndex, "X"}    알 수 없는 값 형식   → SEAT_OCCUPANCY_SCRIPT_ERROR (500)
 ```
 
-같은 `rid`로 다시 실행하면 자기 점유는 충돌로 보지 않는다.
+같은 `reservationId`로 다시 실행하면 자기 점유는 충돌로 보지 않는다.
 
 ## 5. 조회
 
