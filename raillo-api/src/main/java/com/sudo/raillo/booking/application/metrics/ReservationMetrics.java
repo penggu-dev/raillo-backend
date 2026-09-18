@@ -12,8 +12,8 @@ import lombok.Getter;
 public class ReservationMetrics {
 
 	private final Counter reservationCreatedCounter;
-	private final Counter seatConflictReservationCounter;
-	private final Counter seatConflictBookingCounter;
+	private final Counter seatConflictWithReservationCounter;
+	private final Counter seatConflictWithBookingCounter;
 	private final Timer reservationTimer;
 	private final Timer seatOccupancyTimer;
 
@@ -22,15 +22,8 @@ public class ReservationMetrics {
 			.description("예약 생성 성공 건수")
 			.register(meterRegistry);
 
-		this.seatConflictReservationCounter = Counter.builder("seat_conflict_total")
-			.description("좌석 충돌 건수")
-			.tag("conflict_type", "reservation")
-			.register(meterRegistry);
-
-		this.seatConflictBookingCounter = Counter.builder("seat_conflict_total")
-			.description("좌석 충돌 건수")
-			.tag("conflict_type", "booking")
-			.register(meterRegistry);
+		this.seatConflictWithReservationCounter = seatConflictCounter(meterRegistry, "reservation");
+		this.seatConflictWithBookingCounter = seatConflictCounter(meterRegistry, "booking");
 
 		this.reservationTimer = Timer.builder("reservation_duration_seconds")
 			.description("예약 생성 전체 소요 시간")
@@ -48,10 +41,17 @@ public class ReservationMetrics {
 	}
 
 	public void incrementSeatConflictWithReservation() {
-		seatConflictReservationCounter.increment();
+		seatConflictWithReservationCounter.increment();
 	}
 
 	public void incrementSeatConflictWithBooking() {
-		seatConflictBookingCounter.increment();
+		seatConflictWithBookingCounter.increment();
+	}
+
+	private static Counter seatConflictCounter(MeterRegistry meterRegistry, String conflictType) {
+		return Counter.builder("seat_conflict_total")
+			.description("좌석 점유 충돌 건수 (conflict_type: reservation=다른 예약과 충돌, booking=예매된 좌석과 충돌)")
+			.tag("conflict_type", conflictType)
+			.register(meterRegistry);
 	}
 }
