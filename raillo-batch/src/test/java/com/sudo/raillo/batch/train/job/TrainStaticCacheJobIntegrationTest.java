@@ -221,6 +221,20 @@ class TrainStaticCacheJobIntegrationTest {
 		assertThat(stringRedisTemplate.opsForValue().get(TrainCacheKey.seat(999999L))).isNotNull();
 	}
 
+	@DisplayName("DB에서 운임을 한 건도 읽지 못하면 기존 운임 캐시를 지우지 않는다")
+	@Test
+	void keeps_fare_cache_when_database_returns_no_fare() throws Exception {
+		// given
+		stringRedisTemplate.opsForHash().put(TrainCacheKey.fare(), "1:2", "59800:83700");
+
+		// when - 운임이 한 건도 없는 상태로 적재
+		runJob();
+
+		// then
+		assertThat(stringRedisTemplate.<String, String>opsForHash().get(TrainCacheKey.fare(), "1:2"))
+			.isEqualTo("59800:83700");
+	}
+
 	private BatchStatus runJob() throws Exception {
 		jobOperatorTestUtils.setJob(trainStaticCacheLoadJob);
 		JobExecution execution = jobOperatorTestUtils.startJob();

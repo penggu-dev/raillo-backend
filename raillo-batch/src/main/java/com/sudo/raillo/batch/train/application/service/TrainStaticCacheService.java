@@ -78,6 +78,11 @@ public class TrainStaticCacheService {
 
 		trainCacheRedisRepository.saveHashFields(TrainCacheKey.fare(), fields);
 
+		if (fields.isEmpty()) {
+			log.warn("[구간 운임 정리 건너뜀] DB에서 한 건도 읽지 못해 기존 캐시를 지우지 않는다.");
+			return;
+		}
+
 		Set<String> staleFields = new HashSet<>(trainCacheRedisRepository.hashFieldNames(TrainCacheKey.fare()));
 		staleFields.removeAll(fields.keySet());
 		trainCacheRedisRepository.deleteHashFields(TrainCacheKey.fare(), staleFields);
