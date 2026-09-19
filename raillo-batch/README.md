@@ -14,7 +14,7 @@
 |---|---|---|---|
 | `trainParse` | 시간표·운임 Excel → 역·열차·스케줄 템플릿·운임 저장 후 기준정보 적재 | - | ✅ 템플릿·운임은 Excel 기준으로 교체 |
 | `trainInitialize` | `trainParse` → `trainMonthlySchedule` 순서로 실행 (각각 기준정보 적재 포함) | - | ✅ 템플릿·운임 교체, 이미 있는 날짜는 건너뜀 |
-| `trainDailySchedule` | `operationDate` 날짜, 없으면 마지막 운행일 다음 날 스케줄 생성 후 기준정보 적재 | `operationDate` (선택, `yyyy-MM-dd`) | ✅ 이미 있는 날짜는 건너뜀 |
+| `trainDailySchedule` | `operationDate` 날짜, 없으면 마지막 운행일 다음 날 스케줄 생성 후 오늘부터 그 날짜까지 기준정보 적재 | `operationDate` (선택, `yyyy-MM-dd`) | ✅ 이미 있는 날짜는 건너뜀 |
 | `trainMonthlySchedule` | 실행일부터 한 달 뒤까지 스케줄 생성 후 기준정보 적재 | - | ✅ 이미 있는 날짜는 건너뜀 |
 | `trainStaticCacheLoad` | 좌석·객차·역·운임을 Redis에 적재 | - | ✅ |
 | `trainScheduleCacheLoad` | 지정한 운행일의 운행·정차역을 Redis에 적재 | `operationDate` 또는 `fromDate`·`toDate` | ✅ |

@@ -78,7 +78,7 @@ train:fare  field 1:5
 | Job | 적재 대상 |
 |---|---|
 | `trainParse` | 정적 데이터 (파싱 Step 뒤) |
-| `trainDailySchedule` | 해당 운행일의 운행 데이터 |
+| `trainDailySchedule` | 오늘부터 대상 운행일까지의 운행 데이터 |
 | `trainMonthlySchedule` | 생성한 한 달치 운행 데이터 |
 | `trainInitialize` | 위 전부 |
 | `trainStaticCacheLoad` | 정적 데이터 (단독) |
@@ -87,6 +87,8 @@ train:fare  field 1:5
 단독 Job은 DB를 건드리지 않고 캐시만 다시 채운다. Redis는 진실 공급원이 아니므로 유실되었을 때의 복구 경로가 필요하다.
 
 스케줄 생성 Job은 **이미 스케줄이 있어 건너뛴 날짜도 캐시 적재 대상에 포함**한다. 그래서 같은 Job을 다시 돌리는 것만으로 캐시가 복구된다.
+
+`trainDailySchedule`은 적재 범위를 오늘부터 잡는다. 날짜를 생략하면 매 실행이 "마지막 운행일 + 1"을 생성하므로, 캐시 적재만 실패한 날짜는 재실행해도 대상에서 빠진다. 범위를 오늘부터 잡아 다음 실행이 이를 메운다.
 
 ## 5. 오래된 키 정리
 

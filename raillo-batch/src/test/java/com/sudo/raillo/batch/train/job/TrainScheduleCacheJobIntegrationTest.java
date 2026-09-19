@@ -181,6 +181,28 @@ class TrainScheduleCacheJobIntegrationTest {
 			.isNotNull();
 	}
 
+	@DisplayName("날짜를 생략한 재실행이 이전 실행에서 빠진 캐시를 메운다")
+	@Test
+	void rerun_without_date_refills_cache_missed_by_previous_run() throws Exception {
+		// given - 스케줄은 저장됐지만 캐시 적재가 실패한 상황
+		runDailySchedule(OPERATION_DATE);
+		flushRedis();
+
+		// when - 날짜를 생략하면 마지막 운행일 다음 날을 생성한다
+		jobOperatorTestUtils.setJob(trainDailyScheduleJob);
+		BatchStatus status = jobOperatorTestUtils.startJob(new JobParametersBuilder()
+			.addLong("run.id", System.nanoTime())
+			.toJobParameters()).getStatus();
+
+		// then - 적재 범위가 오늘부터라 빠졌던 날짜도 다시 채워진다
+		assertThat(status).isEqualTo(BatchStatus.COMPLETED);
+		assertThat(stringRedisTemplate.opsForValue().get(TrainCacheKey.scheduleInfo(scheduleId(OPERATION_DATE))))
+			.isNotNull();
+		assertThat(stringRedisTemplate.opsForValue().get(
+			TrainCacheKey.scheduleInfo(scheduleId(OPERATION_DATE.plusDays(1)))))
+			.isNotNull();
+	}
+
 	@DisplayName("단독 Job으로 날짜 범위를 지정해 캐시만 다시 채울 수 있다")
 	@Test
 	void standalone_job_refills_cache_for_date_range() throws Exception {
@@ -219,9 +241,13 @@ class TrainScheduleCacheJobIntegrationTest {
 	}
 
 	private long scheduleId() {
+		return scheduleId(OPERATION_DATE);
+	}
+
+	private long scheduleId(LocalDate operationDate) {
 		return jdbcTemplate.queryForObject(
 			"SELECT train_schedule_id FROM train_schedule WHERE operation_date = ?",
-			Long.class, OPERATION_DATE);
+			Long.class, operationDate);
 	}
 
 	private long stationId(String stationName) {

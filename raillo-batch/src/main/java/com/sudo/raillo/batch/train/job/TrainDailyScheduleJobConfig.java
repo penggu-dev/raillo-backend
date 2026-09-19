@@ -58,7 +58,7 @@ public class TrainDailyScheduleJobConfig {
 				? trainScheduleBatchFacade.createTrainSchedule()
 				: trainScheduleBatchFacade.createTrainSchedule(List.of(LocalDate.parse(operationDate)));
 
-			TrainScheduleCacheContext.putDates(chunkContext, dates);
+			TrainScheduleCacheContext.putDatesFromToday(chunkContext, dates);
 			return RepeatStatus.FINISHED;
 		};
 	}
