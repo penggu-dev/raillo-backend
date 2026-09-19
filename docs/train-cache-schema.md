@@ -71,7 +71,7 @@ train:fare  field 1:5
 
 > **적재 시점 기준 상대 TTL을 쓰면 안 된다.** `trainMonthlySchedule`이 한 달치를 미리 만들기 때문에, `2d` 같은 상대 TTL은 운행일이 오기도 전에 만료된다.
 
-여유를 2일로 잡은 이유는 자정을 넘겨 운행하는 열차가 있고, 예매 마감이 출발 5분 전이며, 예약 자체의 TTL이 10분이기 때문이다. 값은 `train.cache.retention-days`로 조절한다.
+여유를 2일로 잡은 이유는 자정을 넘겨 운행하는 열차가 있고, 예매 마감이 출발 5분 전이며, 예약 자체의 TTL이 10분이기 때문이다. 값은 `train.cache.retention-days`로 조절하며 1 이상이어야 한다. `train.cache.pipeline-size`도 1 이상이어야 하고, 어기면 기동 시점에 실패한다.
 
 ## 4. 적재 주체
 
