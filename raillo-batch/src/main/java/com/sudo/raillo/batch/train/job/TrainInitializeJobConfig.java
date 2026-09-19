@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 빈 DB 초기 구성용. 파싱 Step 이후 한 달치 스케줄 생성 Step을 실행한다.
+ * 빈 DB 초기 구성용. 파싱 → 정적 기준정보 적재 → 한 달치 스케줄 생성 → 운행 기준정보 적재 순으로 실행한다.
  */
 @Configuration
 public class TrainInitializeJobConfig {
@@ -20,11 +20,15 @@ public class TrainInitializeJobConfig {
 	public Job trainInitializeJob(
 		JobRepository jobRepository,
 		@Qualifier("trainParseStep") Step trainParseStep,
-		@Qualifier("trainMonthlyScheduleStep") Step trainMonthlyScheduleStep
+		@Qualifier("trainStaticCacheStep") Step trainStaticCacheStep,
+		@Qualifier("trainMonthlyScheduleStep") Step trainMonthlyScheduleStep,
+		@Qualifier("trainScheduleCacheStep") Step trainScheduleCacheStep
 	) {
 		return new JobBuilder(JOB_NAME, jobRepository)
 			.start(trainParseStep)
+			.next(trainStaticCacheStep)
 			.next(trainMonthlyScheduleStep)
+			.next(trainScheduleCacheStep)
 			.build();
 	}
 }

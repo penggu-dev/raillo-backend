@@ -10,12 +10,15 @@ import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.infrastructure.repeat.RepeatStatus;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * 시간표·운임 Excel을 파싱해 역, 열차, 스케줄 템플릿, 운임을 저장한다.
+ *
+ * <p>파싱으로 정적 기준정보가 바뀌므로 이어서 Redis에 다시 적재한다.</p>
  */
 @Configuration
 @RequiredArgsConstructor
@@ -29,9 +32,10 @@ public class TrainParseJobConfig {
 	private final StationFareBatchFacade stationFareBatchFacade;
 
 	@Bean
-	public Job trainParseJob() {
+	public Job trainParseJob(@Qualifier("trainStaticCacheStep") Step trainStaticCacheStep) {
 		return new JobBuilder(JOB_NAME, jobRepository)
 			.start(trainParseStep())
+			.next(trainStaticCacheStep)
 			.build();
 	}
 

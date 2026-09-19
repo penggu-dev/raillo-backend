@@ -2,6 +2,7 @@ package com.sudo.raillo.batch.train.job;
 
 import com.sudo.raillo.batch.train.application.facade.TrainScheduleBatchFacade;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -10,6 +11,7 @@ import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.infrastructure.repeat.RepeatStatus;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -28,9 +30,10 @@ public class TrainMonthlyScheduleJobConfig {
 	private final TrainScheduleBatchFacade trainScheduleBatchFacade;
 
 	@Bean
-	public Job trainMonthlyScheduleJob() {
+	public Job trainMonthlyScheduleJob(@Qualifier("trainScheduleCacheStep") Step trainScheduleCacheStep) {
 		return new JobBuilder(JOB_NAME, jobRepository)
 			.start(trainMonthlyScheduleStep())
+			.next(trainScheduleCacheStep)
 			.build();
 	}
 
@@ -38,6 +41,7 @@ public class TrainMonthlyScheduleJobConfig {
 	public Step trainMonthlyScheduleStep() {
 		return new StepBuilder("trainMonthlyScheduleStep", jobRepository)
 			.tasklet(trainMonthlyScheduleTasklet(), transactionManager)
+			.listener(TrainScheduleCacheContext.promotionListener())
 			.build();
 	}
 
@@ -46,7 +50,10 @@ public class TrainMonthlyScheduleJobConfig {
 		return (contribution, chunkContext) -> {
 			LocalDate startDate = LocalDate.now();
 			LocalDate endDate = startDate.plusMonths(1).plusDays(1);
-			trainScheduleBatchFacade.createTrainSchedule(startDate.datesUntil(endDate).toList());
+			List<LocalDate> dates =
+				trainScheduleBatchFacade.createTrainSchedule(startDate.datesUntil(endDate).toList());
+
+			TrainScheduleCacheContext.putDates(chunkContext, dates);
 			return RepeatStatus.FINISHED;
 		};
 	}

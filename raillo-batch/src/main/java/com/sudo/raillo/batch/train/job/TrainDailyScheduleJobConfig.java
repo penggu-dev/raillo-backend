@@ -12,6 +12,7 @@ import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.infrastructure.repeat.RepeatStatus;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,9 +33,10 @@ public class TrainDailyScheduleJobConfig {
 	private final TrainScheduleBatchFacade trainScheduleBatchFacade;
 
 	@Bean
-	public Job trainDailyScheduleJob() {
+	public Job trainDailyScheduleJob(@Qualifier("trainScheduleCacheStep") Step trainScheduleCacheStep) {
 		return new JobBuilder(JOB_NAME, jobRepository)
 			.start(trainDailyScheduleStep())
+			.next(trainScheduleCacheStep)
 			.build();
 	}
 
@@ -42,6 +44,7 @@ public class TrainDailyScheduleJobConfig {
 	public Step trainDailyScheduleStep() {
 		return new StepBuilder("trainDailyScheduleStep", jobRepository)
 			.tasklet(trainDailyScheduleTasklet(null), transactionManager)
+			.listener(TrainScheduleCacheContext.promotionListener())
 			.build();
 	}
 
@@ -51,11 +54,11 @@ public class TrainDailyScheduleJobConfig {
 		@Value("#{jobParameters['operationDate']}") String operationDate
 	) {
 		return (contribution, chunkContext) -> {
-			if (operationDate == null || operationDate.isBlank()) {
-				trainScheduleBatchFacade.createTrainSchedule();
-			} else {
-				trainScheduleBatchFacade.createTrainSchedule(List.of(LocalDate.parse(operationDate)));
-			}
+			List<LocalDate> dates = (operationDate == null || operationDate.isBlank())
+				? trainScheduleBatchFacade.createTrainSchedule()
+				: trainScheduleBatchFacade.createTrainSchedule(List.of(LocalDate.parse(operationDate)));
+
+			TrainScheduleCacheContext.putDatesFromToday(chunkContext, dates);
 			return RepeatStatus.FINISHED;
 		};
 	}

@@ -16,7 +16,9 @@ This file provides guidance to coding agents (Claude Code, Codex 등) when worki
 java -jar raillo-batch.jar --job=trainDailySchedule --operationDate=2026-01-01  # JAR 실행
 ```
 
-Batch Job: `trainParse`(Excel 파싱, 재실행 시 템플릿·운임 교체), `trainDailySchedule`, `trainMonthlySchedule`, `trainInitialize`(parse → monthly), `deleteExpiredMembers`. 종료 코드는 성공 0, 실패 1.
+Batch Job: `trainParse`(Excel 파싱, 재실행 시 템플릿·운임 교체), `trainDailySchedule`, `trainMonthlySchedule`, `trainInitialize`(parse → monthly), `trainStaticCacheLoad`·`trainScheduleCacheLoad`(예약 기준정보 Redis 적재), `deleteExpiredMembers`. 종료 코드는 성공 0, 실패 1.
+
+스케줄 생성 Job은 생성 직후 기준정보를 Redis에 적재한다. 적재 전용 Job 두 개는 캐시만 복구하는 경로다. 키 스키마 → [docs/train-cache-schema.md](./docs/train-cache-schema.md)
 
 ## Architecture
 
@@ -205,6 +207,9 @@ Java 25, Spring Boot 4.1.0, MySQL, Redis, Testcontainers, QueryDSL 5.1.0, JWT, S
 
 - **Lua 스크립트 / 좌석 동시성 작업 시** → [docs/seat-hold-architecture.md](./docs/seat-hold-architecture.md)
   핵심: 원자성 보장, Lazy Cleanup 패턴, Hold Index 3종 키 동시 갱신 (`hold:pendingId`, `holds`, `holding-seats`), `RedisScriptConfig` Bean 등록.
+
+- **기준정보 캐시 적재/조회 작업 시** → [docs/train-cache-schema.md](./docs/train-cache-schema.md)
+  핵심: 키 포맷과 값 타입은 `raillo-domain`의 `train/cache` 패키지가 단일 원본. 운행 키 만료는 운행일 기준 절대 시각(`EXPIREAT`)이며 상대 TTL 금지. 값에 Java 타입 메타데이터(`@class`)를 넣지 않는다.
 
 - **좌석 충돌 검증 로직 변경 시** → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
   핵심: 4-Layer 방어 (Lua → SQL Fail Fast → SQL Re-validation → TTL Expiry) 영향 범위 모두 검토.

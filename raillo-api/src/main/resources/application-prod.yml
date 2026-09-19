@@ -17,8 +17,6 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: 6379
-      ssl:
-        enabled: true
 
   datasource:
     url: ${DB_URL}
@@ -54,12 +52,6 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
-
-  batch:
-    jdbc:
-      initialize-schema: always
-    job:
-      enabled: false
 
 cors:
   allowed-origins: https://www.raillo.store

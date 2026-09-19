@@ -42,19 +42,31 @@ public class TrainScheduleBatchFacade {
 
 	/**
 	 * 마지막 운행일 기준 다음 날 스케줄 생성
+	 *
+	 * @return 스케줄 생성 대상 날짜
 	 */
 	@Transactional
-	public void createTrainSchedule() {
+	public List<LocalDate> createTrainSchedule() {
 		LocalDate localDate = trainScheduleRepository.findLastOperationDate()
 			.map(date -> date.plusDays(1))
 			.orElse(LocalDate.now());
 
 		log.info("[{}] 스케줄 생성 대상 날짜", localDate);
-		createTrainSchedule(List.of(localDate));
+		return createTrainSchedule(List.of(localDate));
 	}
 
+	/**
+	 * 이미 스케줄이 있어 건너뛴 날짜도 반환에 포함한다. 후속 캐시 적재가 그 날짜도 다시 채워야 하기 때문이다.
+	 *
+	 * @return 스케줄 생성 대상 날짜
+	 */
 	@Transactional
-	public void createTrainSchedule(List<LocalDate> dates) {
+	public List<LocalDate> createTrainSchedule(List<LocalDate> dates) {
+		if (dates.isEmpty()) {
+			log.info("스케줄 생성 대상 날짜가 없습니다.");
+			return dates;
+		}
+
 		log.info("[{} ~ {}] {} 일간 스케줄 생성 시작", dates.get(0), dates.get(dates.size() - 1), dates.size());
 		List<TrainSchedule> trainSchedules = new ArrayList<>();
 		List<TrainScheduleTemplate> templates = trainScheduleTemplateService.findTrainScheduleTemplate();
@@ -89,6 +101,8 @@ public class TrainScheduleBatchFacade {
 				templates
 			);
 		}
+
+		return dates;
 	}
 
 	/**
