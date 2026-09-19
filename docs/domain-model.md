@@ -12,16 +12,15 @@
 - `StationFare` — Fare between two stations (standardFare, firstClassFare)
 
 ### Booking Domain
-- `PendingBooking` — Temporary reservation in Redis (TTL 10min) before payment
-- `PendingSeatBooking` — Seat info within PendingBooking
+- `Reservation` — Temporary reservation in Redis (TTL 10min) before payment. JSON record with `ReservationStop`, `ReservationSeat`
 - `Booking` — Confirmed booking after payment (예매)
 - `SeatBooking` — Seat info within Booking
 - `Ticket` — Issued ticket per seat after payment (승차권)
 
 ### Order Domain
-- `Order` — Payment unit grouping multiple PendingBookings
-- `OrderBooking` — Booking info converted from PendingBooking
-- `OrderSeatBooking` — Seat info converted from PendingSeatBooking
+- `Order` — Payment unit grouping multiple Reservations
+- `OrderBooking` — Booking info converted from a Reservation
+- `OrderSeatBooking` — Seat info converted from ReservationSeat
 
 ### Payment Domain
 - `Payment` — Toss Payments integration with paymentKey, paymentStatus
@@ -45,14 +44,14 @@ Member → Order (1:N)
 ## Booking Flow
 
 1. **열차 검색** — Query TrainSchedule + ScheduleStop
-2. **좌석 선택** — Create PendingBooking + PendingSeatBooking (Redis, TTL 10min)
+2. **좌석 선택** — Create Reservation (Redis: 객차 점유 Hash + 예약 JSON + 회원 인덱스, TTL 10min). 기준정보 캐시만 읽는다
 3. **결제 준비** — Convert to Order (PENDING) + OrderBooking + OrderSeatBooking, create Payment (PENDING)
 4. **결제 승인** — Toss Payments approval → Payment (PAID), Order (ORDERED)
-5. **예매 확정** — Convert to Booking + SeatBooking, issue Tickets, delete PendingBooking from Redis
+5. **예매 확정** — Convert to Booking + SeatBooking, issue Tickets, 좌석 점유 `H:` → `B:` 전환 (결제 전환 PR)
 
 ## Domain Terminology (Korean)
 
-- **예약** = PendingBooking (temporary, before payment)
+- **예약** = Reservation (temporary, before payment)
 - **예매** = Booking (confirmed, after payment)
 - **승차권** = Ticket (issued document)
 - **객차** = TrainCar
@@ -62,4 +61,4 @@ Member → Order (1:N)
 ## Related Documents
 
 - 좌석 충돌 검증 4계층 방어: [seat-conflict-validation.md](./seat-conflict-validation.md)
-- Seat Hold Lua 아키텍처: [seat-hold-architecture.md](./seat-hold-architecture.md)
+- 예약 Redis 스키마: [reservation-cache-schema.md](./reservation-cache-schema.md)

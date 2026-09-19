@@ -7,6 +7,7 @@ import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
+import com.sudo.raillo.train.cache.StationFareCacheValue;
 import com.sudo.raillo.train.application.calculator.FareCalculator;
 import com.sudo.raillo.train.domain.Station;
 import com.sudo.raillo.train.domain.type.CarType;
@@ -15,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -33,28 +35,17 @@ class FareCalculatorTest {
 	@DisplayName("일반석 승객 유형별 할인율이 적용된 총 운임을 계산한다")
 	@ParameterizedTest(name = "{index}. {0} = {2}원")
 	@MethodSource("provideStandardSeatScenarios")
-	void calculateTotalFare_standardSeat(
+	void calculate_standard_seat_fares(
 		String description,
 		List<PassengerType> passengerTypes,
 		BigDecimal expectedFare
 	) {
 		// given
-		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
-		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
-		trainScheduleTestHelper.createOrUpdateStationFare(
-			seoul.getStationName(),
-			busan.getStationName(),
-			50000,
-			100000
-		);
+		StationFareCacheValue stationFare = new StationFareCacheValue(
+			BigDecimal.valueOf(50000), BigDecimal.valueOf(100000));
 
 		// when
-		BigDecimal totalFare = fareCalculator.calculateTotalFare(
-			seoul.getId(),
-			busan.getId(),
-			passengerTypes,
-			CarType.STANDARD
-		);
+		BigDecimal totalFare = sum(fareCalculator.calculateFares(stationFare, CarType.STANDARD, passengerTypes));
 
 		// then
 		assertThat(totalFare).isEqualByComparingTo(expectedFare);
@@ -63,50 +54,42 @@ class FareCalculatorTest {
 	@DisplayName("특실 승객 유형별 할인율이 적용된 총 운임을 계산한다")
 	@ParameterizedTest(name = "{index}. {0} = {2}원")
 	@MethodSource("provideFirstClassSeatScenarios")
-	void calculateTotalFare_firstClassSeat(
+	void calculate_first_class_seat_fares(
 		String description,
 		List<PassengerType> passengerTypes,
 		BigDecimal expectedFare
 	) {
 		// given
-		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
-		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
-		trainScheduleTestHelper.createOrUpdateStationFare(
-			seoul.getStationName(),
-			busan.getStationName(),
-			50000,
-			100000
-		);
+		StationFareCacheValue stationFare = new StationFareCacheValue(
+			BigDecimal.valueOf(50000), BigDecimal.valueOf(100000));
 
 		// when
-		BigDecimal totalFare = fareCalculator.calculateTotalFare(
-			seoul.getId(),
-			busan.getId(),
-			passengerTypes,
-			CarType.FIRST_CLASS
-		);
+		BigDecimal totalFare = sum(fareCalculator.calculateFares(stationFare, CarType.FIRST_CLASS, passengerTypes));
 
 		// then
 		assertThat(totalFare).isEqualByComparingTo(expectedFare);
 	}
 
 	@Test
-	@DisplayName("존재하지 않는 구간 요금 조회 시 예외가 발생한다")
-	void calculateTotalFare_fare_not_found() {
+	@DisplayName("DB에 없는 구간의 운임을 조회하면 예외가 발생한다")
+	void fare_not_found() {
 		// given
 		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
 		Station daejeon = trainScheduleTestHelper.getOrCreateStation("대전");
-		List<PassengerType> passengerTypes = List.of(PassengerType.ADULT);
 
 		// when & then
-		assertThatThrownBy(() -> fareCalculator.calculateTotalFare(
+		assertThatThrownBy(() -> fareCalculator.calculateFare(
 			seoul.getId(),
 			daejeon.getId(),
-			passengerTypes,
+			PassengerType.ADULT,
 			CarType.STANDARD
 		))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", TrainError.STATION_FARE_NOT_FOUND);
+	}
+
+	private static BigDecimal sum(List<BigDecimal> fares) {
+		return fares.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	private static Stream<Arguments> provideStandardSeatScenarios() {
@@ -199,5 +182,63 @@ class FareCalculatorTest {
 				BigDecimal.valueOf(170000) // 100000 + 70000
 			)
 		);
+	}
+
+	@Nested
+	@DisplayName("기준정보 캐시 운임 기반 계산")
+	class CacheFare {
+
+		private final StationFareCacheValue fare = new StationFareCacheValue(
+			new BigDecimal("50000"), new BigDecimal("100000"));
+
+		@Test
+		@DisplayName("승객 유형 순서대로 할인이 적용된 좌석별 운임을 돌려준다")
+		void calculate_fares_keeps_order() {
+			// given
+			List<PassengerType> passengerTypes = List.of(PassengerType.ADULT, PassengerType.CHILD, PassengerType.SENIOR);
+
+			// when
+			List<BigDecimal> fares = fareCalculator.calculateFares(fare, CarType.STANDARD, passengerTypes);
+
+			// then
+			assertThat(fares).hasSize(3);
+			assertThat(fares.get(0)).isEqualByComparingTo("50000");
+			assertThat(fares.get(1)).isEqualByComparingTo("30000");
+			assertThat(fares.get(2)).isEqualByComparingTo("35000");
+		}
+
+		@Test
+		@DisplayName("특실은 특실 운임을 기준으로 할인한다")
+		void calculate_fare_first_class() {
+			// given
+
+			// when
+			BigDecimal infant = fareCalculator.calculateFare(fare, CarType.FIRST_CLASS, PassengerType.INFANT);
+			BigDecimal veteran = fareCalculator.calculateFare(fare, CarType.FIRST_CLASS, PassengerType.VETERAN);
+
+			// then
+			assertThat(infant).isEqualByComparingTo("25000");
+			assertThat(veteran).isEqualByComparingTo("50000");
+		}
+
+		@Test
+		@DisplayName("캐시 운임과 DB 운임으로 계산한 총액이 같다")
+		void matches_database_calculation() {
+			// given
+			Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
+			Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
+			trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 100000);
+			List<PassengerType> passengerTypes = List.of(PassengerType.ADULT, PassengerType.DISABLED_HEAVY);
+
+			// when
+			BigDecimal fromDatabase = passengerTypes.stream()
+				.map(passengerType -> fareCalculator.calculateFare(
+					seoul.getId(), busan.getId(), passengerType, CarType.STANDARD))
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+			BigDecimal fromCache = sum(fareCalculator.calculateFares(fare, CarType.STANDARD, passengerTypes));
+
+			// then
+			assertThat(fromCache).isEqualByComparingTo(fromDatabase);
+		}
 	}
 }

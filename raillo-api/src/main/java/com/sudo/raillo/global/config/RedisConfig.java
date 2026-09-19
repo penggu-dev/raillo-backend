@@ -1,13 +1,16 @@
 package com.sudo.raillo.global.config;
 
+import io.lettuce.core.api.StatefulConnection;
+import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
-import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.repository.configuration.EnableRedisRepositories;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
@@ -27,6 +30,12 @@ public class RedisConfig {
 	@Value("${spring.data.redis.ssl.enabled:false}")
 	private boolean sslEnabled;
 
+	@Value("${spring.data.redis.lettuce.pool.max-active:16}")
+	private int poolMaxActive;
+
+	@Value("${spring.data.redis.lettuce.pool.max-wait:500ms}")
+	private Duration poolMaxWait;
+
 	@Bean
 	public RedisConnectionFactory redisConnectionFactory() {
 
@@ -34,17 +43,19 @@ public class RedisConfig {
 		redisConf.setHostName(host);
 		redisConf.setPort(port);
 
-		LettuceClientConfiguration clientConfig;
+		// maxIdle이 maxTotal보다 작으면 반납된 연결이 닫혀 연결 생성·종료가 다시 반복된다
+		GenericObjectPoolConfig<StatefulConnection<?, ?>> poolConfig = new GenericObjectPoolConfig<>();
+		poolConfig.setMaxTotal(poolMaxActive);
+		poolConfig.setMaxIdle(poolMaxActive);
+		poolConfig.setMaxWait(poolMaxWait);
+
+		LettucePoolingClientConfiguration.LettucePoolingClientConfigurationBuilder clientConfig =
+			LettucePoolingClientConfiguration.builder().poolConfig(poolConfig);
 		if (sslEnabled) {
-			clientConfig = LettuceClientConfiguration.builder()
-				.useSsl()
-				.build();
-		} else {
-			clientConfig = LettuceClientConfiguration.builder()
-				.build();
+			clientConfig.useSsl();
 		}
 
-		return new LettuceConnectionFactory(redisConf, clientConfig);
+		return new LettuceConnectionFactory(redisConf, clientConfig.build());
 	}
 
 	@Bean

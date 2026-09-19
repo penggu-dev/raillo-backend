@@ -22,9 +22,9 @@ public class TestContainerInitializer implements ApplicationContextInitializer<C
 		.withTmpFs(Map.of("/var/lib/mysql", "rw"))
 		.withReuse(true);
 
-	private static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
+	private static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("valkey/valkey:9.0-alpine"))
 		.withExposedPorts(REDIS_PORT)
-		// Reids 기동 완료 로그가 출력되면 연결
+		// Valkey 기동 완료 로그가 출력되면 연결
 		.waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1))
 		.withReuse(true);
 

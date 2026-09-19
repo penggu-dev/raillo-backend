@@ -18,6 +18,7 @@ dependencies {
     // Database
     runtimeOnly 'com.mysql:mysql-connector-j'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.apache.commons:commons-pool2'
 
     // Development Tools
     developmentOnly 'org.springframework.boot:spring-boot-docker-compose'

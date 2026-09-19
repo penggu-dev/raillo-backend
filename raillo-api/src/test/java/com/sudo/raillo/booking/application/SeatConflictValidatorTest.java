@@ -244,8 +244,8 @@ public class SeatConflictValidatorTest {
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
 		}
 
 		@Test
@@ -280,8 +280,8 @@ public class SeatConflictValidatorTest {
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
 		}
 
 		@Test
@@ -330,8 +330,8 @@ public class SeatConflictValidatorTest {
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(List.of(pendingBooking1, pendingBooking2))
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
 		}
 
 		@Test
@@ -364,8 +364,8 @@ public class SeatConflictValidatorTest {
 			assertThatThrownBy(() ->
 					bookingValidator.validateSeatConflicts(List.of(pendingBooking))
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
 		}
 
 		@Test
@@ -405,8 +405,8 @@ public class SeatConflictValidatorTest {
 			assertThatThrownBy(() ->
 				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
 		}
 	}
 
@@ -510,8 +510,8 @@ public class SeatConflictValidatorTest {
 					List.of(seat.getId())
 				)
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
 		}
 
 		@Test
@@ -538,8 +538,8 @@ public class SeatConflictValidatorTest {
 					List.of(seat.getId())
 				)
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
 		}
 
 		@Test
@@ -567,8 +567,8 @@ public class SeatConflictValidatorTest {
 					List.of(seat1.getId(), seat2.getId())
 				)
 			).isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_SOLD)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_SOLD.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
 		}
 	}
 }

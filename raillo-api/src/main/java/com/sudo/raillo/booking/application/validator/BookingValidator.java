@@ -4,7 +4,6 @@ import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.member.domain.Member;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,13 +15,9 @@ import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.domain.PendingBooking;
 import com.sudo.raillo.booking.domain.SeatBooking;
-import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.train.domain.ScheduleStop;
-import com.sudo.raillo.train.domain.TrainSchedule;
-import com.sudo.raillo.train.domain.status.OperationStatus;
-import com.sudo.raillo.train.domain.type.CarType;
 import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
 
@@ -34,55 +29,13 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class BookingValidator {
 
-	private static final long BOOKING_CLOSE_MINUTES_BEFORE_DEPARTURE = 5L;
-
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final SeatBookingRepository seatBookingRepository;
 
-	/**
-	 * 출발지, 도착지 순서 검증
-	 */
-	public void validateStopSequence(ScheduleStop departureStop, ScheduleStop arrivalStop) {
-		if (departureStop.getStopOrder() > arrivalStop.getStopOrder()) {
-			throw new BusinessException(BookingError.TRAIN_NOT_OPERATIONAL);
-		}
-	}
 
-	/**
-	 * 출발역, 도착역이 같은 스케줄을 가지고 있는지 검증
-	 * */
-	public void validateSameSchedule(ScheduleStop departureStop, ScheduleStop arrivalStop) {
-		if (!departureStop.getTrainSchedule().getId().equals(arrivalStop.getTrainSchedule().getId())) {
-			throw new BusinessException(TrainError.INVALID_ROUTE);
-		}
-	}
 
-	/**
-	 * 열차 스케줄 운행 여부 확인
-	 * */
-	public void validateTrainOperating(TrainSchedule trainSchedule) {
-		if (trainSchedule.getOperationStatus() == OperationStatus.CANCELLED) {
-			throw new BusinessException(TrainError.TRAIN_OPERATION_CANCELLED);
-		}
-	}
 
-	public void validateDepartureTimeNotPassed(LocalDateTime departureDateTime, LocalDateTime now) {
-		LocalDateTime bookingClosedAt = departureDateTime.minusMinutes(BOOKING_CLOSE_MINUTES_BEFORE_DEPARTURE);
 
-		if (!now.isBefore(bookingClosedAt)) {
-			throw new BusinessException(TrainError.DEPARTURE_TIME_PASSED);
-		}
-	}
-
-	/**
-	 * 요청된 승객 수와 선택한 좌석 수의 일치 여부를 검증
-	 * */
-	public void validatePassengerSeatCount(List<PassengerType> passengerTypes, List<Long> seatIds) {
-		// 요청 승객 수와 선택한 좌석 수를 비교하여 좌석 수가 승객 수보다 많으면 오류 발생
-		if (passengerTypes.size() != seatIds.size()) {
-			throw new BusinessException(BookingError.BOOKING_CREATE_SEATS_INVALID);
-		}
-	}
 
 	/**
 	 * 여러 개의 예약 접근 권한 확인
@@ -121,23 +74,6 @@ public class BookingValidator {
 		}
 	}
 
-	/**
-	 * 좌석 검증
-	 * <p>1. 좌석 존재 여부 검증
-	 * <p>2. 동일 객차 타입 검증
-	 */
-	public CarType validateSeatIdsAndGetSingleCarType(List<CarType> carTypes) {
-		if (carTypes.isEmpty()) {
-			log.warn("[좌석 조회 실패] 요청한 좌석 ID에 해당하는 좌석이 없음");
-			throw new BusinessException(TrainError.SEAT_NOT_FOUND);
-		}
-
-		if (carTypes.size() != 1) {
-			log.warn("[객차 타입 불일치] 서로 다른 객차 타입이 섞여 있음: carTypes={}", carTypes);
-			throw new BusinessException(BookingError.INVALID_CAR_TYPE);
-		}
-		return carTypes.get(0);
-	}
 
 	/**
 	 * 승차권 소유자 검증
@@ -209,7 +145,7 @@ public class BookingValidator {
 				overlappingSeatBookings.get(0).getDepartureStopOrder(),
 				overlappingSeatBookings.get(0).getArrivalStopOrder(),
 				departureStop.getStopOrder(), arrivalStop.getStopOrder());
-			throw new BusinessException(BookingError.SEAT_CONFLICT_WITH_SOLD);
+			throw new BusinessException(BookingError.SEAT_CONFLICT_WITH_BOOKING);
 		}
 	}
 
