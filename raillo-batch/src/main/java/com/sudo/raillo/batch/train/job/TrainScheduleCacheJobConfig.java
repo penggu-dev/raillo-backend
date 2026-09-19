@@ -83,5 +83,11 @@ public class TrainScheduleCacheJobConfig {
 	}
 
 	private record DateRange(LocalDate start, LocalDate end) {
+
+		private DateRange {
+			if (start.isAfter(end)) {
+				throw new IllegalArgumentException("시작일이 종료일보다 늦습니다: %s ~ %s".formatted(start, end));
+			}
+		}
 	}
 }

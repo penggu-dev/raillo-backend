@@ -64,6 +64,20 @@ class TrainScheduleCacheJobConfigTest {
 		verify(trainScheduleCacheService).load(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
 	}
 
+	@DisplayName("시작일이 종료일보다 늦으면 실패한다")
+	@Test
+	void fails_when_date_range_is_reversed() {
+		// given - 아무것도 적재하지 않고 성공하면 복구가 된 것처럼 보인다
+		var tasklet = jobConfig.trainScheduleCacheTasklet(null, null, null, "2026-10-31", "2026-10-01");
+
+		// when
+
+		// then
+		assertThatThrownBy(() -> tasklet.execute(null, null))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("시작일이 종료일보다 늦습니다");
+	}
+
 	@DisplayName("날짜를 하나도 알 수 없으면 실패한다")
 	@Test
 	void fails_when_no_date_is_given() {
