@@ -46,7 +46,8 @@ import com.sudo.raillo.train.domain.type.TrainType;
 @DisplayName("운행 기준정보 적재")
 class TrainScheduleCacheJobIntegrationTest {
 
-	private static final LocalDate OPERATION_DATE = LocalDate.of(2026, 10, 20);
+	// 과거 날짜면 만료 시각이 이미 지나 키가 적재 직후 사라진다
+	private static final LocalDate OPERATION_DATE = LocalDate.now(TrainCacheKey.ZONE).plusDays(7);
 	private static final long TTL_TOLERANCE_SECONDS = 10L;
 
 	private final JobOperatorTestUtils jobOperatorTestUtils;
@@ -106,7 +107,7 @@ class TrainScheduleCacheJobIntegrationTest {
 		// then
 		assertThat(status).isEqualTo(BatchStatus.COMPLETED);
 		assertThat(stringRedisTemplate.opsForValue().get(TrainCacheKey.scheduleInfo(scheduleId())))
-			.contains("\"operationDate\":\"2026-10-20\"")
+			.contains("\"operationDate\":\"%s\"".formatted(OPERATION_DATE))
 			.contains("\"departureTime\":\"06:00:00\"")
 			.contains("\"operationStatus\":\"ACTIVE\"")
 			.contains("\"trainNumber\":1")
