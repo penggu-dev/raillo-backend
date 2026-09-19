@@ -54,7 +54,7 @@ public class ReservationFacade {
 		reservationValidator.validateStopSequence(train.departureStop(), train.arrivalStop());
 		StationFareCacheValue fare = reservationValidator.validateFareExists(train.fare());
 		reservationValidator.validateBookingOpen(train.departureAt(), now);
-		CarType carType = reservationValidator.validateSingleCarType(train.seatsById().values());
+		CarType carType = reservationValidator.validateSingleTrainCar(train.seatsById().values());
 
 		// 4. 운임·TTL
 		List<BigDecimal> fares = fareCalculator.calculateFares(fare, carType, request.passengerTypes());

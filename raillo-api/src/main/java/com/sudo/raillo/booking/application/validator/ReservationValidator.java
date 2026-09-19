@@ -73,18 +73,15 @@ public class ReservationValidator {
 		}
 	}
 
-	/**
-	 * 한 예약의 좌석은 모두 같은 객차 타입이어야 한다. 객차가 달라도 타입만 같으면 허용한다.
-	 */
-	public CarType validateSingleCarType(Collection<SeatCacheValue> seats) {
-		Set<CarType> carTypes = new HashSet<>();
-		seats.forEach(seat -> carTypes.add(seat.carType()));
+	public CarType validateSingleTrainCar(Collection<SeatCacheValue> seats) {
+		Set<Long> trainCarIds = new HashSet<>();
+		seats.forEach(seat -> trainCarIds.add(seat.trainCarId()));
 
-		if (carTypes.size() != 1) {
-			log.warn("[객차 타입 불일치] carTypes={}", carTypes);
-			throw new BusinessException(BookingError.INVALID_CAR_TYPE);
+		if (trainCarIds.size() != 1) {
+			log.warn("[여러 객차의 좌석 선택] trainCarIds={}", trainCarIds);
+			throw new BusinessException(BookingError.MULTIPLE_TRAIN_CARS);
 		}
-		return carTypes.iterator().next();
+		return seats.iterator().next().carType();
 	}
 
 	public void validateReservationIdsPresent(List<String> reservationIds) {

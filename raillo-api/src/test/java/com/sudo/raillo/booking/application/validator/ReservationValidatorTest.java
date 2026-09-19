@@ -44,8 +44,8 @@ class ReservationValidatorTest {
 			LocalTime.of(6 + stopOrder, 0), LocalTime.of(6 + stopOrder, 5));
 	}
 
-	private static SeatCacheValue seat(CarType carType) {
-		return new SeatCacheValue(231L, 3, carType, 1, "A", SeatType.WINDOW);
+	private static SeatCacheValue seat(long trainCarId, CarType carType) {
+		return new SeatCacheValue(trainCarId, 3, carType, 1, "A", SeatType.WINDOW);
 	}
 
 	@Nested
@@ -156,20 +156,20 @@ class ReservationValidatorTest {
 		}
 
 		@Test
-		@DisplayName("좌석의 객차 타입이 하나면 그 타입을 돌려주고 섞여 있으면 INVALID_CAR_TYPE 예외가 발생한다")
-		void single_car_type() {
+		@DisplayName("좌석이 모두 한 객차에 있으면 그 객차 타입을 돌려주고 두 객차에 걸치면 MULTIPLE_TRAIN_CARS 예외가 발생한다")
+		void single_train_car() {
 			// given
-			List<SeatCacheValue> sameType = List.of(seat(CarType.FIRST_CLASS), seat(CarType.FIRST_CLASS));
-			List<SeatCacheValue> mixed = List.of(seat(CarType.STANDARD), seat(CarType.FIRST_CLASS));
+			List<SeatCacheValue> sameCar = List.of(seat(231L, CarType.FIRST_CLASS), seat(231L, CarType.FIRST_CLASS));
+			List<SeatCacheValue> twoCarsOfSameType = List.of(seat(231L, CarType.STANDARD), seat(232L, CarType.STANDARD));
 
 			// when
-			CarType carType = validator.validateSingleCarType(sameType);
+			CarType carType = validator.validateSingleTrainCar(sameCar);
 
 			// then
 			assertThat(carType).isEqualTo(CarType.FIRST_CLASS);
-			assertThatThrownBy(() -> validator.validateSingleCarType(mixed))
+			assertThatThrownBy(() -> validator.validateSingleTrainCar(twoCarsOfSameType))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.INVALID_CAR_TYPE);
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.MULTIPLE_TRAIN_CARS);
 		}
 	}
 

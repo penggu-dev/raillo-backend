@@ -53,7 +53,7 @@
 
 1. 요청 검증: 승객 수 = 좌석 수, 좌석 중복 없음.
 2. 기준정보 조회 (`TrainCacheQueryService`): 파이프라인 1회로 `{schedule}:info`, `{schedule}:stops`의 `st:{출발역}`·`st:{도착역}`, `train:seat:{id}` MGET, `train:fare` HGET을 읽는다. 운행·정차역·좌석이 없으면 404. 이어서 `train:traincar:{id}` MGET으로 좌석이 이 운행의 열차에 속하는지 확인한다. 객차가 없으면 `TRAIN_CAR_NOT_FOUND`, 다른 열차의 좌석이면 `SEAT_NOT_FOUND`다. 운임은 여기서 검사하지 않는다.
-3. 운행 검증 (`ReservationValidator`): 운행 취소 → 정차 순서 → 운임 존재 → 출발 5분 전 마감 → 객차 타입 단일(객차가 달라도 됨). 출발역과 도착역이 같거나 순서가 거꾸로면 정차 순서에서 `INVALID_ROUTE`(400)로 막힌다. 운임을 정차 순서 뒤에 보는 이유는 이런 요청이 운임 없음(404)으로 응답되지 않게 하기 위해서다.
+3. 운행 검증 (`ReservationValidator`): 운행 취소 → 정차 순서 → 운임 존재 → 출발 5분 전 마감 → 한 객차. 좌석이 두 객차 이상에 걸치면 `MULTIPLE_TRAIN_CARS`(400)다. 출발역과 도착역이 같거나 순서가 거꾸로면 정차 순서에서 `INVALID_ROUTE`(400)로 막힌다. 운임을 정차 순서 뒤에 보는 이유는 이런 요청이 운임 없음(404)으로 응답되지 않게 하기 위해서다.
 4. 운임(`FareCalculator`, 캐시 운임)과 TTL(`ReservationService.calculateTtl`): min(10분, 마감까지 남은 시간), 정수 초 올림, 최소 1초.
 5. 회원 인덱스 등록: HSETEX(`putAndExpire`)로 값과 field TTL을 한 번에.
 6. `reservation_create.lua`: 요청 field를 HMGET해 자기 예약이 아닌 값이 하나라도 있으면 아무것도 쓰지 않고 충돌을 돌려준다. 없으면 HSET → HEXPIRE → (TTL 없을 때) EXPIREAT → SET 예약 EX.
@@ -74,7 +74,7 @@ ARGV       reservationId, ttlSec(>=1), keyExpireAt, json, depOrder, arrOrder, "s
       {0, seatId, sectionIndex, "X"}    알 수 없는 값 형식   → SEAT_OCCUPANCY_SCRIPT_ERROR (500)
 ```
 
-같은 `reservationId`로 다시 실행하면 자기 점유는 충돌로 보지 않는다.
+같은 `reservationId`로 다시 실행하면 자기 점유는 충돌로 보지 않는다. API는 한 객차의 좌석만 받으므로 객차 Hash는 `KEYS[2]` 하나지만, 스크립트는 여러 객차를 받을 수 있게 되어 있다.
 
 ## 5. 조회
 

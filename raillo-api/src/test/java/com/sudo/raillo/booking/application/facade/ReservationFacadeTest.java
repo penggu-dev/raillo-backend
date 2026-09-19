@@ -175,8 +175,8 @@ class ReservationFacadeTest {
 		}
 
 		@Test
-		@DisplayName("객차가 달라도 객차 타입이 같으면 한 예약으로 만들 수 있다")
-		void allows_seats_across_cars_of_same_type() {
+		@DisplayName("객차 타입이 같아도 두 객차에 걸친 좌석을 예약하면 MULTIPLE_TRAIN_CARS 예외가 발생하고 아무것도 저장하지 않는다")
+		void rejects_seats_across_train_cars() {
 			// given - 일반실 3량 열차에서 서로 다른 객차의 좌석 두 개
 			Train mediumTrain = trainTestHelper.createMediumTestTrain();
 			TrainScheduleResult mediumSchedule = trainScheduleTestHelper.builder()
@@ -193,16 +193,17 @@ class ReservationFacadeTest {
 				.findFirst().orElseThrow();
 			ReservationCreateRequest request = new ReservationCreateRequest(mediumSchedule.trainSchedule().getId(),
 				seoulId, busanId, List.of(PassengerType.ADULT, PassengerType.ADULT), List.of(first.getId(), other.getId()));
+			long mediumScheduleId = mediumSchedule.trainSchedule().getId();
 
 			// when
-			ReservationCreateResponse response = reservationFacade.createReservation(request, memberNo);
 
 			// then
-			long mediumScheduleId = mediumSchedule.trainSchedule().getId();
-			assertThat(seatOccupancyTestHelper.valueOf(mediumScheduleId, first.getTrainCar().getId(), first.getId(), 0))
-				.isEqualTo("R:" + response.reservationId());
-			assertThat(seatOccupancyTestHelper.valueOf(mediumScheduleId, other.getTrainCar().getId(), other.getId(), 0))
-				.isEqualTo("R:" + response.reservationId());
+			assertThatThrownBy(() -> reservationFacade.createReservation(request, memberNo))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.MULTIPLE_TRAIN_CARS);
+			assertThat(seatOccupancyTestHelper.entries(mediumScheduleId, first.getTrainCar().getId())).isEmpty();
+			assertThat(seatOccupancyTestHelper.entries(mediumScheduleId, other.getTrainCar().getId())).isEmpty();
+			assertThat(stringRedisTemplate.hasKey(ReservationCacheKey.memberReservations(memberNo))).isFalse();
 		}
 
 		@Test
@@ -413,7 +414,7 @@ class ReservationFacadeTest {
 		}
 
 		@Test
-		@DisplayName("일반실과 특실 좌석을 섞으면 INVALID_CAR_TYPE 예외가 발생한다")
+		@DisplayName("일반실과 특실 좌석을 섞으면 서로 다른 객차이므로 MULTIPLE_TRAIN_CARS 예외가 발생한다")
 		void mixed_car_types() {
 			// given
 			Seat firstClass = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, 1).get(0);
@@ -425,7 +426,7 @@ class ReservationFacadeTest {
 				request(seoulId, busanId, List.of(PassengerType.ADULT, PassengerType.ADULT),
 					List.of(standardSeats.get(0).getId(), firstClass.getId())), memberNo))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", BookingError.INVALID_CAR_TYPE);
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.MULTIPLE_TRAIN_CARS);
 		}
 	}
 }

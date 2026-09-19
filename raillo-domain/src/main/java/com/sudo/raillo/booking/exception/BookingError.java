@@ -15,7 +15,7 @@ public enum BookingError implements ErrorCode {
 	BOOKING_NOT_FOUND("예매 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "BOOKING_101"),
 	BOOKING_ALREADY_CANCELLED("이미 취소된 좌석입니다", HttpStatus.BAD_REQUEST, "BOOKING_102"),
 	BOOKING_CREATE_SEATS_INVALID("좌석 수는 총 승객 수와 같아야 합니다.", HttpStatus.BAD_REQUEST, "BOOKING_103"),
-	INVALID_CAR_TYPE("좌석의 객차 타입은 동일해야 합니다.", HttpStatus.BAD_REQUEST, "BOOKING_104"),
+	MULTIPLE_TRAIN_CARS("좌석은 한 객차 안에서만 선택할 수 있습니다.", HttpStatus.BAD_REQUEST, "BOOKING_104"),
 	TRAIN_NOT_OPERATIONAL("운행중인 스케줄이 아닙니다.", HttpStatus.BAD_REQUEST, "BOOKING_105"),
 	INVALID_BOOKING_TIME_FILTER("유효하지 않은 조회 필터입니다. 허용 값: upcoming, history, all", HttpStatus.BAD_REQUEST, "BOOKING_106"),
 	SEAT_BOOKING_NOT_FOUND("좌석 예매 상태를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "BOOKING_107"),
