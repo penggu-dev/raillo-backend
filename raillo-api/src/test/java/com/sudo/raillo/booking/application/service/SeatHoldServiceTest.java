@@ -196,7 +196,7 @@ class SeatHoldServiceTest {
 				)
 			)
 				.isInstanceOf(BusinessException.class)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_HOLD.getMessage());
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_RESERVATION.getMessage());
 		}
 
 		@Test
@@ -232,7 +232,7 @@ class SeatHoldServiceTest {
 				)
 			)
 				.isInstanceOf(BusinessException.class)
-				.hasMessage(BookingError.SEAT_CONFLICT_WITH_HOLD.getMessage());
+				.hasMessage(BookingError.SEAT_CONFLICT_WITH_RESERVATION.getMessage());
 
 			// then - 좌석 1번도 롤백되어 Hold 가능해야 함
 			SeatHoldResult result = seatHoldRepository.trySeatHold(

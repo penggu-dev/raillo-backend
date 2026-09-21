@@ -5,8 +5,8 @@
 | Environment | Database | Redis | Profile |
 |-------------|----------|-------|---------|
 | Local Dev | 외부 Test DB (MySQL, `${TEST_DB_URL}`) | Redis (`compose.yaml`, port 6379) | `dev` |
-| Test | Testcontainers MySQL 8.4.10 | Testcontainers Redis 7.4 | `test` |
-| Production | AWS RDS (MySQL 8.4.10) | Redis 7.4 (K8s Pod) | `prod` |
+| Test | Testcontainers MySQL 8.4.10 | Testcontainers Valkey 9 | `test` |
+| Production | AWS RDS (MySQL 8.4.10) | Valkey 9 (K8s Pod) | `prod` |
 
 ## Local Development
 
@@ -18,7 +18,7 @@ docker-compose up -d
 ./gradlew bootRun
 ```
 
-- `compose.yaml` 은 **Redis**(`redis:latest`, port 6379) 만 제공한다.
+- `compose.yaml` 은 **Redis 호환 서버 Valkey**(`valkey/valkey:9.0-alpine`, port 6379) 만 제공한다.
 - `dev` 프로파일은 `${TEST_DB_URL}` 환경변수로 **외부 Test DB(MySQL)** 에 연결한다 (`.env` 등으로 주입).
 - 부하 테스트용 풀스택(Spring Boot + Redis + WireMock + Prometheus + Grafana)은 별도의 `compose-test.yaml` 로 띄운다 (README의 "로컬 부하 테스트 환경" 참조).
 
@@ -45,7 +45,7 @@ main 브랜치 push
 - **Cluster**: AWS EKS `raillo-cluster` (ap-northeast-2)
 - **Container Registry**: AWS ECR
 - **Database**: AWS RDS (MySQL 8.4.10)
-- **Redis**: `redis:7.4-alpine`
+- **Redis**: Valkey `valkey/valkey:9.0-alpine` (Redis 호환, 필드 단위 만료 HEXPIRE는 9.0부터)
 - **Domain**: `server.raillo.store`
 - **TLS**: cert-manager (`raillo-issuer` ClusterIssuer, Let's Encrypt) → Secret `server-raillo-com-tls`
 

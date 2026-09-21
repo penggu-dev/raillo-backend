@@ -23,7 +23,7 @@ public class BatchTestContainerInitializer
 			.withReuse(true);
 
 	private static final GenericContainer<?> REDIS =
-		new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
+		new GenericContainer<>(DockerImageName.parse("valkey/valkey:9.0-alpine"))
 			.withExposedPorts(REDIS_PORT)
 			.withLabel("com.sudo.raillo.module", "raillo-batch")
 			.waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1))

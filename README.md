@@ -66,7 +66,7 @@
 
 ### Testing
 - **Framework** : JUnit, Spring Boot Test
-- **Test Environment** : Testcontainers (MySQL 8.4.10, Redis 7.4) — 운영과 동일 버전, Docker 필요
+- **Test Environment** : Testcontainers (MySQL 8.4.10, Valkey 9) — 운영과 동일 버전, Docker 필요
 - **Test Utils** : AssertJ
 - **Performance Testing** : K6
 - **Email Testing** : GreenMail
@@ -181,8 +181,9 @@ Controller → Facade → Service → Repository
 ### 상세 문서 (`docs/`)
 | 문서 | 내용 |
 |---|---|
-| [`seat-hold-architecture.md`](./docs/seat-hold-architecture.md) | Redis Lua 기반 좌석 동시 선점 아키텍처, Hold Index, Train Search 통합 |
-| [`seat-conflict-validation.md`](./docs/seat-conflict-validation.md) | 4-Layer 좌석 충돌 방어 (Lua → SQL → Re-validation → TTL) |
+| [`reservation-cache-schema.md`](./docs/reservation-cache-schema.md) | 예약(Reservation) Redis 키 계약, 객차 점유 Hash, `reservation_create.lua` 흐름 |
+| [`train-cache-schema.md`](./docs/train-cache-schema.md) | 열차 기준정보 Redis 캐시 스키마와 Batch 적재 |
+| [`seat-conflict-validation.md`](./docs/seat-conflict-validation.md) | 좌석 충돌 방어 계층 (Validator → Lua 점유 → DB 재검증 → TTL) |
 | [`domain-model.md`](./docs/domain-model.md) | 엔티티 관계도, Booking Flow, 한국어 도메인 용어 |
 | [`testing-guide.md`](./docs/testing-guide.md) | Helper/Fixture 사용 예제와 `@ServiceTest` 상세 |
 | [`deployment.md`](./docs/deployment.md) | K8s, ArgoCD, Docker, CI/CD 배포 상세 |

@@ -102,7 +102,7 @@ public class SeatHoldRepository {
 		} catch (Exception e) {
 			log.error("[좌석 Hold 스크립트 오류] trainScheduleId={}, seatId={}, error={}",
 				trainScheduleId, seatId, e.getMessage(), e);
-			throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
 		}
 	}
 
@@ -151,7 +151,7 @@ public class SeatHoldRepository {
 		} catch (Exception e) {
 			log.error("[좌석 Hold 해제 오류] trainScheduleId={}, seatId={}, error={}",
 				trainScheduleId, seatId, e.getMessage(), e);
-			throw new BusinessException(BookingError.SEAT_HOLD_RELEASE_FAILED);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_RELEASE_FAILED);
 		}
 	}
 
@@ -312,7 +312,7 @@ public class SeatHoldRepository {
 		int colonIndex = member.indexOf(':');
 		if (colonIndex <= 0 || colonIndex == member.length() - 1) {
 			log.error("[TrainCar Hold Index 멤버 파싱 오류] 잘못된 포맷. member={}", member);
-			throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
 		}
 		return colonIndex;
 	}

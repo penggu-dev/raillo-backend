@@ -35,11 +35,11 @@ Spring Boot 4.1 + Java 25 + DDD. Gradle multi-module 구조.
 ### 도메인
 
 - `auth` — JWT 인증, 이메일 인증, 토큰 관리
-- `booking` — Pending bookings, 좌석 예약, 승차권
+- `booking` — 예약(Reservation, Redis), 예매(Booking), 승차권.
 - `member` — 사용자, 회원번호 생성. 만료 회원 Spring Batch Job은 `raillo-batch`에 위치
 - `payment` — Toss Payments, 환불
 - `train` — 열차 스케줄, 역, 운임, 좌석 가용성
-- `order` — 결제 단위로 PendingBooking들을 묶음
+- `order` — 결제 단위로 예약들을 묶음
 - `global` — 실행 앱 인프라 (config, Redis 유틸 등)
 
 ### Package Structure
@@ -127,13 +127,12 @@ public enum BookingError implements ErrorCode {
 
 > **헥사고날 전환 도메인 예외**: `application/required/{Domain}Repository` port가 있는 도메인(현재 `payment`)에서는 "Repository" 이름을 port에 예약한다. QueryDSL projection 구현체는 `*QueryDao`로 두고 `adapter/persistence/`에 둔다 (Repository ≠ 쿼리 실행자). Spring Data 인터페이스는 `*JpaRepository`로 유지.
 
-**Redis Repository Pattern** — `RedisTemplate<String, Object>`, TTL은 `@Value`로 주입. 커서 순회는 `ScanOptions`.
+**Redis Repository Pattern** — 새 코드는 `StringRedisTemplate` + `RedisJsonConverter`(평문 JSON, `@class` 없음). `customStringRedisTemplate`은 hash serializer가 JDK 직렬화라 Hash에 쓰지 않는다. TTL은 `@Value`로 주입. 커서 순회는 `ScanOptions`.
 
 **Redis Lua Scripts** — 좌석 동시 선점 충돌 방지. 스크립트는 `raillo-api/src/main/resources/scripts/`:
-- `seat_hold.lua` / `seat_release.lua` / `get_hold_seats_count.lua`
+- `reservation_create.lua` — 예약 생성. 객차 점유 Hash 검사 + 점유 + 예약 저장을 원자적으로 처리 → [docs/reservation-cache-schema.md](./docs/reservation-cache-schema.md)
 - Lua 스크립트 Bean은 `booking/infrastructure/config/RedisScriptConfig`가 등록
-- 상세 흐름, Hold Index, Lazy Cleanup, Train Search 통합 → [docs/seat-hold-architecture.md](./docs/seat-hold-architecture.md)
-- 4-Layer 좌석 충돌 방어 → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
+- 좌석 충돌 방어 계층 → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
 
 ## Coding Rules
 
@@ -168,16 +167,17 @@ public enum BookingError implements ErrorCode {
 
 ### Korean Terminology
 
-예약 = PendingBooking, 예매 = Booking, 승차권 = Ticket, 객차 = TrainCar, 정차역 = ScheduleStop
+예약 = Reservation, 예매 = Booking, 승차권 = Ticket, 객차 = TrainCar, 정차역 = ScheduleStop
 
 ## Testing
 
 테스트 작성/수정은 **`/test` skill**을 사용한다. 컨벤션과 워크플로우 전체가 skill에 포함되어 있다.
 
-- 환경: Testcontainers **MySQL 8.4.10 + Redis 7.4** (운영과 동일 버전, 실행에 Docker 필요), 통합 테스트는 `@ServiceTest`
+- 환경: Testcontainers **MySQL 8.4.10 + Valkey 9** (운영과 동일 버전, 실행에 Docker 필요), 통합 테스트는 `@ServiceTest`
 - 컨테이너는 `TestContainerInitializer`가 JVM당 한 번 기동한다.
 - `@SpringBootTest`를 직접 쓰는 테스트는 `@ContextConfiguration(initializers = TestContainerInitializer.class)`를 함께 붙여야 한다
 - ⚠️ **테스트 메서드 `@Transactional` 절대 금지** — `@ServiceTest`의 cleanup(`DatabaseCleanupExtension`, `RedisCleanupExtension`)을 우회한다
+- 예약 생성 경로 테스트는 `TrainCacheTestHelper.seed()`로 기준정보 캐시를 먼저 적재한다
 - 상세 컨벤션 → `.agents/skills/test/SKILL.md` / Helper 빌더 예제 → [docs/testing-guide.md](./docs/testing-guide.md)
 
 ## Technology Stack
@@ -205,14 +205,14 @@ Java 25, Spring Boot 4.1.0, MySQL, Redis, Testcontainers, QueryDSL 5.1.0, JWT, S
 
 - **테스트 작성/수정 시** → **`/test` skill 호출**. 자동 호출 안 됐다면 명시적으로 `/test <대상>` 실행. 상세 예제는 [docs/testing-guide.md](./docs/testing-guide.md).
 
-- **Lua 스크립트 / 좌석 동시성 작업 시** → [docs/seat-hold-architecture.md](./docs/seat-hold-architecture.md)
-  핵심: 원자성 보장, Lazy Cleanup 패턴, Hold Index 3종 키 동시 갱신 (`hold:pendingId`, `holds`, `holding-seats`), `RedisScriptConfig` Bean 등록.
+- **예약 생성 / 좌석 점유 / Lua 작업 시** → [docs/reservation-cache-schema.md](./docs/reservation-cache-schema.md)
+  핵심: 키·값 계약은 `raillo-domain`의 `booking/cache`가 단일 원본. 점유 Hash field `{seatId}:{sectionIndex}` → `R:{reservationId}`(예약)/`B:{bookingId}`(예매). 회원 인덱스를 Lua보다 먼저 쓰고 실패 시 HDEL. 예약 field 만료는 HEXPIRE(Valkey 9).
 
 - **기준정보 캐시 적재/조회 작업 시** → [docs/train-cache-schema.md](./docs/train-cache-schema.md)
   핵심: 키 포맷과 값 타입은 `raillo-domain`의 `train/cache` 패키지가 단일 원본. 운행 키 만료는 운행일 기준 절대 시각(`EXPIREAT`)이며 상대 TTL 금지. 값에 Java 타입 메타데이터(`@class`)를 넣지 않는다.
 
 - **좌석 충돌 검증 로직 변경 시** → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
-  핵심: 4-Layer 방어 (Lua → SQL Fail Fast → SQL Re-validation → TTL Expiry) 영향 범위 모두 검토.
+  핵심: Validator → Lua 점유(H/B) → 결제 준비 DB 재검증 → TTL. 영향 범위 모두 검토.
 
 - **에러 코드 추가/변경 시** → [docs/error-code-convention.md](./docs/error-code-convention.md)
   핵심: `{DOMAIN}_{NNN}` 형식, 도메인별 카테고리 밴드(백의 자리), 새 코드 추가 절차.

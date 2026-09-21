@@ -206,7 +206,7 @@ public class SeatHoldService {
 				arrivalStopOrder
 			);
 			log.error("[다중 좌석 Hold 오류] trainScheduleId={}, error={}", trainScheduleId, e.getMessage(), e);
-			throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
 		}
 	}
 
@@ -229,10 +229,10 @@ public class SeatHoldService {
 	}
 
 	private void throwConflictException(SeatHoldResult result) {
-		if (result.isConflictWithHold()) {
-			throw new BusinessException(BookingError.SEAT_CONFLICT_WITH_HOLD);
+		if (result.isConflictWithReservation()) {
+			throw new BusinessException(BookingError.SEAT_CONFLICT_WITH_RESERVATION);
 		} else {
-			throw new BusinessException(BookingError.SEAT_HOLD_SCRIPT_ERROR);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
 		}
 	}
 }
