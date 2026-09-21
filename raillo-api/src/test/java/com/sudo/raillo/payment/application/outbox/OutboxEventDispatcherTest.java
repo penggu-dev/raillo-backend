@@ -1,7 +1,6 @@
 package com.sudo.raillo.payment.application.outbox;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 
 import com.sudo.raillo.payment.domain.PaymentOutboxType;
 import java.util.List;
