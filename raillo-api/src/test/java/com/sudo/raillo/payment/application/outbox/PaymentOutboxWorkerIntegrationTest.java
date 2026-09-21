@@ -11,6 +11,7 @@ import com.sudo.raillo.payment.domain.PaymentOutbox;
 import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
 import com.sudo.raillo.payment.domain.PaymentOutboxType;
 import com.sudo.raillo.support.annotation.ServiceTest;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,9 @@ class PaymentOutboxWorkerIntegrationTest {
 
 	@Autowired
 	private OutboxProperties properties;
+
+	@Autowired
+	private MeterRegistry meterRegistry;
 
 	@MockitoBean
 	private OutboxEventDispatcher dispatcher;
@@ -94,6 +98,36 @@ class PaymentOutboxWorkerIntegrationTest {
 		PaymentOutbox reloaded = outboxRepository.findById(row.getId()).orElseThrow();
 		assertThat(reloaded.getStatus()).isEqualTo(PaymentOutboxStatus.FAILED);
 		assertThat(reloaded.getProcessedAt()).isNotNull();
+	}
+
+	@Test
+	@DisplayName("일시 실패 시 payment.cleanup.failure 카운터가 증가한다")
+	void poll_transientFailure_incrementsCleanupFailureCounter() {
+		double before = meterRegistry.counter("payment.cleanup.failure").count();
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(5L, "k-metric-retry", "{}"));
+		doThrow(new RuntimeException("boom"))
+			.when(dispatcher).dispatch(any(), any());
+
+		worker.poll();
+
+		assertThat(meterRegistry.counter("payment.cleanup.failure").count()).isEqualTo(before + 1);
+	}
+
+	@Test
+	@DisplayName("최대 재시도 초과 시 payment.outbox.failed 카운터가 증가한다")
+	void poll_exhaustedRetries_incrementsOutboxFailedCounter() {
+		double before = meterRegistry.counter("payment.outbox.failed").count();
+		PaymentOutbox row = outboxRepository.save(PaymentOutbox.forBookingConfirmed(6L, "k-metric-fail", "{}"));
+		for (int i = 0; i < properties.maxRetries() - 1; i++) {
+			row.markRetry(LocalDateTime.now().minusSeconds(1));
+			row = outboxRepository.save(row);
+		}
+		doThrow(new RuntimeException("boom"))
+			.when(dispatcher).dispatch(any(), any());
+
+		worker.poll();
+
+		assertThat(meterRegistry.counter("payment.outbox.failed").count()).isEqualTo(before + 1);
 	}
 
 	@Test

@@ -50,4 +50,6 @@ public interface PaymentOutboxJpaRepository extends JpaRepository<PaymentOutbox,
 		@Param("now") LocalDateTime now,
 		Limit limit
 	);
+
+	long countByStatus(PaymentOutboxStatus status);
 }
