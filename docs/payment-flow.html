@@ -1,0 +1,684 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Raillo 결제 승인 흐름</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --bg: #F3F4F7;
+    --surface: #FFFFFF;
+    --surface-2: #F7F8FA;
+    --faint: #ECEFF3;
+    --ink: #18212B;
+    --muted: #5B6673;
+    --line: #D8DDE4;
+    --line-strong: #A9B3BE;
+    --res: #4F4BC9;
+    --res-soft: #EDECFB;
+    --res-line: #BAB7EE;
+    --on-res: #FFFFFF;
+    --book: #22804E;
+    --book-soft: #E3F3E9;
+    --book-line: #9AD0B0;
+    --warn: #C2410C;
+    --warn-soft: #FDEEE4;
+    --plan: #9A640A;
+    --plan-soft: #FBF4E3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1319;
+      --surface: #151B23;
+      --surface-2: #1A212B;
+      --faint: #222B36;
+      --ink: #E3E8EE;
+      --muted: #98A3B0;
+      --line: #2B3541;
+      --line-strong: #4A5666;
+      --res: #A09CF6;
+      --res-soft: #23224A;
+      --res-line: #4A4790;
+      --on-res: #14142C;
+      --book: #64C690;
+      --book-soft: #15311F;
+      --book-line: #2A5A3B;
+      --warn: #F08A5D;
+      --warn-soft: #3A2016;
+      --plan: #E2B455;
+      --plan-soft: #2E2512;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1319;
+    --surface: #151B23;
+    --surface-2: #1A212B;
+    --faint: #222B36;
+    --ink: #E3E8EE;
+    --muted: #98A3B0;
+    --line: #2B3541;
+    --line-strong: #4A5666;
+    --res: #A09CF6;
+    --res-soft: #23224A;
+    --res-line: #4A4790;
+    --on-res: #14142C;
+    --book: #64C690;
+    --book-soft: #15311F;
+    --book-line: #2A5A3B;
+    --warn: #F08A5D;
+    --warn-soft: #3A2016;
+    --plan: #E2B455;
+    --plan-soft: #2E2512;
+  }
+
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.65; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding-inline: 20px; padding-block: 44px 72px; display: grid; gap: 56px; }
+  .top { display: grid; gap: 14px; }
+  .eyebrow { margin: 0; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; color: var(--muted); }
+  h1 { margin: 0; font-size: clamp(28px, 4vw, 38px); line-height: 1.2; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
+  h2 { margin: 0; font-size: 22px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+  p { margin: 0; }
+  .lead { font-size: 16.5px; color: var(--ink); }
+  .terms { color: var(--res); font-weight: 600; }
+  .terms-b { color: var(--book); font-weight: 600; }
+  .terms-w { color: var(--warn); font-weight: 600; }
+  code, .k { font-family: var(--mono); font-size: 0.88em; background: var(--faint); padding: 0.08em 0.36em; border-radius: 4px; }
+
+  .facts { margin: 6px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .facts div { padding: 12px 16px 12px 0; }
+  .facts dt { font-size: 12px; color: var(--muted); letter-spacing: 0.02em; }
+  .facts dd { margin: 2px 0 0; font-family: var(--mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  section { display: grid; gap: 18px; }
+  figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 14px; }
+  .scroll { overflow-x: auto; }
+  figcaption { font-size: 13.5px; color: var(--muted); }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--surface-2); letter-spacing: 0.02em; }
+  tr:last-child td { border-bottom: 0; }
+  .st-code { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+  .st4 { color: var(--muted); }
+  .st200 { color: var(--book); font-weight: 600; }
+  .st402 { color: var(--warn); font-weight: 600; }
+  .st409 { color: var(--warn); font-weight: 600; }
+  .st503 { color: var(--plan); font-weight: 600; }
+
+  .callout { border: 1px solid var(--plan); background: var(--plan-soft); border-radius: 12px; padding: 14px 18px; font-size: 14px; display: grid; gap: 4px; }
+  .callout strong { color: var(--plan); font-weight: 700; }
+  .callout-r { border-color: var(--res); background: var(--res-soft); }
+  .callout-r strong { color: var(--res); }
+  .callout-b { border-color: var(--book); background: var(--book-soft); }
+  .callout-b strong { color: var(--book); }
+  .callout-w { border-color: var(--warn); background: var(--warn-soft); }
+  .callout-w strong { color: var(--warn); }
+
+  h3 { margin: 10px 0 0; font-size: 17px; line-height: 1.4; font-weight: 700; letter-spacing: -0.005em; }
+  .term-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); }
+  .term { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: grid; align-content: start; }
+  .term-h { padding: 9px 14px; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line); }
+  .term pre { margin: 0; padding: 14px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.75; color: var(--ink); }
+  .term .cm { color: var(--muted); }
+  .term .cmd { font-weight: 600; }
+  .term .ky { color: var(--res); }
+  .term .rv { color: var(--res); }
+  .term .ok { color: var(--book); font-weight: 600; }
+  .term .ng { color: var(--warn); font-weight: 600; }
+
+  .rules { margin: 0; padding-left: 1.1em; display: grid; gap: 8px; font-size: 14px; }
+  .rules b { font-weight: 600; }
+  .note-line { font-size: 13px; color: var(--muted); }
+
+  .dg { display: block; width: 100%; min-width: 820px; height: auto; }
+  .dg text { font-family: var(--sans); font-size: 12px; fill: var(--ink); }
+  .dg .mono { font-family: var(--mono); font-size: 11px; }
+  .dg .b { font-weight: 600; }
+  .dg .xb { font-weight: 700; font-size: 15px; }
+  .dg .sm { font-size: 11px; }
+  .dg .mu { fill: var(--muted); }
+  .dg .c-res { fill: var(--res); }
+  .dg .c-book { fill: var(--book); }
+  .dg .c-warn { fill: var(--warn); }
+  .dg .c-plan { fill: var(--plan); }
+  .dg .halo { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .dg .mk-ink { fill: var(--ink); }
+  .dg .mk-mu { fill: var(--muted); }
+  .dg .mk-res { fill: var(--res); }
+  .dg .mk-book { fill: var(--book); }
+  .dg .mk-warn { fill: var(--warn); }
+  .dg .mk-plan { fill: var(--plan); }
+  .dg .head { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1.2; }
+  .dg .head-res { fill: var(--res-soft); stroke: var(--res); stroke-width: 1.4; }
+  .dg .head-book { fill: var(--book-soft); stroke: var(--book); stroke-width: 1.4; }
+  .dg .head-warn { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.4; }
+  .dg .life { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 4 4; }
+  .dg .msg { stroke: var(--ink); stroke-width: 1.4; fill: none; }
+  .dg .ret { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 5 4; fill: none; }
+  .dg .msg-w { stroke: var(--warn); stroke-width: 1.6; fill: none; }
+  .dg .msg-b { stroke: var(--book); stroke-width: 1.6; fill: none; }
+  .dg .note { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1; }
+  .dg .note-r { fill: var(--res-soft); stroke: var(--res); stroke-width: 1.2; }
+  .dg .note-b { fill: var(--book-soft); stroke: var(--book); stroke-width: 1.2; }
+  .dg .note-w { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.2; }
+  .dg .note-p { fill: var(--plan-soft); stroke: var(--plan); stroke-width: 1.2; }
+  .dg .alt { fill: none; stroke: var(--warn); stroke-width: 1.2; stroke-dasharray: 6 4; }
+  .dg .alt-tab { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.2; }
+  .dg .st { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1.4; }
+  .dg .st-res { fill: var(--res-soft); stroke: var(--res); stroke-width: 1.6; }
+  .dg .st-book { fill: var(--book-soft); stroke: var(--book); stroke-width: 1.6; }
+  .dg .st-warn { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.6; }
+  .dg .st-plan { fill: var(--plan-soft); stroke: var(--plan); stroke-width: 1.6; }
+  .dg .e-book { stroke: var(--book); stroke-width: 1.8; fill: none; }
+  .dg .e-warn { stroke: var(--warn); stroke-width: 1.6; fill: none; }
+  .dg .e-plan { stroke: var(--plan); stroke-width: 1.6; stroke-dasharray: 7 5; fill: none; }
+  .dg .row { fill: var(--surface); stroke: var(--line); }
+  .dg .row-book { fill: var(--book-soft); stroke: var(--book-line); }
+</style>
+
+<main class="wrap">
+  <header class="top">
+    <p class="eyebrow">raillo-backend · #266 · feature/266-payment-outbox-worker</p>
+    <h1>결제 승인 흐름</h1>
+    <p class="lead"><code>Payment</code> 승인은 세 단계로 나뉜다. <span class="terms">1단계 승인 시작</span>, 2단계 Toss 호출, <span class="terms-b">3단계 승인 확정</span>. 실제 DB 트랜잭션은 <b>TX A</b>(1단계 안의 짧은 <code>REQUIRES_NEW</code>)와 <b>TX B</b>(3단계 전체) 두 개이며 Toss 호출은 트랜잭션 밖에서 실행된다. Toss 승인 실패는 예약과 <code>Payment</code> 상태에 영향을 주지 않고 실패한 <code>PaymentAttempt</code>만 남긴다. <code>Payment.paymentKey</code>는 승인 확정 시에만 저장한다.</p>
+    <dl class="facts">
+      <div><dt>Confirm 트랜잭션</dt><dd>2 (TX A, TX B)</dd></div>
+      <div><dt>Toss 호출 위치</dt><dd>DB tx 밖</dd></div>
+      <div><dt>attemptId 파생</dt><dd>SHA256(apv:paymentKey)</dd></div>
+      <div><dt>실패 시 Payment</dt><dd>PENDING 유지</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <h2>결제 도메인 상태 계층</h2>
+    <p>Toss 승인 실패는 예약과 <code>Payment</code> 상태에 영향을 주지 않는다. 실패한 <code>PaymentAttempt</code>만 <code>FAILED</code>로 마킹하고 <code>Payment</code>는 <code>PENDING</code>을 유지한다. 같은 <code>Payment</code> 위에 새 <code>PaymentAttempt</code>를 얹어 재시도할 수 있다. 예약의 회수는 예약 TTL(10분) 만료 또는 유저 명시 취소 시점에만 일어난다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>도메인</th><th>실패 시 상태 전이</th><th>paymentKey 소유</th></tr></thead>
+        <tbody>
+          <tr><td><b>Reservation</b><br><span class="note-line">임시 좌석 점유 · Redis</span></td><td>그대로 (TTL/유저 취소만 회수)</td><td>—</td></tr>
+          <tr><td><b>Order</b><br><span class="note-line">결제 대상 주문</span></td><td>그대로 (<code>PENDING</code> 유지)</td><td>—</td></tr>
+          <tr><td><b>Payment</b><br><span class="note-line"><code>Order</code>의 결제 세션</span></td><td>그대로 (<code>PENDING</code> 유지)</td><td>승인 확정 시 저장</td></tr>
+          <tr><td><b>PaymentAttempt</b><br><span class="note-line">결제창당 한 번의 시도</span></td><td><code>FAILED</code> 마킹</td><td>시도마다 자기 paymentKey (TX A에서 사전 저장)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <aside class="callout callout-r">
+      <strong>재시도 가능한 실패 허용</strong>
+      <p>카드 승인 거절, 한도 초과 등 재시도 여지가 있는 실패에서도 유저가 다른 카드로 재시도할 수 있어야 한다. 승인 성공/실패는 <code>PaymentAttempt</code> 단위의 이벤트이며 <code>Payment</code>와 예약의 소유권을 결정하지 않는다. 좌석 회수는 예약 TTL이라는 시간 제약으로 충분하고, 결제 시점의 별도 좌석 잠금 계층은 두지 않는다.</p>
+    </aside>
+  </section>
+
+  <section>
+    <h2>결제 승인 3단계</h2>
+    <p>결제 승인 요청(<code>POST /api/payments/confirm</code>)은 세 단계로 나뉜다. <b>1단계 (승인 시작)</b>는 <code>PaymentApprovalStarter.start()</code>가 조회·검증을 tx 없이 수행한 뒤, 그 끝에서 <code>PaymentAttemptManager.startApprovalInNewTransaction()</code>을 <code>REQUIRES_NEW</code>로 짧게 열어 <code>PaymentAttempt</code>를 <code>IN_PROGRESS</code>로 커밋한다(이것이 <b>TX A</b>). <b>2단계 (Toss 호출)</b>는 DB 트랜잭션 밖에서 이뤄진다. <b>3단계 (승인 확정)</b>는 <code>PaymentApprovalFinalizer.finalizeApproval()</code> 메서드 전체가 하나의 <code>@Transactional</code>이며, 승인 결과를 <code>Payment</code>·<code>PaymentAttempt</code>·<code>Order</code>·<code>Booking</code>·<code>Outbox</code>에 한 번에 커밋한다(이것이 <b>TX B</b>).</p>
+
+    <figure>
+      <div class="scroll">
+        <svg class="dg" viewBox="0 0 1000 900" role="img" aria-label="결제 승인 3단계 시퀀스">
+          <defs>
+            <marker id="c1-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-ink"/></marker>
+            <marker id="c1-mu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-mu"/></marker>
+            <marker id="c1-book" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-book"/></marker>
+          </defs>
+
+          <rect class="head" x="30" y="16" width="120" height="48" rx="8"/>
+          <text x="90" y="45" text-anchor="middle" class="b">프론트</text>
+          <rect class="head" x="230" y="16" width="220" height="48" rx="8"/>
+          <text x="340" y="37" text-anchor="middle" class="mono b">PaymentConfirmService</text>
+          <text x="340" y="54" text-anchor="middle" class="sm mu">Starter → Toss → Finalizer</text>
+          <rect class="head-book" x="530" y="16" width="180" height="48" rx="8"/>
+          <text x="620" y="37" text-anchor="middle" class="b">MySQL</text>
+          <text x="620" y="54" text-anchor="middle" class="sm mu">Payment · Attempt · Order · Outbox</text>
+          <rect class="head-warn" x="800" y="16" width="160" height="48" rx="8"/>
+          <text x="880" y="37" text-anchor="middle" class="b">Toss</text>
+          <text x="880" y="54" text-anchor="middle" class="sm mu">PG 게이트웨이</text>
+
+          <line class="life" x1="90" y1="64" x2="90" y2="890"/>
+          <line class="life" x1="340" y1="64" x2="340" y2="890"/>
+          <line class="life" x1="620" y1="64" x2="620" y2="890"/>
+          <line class="life" x1="880" y1="64" x2="880" y2="890"/>
+
+          <line class="msg" x1="90" y1="104" x2="338" y2="104" marker-end="url(#c1-ink)"/>
+          <text x="215" y="96" text-anchor="middle" class="mono">POST /api/payments/confirm</text>
+          <text x="215" y="122" text-anchor="middle" class="sm mu">paymentKey · orderId · amount</text>
+
+          <rect class="note" x="220" y="138" width="240" height="58" rx="6"/>
+          <text x="340" y="156" text-anchor="middle" class="b">attemptId 파생</text>
+          <text x="340" y="173" text-anchor="middle" class="mono sm">SHA256("apv:" + paymentKey)</text>
+          <text x="340" y="188" text-anchor="middle" class="sm mu">한 결제창 세션 = 한 attemptId</text>
+
+          <line class="msg" x1="340" y1="234" x2="618" y2="234" marker-end="url(#c1-ink)"/>
+          <text x="479" y="226" text-anchor="middle" class="mono halo">findByAttemptId(attemptId)</text>
+          <line class="ret" x1="620" y1="262" x2="342" y2="262" marker-end="url(#c1-mu)"/>
+          <text x="479" y="255" text-anchor="middle" class="sm mu halo">없음 → 신규 승인 진행 (아래) · 있으면 상태별 분기 (표 참고)</text>
+
+          <rect class="note" x="220" y="282" width="240" height="72" rx="6"/>
+          <text x="340" y="300" text-anchor="middle" class="b">검증</text>
+          <text x="340" y="317" text-anchor="middle" class="sm mu">Order · Payment 조회 · 소유자 검증</text>
+          <text x="340" y="332" text-anchor="middle" class="sm mu">Payment PENDING 여부 확인</text>
+          <text x="340" y="347" text-anchor="middle" class="sm mu">금액 일치 · 중복 결제 방지</text>
+
+          <rect class="alt-tab" x="90" y="380" width="220" height="22" rx="4"/>
+          <text x="200" y="395" text-anchor="middle" class="sm b c-warn">TX A (PaymentAttempt 등록)</text>
+          <rect class="alt" x="90" y="380" width="820" height="70" rx="6"/>
+
+          <line class="msg-w" x1="340" y1="422" x2="618" y2="422" marker-end="url(#c1-ink)"/>
+          <text x="479" y="415" text-anchor="middle" class="halo">PaymentAttempt 저장 (IN_PROGRESS · paymentKey 사전 저장)</text>
+          <line class="ret" x1="620" y1="442" x2="342" y2="442" marker-end="url(#c1-mu)"/>
+          <text x="479" y="437" text-anchor="middle" class="sm mu halo">커밋 완료 → 이후 Toss 상태를 조회할 근거로 남는다</text>
+
+          <line class="msg" x1="340" y1="510" x2="878" y2="510" marker-end="url(#c1-ink)"/>
+          <text x="609" y="484" text-anchor="middle" class="b halo">Toss 승인 요청 (DB tx 밖)</text>
+          <text x="609" y="502" text-anchor="middle" class="mono halo">POST /v1/payments/confirm</text>
+
+          <rect class="note-w" x="710" y="524" width="240" height="58" rx="6"/>
+          <text x="830" y="542" text-anchor="middle" class="sm b c-warn">응답 분기</text>
+          <text x="830" y="558" text-anchor="middle" class="sm mu">2xx → 아래 TX B</text>
+          <text x="830" y="573" text-anchor="middle" class="sm mu">4xx / 5xx → 실패 케이스 (다음 절)</text>
+
+          <line class="ret" x1="880" y1="614" x2="342" y2="614" marker-end="url(#c1-mu)"/>
+          <text x="609" y="607" text-anchor="middle" class="mono halo">2xx { paymentKey, method, totalAmount, ... }</text>
+
+          <rect class="alt-tab" x="90" y="642" width="220" height="22" rx="4"/>
+          <text x="200" y="657" text-anchor="middle" class="sm b c-book">TX B (Payment 승인 확정 커밋)</text>
+          <rect class="alt" x="90" y="642" width="820" height="192" rx="6" stroke="var(--book)"/>
+
+          <line class="msg-b" x1="340" y1="694" x2="618" y2="694" marker-end="url(#c1-book)"/>
+          <text x="479" y="686" text-anchor="middle" class="b halo c-book">Payment 승인 · paymentKey 저장</text>
+          <line class="msg-b" x1="340" y1="720" x2="618" y2="720" marker-end="url(#c1-book)"/>
+          <text x="479" y="713" text-anchor="middle" class="b halo c-book">PaymentAttempt 성공 마킹</text>
+          <line class="msg-b" x1="340" y1="746" x2="618" y2="746" marker-end="url(#c1-book)"/>
+          <text x="479" y="739" text-anchor="middle" class="b halo c-book">Order 확정 (PENDING → ORDERED)</text>
+          <line class="msg-b" x1="340" y1="772" x2="618" y2="772" marker-end="url(#c1-book)"/>
+          <text x="479" y="765" text-anchor="middle" class="b halo c-book">Booking · SeatBooking · Ticket 생성</text>
+          <line class="msg-b" x1="340" y1="798" x2="618" y2="798" marker-end="url(#c1-book)"/>
+          <text x="479" y="791" text-anchor="middle" class="b halo c-book">아웃박스 이벤트 저장 (BOOKING_CONFIRMED · PENDING)</text>
+          <line class="ret" x1="620" y1="824" x2="342" y2="824" marker-end="url(#c1-mu)"/>
+          <text x="479" y="817" text-anchor="middle" class="sm mu halo">한 번에 커밋</text>
+
+          <line class="ret" x1="340" y1="874" x2="92" y2="874" marker-end="url(#c1-mu)"/>
+          <text x="215" y="867" text-anchor="middle" class="mono halo">200 { paymentId, orderCode, amount, ... }</text>
+        </svg>
+      </div>
+      <figcaption>TX A(<code>PaymentAttempt</code> 등록)와 TX B(승인 확정 커밋) 사이에 Toss 호출이 있어 DB 트랜잭션이 잠기지 않는다. 두 시점 사이 프로세스가 종료되거나 응답이 유실되어도 recovery가 가능하다 — <code>PaymentAttempt.payment_key</code>가 TX A 시점에 이미 저장되어 있으므로 Toss 상태를 조회할 수 있다. TX B는 여러 도메인 상태 전이를 한 원자 커밋으로 묶어 부분 성공이 발생하지 않는다.</figcaption>
+    </figure>
+
+    <div class="term-grid">
+      <div class="term">
+        <div class="term-h">TX A 커밋 항목</div>
+<pre><span class="cm"># PaymentAttemptManager.startApprovalInNewTransaction()</span>
+<span class="cmd">INSERT INTO</span> payment_attempt (
+  payment_id, attempt_id, attempt_type,
+  status, payment_key
+) <span class="cmd">VALUES</span> (
+  ?, <span class="rv">'&lt;SHA256 파생&gt;'</span>, <span class="rv">'APPROVAL'</span>,
+  <span class="rv">'IN_PROGRESS'</span>, <span class="rv">?</span>
+);
+<span class="cm"># attempt_id는 unique 제약 → 같은 세션 재요청은 DB에서 dedup</span></pre>
+      </div>
+      <div class="term">
+        <div class="term-h">TX B 커밋 항목</div>
+<pre><span class="cm"># PaymentApprovalFinalizer.finalizeApproval()</span>
+<span class="cmd">UPDATE</span> payment <span class="cmd">SET</span> status = <span class="ok">'PAID'</span>,
+  payment_method = ?, payment_key = ?, paid_at = <span class="cmd">NOW</span>();
+<span class="cmd">UPDATE</span> payment_attempt <span class="cmd">SET</span> status = <span class="ok">'SUCCEEDED'</span>;
+<span class="cmd">UPDATE</span> `order` <span class="cmd">SET</span> status = <span class="ok">'ORDERED'</span>;
+<span class="cmd">INSERT INTO</span> booking, seat_booking, ticket ...;
+<span class="cmd">INSERT INTO</span> payment_outbox (
+  type, deduplication_key, payload, status
+) <span class="cmd">VALUES</span> (
+  <span class="rv">'BOOKING_CONFIRMED'</span>, <span class="rv">'payment:{id}:booking-confirmed'</span>,
+  <span class="rv">'{...}'</span>, <span class="rv">'PENDING'</span>
+);</pre>
+      </div>
+    </div>
+
+    <aside class="callout callout-b">
+      <strong>후속 처리 R → B (예약 → 예매 좌석 field 전환)</strong>
+      <p>아웃박스의 <code>BOOKING_CONFIRMED</code> 이벤트는 Redis 좌석 field를 <code>R:reservationId</code>(예약)에서 <code>B:bookingId</code>(예매)로 전환하는 후속 처리에 사용된다. 이번 브랜치에서는 처리기가 미등록 상태로 이벤트는 <code>PENDING</code>으로 보존되고, 후속 PR에서 처리기를 활성화한다. 사용자 응답은 이 후속 처리를 기다리지 않는다.</p>
+    </aside>
+  </section>
+
+  <section>
+    <h2>Toss 응답별 분기</h2>
+    <p>Toss는 세 종류로 응답한다. <b>2xx</b>는 성공 확정, <b>4xx</b>는 명확한 실패, <b>5xx/타임아웃</b>은 결과 불명이다. 각 응답은 서로 다른 처리 경로를 탄다.</p>
+
+    <figure>
+      <div class="scroll">
+        <svg class="dg" viewBox="0 0 1000 300" role="img" aria-label="Toss 응답별 분기">
+          <defs>
+            <marker id="d1-book" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-book"/></marker>
+            <marker id="d1-warn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-warn"/></marker>
+            <marker id="d1-plan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-plan"/></marker>
+          </defs>
+
+          <rect class="st" x="380" y="20" width="240" height="56" rx="10"/>
+          <text x="500" y="43" text-anchor="middle" class="b">Toss confirm 응답</text>
+          <text x="500" y="62" text-anchor="middle" class="sm mu">2xx · 4xx (definitive) · 5xx/timeout</text>
+
+          <path class="e-book" d="M 440 76 L 200 130" marker-end="url(#d1-book)"/>
+          <text x="290" y="102" text-anchor="middle" class="sm b c-book halo">2xx 성공</text>
+          <path class="e-warn" d="M 500 76 L 500 130" marker-end="url(#d1-warn)"/>
+          <text x="530" y="108" class="sm b c-warn">4xx</text>
+          <text x="530" y="122" class="sm mu">isDefinitiveFailure=true</text>
+          <path class="e-plan" d="M 560 76 L 800 130" marker-end="url(#d1-plan)"/>
+          <text x="720" y="102" text-anchor="middle" class="sm b c-plan halo">5xx / timeout</text>
+
+          <rect class="st-book" x="60" y="140" width="280" height="140" rx="10"/>
+          <text x="200" y="163" text-anchor="middle" class="b c-book">TX B (Payment 승인 확정)</text>
+          <text x="200" y="182" text-anchor="middle" class="sm mu">Payment 승인 · paymentKey 저장</text>
+          <text x="200" y="199" text-anchor="middle" class="sm mu">PaymentAttempt 성공 마킹</text>
+          <text x="200" y="216" text-anchor="middle" class="sm mu">Order 확정 · Booking · Ticket 생성</text>
+          <text x="200" y="233" text-anchor="middle" class="sm mu">아웃박스 이벤트 저장</text>
+          <text x="200" y="268" text-anchor="middle" class="mono b c-book">200 결제 완료</text>
+
+          <rect class="st-warn" x="360" y="140" width="280" height="140" rx="10"/>
+          <text x="500" y="163" text-anchor="middle" class="b c-warn">PaymentAttempt 실패 마킹</text>
+          <text x="500" y="182" text-anchor="middle" class="sm mu">error_code · error_message 저장</text>
+          <text x="500" y="204" text-anchor="middle" class="b">Payment는 PENDING 유지</text>
+          <text x="500" y="221" text-anchor="middle" class="sm mu">예약 · 좌석 field 손대지 않음</text>
+          <text x="500" y="268" text-anchor="middle" class="mono b c-warn">402 결제 실패</text>
+
+          <rect class="st-plan" x="660" y="140" width="280" height="140" rx="10"/>
+          <text x="800" y="163" text-anchor="middle" class="b c-plan">PaymentAttempt IN_PROGRESS 유지</text>
+          <text x="800" y="182" text-anchor="middle" class="sm mu">Payment · 예약 · 좌석 손대지 않음</text>
+          <text x="800" y="204" text-anchor="middle" class="b">회복 경로로 위임</text>
+          <text x="800" y="221" text-anchor="middle" class="sm mu">유저 재시도 시 Toss GET 재조회</text>
+          <text x="800" y="238" text-anchor="middle" class="sm mu">Recovery Worker(#270) 배치 대사</text>
+          <text x="800" y="268" text-anchor="middle" class="mono b c-plan">503 결과 불명</text>
+        </svg>
+      </div>
+      <figcaption>4xx의 <code>isDefinitiveFailure</code>는 카드 거절·유효기간 만료 등 재조회해도 결과가 바뀌지 않는 실패다. 5xx/타임아웃은 Toss 서버 문제나 네트워크 응답 유실이라 실제 승인 여부가 불분명하다. 이 경우 <code>PaymentAttempt</code>를 <code>IN_PROGRESS</code>로 남긴 채 즉시 <code>503</code>을 응답하고, 이후 회복 경로(다음 절)에서 실제 상태를 확인해 정정한다.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>IN_PROGRESS 회복 경로</h2>
+    <p>5xx/타임아웃으로 <code>IN_PROGRESS</code>로 남은 <code>PaymentAttempt</code>는 두 경로로 회복한다. <b>온라인</b>은 유저가 같은 결제창에서 재시도할 때 서버가 <code>attemptId</code> dedup으로 기존 시도를 찾아 Toss에 실제 상태를 조회하고 로컬을 정정한다. <b>배치</b>는 Recovery Worker(#270)가 유저 요청 없이 오래 남은 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>를 대사한다. 두 경로 모두 동일한 <code>GET /v1/payments/{paymentKey}</code>로 Toss 상태를 확인한다.</p>
+
+    <h3>온라인 회복 — 유저 재시도</h3>
+
+    <figure>
+      <div class="scroll">
+        <svg class="dg" viewBox="0 0 1000 460" role="img" aria-label="유저 재시도">
+          <defs>
+            <marker id="ur-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-ink"/></marker>
+            <marker id="ur-mu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-mu"/></marker>
+          </defs>
+
+          <rect class="head" x="30" y="16" width="110" height="44" rx="8"/>
+          <text x="85" y="43" text-anchor="middle" class="b">유저</text>
+          <rect class="head" x="200" y="16" width="120" height="44" rx="8"/>
+          <text x="260" y="43" text-anchor="middle" class="b">프론트</text>
+          <rect class="head" x="380" y="16" width="220" height="44" rx="8"/>
+          <text x="490" y="35" text-anchor="middle" class="mono b">PaymentApprovalStarter</text>
+          <text x="490" y="52" text-anchor="middle" class="sm mu">handleExistingAttempt</text>
+          <rect class="head-book" x="660" y="16" width="140" height="44" rx="8"/>
+          <text x="730" y="43" text-anchor="middle" class="b">MySQL</text>
+          <rect class="head-warn" x="840" y="16" width="130" height="44" rx="8"/>
+          <text x="905" y="43" text-anchor="middle" class="b">Toss</text>
+
+          <line class="life" x1="85" y1="60" x2="85" y2="450"/>
+          <line class="life" x1="260" y1="60" x2="260" y2="450"/>
+          <line class="life" x1="490" y1="60" x2="490" y2="450"/>
+          <line class="life" x1="730" y1="60" x2="730" y2="450"/>
+          <line class="life" x1="905" y1="60" x2="905" y2="450"/>
+
+          <line class="msg" x1="85" y1="94" x2="258" y2="94" marker-end="url(#ur-ink)"/>
+          <text x="172" y="86" text-anchor="middle" class="sm">재시도 클릭</text>
+          <text x="172" y="108" text-anchor="middle" class="sm mu">같은 결제창 · paymentKey 그대로</text>
+
+          <line class="msg" x1="260" y1="140" x2="488" y2="140" marker-end="url(#ur-ink)"/>
+          <text x="374" y="132" text-anchor="middle" class="mono halo">POST /confirm (같은 paymentKey)</text>
+
+          <line class="msg" x1="490" y1="180" x2="728" y2="180" marker-end="url(#ur-ink)"/>
+          <text x="609" y="172" text-anchor="middle" class="mono halo">findByAttemptId(SHA256(apv:paymentKey))</text>
+          <line class="ret" x1="730" y1="208" x2="492" y2="208" marker-end="url(#ur-mu)"/>
+          <text x="609" y="201" text-anchor="middle" class="sm b halo">IN_PROGRESS PaymentAttempt 발견</text>
+
+          <rect class="note-p" x="370" y="222" width="240" height="42" rx="6"/>
+          <text x="490" y="239" text-anchor="middle" class="sm b c-plan">Toss 상태 재조회 결정</text>
+          <text x="490" y="254" text-anchor="middle" class="sm mu">로컬 IN_PROGRESS는 실제 결과 확인 필요</text>
+
+          <line class="msg" x1="490" y1="290" x2="903" y2="290" marker-end="url(#ur-ink)"/>
+          <text x="696" y="282" text-anchor="middle" class="mono halo">GET /v1/payments/{paymentKey}</text>
+          <line class="ret" x1="905" y1="320" x2="492" y2="320" marker-end="url(#ur-mu)"/>
+          <text x="696" y="313" text-anchor="middle" class="b halo">확정 상태 응답</text>
+
+          <rect class="note" x="370" y="336" width="240" height="42" rx="6"/>
+          <text x="490" y="353" text-anchor="middle" class="b">상태 정정 후 응답</text>
+          <text x="490" y="368" text-anchor="middle" class="sm mu">DONE → TX B · ABORTED → FAILED · IN_PROGRESS → 안내</text>
+
+          <line class="ret" x1="490" y1="410" x2="262" y2="410" marker-end="url(#ur-mu)"/>
+          <text x="374" y="402" text-anchor="middle" class="mono halo">200 / 402 / 503</text>
+          <line class="ret" x1="260" y1="440" x2="88" y2="440" marker-end="url(#ur-mu)"/>
+        </svg>
+      </div>
+      <figcaption><code>attemptId</code>가 <code>paymentKey</code>에서 결정적으로 파생되므로 같은 결제창의 재요청은 자동으로 같은 <code>attemptId</code>로 매핑된다. DB의 unique 제약이 새 <code>PaymentAttempt</code> 생성을 막고, 서버는 기존 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>를 발견하면 Toss에 GET으로 실제 상태를 재조회해서 로컬 DB를 정정한 뒤 응답한다.</figcaption>
+    </figure>
+
+    <h3>배치 회복 — Recovery Worker (#270)</h3>
+    <p>유저 재요청이 없어도 오래 남은 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>는 Recovery Worker가 주기적으로 대사한다. 각 시도의 <code>payment_key</code>로 Toss에 <code>GET /v1/payments/{paymentKey}</code>를 호출하고, 응답 상태에 맞춰 로컬 <code>PaymentAttempt</code>와 <code>Payment</code>를 정정하거나 후속 아웃박스 이벤트를 발행한다. 이 워커의 폴링·리스·재시도 정책은 별도 이슈(#270)에서 다룬다.</p>
+
+    <h3>attemptId dedup 상태별 응답</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>상황</th><th>PaymentAttempt 상태</th><th>서버 동작</th><th>응답</th></tr></thead>
+        <tbody>
+          <tr><td>같은 attemptId 재요청</td><td class="st-code"><span class="st200">SUCCEEDED</span></td><td>이전 결과 재사용 (Toss 호출 없음)</td><td class="st-code"><span class="st200">200</span> 이전 결과</td></tr>
+          <tr><td>같은 attemptId 재요청</td><td class="st-code"><span class="st402">FAILED</span></td><td>이미 실패한 <code>PaymentAttempt</code>로 거절</td><td class="st-code"><span class="st402">400</span> PAYMENT_207</td></tr>
+          <tr><td>같은 attemptId 재요청</td><td class="st-code"><span class="st503">IN_PROGRESS</span></td><td>Toss GET 재조회 후 정정</td><td class="st-code"><span class="st200">200</span>/<span class="st402">402</span>/<span class="st503">503</span></td></tr>
+          <tr><td>다른 paymentKey (새 결제창)</td><td>—</td><td>새 <code>PaymentAttempt</code> 생성 · 같은 <code>Payment</code> 위에</td><td class="st-code"><span class="st200">200</span> 또는 실패</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>attemptId · 서버 파생 idempotency key</h2>
+    <p>클라이언트는 <code>attemptId</code>를 보내지 않는다. 서버가 <code>paymentKey</code>에서 SHA256으로 파생하고, <code>PaymentAttempt.attempt_id</code>의 unique 제약이 서버 측 idempotency 역할을 한다.</p>
+
+    <div class="term">
+      <div class="term-h">파생 규칙 (PaymentAttemptIds.forApproval)</div>
+<pre><span class="cm">// 승인 attempt</span>
+<span class="cmd">public static</span> String forApproval(String paymentKey) {
+  <span class="cmd">return</span> sha256Hex(<span class="rv">"apv:"</span> + paymentKey);
+}
+
+<span class="cm">// 취소 attempt (부분 취소 지원)</span>
+<span class="cmd">public static</span> String forCancellation(String paymentKey, <span class="cmd">int</span> sequence) {
+  <span class="cmd">return</span> sha256Hex(<span class="rv">"cnl:"</span> + paymentKey + <span class="rv">":"</span> + sequence);
+}</pre>
+    </div>
+
+    <ul class="rules">
+      <li>Toss가 결제창 세션당 <b>새 <code>paymentKey</code></b>를 발급한다. 유저가 결제창을 새로 열면 새 paymentKey → 새 attemptId → 새 <code>PaymentAttempt</code>.</li>
+      <li>같은 결제창의 <b>더블 클릭, 네트워크 재전송</b>은 같은 paymentKey → 같은 attemptId → DB unique로 dedup된다.</li>
+      <li>클라이언트가 <code>attemptId</code>를 직접 관리할 필요가 없다. Toss 결제창은 온라인 세션이므로 프론트 offline queue 시나리오가 성립하지 않는다.</li>
+      <li>취소는 부분 취소가 여러 번 가능하므로 <code>sequence</code>를 더해 매번 다른 attemptId를 만든다. 승인 attempt와도 hash prefix(<code>apv:</code> vs <code>cnl:</code>)로 구분된다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Payment.paymentKey 저장 시점</h2>
+    <p><code>Payment.payment_key</code>는 승인 확정 시에만 저장한다. 취소·환불에서 Toss에 넘기는 결제 식별자 역할을 한다. 승인 처리 도중 회복에 필요한 저장된 <code>paymentKey</code>는 <code>PaymentAttempt.payment_key</code>가 담당하며 TX A 시점에 이미 저장된다.</p>
+
+    <div class="term">
+      <div class="term-h">두 컬럼의 역할 분리</div>
+<pre><span class="cm">// Prepare 시</span>
+INSERT payment (payment_key = <span class="rv">NULL</span>, status = PENDING)
+
+<span class="cm">// TX A - Toss 호출 전 (회복용으로 미리 저장)</span>
+INSERT payment_attempt (
+  payment_key = <span class="rv">'&lt;결제창의 paymentKey&gt;'</span>,
+  status = <span class="rv">IN_PROGRESS</span>
+)
+
+<span class="cm">// TX B - Toss 승인 성공 후 (확정된 paymentKey 저장)</span>
+UPDATE payment
+  SET payment_key = <span class="rv">'&lt;성공한 paymentKey&gt;'</span>,
+      status = <span class="ok">PAID</span>
+<span class="cm">// ↑ 취소/환불은 이 값 하나로 Toss에 요청</span></pre>
+    </div>
+
+    <aside class="callout callout-r">
+      <strong>두 컬럼의 역할 분리</strong>
+      <p>3단계 승인 구조에서 1단계 마지막의 TX A가 <code>PaymentAttempt</code>를 커밋한 뒤 Toss를 호출한다. Toss 응답이 유실되거나 프로세스가 종료되어도 <code>PaymentAttempt.payment_key</code>로 Toss에 상태를 조회할 수 있다. <code>Payment.payment_key</code>는 확정된 <code>paymentKey</code>만 표현하므로 확정 전에는 <code>NULL</code>이며, 취소·환불은 이 값 하나로 처리한다.</p>
+    </aside>
+  </section>
+
+  <section>
+    <h2>동시성 제어</h2>
+    <p>낙관적 락(<code>@Version</code>)은 사용하지 않는다. 비관적 락과 UNIQUE 제약 조합으로 처리한다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>위치</th><th>메커니즘</th><th>목적</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>PaymentAttempt.attempt_id</b><br><span class="note-line">TX A 시점</span></td>
+            <td class="st-code">DB UNIQUE 제약</td>
+            <td>같은 결제창의 중복 <code>POST /confirm</code>을 DB 레벨에서 거절. 서버 측 idempotency의 근거.</td>
+          </tr>
+          <tr>
+            <td><b>Payment.findByIdForUpdate</b><br><span class="note-line">TX A · TX B 두 시점</span></td>
+            <td class="st-code">SELECT … FOR UPDATE<br>(PESSIMISTIC_WRITE)</td>
+            <td>
+              <b>TX A (Toss 호출 전):</b> 같은 <code>Payment</code>에 동시에 오는 승인 요청을 배제하고, 이전 <code>PaymentAttempt</code> 상태 확인과 새 시도 저장을 원자적으로 처리한다. 커밋 후 잠금은 해제되고 Toss 호출은 잠금 없이 진행된다.<br><br>
+              <b>TX B (Toss 응답 성공 후):</b> Toss 호출 사이 <code>Payment</code>가 다른 흐름으로 바뀌지 않았는지 다시 확인하고, 승인 확정 결과를 최종 상태로 커밋한다.
+            </td>
+          </tr>
+          <tr>
+            <td><b>PaymentOutbox.lockProcessable</b><br><span class="note-line">아웃박스 폴링</span></td>
+            <td class="st-code">SELECT … FOR UPDATE<br>SKIP LOCKED<br>(lock.timeout=-2 hint)</td>
+            <td>여러 워커 인스턴스가 동시에 폴링해도 서로 다른 배치를 잡도록 한다. 이미 잠긴 행은 건너뛴다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Payment 잠금 시간축</h3>
+    <p><code>confirm</code> 요청 하나의 처리 시간 중 <code>Payment</code> 행이 잠기는 구간을 표시했다. Toss 호출 구간은 잠금이 없어서 응답이 오래 걸려도 다른 요청이 같은 <code>Payment</code>를 조회·처리할 수 있다.</p>
+
+    <figure>
+      <div class="scroll">
+        <svg class="dg" viewBox="0 0 1000 340" role="img" aria-label="Payment 잠금 시간축. TX A와 TX B 두 짧은 구간에서만 SELECT FOR UPDATE로 Payment 행을 잠근다. 중간 Toss 호출 구간은 잠금이 없다.">
+          <!-- 범례 -->
+          <rect class="row" x="30" y="20" width="14" height="14" rx="2"/>
+          <text x="52" y="32" class="sm">Backend 처리 · 잠금 없음</text>
+          <rect class="head" x="220" y="20" width="14" height="14" rx="2"/>
+          <text x="242" y="32" class="sm mu">Toss 외부 호출 · 잠금 없음</text>
+          <rect class="st-warn" x="410" y="20" width="14" height="14" rx="2"/>
+          <text x="432" y="32" class="sm b c-warn">TX A · Payment 잠금</text>
+          <rect class="st-book" x="570" y="20" width="14" height="14" rx="2"/>
+          <text x="592" y="32" class="sm b c-book">TX B · Payment 잠금</text>
+
+          <!-- 상단 라벨 (트랙 이름) -->
+          <text x="20" y="80" class="b sm">Backend 처리</text>
+
+          <!-- 상단 트랙: 메서드 실행 세그먼트 -->
+          <rect x="90" y="92" width="70" height="40" class="row" rx="4"/>
+          <text x="125" y="110" text-anchor="middle" class="sm b">Starter.start()</text>
+          <text x="125" y="126" text-anchor="middle" class="sm mu">조회 · 검증</text>
+
+          <rect x="165" y="92" width="72" height="40" class="st-warn" rx="4"/>
+          <text x="201" y="110" text-anchor="middle" class="sm b c-warn">TX A</text>
+          <text x="201" y="126" text-anchor="middle" class="sm">Attempt INSERT</text>
+
+          <rect x="242" y="92" width="498" height="40" class="head" rx="4"/>
+          <text x="491" y="110" text-anchor="middle" class="b">Toss POST /v1/payments/confirm</text>
+          <text x="491" y="126" text-anchor="middle" class="sm mu">외부 네트워크 호출 · 응답까지 수백 ms ~ 수 초</text>
+
+          <rect x="745" y="92" width="130" height="40" class="st-book" rx="4"/>
+          <text x="810" y="110" text-anchor="middle" class="sm b c-book">TX B</text>
+          <text x="810" y="126" text-anchor="middle" class="sm">Payment · Order · Booking · Outbox</text>
+
+          <rect x="880" y="92" width="80" height="40" class="row" rx="4"/>
+          <text x="920" y="112" text-anchor="middle" class="sm b">200 응답</text>
+          <text x="920" y="126" text-anchor="middle" class="sm mu">리턴</text>
+
+          <!-- 하단 라벨 -->
+          <text x="20" y="185" class="b sm">Payment 행</text>
+          <text x="20" y="200" class="sm mu">잠금 상태</text>
+
+          <!-- 하단 트랙: 잠금 상태 바 -->
+          <rect x="90" y="175" width="800" height="30" class="row" rx="4"/>
+          <rect x="165" y="175" width="72" height="30" class="st-warn" rx="4"/>
+          <rect x="745" y="175" width="130" height="30" class="st-book" rx="4"/>
+
+          <text x="127" y="194" text-anchor="middle" class="sm mu">해제</text>
+          <text x="201" y="194" text-anchor="middle" class="sm b c-warn">잠금</text>
+          <text x="491" y="194" text-anchor="middle" class="b">잠금 없음 — Toss 호출 중 다른 요청 진입 가능</text>
+          <text x="810" y="194" text-anchor="middle" class="sm b c-book">잠금</text>
+
+          <!-- 시간축 -->
+          <line x1="90" y1="245" x2="960" y2="245" class="track"/>
+          <line x1="90" y1="238" x2="90" y2="252" class="track"/>
+          <line x1="165" y1="238" x2="165" y2="252" class="track"/>
+          <line x1="242" y1="238" x2="242" y2="252" class="track"/>
+          <line x1="740" y1="238" x2="740" y2="252" class="track"/>
+          <line x1="875" y1="238" x2="875" y2="252" class="track"/>
+          <line x1="960" y1="238" x2="960" y2="252" class="track"/>
+
+          <text x="90" y="270" text-anchor="middle" class="mono mu sm">t=0</text>
+          <text x="165" y="270" text-anchor="middle" class="mono mu sm">start() 리턴</text>
+          <text x="242" y="270" text-anchor="middle" class="mono mu sm">TX A commit</text>
+          <text x="740" y="270" text-anchor="middle" class="mono mu sm">Toss 응답</text>
+          <text x="875" y="270" text-anchor="middle" class="mono mu sm">TX B commit</text>
+          <text x="960" y="270" text-anchor="middle" class="mono mu sm">응답</text>
+
+          <text x="127" y="290" text-anchor="middle" class="sm mu">수 ms</text>
+          <text x="201" y="290" text-anchor="middle" class="sm b c-warn">몇 ms · 잠금 유지</text>
+          <text x="491" y="290" text-anchor="middle" class="sm b">수백 ms ~ 수 초 · 잠금 없음</text>
+          <text x="810" y="290" text-anchor="middle" class="sm b c-book">수 ms ~ 수십 ms · 잠금 유지</text>
+
+          <!-- 잠금 지시선 (메서드 → 잠금 상태) -->
+          <line class="e-warn" x1="201" y1="132" x2="201" y2="175" stroke-dasharray="2 2"/>
+          <line class="e-book" x1="810" y1="132" x2="810" y2="175" stroke-dasharray="2 2"/>
+        </svg>
+      </div>
+      <figcaption><code>Starter.start()</code>는 <code>@Transactional</code>이 없다. 여러 조회·검증은 tx 없이 진행되며 <code>Payment</code>도 일반 <code>SELECT</code>로 읽는다. 검증을 통과한 뒤 <code>startApprovalInNewTransaction()</code>을 호출하는 짧은 순간에만 <code>REQUIRES_NEW</code>로 새 tx가 열려 <code>Payment</code>를 <code>FOR UPDATE</code>로 잠그고 <code>PaymentAttempt</code>를 <code>INSERT</code>한 뒤 커밋한다. 이 그림의 "TX A" 박스는 <code>Starter.start()</code> 실행 중 그 마지막 짧은 구간을 가리킨다. Toss 호출은 어떤 DB 트랜잭션에도 속하지 않고 실행되므로 응답이 오래 걸려도 <code>Payment</code> 행은 그 시간 동안 잠기지 않는다.</figcaption>
+    </figure>
+
+    <aside class="callout callout-r">
+      <strong>왜 낙관적 락을 안 쓰나</strong>
+      <p><code>Payment</code>는 짧은 트랜잭션에서만 쓰기가 일어나고, 동시성 방어는 <code>PaymentAttempt.attempt_id</code> UNIQUE + <code>Payment</code> PENDING 상태 검증 조합으로 이미 커버된다. 아웃박스 폴링은 다수 워커의 동시 선점이 필요하므로 SKIP LOCKED가 자연스럽다. 낙관적 락을 얹으면 <code>@Version</code> 관리·retry 처리 부담만 늘어난다.</p>
+    </aside>
+  </section>
+
+  <section>
+    <h2>구현 커밋 순서</h2>
+    <p>이 문서의 방향으로 구현하기 위한 커밋 순서. 자세한 대상 파일은 <code>docs/payment-reservation-revised-plan.md</code>.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>커밋 유형</th><th>변경 요약</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td class="st-code">docs</td><td>결제 승인 계획서 · 다이어그램 · 이 문서 추가</td></tr>
+          <tr><td>2</td><td class="st-code">refactor</td><td><code>PaymentConfirmRequest.attemptId</code> optional 필드 제거 · 서버 파생으로 통합</td></tr>
+          <tr><td>3</td><td class="st-code">refactor</td><td>Toss 승인 실패 시 <code>Payment.fail</code> 호출 삭제 · 실패한 <code>PaymentAttempt</code>만 <code>FAILED</code>로 마킹</td></tr>
+          <tr><td>4</td><td class="st-code">refactor</td><td><code>Payment.updatePaymentKey</code> 삭제 · <code>approve(method, paymentKey)</code>로 시그니처 변경</td></tr>
+          <tr><td>5</td><td class="st-code">refactor</td><td><code>RESERVATION_RELEASE</code> 아웃박스 스택 삭제 (payload · processor · enum · 팩토리)</td></tr>
+          <tr><td>6</td><td class="st-code">refactor</td><td><code>ReservationPaymentGuard</code> 스택 삭제 (port · adapter · service · repository · Lua 2개 · 키 상수 · 에러코드)</td></tr>
+          <tr><td>7</td><td class="st-code">feat</td><td><code>PaymentGateway.query</code> 추가 · <code>IN_PROGRESS</code> 재조회 경로 구현</td></tr>
+          <tr><td>8</td><td class="st-code">test</td><td>재작성된 결제 흐름의 통합 테스트</td></tr>
+          <tr><td>9</td><td class="st-code">docs</td><td>관련 문서 갱신 (<code>payment-consistency</code> · <code>reservation-cache-schema</code> · <code>seat-conflict-validation</code>)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ul class="rules">
+      <li><b>유지 항목.</b> Reservation 기반 결제 API 계약(<code>reservationIds</code>), <code>PaymentApprovalStarter</code> → Toss → <code>PaymentApprovalFinalizer</code> 3단계 구조, <code>attemptId</code>의 <code>paymentKey</code> 파생, 아웃박스 폴링 인프라(<code>PaymentOutboxWorker</code>, scheduler, retry policy, SKIP LOCKED), <code>BookingConfirmedPayload</code> schemaVersion=2, <code>Order.reservation_snapshot</code> 컬럼, <code>TrainSearchFacade</code>의 좌석 조회 이관, <code>PendingBooking</code>·<code>SeatHold</code> 스택 제거.</li>
+      <li><b>동시 결제 방지.</b> <code>PaymentAttempt.attempt_id</code>의 DB unique 제약과 Payment 상태 검증(PENDING 여부) 조합으로 같은 결제창의 중복 요청과 이미 확정된 결제의 재승인을 막는다. 별도 Redis marker는 필요하지 않다.</li>
+      <li><b>Recovery Worker(#270)와의 역할 분담.</b> 유저 재요청 시점의 온라인 재조회는 이 문서의 <code>IN_PROGRESS</code> 처리 경로가 담당한다. Recovery Worker는 유저 요청 없이 오래 남은 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>를 배치로 대사한다.</li>
+    </ul>
+  </section>
+</main>
+
+</body></html>
