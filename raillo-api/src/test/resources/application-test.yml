@@ -53,6 +53,8 @@ payment:
       client-key: test_ck_stub
       secret-key: test_sk_stub
       version: v1
+      connect-timeout: 1s
+      read-timeout: 3s
 
 raillo:
   payment:

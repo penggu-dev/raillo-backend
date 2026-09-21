@@ -71,6 +71,8 @@ payment:
       client-key: ${TOSS_CLIENT_KEY}
       secret-key: ${TOSS_SECRET_KEY}
       version: v1
+      connect-timeout: 3s
+      read-timeout: 15s
 
 raillo:
   payment:

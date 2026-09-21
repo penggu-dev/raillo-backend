@@ -1,17 +1,19 @@
 package com.sudo.raillo.payment.adapter.integration.toss;
 
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,7 @@ public class TossPaymentClientConfig {
 
 		return RestClient.builder()
 			.baseUrl(properties.baseUrl())
+			.requestFactory(buildRequestFactory(properties))
 			.defaultHeader(HttpHeaders.AUTHORIZATION, "Basic " + encodedSecretKey)
 			.defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 			.requestInterceptor((request, body, execution) -> {
@@ -37,6 +40,15 @@ public class TossPaymentClientConfig {
 				return execution.execute(request, body);
 			})
 			.build();
+	}
+
+	private ClientHttpRequestFactory buildRequestFactory(TossPaymentProperties properties) {
+		HttpClient httpClient = HttpClient.newBuilder()
+			.connectTimeout(properties.connectTimeout())
+			.build();
+		JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
+		factory.setReadTimeout(properties.readTimeout());
+		return factory;
 	}
 
 	private Map<String, List<String>> maskSensitiveHeaders(HttpHeaders headers) {
