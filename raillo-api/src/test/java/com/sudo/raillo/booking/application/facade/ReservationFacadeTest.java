@@ -325,7 +325,7 @@ class ReservationFacadeTest {
 			// given - 어제 05:00 출발
 			TrainScheduleResult yesterday = trainScheduleTestHelper.builder()
 				.train(train)
-				.operationDate(LocalDate.now().minusDays(1))
+				.operationDate(LocalDate.now(TrainCacheKey.ZONE).minusDays(1))
 				.addStop("서울", null, LocalTime.of(5, 0))
 				.addStop("부산", LocalTime.of(8, 0), null)
 				.build();
