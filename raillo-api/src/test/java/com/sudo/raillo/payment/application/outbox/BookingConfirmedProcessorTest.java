@@ -13,7 +13,7 @@ import com.sudo.raillo.global.exception.BusinessException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import com.sudo.raillo.payment.application.BookingConfirmedPayload;
-import com.sudo.raillo.payment.application.required.PendingBookingReader;
+import com.sudo.raillo.payment.application.required.PendingBookingDeleter;
 import com.sudo.raillo.payment.application.required.SeatHoldReleaser;
 import com.sudo.raillo.payment.application.required.TrainScheduleReader;
 import com.sudo.raillo.payment.application.required.TrainSeatReader;
@@ -34,7 +34,7 @@ class BookingConfirmedProcessorTest {
 	private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
 	@Mock
-	private PendingBookingReader pendingBookingReader;
+	private PendingBookingDeleter pendingBookingDeleter;
 
 	@Mock
 	private SeatHoldReleaser seatHoldReleaser;
@@ -55,7 +55,7 @@ class BookingConfirmedProcessorTest {
 	private BookingConfirmedProcessor buildProcessor() {
 		return new BookingConfirmedProcessor(
 			objectMapper,
-			pendingBookingReader,
+			pendingBookingDeleter,
 			seatHoldReleaser,
 			trainScheduleReader,
 			trainSeatReader
@@ -90,7 +90,7 @@ class BookingConfirmedProcessorTest {
 		sut.process(json);
 
 		// then
-		verify(pendingBookingReader).deletePendingBookings(List.of("pb-1"), "MEM123");
+		verify(pendingBookingDeleter).deletePendingBookings(List.of("pb-1"), "MEM123");
 		verify(seatHoldReleaser).releaseSeats("pb-1", 100L, List.of(1001L, 1002L), 500L, 1, 5);
 	}
 
@@ -103,7 +103,7 @@ class BookingConfirmedProcessorTest {
 
 		sut.process(json);
 
-		verifyNoInteractions(pendingBookingReader, seatHoldReleaser, trainScheduleReader, trainSeatReader);
+		verifyNoInteractions(pendingBookingDeleter, seatHoldReleaser, trainScheduleReader, trainSeatReader);
 	}
 
 	@Test
@@ -115,7 +115,7 @@ class BookingConfirmedProcessorTest {
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_OUTBOX_PAYLOAD_DESERIALIZATION_FAILED);
 
-		verify(pendingBookingReader, never()).deletePendingBookings(any(), any());
+		verify(pendingBookingDeleter, never()).deletePendingBookings(any(), any());
 		verify(seatHoldReleaser, never()).releaseSeats(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
 	}
 
