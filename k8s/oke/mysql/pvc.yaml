@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: mysql
+spec:
+  accessModes:
+    - ReadWriteOnce
+  # OCI Block Volume을 CSI 드라이버를 통해 동적으로 생성해서 PVC에 연결
+  storageClassName: oci-bv
+  resources:
+    requests:
+      storage: 50Gi
