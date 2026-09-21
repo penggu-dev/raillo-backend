@@ -36,6 +36,8 @@ data:
       - job_name: valkey
         static_configs:
           - targets: ['valkey-exporter.monitoring.svc.cluster.local:9121']
+            labels:
+              namespace: valkey
 
       - job_name: mysql
         static_configs:

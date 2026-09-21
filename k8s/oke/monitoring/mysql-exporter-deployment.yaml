@@ -20,6 +20,8 @@ spec:
           args:
             - --mysqld.address=mysql.mysql.svc.cluster.local:3306
             - --mysqld.username=exporter
+            # 기본 수집 항목에 더해 스레드 상태(Process States 패널)를 수집
+            - --collect.info_schema.processlist
           envFrom:
             - secretRef:
                 name: mysql-exporter-secret
