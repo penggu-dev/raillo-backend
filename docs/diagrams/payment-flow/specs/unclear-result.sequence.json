@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Toss 결과 불명 시 회복 경로",
+    "output": "docs/diagrams/payment-flow/unclear-result.html",
+    "viewBox": [1080, 1200],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      { "id": "case-3", "label": "케이스 3 · confirm 안에서 인라인 자동 재조회", "focus": ["client", "starter", "db", "toss"], "note": "Toss confirm이 5xx/타임아웃일 때 PaymentGateway.confirm이 내부에서 GET으로 상태를 재조회한다. 유저 응답은 1회로 끝난다." },
+      { "id": "case-4", "label": "케이스 4 · 유저가 결제창에서 재시도", "focus": ["client", "starter", "db", "toss"], "note": "유저 재요청 시 같은 attemptId의 IN_PROGRESS attempt를 발견하고, recoverInProgressAttempt가 Toss GET으로 실제 상태를 확인해 정정한다." },
+      { "id": "case-12", "label": "케이스 12 · Recovery Worker 배치 대사 (#270)", "focus": ["worker", "db", "toss"], "note": "유저 재시도가 오지 않아도 오래된 IN_PROGRESS attempt를 배치가 폴링해 Toss GET으로 대사한다. 성공은 롤포워드, 실패는 attempt FAILED로 보상한다." }
+    ]
+  },
+  "participants": [
+    { "id": "client", "type": "external", "label": "클라이언트", "sublabel": "결제 요청" },
+    { "id": "starter", "type": "backend", "label": "결제 승인 경로", "sublabel": "Starter · Gateway · Finalizer" },
+    { "id": "worker", "type": "backend", "label": "PaymentRecoveryWorker", "sublabel": "#270 · 배치" },
+    { "id": "db", "type": "database", "label": "MySQL", "sublabel": "PaymentAttempt · Payment" },
+    { "id": "toss", "type": "external", "label": "Toss Payments", "sublabel": "confirm · GET query" }
+  ],
+  "segments": [
+    { "from": 140, "to": 470, "label": "케이스 3 · confirm 내부에서 인라인 자동 재조회" },
+    { "from": 490, "to": 740, "label": "케이스 4 · 유저 재시도로 IN_PROGRESS 정정" },
+    { "from": 760, "to": 1050, "label": "케이스 12 · Recovery Worker 배치 대사" }
+  ],
+  "messages": [
+    { "from": "client", "to": "starter", "y": 170, "label": "POST /confirm (첫 요청)", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 205, "label": "TX A · attempt IN_PROGRESS 저장", "variant": "default" },
+    { "from": "starter", "to": "toss", "y": 240, "label": "POST /v1/payments/confirm", "variant": "emphasis" },
+    { "from": "toss", "to": "starter", "y": 275, "label": "5xx · 타임아웃 · 응답 유실", "variant": "return" },
+    { "from": "starter", "to": "toss", "y": 310, "label": "GET /v1/payments/{key} · Gateway 내부 재조회", "variant": "dashed" },
+    { "from": "toss", "to": "starter", "y": 345, "label": "DONE · 실제로는 확정됨", "variant": "return" },
+    { "from": "starter", "to": "db", "y": 385, "label": "TX B · Payment/Order/Booking/Attempt/Outbox 확정", "variant": "emphasis" },
+    { "from": "starter", "to": "client", "y": 425, "label": "200 결제 완료", "variant": "return" },
+
+    { "from": "client", "to": "starter", "y": 525, "label": "POST /confirm (같은 attemptId · 유저 재시도)", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 560, "label": "findByAttemptId · pre-check", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 595, "label": "existing attempt · IN_PROGRESS", "variant": "return" },
+    { "from": "starter", "to": "toss", "y": 630, "label": "GET /v1/payments/{key} · recoverInProgressAttempt", "variant": "emphasis" },
+    { "from": "toss", "to": "starter", "y": 665, "label": "DONE · ABORTED · 처리 중 등 분기", "variant": "return" },
+    { "from": "starter", "to": "db", "y": 700, "label": "DONE→TX B 확정 · ABORTED→FAILED 마킹 · 진행 중→로컬 유지", "variant": "emphasis" },
+    { "from": "starter", "to": "client", "y": 730, "label": "200 확정 · 예외 응답 · 재시도 안내", "variant": "return" },
+
+    { "from": "worker", "to": "db", "y": 795, "label": "SELECT ... FOR UPDATE SKIP LOCKED · 오래된 IN_PROGRESS 폴링", "variant": "default" },
+    { "from": "db", "to": "worker", "y": 830, "label": "만료 lease attempt 목록", "variant": "return" },
+    { "from": "worker", "to": "db", "y": 870, "label": "processing_owner · lease_until 획득", "variant": "default" },
+    { "from": "worker", "to": "toss", "y": 910, "label": "GET /v1/payments/{key} · 상태 확인", "variant": "emphasis" },
+    { "from": "toss", "to": "worker", "y": 945, "label": "DONE · ABORTED · 여전히 처리 중 등", "variant": "return" },
+    { "from": "worker", "to": "db", "y": 985, "label": "DONE→롤포워드(TX B 재실행) · ABORTED→보상 · 미확정→다음 폴링 대기", "variant": "emphasis" },
+    { "from": "worker", "to": "db", "y": 1025, "label": "processing lease 반환", "variant": "default" }
+  ],
+  "activations": [
+    { "participant": "starter", "from": 165, "to": 430, "type": "backend" },
+    { "participant": "db", "from": 200, "to": 395, "type": "database" },
+    { "participant": "toss", "from": 235, "to": 355, "type": "external" },
+
+    { "participant": "starter", "from": 520, "to": 735, "type": "backend" },
+    { "participant": "db", "from": 555, "to": 710, "type": "database" },
+    { "participant": "toss", "from": 625, "to": 675, "type": "external" },
+
+    { "participant": "worker", "from": 790, "to": 1030, "type": "backend" },
+    { "participant": "db", "from": 790, "to": 1030, "type": "database" },
+    { "participant": "toss", "from": 905, "to": 955, "type": "external" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "세 경로의 공통 도구", "items": ["세 케이스 모두 Toss GET /payments/{key}로 실제 상태 확인", "IN_PROGRESS attempt row가 회복의 실마리", "row가 없으면 회복 불가 · 그래서 Toss 호출 전에 무조건 커밋"] },
+    { "dot": "orange", "title": "커버 시점의 차이", "items": ["케이스 3 — confirm 응답 안에서 즉시(<1s)", "케이스 4 — 유저가 다시 클릭한 시점", "케이스 12 — 유저 재시도가 오지 않아도 배치가 커버"] },
+    { "dot": "emerald", "title": "GET 응답에 따른 분기", "items": ["DONE — 로컬 미확정이면 TX B 재실행(롤포워드)", "ABORTED · EXPIRED · CANCELED — attempt FAILED 마킹(보상)", "READY · IN_PROGRESS · WAITING_FOR_DEPOSIT — 로컬 IN_PROGRESS 유지, 다음 재시도 대기"] }
+  ]
+}

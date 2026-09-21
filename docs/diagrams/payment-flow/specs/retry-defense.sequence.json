@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "재시도 방어층",
+    "output": "docs/diagrams/payment-flow/retry-defense.html",
+    "viewBox": [1080, 1360],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      { "id": "case-2", "label": "케이스 2 · 카드 거절 후 다른 카드 재시도", "focus": ["client", "starter", "manager", "db", "toss"], "note": "이전 attempt가 FAILED이므로 TX A의 findLatestApprovalByPaymentId가 통과시킨다. 새 attempt가 생성되고 Toss 승인이 정상 진행된다." },
+      { "id": "case-6", "label": "케이스 6 · 같은 attemptId 재요청 (FAILED)", "focus": ["client", "starter", "db"], "note": "pre-check의 findByAttemptId가 기존 FAILED attempt를 발견하고 즉시 예외로 응답한다. Manager까지 내려가지 않는다." },
+      { "id": "case-13", "label": "케이스 13 · 새 세션 재시도 (이전 IN_PROGRESS)", "focus": ["client", "starter", "manager", "db"], "note": "attemptId는 다르지만 같은 Payment의 이전 attempt가 아직 IN_PROGRESS. pre-check는 통과하지만 TX A의 findLatestApprovalByPaymentId가 차단한다." },
+      { "id": "case-14", "label": "케이스 14 · pre-check와 잠금 사이 SUCCEEDED race", "focus": ["client", "starter", "manager", "db"], "note": "pre-check 시점에는 Payment가 아직 PENDING이었지만, TX A 잠금 획득 전에 다른 요청이 확정을 커밋했다. TX A의 findLatestApprovalByPaymentId가 SUCCEEDED를 발견해 방어한다." }
+    ]
+  },
+  "participants": [
+    { "id": "client", "type": "external", "label": "클라이언트", "sublabel": "결제 요청" },
+    { "id": "starter", "type": "backend", "label": "PaymentApprovalStarter", "sublabel": "pre-check · TX 없음" },
+    { "id": "manager", "type": "backend", "label": "PaymentAttemptManager", "sublabel": "TX A · Payment 잠금" },
+    { "id": "db", "type": "database", "label": "MySQL", "sublabel": "Payment · PaymentAttempt" },
+    { "id": "toss", "type": "external", "label": "Toss Payments", "sublabel": "외부 승인 API" }
+  ],
+  "segments": [
+    { "from": 140, "to": 520, "label": "케이스 2 · FAILED 통과 → 재시도 성공" },
+    { "from": 540, "to": 680, "label": "케이스 6 · 같은 attemptId FAILED 차단" },
+    { "from": 700, "to": 950, "label": "케이스 13 · 새 세션 · IN_PROGRESS 방어" },
+    { "from": 970, "to": 1250, "label": "케이스 14 · SUCCEEDED race 방어" }
+  ],
+  "messages": [
+    { "from": "client", "to": "starter", "y": 170, "label": "POST /confirm (attemptId=B2 · 새 세션)", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 210, "label": "findByAttemptId(B2)  · pre-check", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 250, "label": "empty", "variant": "return" },
+    { "from": "starter", "to": "manager", "y": 290, "label": "startApprovalInNewTransaction(B2)", "variant": "emphasis" },
+    { "from": "manager", "to": "db", "y": 330, "label": "SELECT FOR UPDATE Payment", "variant": "default" },
+    { "from": "manager", "to": "db", "y": 370, "label": "findLatestApprovalByPaymentId", "variant": "default" },
+    { "from": "db", "to": "manager", "y": 410, "label": "이전 attempt B1 FAILED", "variant": "return" },
+    { "from": "manager", "to": "db", "y": 450, "label": "save attempt B2 (IN_PROGRESS)  · switch(FAILED)=통과", "variant": "emphasis" },
+    { "from": "starter", "to": "toss", "y": 490, "label": "POST /v1/payments/confirm  · 승인 성공", "variant": "dashed" },
+
+    { "from": "client", "to": "starter", "y": 570, "label": "POST /confirm (같은 attemptId=B1 · 이전 FAILED)", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 610, "label": "findByAttemptId(B1)  · pre-check", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 640, "label": "existing attempt · FAILED", "variant": "return" },
+    { "from": "starter", "to": "client", "y": 670, "label": "PAYMENT_ATTEMPT_ALREADY_FAILED", "variant": "return" },
+
+    { "from": "client", "to": "starter", "y": 730, "label": "POST /confirm (attemptId=A2 · 새 세션)", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 770, "label": "findByAttemptId(A2)  · pre-check", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 800, "label": "empty", "variant": "return" },
+    { "from": "starter", "to": "manager", "y": 830, "label": "startApprovalInNewTransaction(A2)", "variant": "emphasis" },
+    { "from": "manager", "to": "db", "y": 860, "label": "SELECT FOR UPDATE Payment", "variant": "default" },
+    { "from": "manager", "to": "db", "y": 890, "label": "findLatestApprovalByPaymentId", "variant": "default" },
+    { "from": "db", "to": "manager", "y": 920, "label": "이전 attempt A1 IN_PROGRESS  · switch=차단", "variant": "return" },
+    { "from": "manager", "to": "client", "y": 940, "label": "PAYMENT_ATTEMPT_IN_PROGRESS", "variant": "return" },
+
+    { "from": "client", "to": "starter", "y": 1000, "label": "POST /confirm (attemptId=C2 · 새 세션)", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 1040, "label": "findByAttemptId(C2)  · pre-check", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 1075, "label": "empty", "variant": "return" },
+    { "from": "starter", "to": "db", "y": 1105, "label": "validateApprovable  · Payment 상태 조회", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 1140, "label": "Payment PENDING  · 통과", "variant": "return" },
+    { "from": "starter", "to": "manager", "y": 1175, "label": "startApprovalInNewTransaction(C2)  · 이 사이 다른 요청이 확정", "variant": "emphasis" },
+    { "from": "manager", "to": "db", "y": 1205, "label": "SELECT FOR UPDATE + findLatestApprovalByPaymentId", "variant": "default" },
+    { "from": "db", "to": "manager", "y": 1235, "label": "다른 요청이 SUCCEEDED로 커밋  · switch=차단", "variant": "return" },
+    { "from": "manager", "to": "client", "y": 1260, "label": "PAYMENT_ALREADY_COMPLETED", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "starter", "from": 165, "to": 300, "type": "backend" },
+    { "participant": "manager", "from": 285, "to": 490, "type": "backend" },
+    { "participant": "db", "from": 205, "to": 460, "type": "database" },
+    { "participant": "toss", "from": 485, "to": 510, "type": "external" },
+
+    { "participant": "starter", "from": 565, "to": 680, "type": "backend" },
+    { "participant": "db", "from": 605, "to": 650, "type": "database" },
+
+    { "participant": "starter", "from": 725, "to": 945, "type": "backend" },
+    { "participant": "manager", "from": 825, "to": 945, "type": "backend" },
+    { "participant": "db", "from": 765, "to": 925, "type": "database" },
+
+    { "participant": "starter", "from": 995, "to": 1265, "type": "backend" },
+    { "participant": "manager", "from": 1170, "to": 1265, "type": "backend" },
+    { "participant": "db", "from": 1035, "to": 1240, "type": "database" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "두 조회가 잡는 서로 다른 축", "items": ["findByAttemptId — 같은 요청 재접수(idempotency)", "findLatestApprovalByPaymentId — 이 Payment가 새 시도를 받을 수 있는 상태인가", "두 조회는 낭비가 아니라 잡는 케이스가 다르다"] },
+    { "dot": "orange", "title": "TX A가 필요한 이유", "items": ["pre-check는 트랜잭션 없이 빠른 실패용", "Payment 잠금은 TX A에서만 잡힌다", "이 사이 다른 요청이 확정하는 race를 TX A가 다시 확인"] },
+    { "dot": "emerald", "title": "case별 방어 지점", "items": ["케이스 2 — TX A · FAILED 통과 후 재시도", "케이스 6 — pre-check · 같은 attemptId FAILED 차단", "케이스 13 — TX A · 이전 IN_PROGRESS 차단", "케이스 14 — TX A · SUCCEEDED race 차단"] }
+  ]
+}

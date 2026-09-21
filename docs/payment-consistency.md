@@ -225,7 +225,7 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 | TX A | `PaymentAttemptManager.startApprovalInNewTransaction` | `SELECT FOR UPDATE`로 Payment 잠금 획득 후 | pre-check와 잠금 획득 사이에 다른 요청이 attempt를 등록했거나 Payment 상태를 바꿨을 가능성 감지. |
 | TX B | `PaymentApprovalFinalizer.finalizeApproval` | Toss 호출 완료 후 Payment 재잠금 | Toss 응답 대기 동안 다른 트랜잭션(예: 동시에 처리된 다른 attempt가 승인 확정)이 상태를 바꿨을 가능성 감지. |
 
-이 구조 덕에 두 요청이 거의 동시에 들어와도 늦게 잠금을 잡은 요청이 `PAYMENT_ALREADY_COMPLETED`로 저지되고, Toss로 두 번째 승인 호출이 나가 이중 청구가 발생하지 않는다.
+이 구조 덕에 두 요청이 거의 동시에 들어와도 늦게 잠금을 잡은 요청이 `PAYMENT_ALREADY_COMPLETED`로 저지되고, Toss로 두 번째 승인 호출이 나가 이중 청구가 발생하지 않는다. 관련 케이스: [케이스 13(새 세션 IN_PROGRESS), 케이스 14(SUCCEEDED race)](./payment-cases.md).
 
 ### 동시 진입 방어 매커니즘
 
@@ -240,7 +240,7 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 
 이 매커니즘이 겹쳐 있어 다음 시나리오가 데이터 오염 없이 종결된다.
 
-- **원본 confirm 대기 중 유저가 재시도, 둘 다 DONE 확인**: 두 스레드가 TX B에서 락 경합. 먼저 획득한 쪽이 확정하고, 뒤 쪽은 attempt.status == SUCCEEDED로 조기 리턴한다.
+- **원본 confirm 대기 중 유저가 재시도, 둘 다 DONE 확인** ([케이스 15](./payment-cases.md)): 두 스레드가 TX B에서 락 경합. 먼저 획득한 쪽이 확정하고, 뒤 쪽은 attempt.status == SUCCEEDED로 조기 리턴한다.
 - **원본은 4xx 실패, 재시도가 먼저 ABORTED로 markFailed**: 원본의 뒤늦은 markFailed는 idempotency로 no-op 종료.
 - **원본이 5xx, 재시도가 DONE**: 5xx는 attempt를 IN_PROGRESS로 남기므로 재시도가 정상 확정 경로로 진행한다.
 

@@ -8,19 +8,21 @@
 
 | # | 케이스 | 트리거 | 클라이언트 응답 | 다이어그램 |
 |---|---|---|---|---|
-| 1 | 정상 결제 | Toss 승인 성공 | 200 결제 완료 | [normal](./diagrams/payment-flow/normal.html) · [full-flow](./diagrams/payment-flow/full-flow.html) |
-| 2 | 카드 승인 거절 후 재시도 | Toss 4xx | 402 실패 → 새 카드 재시도 | [card-rejected](./diagrams/payment-flow/card-rejected.html) |
-| 3 | 결과 불명 · 인라인 자동 재조회 | Toss 5xx/타임아웃 (confirm 안에서) | Toss GET 재조회 후 200/402/503 | [unknown-result-inline-recovery](./diagrams/payment-flow/unknown-result-inline-recovery.html) |
-| 4 | 결과 불명 · 유저 재시도 | 유저가 같은 결제창에서 재시도 | attempt dedup + Toss GET → 정정 결과 | [unknown-result-user-retry](./diagrams/payment-flow/unknown-result-user-retry.html) |
-| 5 | 같은 attemptId 재요청 (SUCCEEDED) | 클라이언트 double-click / 자동 재전송 | 이전 결과 재사용 (Toss 호출 없음) | (confirm-detail 카드 참고) |
-| 6 | 같은 attemptId 재요청 (FAILED) | 실패 attempt에 재요청 | `PAYMENT_ATTEMPT_ALREADY_FAILED` 예외 | 동일 |
-| 7 | 예약 만료 | 예약 TTL(10분) 초과 후 confirm | `RESERVATION_EXPIRED` — 새 예약 필요 | (별도 다이어그램 아직) |
-| 8 | 중복 결제 (Order에 이미 PAID) | validateDuplicatePayment 실패 | `PAYMENT_ALREADY_COMPLETED` | (별도 다이어그램 아직) |
-| 9 | 금액 불일치 | request vs Order vs Payment 금액 다름 | `PAYMENT_AMOUNT_MISMATCH` | (별도 다이어그램 아직) |
-| 10 | Toss 응답 paymentKey 미스매치 | Toss 응답 vs 요청 paymentKey 다름 | `PAYMENT_KEY_MISMATCH` | (별도 다이어그램 아직) |
+| 1 | 정상 결제 | Toss 승인 성공 | 200 결제 완료 | [normal-flow · case-1](./diagrams/payment-flow/normal-flow.html) |
+| 2 | 카드 승인 거절 후 재시도 | Toss 4xx | 402 실패 → 새 카드 재시도 | [retry-defense · case-2](./diagrams/payment-flow/retry-defense.html) |
+| 3 | 결과 불명 · 인라인 자동 재조회 | Toss 5xx/타임아웃 (confirm 안에서) | Toss GET 재조회 후 200/402/503 | [unclear-result · case-3](./diagrams/payment-flow/unclear-result.html) |
+| 4 | 결과 불명 · 유저 재시도 | 유저가 같은 결제창에서 재시도 | attempt dedup + Toss GET → 정정 결과 | [unclear-result · case-4](./diagrams/payment-flow/unclear-result.html) |
+| 5 | 같은 attemptId 재요청 (SUCCEEDED) | 클라이언트 double-click / 자동 재전송 | 이전 결과 재사용 (Toss 호출 없음) | [normal-flow · case-5](./diagrams/payment-flow/normal-flow.html) |
+| 6 | 같은 attemptId 재요청 (FAILED) | 실패 attempt에 재요청 | `PAYMENT_ATTEMPT_ALREADY_FAILED` 예외 | [retry-defense · case-6](./diagrams/payment-flow/retry-defense.html) |
+| 7 | 예약 만료 | 예약 TTL(10분) 초과 후 confirm | `RESERVATION_EXPIRED` — 새 예약 필요 | [validation-failure · case-7](./diagrams/payment-flow/validation-failure.html) |
+| 8 | 중복 결제 (Order에 이미 PAID) | validateDuplicatePayment 실패 | `PAYMENT_ALREADY_COMPLETED` | [validation-failure · case-8](./diagrams/payment-flow/validation-failure.html) |
+| 9 | 금액 불일치 | request vs Order vs Payment 금액 다름 | `PAYMENT_AMOUNT_MISMATCH` | [validation-failure · case-9](./diagrams/payment-flow/validation-failure.html) |
+| 10 | Toss 응답 paymentKey 미스매치 | Toss 응답 vs 요청 paymentKey 다름 | `PAYMENT_KEY_MISMATCH` | [validation-failure · case-10](./diagrams/payment-flow/validation-failure.html) |
 | 11 | 유저 명시 예약 취소 (#259) | 유저가 예약 취소 API 호출 | 좌석/예약/Order/Payment 정리 | (#259 후속) |
-| 12 | Recovery Worker 대사 | 오래된 IN_PROGRESS attempt (#270) | 배치 정정 (유저 응답 아님) | (#270 후속) |
-| 13 | 동시 재시도 경합 | 원본 confirm 진행 중 유저가 재시도 | TX B 락 직렬화 + attempt status 기반 조기 종료(SUCCEEDED 조기 리턴 or markFailed no-op) | (별도 다이어그램 없음) |
+| 12 | Recovery Worker 대사 | 오래된 IN_PROGRESS attempt (#270) | 배치 정정 (유저 응답 아님) | [unclear-result · case-12](./diagrams/payment-flow/unclear-result.html) |
+| 13 | 새 세션 재시도 (이전 IN_PROGRESS) | 다른 attemptId, 같은 Payment의 이전 attempt가 IN_PROGRESS | `PAYMENT_ATTEMPT_IN_PROGRESS` — TX A `findLatestApprovalByPaymentId`가 차단 | [retry-defense · case-13](./diagrams/payment-flow/retry-defense.html) |
+| 14 | pre-check와 잠금 사이 SUCCEEDED race | pre-check 통과 후 TX A 잠금 획득 전에 다른 요청이 확정 커밋 | `PAYMENT_ALREADY_COMPLETED` — TX A가 SUCCEEDED 발견 | [retry-defense · case-14](./diagrams/payment-flow/retry-defense.html) |
+| 15 | 동시 TX B 진입 경합 | 원본 confirm 대기 중 유저가 재시도, 둘 다 DONE 확인 → 둘 다 TX B 진입 | TX B 락 직렬화 후 늦게 진입한 쪽이 `attempt.status == SUCCEEDED` 조기 리턴. 유저 관점 성공 응답 | [tx-b-race · case-15](./diagrams/payment-flow/tx-b-race.html) |
 
 ## 케이스별 상태 전이 표
 
@@ -38,7 +40,9 @@
 | 10 | 그대로 | 그대로 | 그대로 | 그대로 | — | Toss 응답 검증 실패 |
 | 11 | DEL | HDEL | UPDATE 취소 상태 | CANCELLED | — | #259 취소 도메인 |
 | 12 | 상황 따라 | 상황 따라 | 대사 결과 | 대사 결과 | 정정 | 배치, 유저 응답 없음 |
-| 13 | 그대로 | 성공 시 R→(후속 B) | 성공 시 ORDERED · 실패 시 PENDING | 성공 시 PAID · 실패 시 PENDING | 하나로만 확정 (SUCCEEDED or FAILED) | 두 스레드가 동시 진입해도 TX B 락으로 직렬화 |
+| 13 | 그대로 | 그대로 | PENDING | PENDING | 새 attempt 생성 안 됨 | TX A `findLatestApprovalByPaymentId`가 이전 IN_PROGRESS 발견해 차단 |
+| 14 | 그대로 | 그대로 | 이미 ORDERED | 이미 PAID | 새 attempt 생성 안 됨 | TX A가 SUCCEEDED 발견 후 차단 (다른 요청이 먼저 확정) |
+| 15 | 그대로 | 성공 시 R→(후속 B) | 성공 시 ORDERED · 실패 시 PENDING | 성공 시 PAID · 실패 시 PENDING | 하나로만 확정 (SUCCEEDED or FAILED) | 두 스레드가 동시 TX B 진입해도 락으로 직렬화 |
 
 ## 케이스별 재시도 정책
 
@@ -48,7 +52,9 @@
 | 3 (인라인 재조회) | 2~3회 GET 재조회 (총 <1s) | 실패 시 4로 진행 |
 | 4 (유저 재시도) | 매 재요청 시 Toss GET | 재시도 안내 응답 시 유저가 다시 클릭 |
 | 5 (재사용) | 즉시 이전 결과 응답 | 유저 관점에서 재시도 성공한 것처럼 보임 |
-| 13 (동시 경합) | 방어 매커니즘이 자동 처리 (락 + status) | 유저에겐 하나의 응답만 반환 |
+| 13 (새 세션 IN_PROGRESS) | 안 함 | 이전 결제 결과 대기 안내 |
+| 14 (SUCCEEDED race) | 안 함 | 이미 완료된 결제 안내 |
+| 15 (TX B 동시 진입) | 방어 매커니즘이 자동 처리 (락 + status) | 유저에겐 하나의 응답만 반환 |
 
 ## 각 케이스의 로그 관측 지점
 

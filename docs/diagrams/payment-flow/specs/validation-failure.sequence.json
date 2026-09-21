@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "검증 실패로 인한 조기 종료",
+    "output": "docs/diagrams/payment-flow/validation-failure.html",
+    "viewBox": [1080, 1120],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      { "id": "case-7", "label": "케이스 7 · 예약 만료", "focus": ["client", "starter", "db"], "note": "Reservation TTL(10분)이 지나면 Redis에서 자연 만료되므로 조회 시 존재하지 않는다. Toss 호출 전에 RESERVATION_EXPIRED로 거절하고 유저에게 재예약을 안내한다." },
+      { "id": "case-8", "label": "케이스 8 · 중복 결제 (Order에 이미 PAID)", "focus": ["client", "starter", "db"], "note": "validateDuplicatePayment가 같은 Order에 이미 PAID인 다른 Payment를 발견하면 PAYMENT_ALREADY_COMPLETED로 거절한다. 예약 소유권 강제(#280) 이전의 방어층." },
+      { "id": "case-9", "label": "케이스 9 · 금액 불일치", "focus": ["client", "starter", "db"], "note": "요청 amount, Order.totalAmount, Payment.amount 세 값이 모두 일치해야 한다. 하나라도 다르면 PAYMENT_AMOUNT_MISMATCH로 거절 · 위변조·버그 방어." },
+      { "id": "case-10", "label": "케이스 10 · Toss 응답 paymentKey 미스매치", "focus": ["client", "starter", "db", "toss"], "note": "Toss 응답의 paymentKey가 요청 시 사용한 값과 다르면 PAYMENT_KEY_MISMATCH로 거절. attempt는 이미 IN_PROGRESS로 저장돼 있어 후속 Recovery Worker가 대사한다." }
+    ]
+  },
+  "participants": [
+    { "id": "client", "type": "external", "label": "클라이언트", "sublabel": "결제 요청" },
+    { "id": "starter", "type": "backend", "label": "결제 승인 경로", "sublabel": "Starter · Validator" },
+    { "id": "db", "type": "database", "label": "MySQL · Redis", "sublabel": "Order · Payment · Reservation" },
+    { "id": "toss", "type": "external", "label": "Toss Payments", "sublabel": "confirm" }
+  ],
+  "segments": [
+    { "from": 140, "to": 330, "label": "케이스 7 · Reservation 자연 만료" },
+    { "from": 350, "to": 550, "label": "케이스 8 · 같은 Order에 이미 PAID Payment" },
+    { "from": 570, "to": 760, "label": "케이스 9 · 요청 금액과 저장 금액 불일치" },
+    { "from": 780, "to": 1000, "label": "케이스 10 · Toss 응답 paymentKey 미스매치" }
+  ],
+  "messages": [
+    { "from": "client", "to": "starter", "y": 170, "label": "POST /confirm · TTL 지난 예약", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 210, "label": "findByAttemptId · Order/Payment 조회", "variant": "default" },
+    { "from": "starter", "to": "db", "y": 250, "label": "Reservation 조회 (Redis)", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 290, "label": "TTL 만료 · 존재하지 않음", "variant": "return" },
+    { "from": "starter", "to": "client", "y": 320, "label": "RESERVATION_EXPIRED · 새 예약 필요", "variant": "return" },
+
+    { "from": "client", "to": "starter", "y": 380, "label": "POST /confirm", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 420, "label": "findByAttemptId · validateApprovable", "variant": "default" },
+    { "from": "starter", "to": "db", "y": 460, "label": "validateDuplicatePayment · 같은 Order의 다른 Payment 조회", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 500, "label": "다른 Payment · 이미 PAID", "variant": "return" },
+    { "from": "starter", "to": "client", "y": 540, "label": "PAYMENT_ALREADY_COMPLETED", "variant": "return" },
+
+    { "from": "client", "to": "starter", "y": 600, "label": "POST /confirm · amount 위변조 · 버그", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 640, "label": "Order · Payment 조회", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 680, "label": "Order.totalAmount · Payment.amount", "variant": "return" },
+    { "from": "starter", "to": "client", "y": 720, "label": "PAYMENT_AMOUNT_MISMATCH · 요청 vs Order vs Payment 세 값 불일치", "variant": "return" },
+
+    { "from": "client", "to": "starter", "y": 810, "label": "POST /confirm", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 850, "label": "TX A · attempt IN_PROGRESS 저장", "variant": "default" },
+    { "from": "starter", "to": "toss", "y": 890, "label": "POST /v1/payments/confirm", "variant": "emphasis" },
+    { "from": "toss", "to": "starter", "y": 930, "label": "200 · 응답의 paymentKey가 요청과 다름", "variant": "return" },
+    { "from": "starter", "to": "client", "y": 980, "label": "validateGatewayResponseMatchesRequest 실패 → PAYMENT_KEY_MISMATCH · attempt는 Recovery Worker가 대사", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "starter", "from": 165, "to": 325, "type": "backend" },
+    { "participant": "db", "from": 205, "to": 295, "type": "database" },
+
+    { "participant": "starter", "from": 375, "to": 545, "type": "backend" },
+    { "participant": "db", "from": 415, "to": 505, "type": "database" },
+
+    { "participant": "starter", "from": 595, "to": 725, "type": "backend" },
+    { "participant": "db", "from": 635, "to": 685, "type": "database" },
+
+    { "participant": "starter", "from": 805, "to": 985, "type": "backend" },
+    { "participant": "db", "from": 845, "to": 895, "type": "database" },
+    { "participant": "toss", "from": 885, "to": 935, "type": "external" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Toss 호출 전 vs 후", "items": ["케이스 7·8·9 — Toss 호출 전에 거절 (외부 부작용 없음)", "케이스 10 — Toss 호출 후 응답 검증 실패", "10만 attempt row가 IN_PROGRESS로 남아 Recovery Worker 대상"] },
+    { "dot": "orange", "title": "3층 방어 중 어느 층인가", "items": ["7 — Reservation Redis 조회 실패로 조기 종료", "8·9 — pre-check(PaymentValidator)가 잠금 없이 빠른 실패", "10 — Toss 응답 후 검증 · Payment.paymentKey는 확정 시에만 저장"] },
+    { "dot": "emerald", "title": "각 예외의 후속 처리", "items": ["7 — 유저 재예약 안내", "8·9 — 위변조·버그 방어, CS 로그로 관측", "10 — attempt는 IN_PROGRESS 유지 · #270 Recovery Worker가 Toss 상태로 대사"] }
+  ]
+}

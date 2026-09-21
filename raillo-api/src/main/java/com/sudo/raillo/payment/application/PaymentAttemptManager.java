@@ -76,9 +76,9 @@ public class PaymentAttemptManager {
 	public void markFailedInNewTransaction(Long attemptDbId, String errorCode, String errorMessage) {
 		PaymentAttempt attempt = paymentAttemptRepository.findById(attemptDbId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_ATTEMPT_NOT_FOUND));
+
 		if (attempt.getStatus() != PaymentAttemptStatus.IN_PROGRESS) {
-			log.info("[markFailed - 이미 종결된 attempt, no-op] attemptId={}, currentStatus={}",
-				attempt.getAttemptId(), attempt.getStatus());
+			log.info("[markFailed - 이미 종결된 attempt, no-op] attemptId={}, currentStatus={}", attempt.getAttemptId(), attempt.getStatus());
 			return;
 		}
 		attempt.markFailed(errorCode, errorMessage);

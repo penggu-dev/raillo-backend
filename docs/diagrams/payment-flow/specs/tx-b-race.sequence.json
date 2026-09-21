@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "동시 TX B 진입 경합 · 케이스 15",
+    "output": "docs/diagrams/payment-flow/tx-b-race.html",
+    "viewBox": [1080, 1000],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      { "id": "case-15", "label": "케이스 15 · 원본과 재시도가 둘 다 DONE 확인 후 TX B 진입", "focus": ["client", "starter", "finalizer", "db", "toss"], "note": "원본 confirm 응답이 늦게 도착하는 사이 유저가 재시도해 게이트웨이에서 DONE 확인. 두 스레드 모두 Finalizer로 진입하면 Payment 락으로 직렬화된 뒤 늦게 획득한 쪽이 SUCCEEDED로 조기 리턴한다." }
+    ]
+  },
+  "participants": [
+    { "id": "client", "type": "external", "label": "클라이언트", "sublabel": "원본 · 재시도" },
+    { "id": "starter", "type": "backend", "label": "ApprovalStarter", "sublabel": "재조회 분기" },
+    { "id": "finalizer", "type": "backend", "label": "ApprovalFinalizer", "sublabel": "TX B · 락 획득" },
+    { "id": "db", "type": "database", "label": "MySQL", "sublabel": "Payment · Attempt" },
+    { "id": "toss", "type": "external", "label": "Toss Payments", "sublabel": "confirm · query" }
+  ],
+  "segments": [
+    { "from": 180, "to": 420, "label": "두 스레드가 각자 DONE 확인" },
+    { "from": 440, "to": 940, "label": "TX B 락 경합 · 원본이 먼저 확정, 재시도는 조기 리턴" }
+  ],
+  "messages": [
+    { "from": "client", "to": "starter", "y": 210, "label": "[원본] POST /confirm (attemptId=X)", "variant": "emphasis" },
+    { "from": "starter", "to": "toss", "y": 250, "label": "POST /v1/payments/confirm  · 응답 대기", "variant": "dashed" },
+    { "from": "client", "to": "starter", "y": 300, "label": "[재시도] POST /confirm (같은 attemptId=X)", "variant": "emphasis" },
+    { "from": "starter", "to": "toss", "y": 340, "label": "GET /v1/payments/{key}  · 상태 재조회", "variant": "dashed" },
+    { "from": "toss", "to": "starter", "y": 380, "label": "[재시도] status=DONE", "variant": "return" },
+    { "from": "toss", "to": "starter", "y": 410, "label": "[원본] confirm 성공 응답 (지연 도착)", "variant": "return" },
+
+    { "from": "starter", "to": "finalizer", "y": 470, "label": "[원본] finalizeApproval() → TX B 진입", "variant": "emphasis" },
+    { "from": "starter", "to": "finalizer", "y": 510, "label": "[재시도] finalizeApproval() → TX B 진입", "variant": "emphasis" },
+    { "from": "finalizer", "to": "db", "y": 555, "label": "[원본] SELECT FOR UPDATE Payment  · 락 획득", "variant": "emphasis" },
+    { "from": "finalizer", "to": "db", "y": 600, "label": "[재시도] SELECT FOR UPDATE Payment  · 락 대기", "variant": "dashed" },
+    { "from": "finalizer", "to": "db", "y": 660, "label": "[원본] attempt IN_PROGRESS → markSucceeded", "variant": "default" },
+    { "from": "finalizer", "to": "db", "y": 705, "label": "[원본] Order/Booking/Payment/Outbox 커밋 · 락 해제", "variant": "emphasis" },
+    { "from": "db", "to": "finalizer", "y": 770, "label": "[재시도] 락 획득 · findById attempt = SUCCEEDED", "variant": "return" },
+    { "from": "finalizer", "to": "client", "y": 815, "label": "[재시도] 이전 결과 그대로 반환 (조기 리턴, 커밋 없음)", "variant": "return" },
+    { "from": "finalizer", "to": "client", "y": 860, "label": "[원본] 정상 승인 응답", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "starter", "from": 205, "to": 520, "type": "backend" },
+    { "participant": "toss", "from": 245, "to": 415, "type": "external" },
+    { "participant": "finalizer", "from": 465, "to": 870, "type": "backend" },
+    { "participant": "db", "from": 550, "to": 775, "type": "database" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "왜 두 스레드가 TX B로 몰리나", "items": ["원본 confirm 응답이 유실·지연되어 attempt가 IN_PROGRESS로 남음", "유저가 재시도 → recoverInProgressAttempt → Toss query = DONE", "이 사이 원본 응답이 도착 → 두 스레드가 각자 Finalizer 진입"] },
+    { "dot": "orange", "title": "락이 없으면 무슨 일이", "items": ["둘 다 attempt.status = IN_PROGRESS로 읽음", "둘 다 markSucceeded 시도 → 두 번 커밋 · Outbox 중복 발행", "Order/Booking 이중 생성 등 데이터 오염"] },
+    { "dot": "violet", "title": "락 + status로 안전 종결", "items": ["Payment pessimistic lock이 두 진입을 직렬화", "먼저 획득한 쪽만 attempt 상태 전이", "뒤 진입은 SUCCEEDED로 조기 리턴 (커밋 없음)"] },
+    { "dot": "emerald", "title": "유저 관점", "items": ["원본 · 재시도 두 요청 모두 성공 응답", "이중 청구 없음 · 승차권 하나만 발행", "실패 시나리오였으면 markFailed idempotency로 동일하게 종결"] }
+  ]
+}
