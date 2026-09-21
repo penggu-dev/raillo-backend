@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: train-daily-schedule
+  namespace: batch
+spec:
+  schedule: "0 3 * * *"
+  timeZone: Asia/Seoul
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 재시도하면 다음 운행일이 하루 더 생성될 수 있어 실패 시 수동으로 복구
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: raillo-batch
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            - name: ghcr-secret
+          containers:
+            - name: raillo-batch
+              # CI가 sha-<commit> 태그로 교체
+              image: ghcr.io/penggu-dev/raillo-batch:latest
+              args:
+                - --job=trainDailySchedule
+              envFrom:
+                - configMapRef:
+                    name: raillo-config
+                - secretRef:
+                    name: raillo-secrets
+              env:
+                - name: JDK_JAVA_OPTIONS
+                  value: -XX:MaxRAMPercentage=75.0
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  cpu: "1"
+                  memory: 2Gi
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: delete-expired-members
+  namespace: batch
+spec:
+  schedule: "0 4 * * *"
+  timeZone: Asia/Seoul
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: raillo-batch
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            - name: ghcr-secret
+          containers:
+            - name: raillo-batch
+              # CI가 sha-<commit> 태그로 교체
+              image: ghcr.io/penggu-dev/raillo-batch:latest
+              args:
+                - --job=deleteExpiredMembers
+              envFrom:
+                - configMapRef:
+                    name: raillo-config
+                - secretRef:
+                    name: raillo-secrets
+              env:
+                - name: JDK_JAVA_OPTIONS
+                  value: -XX:MaxRAMPercentage=75.0
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  cpu: "1"
+                  memory: 2Gi
