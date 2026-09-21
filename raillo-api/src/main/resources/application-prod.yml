@@ -55,15 +55,15 @@ spring:
           writetimeout: 5000
 
 cors:
-  allowed-origins: https://www.raillo.site
-  allowed-methods: GET, POST, PUT, DELETE
-  allowed-headers: Access-Control-Allow-Origin, Content-type, Access-Control-Allow-Headers, Authorization, X-Requested-With
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  allowed-methods: ${CORS_ALLOWED_METHODS:GET, POST, PUT, DELETE}
+  allowed-headers: ${CORS_ALLOWED_HEADERS:Access-Control-Allow-Origin, Content-type, Access-Control-Allow-Headers, Authorization, X-Requested-With}
 
 jwt:
   secret: ${JWT_KEY}
 
 cookie:
-  domain: .raillo.site
+  domain: ${COOKIE_DOMAIN:.raillo.site}
 
 payment:
   toss:
