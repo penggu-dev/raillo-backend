@@ -1,7 +1,9 @@
 name: Build ARM64 images and deploy to OKE
 
 on:
-  push:
+  workflow_run:
+    workflows: [Build and Test with Gradle]
+    types: [completed]
     branches: [develop]
   workflow_dispatch:
 
@@ -12,9 +14,16 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
 jobs:
   build:
-    if: github.ref == 'refs/heads/develop'
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop')
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     permissions:
@@ -26,6 +35,8 @@ jobs:
         module: [raillo-api, raillo-batch]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
       - uses: docker/setup-buildx-action@v3
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -44,10 +55,10 @@ jobs:
             APP_MODULE=${{ matrix.module }}
           tags: |
             ghcr.io/penggu-dev/${{ matrix.module }}:latest
-            ghcr.io/penggu-dev/${{ matrix.module }}:sha-${{ github.sha }}
+            ghcr.io/penggu-dev/${{ matrix.module }}:sha-${{ env.DEPLOY_SHA }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ env.DEPLOY_SHA }}
           cache-from: type=gha,scope=${{ matrix.module }}
           cache-to: type=gha,mode=max,scope=${{ matrix.module }}
 
@@ -66,6 +77,8 @@ jobs:
       OKE_CLUSTER_OCID: ${{ secrets.OKE_CLUSTER_OCID }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
       - name: Check required OCI settings
         shell: bash
         run: |
@@ -111,8 +124,8 @@ jobs:
           for f in k8s/oke/api-server/*.yaml k8s/oke/batch/*.yaml; do
             echo '---'
             sed \
-              -e "s|ghcr.io/penggu-dev/raillo-api:latest|ghcr.io/penggu-dev/raillo-api:sha-${GITHUB_SHA}|g" \
-              -e "s|ghcr.io/penggu-dev/raillo-batch:latest|ghcr.io/penggu-dev/raillo-batch:sha-${GITHUB_SHA}|g" \
+              -e "s|ghcr.io/penggu-dev/raillo-api:latest|ghcr.io/penggu-dev/raillo-api:sha-${DEPLOY_SHA}|g" \
+              -e "s|ghcr.io/penggu-dev/raillo-batch:latest|ghcr.io/penggu-dev/raillo-batch:sha-${DEPLOY_SHA}|g" \
               "$f"
           done > "$RUNNER_TEMP/backend.yaml"
       - name: Apply API and CronJob resources
@@ -127,8 +140,8 @@ jobs:
         run: |
           {
             echo "### OKE backend deployment"
-            echo "- API: ghcr.io/penggu-dev/raillo-api:sha-${GITHUB_SHA}"
-            echo "- Batch: ghcr.io/penggu-dev/raillo-batch:sha-${GITHUB_SHA}"
+            echo "- API: ghcr.io/penggu-dev/raillo-api:sha-${DEPLOY_SHA}"
+            echo "- Batch: ghcr.io/penggu-dev/raillo-batch:sha-${DEPLOY_SHA}"
             echo "- API rollout completed; CronJobs use the new image on their next run."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Remove temporary deployment files
