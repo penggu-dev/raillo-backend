@@ -16,9 +16,14 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Import;
+import org.springframework.stereotype.Service;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.annotation.Transactional;
 
 @ServiceTest
+@Import(PaymentOutboxWorkerIntegrationTest.FailingTxServiceConfig.class)
 class PaymentOutboxWorkerIntegrationTest {
 
 	@Autowired
@@ -35,6 +40,9 @@ class PaymentOutboxWorkerIntegrationTest {
 
 	@MockitoBean
 	private OutboxEventDispatcher dispatcher;
+
+	@Autowired
+	private FailingTxService failingTxService;
 
 	@Test
 	@DisplayName("PENDING 행을 처리기가 성공적으로 처리하면 DONE으로 전이한다")
@@ -131,6 +139,44 @@ class PaymentOutboxWorkerIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("처리기가 @Transactional 서비스에서 예외를 던져도 배치의 다른 정상 행 커밋과 실패 행의 재시도 상태가 롤백되지 않는다")
+	void poll_innerTransactionalFailure_doesNotRollbackBatch() {
+		// given: 두 건 PENDING — 첫 번째는 실패, 두 번째는 정상
+		PaymentOutbox failingRow = outboxRepository.save(
+			PaymentOutbox.forBookingConfirmed(10L, "k-tx-fail", "{}")
+		);
+		PaymentOutbox successRow = outboxRepository.save(
+			PaymentOutbox.forBookingConfirmed(11L, "k-tx-success", "{}")
+		);
+
+		org.mockito.Mockito.doAnswer(invocation -> {
+			String payload = invocation.getArgument(1);
+			if (payload.contains("tx-fail-marker")) {
+				// 실제 @Transactional 메서드에서 던져야 outer tx가 rollback-only로 마킹되는 시나리오 재현
+				failingTxService.throwInsideTransaction();
+			}
+			return null;
+		}).when(dispatcher).dispatch(any(), any());
+
+		// payload를 실패/성공 마커로 구분
+		failingRow = outboxRepository.findById(failingRow.getId()).orElseThrow();
+		// row 자체는 그대로 두고 payload 재저장이 어렵기 때문에 새로 저장
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(10L, "k-tx-fail-2", "{\"m\":\"tx-fail-marker\"}"));
+
+		// when
+		worker.poll();
+
+		// then: 실패 마커 payload는 retryCount=1로 커밋, 나머지 정상 행들은 DONE으로 커밋
+		PaymentOutbox reloadedFailing = outboxRepository.findByDeduplicationKey("k-tx-fail-2").orElseThrow();
+		assertThat(reloadedFailing.getStatus()).isEqualTo(PaymentOutboxStatus.PENDING);
+		assertThat(reloadedFailing.getRetryCount()).isEqualTo(1);
+		assertThat(reloadedFailing.getNextRetryAt()).isNotNull();
+
+		PaymentOutbox reloadedSuccess = outboxRepository.findById(successRow.getId()).orElseThrow();
+		assertThat(reloadedSuccess.getStatus()).isEqualTo(PaymentOutboxStatus.DONE);
+	}
+
+	@Test
 	@DisplayName("nextRetryAt이 미래인 PENDING은 처리하지 않는다")
 	void poll_skipsRowsWithFutureNextRetryAt() {
 		// given
@@ -147,5 +193,21 @@ class PaymentOutboxWorkerIntegrationTest {
 		PaymentOutbox reloaded = outboxRepository.findById(row.getId()).orElseThrow();
 		assertThat(reloaded.getStatus()).isEqualTo(PaymentOutboxStatus.PENDING);
 		assertThat(reloaded.getRetryCount()).isEqualTo(1);
+	}
+
+	@Service
+	static class FailingTxService {
+		@Transactional
+		public void throwInsideTransaction() {
+			throw new RuntimeException("simulated tx-tainting failure");
+		}
+	}
+
+	@TestConfiguration
+	static class FailingTxServiceConfig {
+		@org.springframework.context.annotation.Bean
+		FailingTxService failingTxService() {
+			return new FailingTxService();
+		}
 	}
 }
