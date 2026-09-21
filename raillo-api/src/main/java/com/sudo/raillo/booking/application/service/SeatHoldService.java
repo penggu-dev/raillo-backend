@@ -87,18 +87,14 @@ public class SeatHoldService {
 			pendingBookingId, trainScheduleId, seatIds.size());
 
 		for (Long seatId : seatIds) {
-			try {
-				seatHoldRepository.releaseSeatHold(
-					trainScheduleId,
-					seatId,
-					pendingBookingId,
-					trainCarId,
-					departureStopOrder,
-					arrivalStopOrder
-				);
-			} catch (Exception e) {
-				log.error("[좌석 Hold 해제 실패] seatId={}, error={}", seatId, e.getMessage());
-			}
+			seatHoldRepository.releaseSeatHold(
+				trainScheduleId,
+				seatId,
+				pendingBookingId,
+				trainCarId,
+				departureStopOrder,
+				arrivalStopOrder
+			);
 		}
 	}
 

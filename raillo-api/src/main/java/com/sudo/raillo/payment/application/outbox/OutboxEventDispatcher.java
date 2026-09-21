@@ -17,8 +17,7 @@ public class OutboxEventDispatcher {
 		OutboxEventProcessor processor = processors.stream()
 			.filter(p -> p.supports(type))
 			.findFirst()
-			.orElseThrow(() -> new IllegalStateException(
-				"No OutboxEventProcessor registered for type: " + type));
+			.orElseThrow(() -> new IllegalStateException("No OutboxEventProcessor registered for type: " + type));
 		processor.process(payload);
 	}
 }
