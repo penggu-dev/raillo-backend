@@ -1,6 +1,6 @@
 package com.sudo.raillo.payment.application;
 
-import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.payment.application.result.PaymentConfirmResult;
 import java.util.List;
 
@@ -12,12 +12,12 @@ import java.util.List;
 public record PaymentApprovalStart(
 	Long paymentId,
 	Long attemptDbId,
-	List<PendingBooking> pendingBookings,
+	List<Reservation> reservations,
 	PaymentConfirmResult previousResult
 ) {
 
-	public static PaymentApprovalStart started(Long paymentId, Long attemptDbId, List<PendingBooking> pendingBookings) {
-		return new PaymentApprovalStart(paymentId, attemptDbId, pendingBookings, null);
+	public static PaymentApprovalStart started(Long paymentId, Long attemptDbId, List<Reservation> reservations) {
+		return new PaymentApprovalStart(paymentId, attemptDbId, reservations, null);
 	}
 
 	public static PaymentApprovalStart alreadyConfirmed(PaymentConfirmResult previousResult) {

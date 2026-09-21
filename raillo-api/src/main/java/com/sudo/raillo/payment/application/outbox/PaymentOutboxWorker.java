@@ -6,7 +6,6 @@ import com.sudo.raillo.payment.domain.PaymentOutbox;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -48,11 +47,10 @@ public class PaymentOutboxWorker {
 		this.dispatchTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 	}
 
-	@Scheduled(fixedDelayString = "${raillo.payment.outbox.polling-interval}")
 	@Transactional
 	public void poll() {
 		LocalDateTime now = LocalDateTime.now();
-		List<PaymentOutbox> batch = outboxRepository.lockProcessable(now, properties.batchSize());
+		List<PaymentOutbox> batch = outboxRepository.lockProcessable(now, properties.batchSize(), dispatcher.supportedTypes());
 		if (batch.isEmpty()) {
 			return;
 		}

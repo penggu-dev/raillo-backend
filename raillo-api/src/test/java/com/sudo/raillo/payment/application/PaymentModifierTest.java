@@ -66,36 +66,6 @@ class PaymentModifierTest {
 		assertThat(payment.getOrderCode()).isEqualTo(order.getOrderCode());
 	}
 
-	@Test
-	@DisplayName("Payment 실패 처리가 정상적으로 수행된다")
-	void failPaymentInNewTransaction_success() {
-		// given
-		Payment payment = paymentModifier.createPayment(member, order);
-		String failureCode = "REJECT_CARD_PAYMENT";
-		String failureMessage = "카드 결제가 거절되었습니다.";
-
-		// when
-		paymentModifier.failPaymentInNewTransaction(payment.getId(), failureCode, failureMessage);
-
-		// then
-		Payment failedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
-		assertThat(failedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
-		assertThat(failedPayment.getFailureCode()).isEqualTo(failureCode);
-		assertThat(failedPayment.getFailureMessage()).isEqualTo(failureMessage);
-		assertThat(failedPayment.getFailedAt()).isNotNull();
-	}
-
-	@Test
-	@DisplayName("존재하지 않는 Payment 실패 처리 시 예외가 발생한다")
-	void failPaymentInNewTransaction_notFound_throwsException() {
-		// given
-		Long nonExistentPaymentId = 9999L;
-
-		// when & then
-		assertThatThrownBy(() -> paymentModifier.failPaymentInNewTransaction(
-			nonExistentPaymentId, "ERROR_CODE", "에러 메시지"))
-			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_FOUND)
-			.hasMessage(PaymentError.PAYMENT_NOT_FOUND.getMessage());
-	}
+	// Payment.fail 호출 삭제(옵션 Y): PaymentModifier.failPaymentInNewTransaction이 제거되어
+	// 관련 실패 처리 테스트는 삭제. 실패는 PaymentAttempt.markFailed로만 관리한다.
 }

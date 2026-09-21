@@ -15,7 +15,9 @@ public class BookingCreatorAdapter implements BookingCreator {
 	private final BookingService bookingService;
 
 	@Override
-	public void createBookingFromOrder(Order order) {
-		bookingService.createBookingFromOrder(order);
+	public java.util.List<com.sudo.raillo.payment.application.result.ConfirmedBookingResult> createBookingFromOrder(Order order) {
+		return bookingService.createBookingFromOrder(order).stream()
+			.map(info -> new com.sudo.raillo.payment.application.result.ConfirmedBookingResult(info.reservationId(), info.bookingId()))
+			.toList();
 	}
 }

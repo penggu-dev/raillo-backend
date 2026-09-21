@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
-import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.application.required.BookingCreator;
@@ -50,7 +50,7 @@ public class PaymentApprovalFinalizer {
 		Long attemptDbId,
 		PaymentConfirmCommand command,
 		GatewayConfirmResult gatewayResult,
-		List<PendingBooking> pendingBookings
+		List<Reservation> reservations
 	) {
 		Payment payment = paymentRepository.findByIdForUpdate(paymentId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
@@ -65,20 +65,19 @@ public class PaymentApprovalFinalizer {
 		paymentValidator.validateGatewayResponseMatchesRequest(gatewayResult, command);
 
 		order.completePayment();
-		bookingCreator.createBookingFromOrder(order);
-		payment.approve(gatewayResult.method());
+		var confirmed = bookingCreator.createBookingFromOrder(order);
+		payment.approve(gatewayResult.method(), gatewayResult.paymentKey());
 		attempt.markSucceeded();
 
-		paymentOutboxRepository.save(buildBookingConfirmedOutbox(payment, pendingBookings));
+		paymentOutboxRepository.save(buildBookingConfirmedOutbox(BookingConfirmedPayload.from(paymentId, attempt, reservations, confirmed)));
 		return PaymentConfirmResult.from(payment);
 	}
 
-	private PaymentOutbox buildBookingConfirmedOutbox(Payment payment, List<PendingBooking> pendingBookings) {
-		String dedupKey = "payment:%d:booking-confirmed".formatted(payment.getId());
-		BookingConfirmedPayload payload = BookingConfirmedPayload.from(pendingBookings);
+	private PaymentOutbox buildBookingConfirmedOutbox(BookingConfirmedPayload payload) {
+		String dedupKey = "payment:%d:booking-confirmed".formatted(payload.paymentId());
 		try {
 			String payloadJson = objectMapper.writeValueAsString(payload);
-			return PaymentOutbox.forBookingConfirmed(payment.getId(), dedupKey, payloadJson);
+			return PaymentOutbox.forBookingConfirmed(payload.paymentId(), dedupKey, payloadJson);
 		} catch (JacksonException e) {
 			throw new BusinessException(PaymentError.PAYMENT_OUTBOX_PAYLOAD_SERIALIZATION_FAILED);
 		}

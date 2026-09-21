@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
 import com.sudo.raillo.payment.domain.PaymentOutbox;
 import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
+import com.sudo.raillo.payment.domain.PaymentOutboxType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -42,6 +43,12 @@ public class PaymentOutboxPersistenceAdapter implements PaymentOutboxRepository 
 	@Override
 	public List<PaymentOutbox> lockProcessable(LocalDateTime now, int limit) {
 		return jpaRepository.lockProcessable(PaymentOutboxStatus.PENDING, now, Limit.of(limit));
+	}
+
+	@Override
+	public List<PaymentOutbox> lockProcessable(LocalDateTime now, int limit, List<PaymentOutboxType> types) {
+		if (types.isEmpty()) return List.of();
+		return jpaRepository.lockProcessable(PaymentOutboxStatus.PENDING, now, types, Limit.of(limit));
 	}
 
 	@Override

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 
 import com.sudo.raillo.payment.domain.PaymentOutbox;
 import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
+import com.sudo.raillo.payment.domain.PaymentOutboxType;
 
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
@@ -48,6 +49,21 @@ public interface PaymentOutboxJpaRepository extends JpaRepository<PaymentOutbox,
 	List<PaymentOutbox> lockProcessable(
 		@Param("status") PaymentOutboxStatus status,
 		@Param("now") LocalDateTime now,
+		Limit limit
+	);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "-2"))
+	@Query("""
+		select o from PaymentOutbox o
+		where o.status = :status and o.type in :types
+		  and (o.nextRetryAt is null or o.nextRetryAt <= :now)
+		order by o.nextRetryAt asc nulls first, o.id asc
+		""")
+	List<PaymentOutbox> lockProcessable(
+		@Param("status") PaymentOutboxStatus status,
+		@Param("now") LocalDateTime now,
+		@Param("types") List<PaymentOutboxType> types,
 		Limit limit
 	);
 

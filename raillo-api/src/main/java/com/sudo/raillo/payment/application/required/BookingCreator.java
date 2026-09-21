@@ -7,5 +7,5 @@ import com.sudo.raillo.order.domain.Order;
  */
 public interface BookingCreator {
 
-	void createBookingFromOrder(Order order);
+	java.util.List<com.sudo.raillo.payment.application.result.ConfirmedBookingResult> createBookingFromOrder(Order order);
 }

@@ -13,6 +13,12 @@ public class OutboxEventDispatcher {
 		this.processors = processors;
 	}
 
+	public List<PaymentOutboxType> supportedTypes() {
+		return java.util.Arrays.stream(PaymentOutboxType.values())
+			.filter(type -> processors.stream().anyMatch(processor -> processor.supports(type)))
+			.toList();
+	}
+
 	public void dispatch(PaymentOutboxType type, String payload) {
 		OutboxEventProcessor processor = processors.stream()
 			.filter(p -> p.supports(type))

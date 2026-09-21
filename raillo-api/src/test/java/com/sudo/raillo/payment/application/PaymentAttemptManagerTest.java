@@ -49,7 +49,7 @@ class PaymentAttemptManagerTest {
 	}
 
 	@Test
-	@DisplayName("startApprovalInNewTransaction으로 IN_PROGRESS attempt를 저장하고 paymentKey도 반영한다")
+	@DisplayName("startApprovalInNewTransaction으로 IN_PROGRESS attempt를 저장하고 paymentKey는 attempt에만 남긴다")
 	void startApprovalInNewTransaction_persists() {
 		// when
 		Long attemptDbId = paymentAttemptManager
@@ -60,7 +60,9 @@ class PaymentAttemptManagerTest {
 		PaymentAttempt saved = paymentAttemptRepository.findById(attemptDbId).orElseThrow();
 		assertThat(saved.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
 		assertThat(saved.getAttemptId()).isEqualTo("attempt-abc");
-		assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentKey()).isEqualTo("toss-key");
+		assertThat(saved.getPaymentKey()).isEqualTo("toss-key");
+		// 옵션 3: Payment.paymentKey는 승인 확정 시에만 저장. TX A에서는 null 유지.
+		assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentKey()).isNull();
 	}
 
 	@Test
@@ -86,17 +88,14 @@ class PaymentAttemptManagerTest {
 			assertThat(jdbcTemplate.queryForObject(
 				"select count(*) from payment_attempt where payment_id = ?",
 				Long.class, payment.getId())).isEqualTo(1);
-			String storedKey = jdbcTemplate.queryForObject(
-				"select payment_key from payment_attempt where payment_id = ?",
-				String.class, payment.getId());
-			assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentKey())
-				.isEqualTo(storedKey);
+			// 옵션 3: Payment.paymentKey는 승인 확정 시에만 저장. TX A에서는 PaymentAttempt에만 저장.
+			assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentKey()).isNull();
 		}
 	}
 
 	@Test
-	@DisplayName("진행 중인 승인에 다른 attemptId로 재요청하면 기존 paymentKey를 변경하지 않는다")
-	void rejects_new_attempt_without_overwriting_payment_key() {
+	@DisplayName("진행 중인 승인에 다른 attemptId로 재요청하면 새 시도는 거절되고 Payment.paymentKey는 null 유지")
+	void rejects_new_attempt_while_in_progress() {
 		// given
 		paymentAttemptManager.startApprovalInNewTransaction(payment.getId(), "first", "first-key");
 
@@ -105,26 +104,26 @@ class PaymentAttemptManagerTest {
 			.startApprovalInNewTransaction(payment.getId(), "second", "second-key"))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
-		assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentKey()).isEqualTo("first-key");
+		// 옵션 3: Payment.paymentKey는 승인 확정 시에만 저장. TX A에서는 null 유지.
+		assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentKey()).isNull();
 		assertThat(paymentAttemptRepository.findByAttemptId("second")).isEmpty();
 	}
 
 	@Test
-	@DisplayName("attempt 실패만 먼저 커밋된 경우에도 다른 승인 시도를 시작하지 않는다")
-	void rejects_new_attempt_during_failure_transition() {
-		// given: Payment.fail 커밋 전의 짧은 간격을 재현한다
+	@DisplayName("이전 시도가 FAILED면 다른 카드로 새 승인을 시작할 수 있다")
+	void allows_new_attempt_after_previous_failed() {
+		// given: 이전 결제 시도가 FAILED 상태
 		PaymentAttempt failed = PaymentAttempt.startApproval(payment.getId(), "first", "first-key");
 		failed.markFailed("REJECT", "카드 거절");
 		paymentAttemptRepository.save(failed);
-		payment.updatePaymentKey("first-key");
-		paymentRepository.save(payment);
 
-		// when / then
-		assertThatThrownBy(() -> paymentAttemptManager
-			.startApprovalInNewTransaction(payment.getId(), "second", "second-key"))
-			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
-		assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentKey()).isEqualTo("first-key");
+		// when: 새 paymentKey/attemptId로 재시도
+		PaymentAttemptStartResult second = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "second", "second-key");
+
+		// then
+		assertThat(second.created()).isTrue();
+		assertThat(paymentAttemptRepository.findByAttemptId("second")).isPresent();
 	}
 
 	@Test
@@ -145,7 +144,7 @@ class PaymentAttemptManagerTest {
 	}
 
 	@Test
-	@DisplayName("같은 attemptId의 paymentKey를 변경하면 잠금 획득 후에도 요청을 거절한다")
+	@DisplayName("같은 attemptId의 paymentKey를 변경하면 요청을 거절한다")
 	void existing_attempt_rejects_changed_key_under_lock() {
 		// given
 		paymentAttemptManager.startApprovalInNewTransaction(payment.getId(), "first", "first-key");
@@ -155,25 +154,6 @@ class PaymentAttemptManagerTest {
 			.startApprovalInNewTransaction(payment.getId(), "first", "changed-key"))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_REQUEST_MISMATCH);
-		assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentKey()).isEqualTo("first-key");
-	}
-
-	@Test
-	@DisplayName("paymentKey 저장이 실패하면 같은 트랜잭션의 attempt도 롤백된다")
-	void key_conflict_rolls_back_attempt() {
-		// given: 다른 결제가 이미 사용 중인 paymentKey
-		var otherMember = memberRepository.save(MemberFixture.createOther());
-		var otherOrder = orderRepository.save(OrderFixture.create(otherMember));
-		Payment other = Payment.create(otherMember, otherOrder);
-		other.updatePaymentKey("duplicate-key");
-		paymentRepository.save(other);
-
-		// when / then
-		assertThatThrownBy(() -> paymentAttemptManager
-			.startApprovalInNewTransaction(payment.getId(), "new", "duplicate-key"))
-			.isInstanceOf(DataIntegrityViolationException.class);
-		assertThat(paymentAttemptRepository.findByAttemptId("new")).isEmpty();
-		assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentKey()).isNull();
 	}
 
 	@Test

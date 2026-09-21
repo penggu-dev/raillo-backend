@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sudo.raillo.booking.application.validator.BookingValidator;
-import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
+import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.support.helper.PaymentReservationTestHelper.SeatPassenger;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.BusinessException;
@@ -13,7 +13,7 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
-import com.sudo.raillo.support.fixture.PendingBookingFixture;
+import com.sudo.raillo.support.helper.PaymentReservationTestHelper;
 import com.sudo.raillo.support.helper.BookingResult;
 import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
@@ -34,6 +34,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 public class SeatConflictValidatorTest {
+	@org.springframework.beans.factory.annotation.Autowired
+	private PaymentReservationTestHelper paymentReservations;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -88,25 +90,25 @@ public class SeatConflictValidatorTest {
 			List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
 
 			// 서울 -> 대전, "0-1" 구간
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
+			Reservation reservation = paymentReservations.builder()
 				.withId("pb_123")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(0).getId())
 				.withArrivalStopId(stops.get(1).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// when & then
 			assertThatNoException().isThrownBy(() ->
-				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
+				bookingValidator.validateSeatConflicts(List.of(reservation))
 			);
 		}
 
 		@Test
 		@DisplayName("여러 개의 예약, 여러 개의 좌석에 대한 확정 예매 좌석이 없다면 검증을 통과한다")
-		void multiplePendingBookings_multipleSeats_noExistingSeatBooking_success() {
+		void multipleReservations_multipleSeats_noExistingSeatBooking_success() {
 			// given
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 4);
 			Seat seat1 = seats.get(0);
@@ -116,32 +118,32 @@ public class SeatConflictValidatorTest {
 			List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
 
 			// [예약1] 서울 -> 대전, 좌석 2개
-			PendingBooking pendingBooking1 = PendingBookingFixture.builder()
+			Reservation reservation1 = paymentReservations.builder()
 				.withId("pb_1")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(0).getId())
 				.withArrivalStopId(stops.get(1).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat1.getId(), PassengerType.ADULT),
-					new PendingSeatBooking(seat2.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat1.getId(), PassengerType.ADULT),
+					new SeatPassenger(seat2.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// [예약2] 대전 -> 부산, 좌석 2개
-			PendingBooking pendingBooking2 = PendingBookingFixture.builder()
+			Reservation reservation2 = paymentReservations.builder()
 				.withId("pb_2")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(1).getId())
 				.withArrivalStopId(stops.get(3).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat3.getId(), PassengerType.ADULT),
-					new PendingSeatBooking(seat4.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat3.getId(), PassengerType.ADULT),
+					new SeatPassenger(seat4.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// when & then
 			assertThatNoException().isThrownBy(() ->
-				bookingValidator.validateSeatConflicts(List.of(pendingBooking1, pendingBooking2))
+				bookingValidator.validateSeatConflicts(List.of(reservation1, reservation2))
 			);
 		}
 
@@ -161,19 +163,19 @@ public class SeatConflictValidatorTest {
 				.build();
 
 			// [예매하려는 새 예약] 서울 -> 대전, "0-1" 구간
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
+			Reservation reservation = paymentReservations.builder()
 				.withId("pb_123")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(0).getId())
 				.withArrivalStopId(stops.get(1).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// when & then
 			assertThatNoException().isThrownBy(() ->
-				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
+				bookingValidator.validateSeatConflicts(List.of(reservation))
 			);
 		}
 
@@ -193,19 +195,19 @@ public class SeatConflictValidatorTest {
 				.build();
 
 			// [예매하려는 새 예약] 서울 -> 대전, "0-1" 구간
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
+			Reservation reservation = paymentReservations.builder()
 				.withId("pb_123")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(0).getId())
 				.withArrivalStopId(stops.get(1).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// when & then
 			assertThatNoException().isThrownBy(() ->
-				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
+				bookingValidator.validateSeatConflicts(List.of(reservation))
 			);
 		}
 	}
@@ -230,19 +232,19 @@ public class SeatConflictValidatorTest {
 				.build();
 
 			// [예매하려는 새 예약] 서울 -> 동대구, "0-2" 구간 (대전-동대구 구간 겹침)
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
+			Reservation reservation = paymentReservations.builder()
 				.withId("pb_123")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(0).getId())
 				.withArrivalStopId(stops.get(2).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// when & then
 			assertThatThrownBy(() ->
-				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
+				bookingValidator.validateSeatConflicts(List.of(reservation))
 			).isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
 				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
@@ -265,20 +267,20 @@ public class SeatConflictValidatorTest {
 				.build();
 
 			// 서울 -> 동대구 구간으로 seat1, seat2 예약 시도 (seat1은 충돌, seat2는 충돌 없음)
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
+			Reservation reservation = paymentReservations.builder()
 				.withId("pb_123")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(0).getId())
 				.withArrivalStopId(stops.get(2).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat1.getId(), PassengerType.ADULT),
-					new PendingSeatBooking(seat2.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat1.getId(), PassengerType.ADULT),
+					new SeatPassenger(seat2.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// when & then
 			assertThatThrownBy(() ->
-				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
+				bookingValidator.validateSeatConflicts(List.of(reservation))
 			).isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
 				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
@@ -286,7 +288,7 @@ public class SeatConflictValidatorTest {
 
 		@Test
 		@DisplayName("여러 개의 예약, 여러 개의 좌석 중 하나라도 충돌이 나면 예외가 발생한다")
-		void multiplePendingBookings_multipleSeats_oneConflict_fail() {
+		void multipleReservations_multipleSeats_oneConflict_fail() {
 			// given
 			List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 4);
 			Seat seat1 = seats.get(0);
@@ -303,32 +305,32 @@ public class SeatConflictValidatorTest {
 				.build();
 
 			// [예약1] 서울 -> 대전, "0-1" 구간, 좌석 2개 - 충돌 없음
-			PendingBooking pendingBooking1 = PendingBookingFixture.builder()
+			Reservation reservation1 = paymentReservations.builder()
 				.withId("pb_1")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(0).getId())
 				.withArrivalStopId(stops.get(1).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat1.getId(), PassengerType.ADULT),
-					new PendingSeatBooking(seat2.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat1.getId(), PassengerType.ADULT),
+					new SeatPassenger(seat2.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// [예약2] 서울 -> 부산, "0-3" 구간, 좌석 2개 중 seat3이 "1-3" 구간과 충돌
-			PendingBooking pendingBooking2 = PendingBookingFixture.builder()
+			Reservation reservation2 = paymentReservations.builder()
 				.withId("pb_2")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(0).getId())
 				.withArrivalStopId(stops.get(3).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat3.getId(), PassengerType.ADULT),
-					new PendingSeatBooking(seat4.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat3.getId(), PassengerType.ADULT),
+					new SeatPassenger(seat4.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// when & then
 			assertThatThrownBy(() ->
-				bookingValidator.validateSeatConflicts(List.of(pendingBooking1, pendingBooking2))
+				bookingValidator.validateSeatConflicts(List.of(reservation1, reservation2))
 			).isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
 				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
@@ -350,19 +352,19 @@ public class SeatConflictValidatorTest {
 				.build();
 
 			// [예매하려는 새 예약] 서울 -> 부산, "0-3" 구간
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
+			Reservation reservation = paymentReservations.builder()
 				.withId("pb_123")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(0).getId())
 				.withArrivalStopId(stops.get(3).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// when & then
 			assertThatThrownBy(() ->
-					bookingValidator.validateSeatConflicts(List.of(pendingBooking))
+					bookingValidator.validateSeatConflicts(List.of(reservation))
 			).isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
 				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
@@ -391,19 +393,19 @@ public class SeatConflictValidatorTest {
 				.build();
 
 			// [예매하려는 새 예약] 대전 -> 부산, "1-3" 구간 (기존 예매2의 "2-3"과 충돌)
-			PendingBooking pendingBooking = PendingBookingFixture.builder()
+			Reservation reservation = paymentReservations.builder()
 				.withId("pb_123")
 				.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
 				.withDepartureStopId(stops.get(1).getId())
 				.withArrivalStopId(stops.get(3).getId())
-				.withPendingSeatBookings(List.of(
-					new PendingSeatBooking(seat.getId(), PassengerType.ADULT)
+				.withSeats(List.of(
+					new SeatPassenger(seat.getId(), PassengerType.ADULT)
 				))
 				.build();
 
 			// when & then
 			assertThatThrownBy(() ->
-				bookingValidator.validateSeatConflicts(List.of(pendingBooking))
+				bookingValidator.validateSeatConflicts(List.of(reservation))
 			).isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_BOOKING)
 				.hasMessage(BookingError.SEAT_CONFLICT_WITH_BOOKING.getMessage());
@@ -411,34 +413,19 @@ public class SeatConflictValidatorTest {
 	}
 
 	@Test
-	@DisplayName("정류장 정보를 찾을 수 없으면 예외가 발생한다")
-	void nonExistScheduleStopId_fail() {
-		//given
-		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
-		Seat seat = seats.get(0);
-		List<ScheduleStop> stops = trainScheduleResult.scheduleStops();
-
-		Long nonExistentStopId = 999999L;
-
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withId("pb_123")
+	@DisplayName("좌석 충돌 검증은 예약 snapshot의 구간 순서를 사용한다")
+	void validates_snapshot_without_reading_stops() {
+		// given: 정류장 ID를 다시 조회하지 않아도 구간 순서로 충돌을 판단할 수 있다.
+		var reservation = com.sudo.raillo.support.fixture.ReservationFixture.builder()
 			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
-			.withDepartureStopId(stops.get(0).getId())
-			.withArrivalStopId(nonExistentStopId)       // 존재하지 않는 정류장
-			.withPendingSeatBookings(List.of(
-				new PendingSeatBooking(seat.getId(), PassengerType.ADULT)
-			))
+			.withArrival(new com.sudo.raillo.booking.domain.ReservationStop(999999L, 2, 999L, "도착", java.time.LocalTime.NOON))
 			.build();
-
 		// when & then
-		assertThatThrownBy(() ->
-			bookingValidator.validateSeatConflicts(List.of(pendingBooking))
-		).isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", TrainError.SCHEDULE_STOP_NOT_FOUND);
+		org.assertj.core.api.Assertions.assertThatCode(() -> bookingValidator.validateSeatConflicts(List.of(reservation))).doesNotThrowAnyException();
 	}
 
 	@Nested
-	@DisplayName("PendingBooking 생성 시 좌석 충돌 검증 메서드 테스트")
+	@DisplayName("Reservation 생성 시 좌석 충돌 검증 메서드 테스트")
 	class ValidateSeatConflictsMethodTests {
 
 		@Test

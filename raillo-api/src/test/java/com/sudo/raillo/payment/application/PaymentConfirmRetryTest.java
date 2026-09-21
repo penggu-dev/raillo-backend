@@ -3,6 +3,7 @@ package com.sudo.raillo.payment.application;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
+import static com.sudo.raillo.payment.application.PaymentAttemptIds.forApproval;
 
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.result.PaymentConfirmResult;
@@ -71,81 +72,47 @@ class PaymentConfirmRetryTest {
 		payment = paymentRepository.save(Payment.create(member, order));
 	}
 
-	@ParameterizedTest
-	@EnumSource(PaymentAttemptStatus.class)
-	@DisplayName("같은 attemptId가 다른 결제에 이미 붙어있으면 상태와 관계없이 요청 불일치로 거절한다")
-	void rejects_attempt_bound_to_another_payment(PaymentAttemptStatus existingStatus) {
-		// given: 다른 payment(otherPayment) 소속으로 저장된 attemptId
-		String attemptIdOfOtherPayment = "attempt-owned-by-other-payment";
-		String paymentKey = "original-key";
+	@Test
+	@DisplayName("같은 attemptId가 다른 payment_id의 attempt에 붙어 있으면 요청 불일치로 거절한다")
+	void rejects_when_attempt_belongs_to_another_payment() {
+		// given: 파생 규칙(attemptId = SHA-256(apv:paymentKey))상 클라이언트 API에서는
+		//        재현할 수 없지만, DB가 오염된 상황(다른 payment 행에 같은 attemptId가 이미 저장)
+		//        을 재현해 방어 계층이 동작하는지 검증한다.
+		String paymentKey = "shared-key";
+		String derivedAttemptId = forApproval(paymentKey);
+		Long otherPaymentId = payment.getId() + 999_999L;
 
-		Order otherOrder = orderTestHelper.createDefault(member, schedule).order();
-		Payment otherPayment = paymentRepository.save(Payment.create(member, otherOrder));
+		attemptRepository.save(PaymentAttempt.startApproval(otherPaymentId, derivedAttemptId, paymentKey));
 
-		PaymentAttempt attemptOnOtherPayment = PaymentAttempt.startApproval(
-			otherPayment.getId(), attemptIdOfOtherPayment, paymentKey);
-		transitionTo(attemptOnOtherPayment, existingStatus);
-		attemptRepository.save(attemptOnOtherPayment);
-
-		// when: 원래 payment 대상 승인 요청에 otherPayment 소속 attemptId를 실어 보냄
+		// when: 오염된 attempt와 동일한 paymentKey로 승인 요청
 		PaymentConfirmCommand request = new PaymentConfirmCommand(
-			paymentKey, order.getOrderCode(), order.getTotalAmount(), attemptIdOfOtherPayment);
+			paymentKey, order.getOrderCode(), order.getTotalAmount());
 
-		// then: attempt.payment_id(otherPayment) != request.payment_id(originalPayment) → mismatch
+		// then: attempt.payment_id != request payment_id → mismatch (Toss는 호출되지 않음)
 		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage("결제 시도 정보가 요청과 일치하지 않습니다.");
 		verify(tossPaymentClient, never()).confirmPayment(any());
-		// 원래 payment는 부수효과 없이 그대로 남아있어야 함
-		assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentStatus())
-			.isEqualTo(PaymentStatus.PENDING);
-	}
-
-	@ParameterizedTest
-	@EnumSource(PaymentAttemptStatus.class)
-	@DisplayName("같은 attemptId에 처음과 다른 paymentKey를 보내면 상태와 관계없이 요청 불일치로 거절한다")
-	void rejects_request_with_changed_payment_key(PaymentAttemptStatus existingStatus) {
-		// given: paymentKey="original-key"로 attempt가 저장돼 있는 상태
-		String attemptId = "attempt-with-original-key";
-		String originalPaymentKey = "original-key";
-
-		PaymentAttempt attemptWithOriginalKey = PaymentAttempt.startApproval(
-			payment.getId(), attemptId, originalPaymentKey);
-		transitionTo(attemptWithOriginalKey, existingStatus);
-		attemptRepository.save(attemptWithOriginalKey);
-
-		// when: 같은 attemptId지만 paymentKey를 다른 값으로 바꿔 재요청
-		String changedPaymentKey = "changed-key";
-		PaymentConfirmCommand requestWithChangedKey = new PaymentConfirmCommand(
-			changedPaymentKey, order.getOrderCode(), order.getTotalAmount(), attemptId);
-
-		// then: attempt.paymentKey(original) != request.paymentKey(changed) → mismatch
-		assertThatThrownBy(() -> paymentConfirmer.confirm(requestWithChangedKey, memberNo))
-			.isInstanceOf(BusinessException.class)
-			.hasMessage("결제 시도 정보가 요청과 일치하지 않습니다.");
-		verify(tossPaymentClient, never()).confirmPayment(any());
-		// 원래 payment의 paymentKey는 아직 저장되지 않은 상태를 유지
-		assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getPaymentKey()).isNull();
 	}
 
 	@Test
 	@DisplayName("취소용으로 저장된 attemptId를 승인 요청에 사용하면 요청 불일치로 거절한다")
 	void rejects_cancellation_attempt_reused_for_approval() {
-		// given: attempt를 APPROVAL로 저장한 뒤 DB에서 직접 attempt_type만 CANCELLATION으로 바꿔둔다
-		//        (실서비스에서는 취소 유스케이스가 CANCELLATION으로 저장하므로 상황을 최소 셋업으로 재현)
-		String cancellationAttemptId = "attempt-saved-as-cancellation";
+		// given: 같은 paymentKey에서 파생된 attemptId로 APPROVAL을 저장한 뒤
+		//        DB에서 직접 attempt_type만 CANCELLATION으로 바꿔 시나리오를 재현한다.
 		String paymentKey = "original-key";
+		String derivedAttemptId = forApproval(paymentKey);
 
-		PaymentAttempt approvalAttempt = PaymentAttempt.startApproval(payment.getId(), cancellationAttemptId, paymentKey);
+		PaymentAttempt approvalAttempt = PaymentAttempt.startApproval(payment.getId(), derivedAttemptId, paymentKey);
 		approvalAttempt.markSucceeded();
 		PaymentAttempt saved = attemptRepository.save(approvalAttempt);
 		jdbcTemplate.update(
 			"update payment_attempt set attempt_type = 'CANCELLATION' where payment_attempt_id = ?",
 			saved.getId());
 
-		// when: 취소용으로 저장된 attemptId를 승인 요청에 실어 보냄
+		// when: 같은 paymentKey로 승인 요청 (attemptId 동일, attempt_type만 CANCELLATION)
 		PaymentConfirmCommand approvalRequest = new PaymentConfirmCommand(
-			paymentKey, order.getOrderCode(), order.getTotalAmount(), cancellationAttemptId);
+			paymentKey, order.getOrderCode(), order.getTotalAmount());
 
 		// then: attempt.type(CANCELLATION) != APPROVAL → mismatch
 		assertThatThrownBy(() -> paymentConfirmer.confirm(approvalRequest, memberNo))
@@ -158,8 +125,8 @@ class PaymentConfirmRetryTest {
 	@DisplayName("Payment 로드 후 다른 트랜잭션이 승인을 커밋한 경우, 재요청은 최신 커밋 결과를 반환한다")
 	void returns_committed_result_when_payment_was_loaded_before_approval() {
 		// given: 이 payment에 IN_PROGRESS attempt가 남아있는 상황
-		String attemptId = "attempt-inflight";
 		String paymentKey = "original-key";
+		String attemptId = forApproval(paymentKey);
 
 		PaymentAttempt inflightAttempt = attemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -174,8 +141,7 @@ class PaymentConfirmRetryTest {
 			// 별도 트랜잭션에서 승인 커밋 (첫 요청이 확정하는 시점 시뮬레이션)
 			independentTx.executeWithoutResult(status -> {
 				Payment committed = paymentRepository.findById(payment.getId()).orElseThrow();
-				committed.updatePaymentKey(paymentKey);
-				committed.approve(PaymentMethod.CREDIT_CARD);
+				committed.approve(PaymentMethod.CREDIT_CARD, paymentKey);
 				attemptRepository.findById(inflightAttempt.getId()).orElseThrow().markSucceeded();
 			});
 
@@ -187,7 +153,7 @@ class PaymentConfirmRetryTest {
 		// when: 재요청. attemptId가 이미 있으니 handleExistingAttempt가 SUCCEEDED로 분기해야 하고
 		//       그때 스냅샷 대신 DB에서 최신 결제 결과를 조회해서 반환해야 함
 		PaymentConfirmCommand request = new PaymentConfirmCommand(
-			paymentKey, order.getOrderCode(), order.getTotalAmount(), attemptId);
+			paymentKey, order.getOrderCode(), order.getTotalAmount());
 
 		PaymentConfirmResult result = paymentConfirmer.confirm(request, memberNo);
 

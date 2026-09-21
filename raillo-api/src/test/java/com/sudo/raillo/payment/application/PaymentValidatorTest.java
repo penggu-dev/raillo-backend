@@ -130,7 +130,7 @@ class PaymentValidatorTest {
 		void fail_alreadyPaidPaymentExists() {
 			Order order = orderRepository.save(Order.create(member, BigDecimal.valueOf(50000)));
 			Payment payment = paymentRepository.save(Payment.create(member, order));
-			payment.approve(PaymentMethod.CREDIT_CARD);
+			payment.approve(PaymentMethod.CREDIT_CARD, "test-payment-key");
 			paymentRepository.saveAndFlush(payment);
 
 			assertThatThrownBy(() -> paymentValidator.validateDuplicatePayment(order))
