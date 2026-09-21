@@ -27,12 +27,12 @@ Toss(외부 결제 API), DB, Redis 세 시스템의 상태 정합성을 보장�
 ```
 1. Toss 승인 성공
 2. Payment.approve(), Order.completePayment(), Booking 생성 완료
-3. Redis 정리(PendingBooking 삭제, Seat Hold 해제) 중 예외 발생
+3. Reservation 정리 중 예외 발생
 4. @Transactional이 전체 롤백
 5. Toss = 승인, DB = 아무 것도 없음 (Scenario 1과 동일)
 ```
 
-`deletePendingBookings`는 `try/catch`로 무음 처리, `releaseSeats`는 catch 없이 트랜잭션에 예외 전파. 이슈 #257에서 지적된 지점. 현재는 정리 전체가 트랜잭션 B 커밋 이후로 이동해 승인 결과를 되돌리지 않는다.
+이슈 #257에서 지적된 지점이다. 현재는 승인 확정 트랜잭션 B에서 outbox 행을 INSERT하고 `PaymentOutboxWorker`가 트랜잭션 커밋 후 비동기로 Reservation 정리를 수행하므로, 정리 실패가 승인 결과를 되돌리지 않는다.
 
 ### 취소 흐름도 대칭
 
@@ -153,7 +153,7 @@ DB 커밋 이후 Redis에 반영해야 할 작업을 기록한다. 결제 확정
 | `retry_count`, `next_retry_at` | Worker 재시도 상태 |
 | `created_at`, `processed_at` | 감사 |
 
-Payload는 Redis 정리 지점을 특정할 수 있는 최소 정보만 담는다. 예: `pendingBookingIds`, `seatIds`, `trainCarId`, `stopOrders`. 취소는 부분 취소 대비 `cancelledSeatSections[]`까지 포함한다.
+Payload는 Redis 정리 지점을 특정할 수 있는 최소 정보만 담는다. 예: `reservationIds`, `seatIds`, `trainCarId`, `stopOrders`. 취소는 부분 취소 대비 `cancelledSeatSections[]`까지 포함한다.
 
 ### OutboxWorker — 구현 완료 (#266)
 
@@ -215,6 +215,18 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 | Toss 승인 요청 | `PaymentGateway.confirm` | 없음 |
 | 트랜잭션 B | `PaymentApprovalFinalizer.finalizeApproval` | `REQUIRED` |
 
+### 3층 재검증 구조
+
+같은 검증(`validateApprovable`·`validateDuplicatePayment`·`validateApprovalAttempt`·`validateAmounts`)이 세 지점에서 반복 실행된다. 낭비가 아니라 각 층이 다른 시점의 상태를 다시 확인해 동시성·응답 대기 사이 상태 변화를 잡는 방어층이다.
+
+| 층 | 위치 | 시점 | 목적 |
+|---|---|---|---|
+| pre-check | `PaymentApprovalStarter.start` | 트랜잭션 없음 | 잠금 없이 빠른 fail. Toss 호출까지 가지 않고 조기 종료. |
+| TX A | `PaymentAttemptManager.startApprovalInNewTransaction` | `SELECT FOR UPDATE`로 Payment 잠금 획득 후 | pre-check와 잠금 획득 사이에 다른 요청이 attempt를 등록했거나 Payment 상태를 바꿨을 가능성 감지. |
+| TX B | `PaymentApprovalFinalizer.finalizeApproval` | Toss 호출 완료 후 Payment 재잠금 | Toss 응답 대기 동안 다른 트랜잭션(예: 동시에 처리된 다른 attempt가 승인 확정)이 상태를 바꿨을 가능성 감지. |
+
+이 구조 덕에 두 요청이 거의 동시에 들어와도 늦게 잠금을 잡은 요청이 `PAYMENT_ALREADY_COMPLETED`로 저지되고, Toss로 두 번째 승인 호출이 나가 이중 청구가 발생하지 않는다.
+
 ## Failure Coverage — 후속 작업 완료 후 목표
 
 | 실패 지점 | 대응 |
@@ -251,7 +263,7 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 기존 Tasks 8–12를 하나의 Worker PR로 묶는 계획에서 다음 두 범위로 나눈다. 이 문서의 후속 항목은 현재 브랜치에서 구현하지 않는다.
 
 - **Recovery Worker — 다음 브랜치·이슈:** 네트워크 타임아웃·응답 유실, Toss 성공 후 DB 확정/커밋 실패로 남은 `IN_PROGRESS`를 Toss 조회로 대사한다. 결과가 미확정이면 실패로 단정하거나 승인 API를 재호출하지 않고 다음 폴링까지 유지한다. 처리 권한 확보, 승인 확정과의 경합, 복구 지표 및 복구 후 같은 attemptId 재요청을 검증한다.
-- **Outbox — 별도 새 이슈:** 현재 브랜치에서 완료한 Outbox 엔티티·저장소와 승인 확정 시 INSERT는 유지한다. 미구현인 OutboxWorker의 처리·재시도·최대 시도 초과 정책, Redis 정리 이관 및 관련 지표·통합 테스트를 새 이슈에서 다룬다. 현재 인라인 `cleanupPendingBookings`는 실제 정리를 수행할 수 있는 후속 경로가 준비될 때 이관한다. 기존 계획의 NoOp 처리기를 사용하는 단계가 있다면 `DONE`은 Redis 정리 완료를 보장하지 않는다는 한계를 명시한다.
+- **Outbox — 이슈 #266에서 완료.** 승인 확정 시 outbox INSERT, `PaymentOutboxWorker`의 폴링·재시도·최대 시도 초과 정책, Reservation 정리(`BookingConfirmedProcessor`)까지 이번 브랜치에서 함께 이관됐다. 인라인 정리 코드는 이 시점에 제거됐다.
 
 승인 재요청의 요청 일치 검증, 최신 결과 조회, 결제별 동시 승인 차단, 승인 가능 상태 검증,
 입력 검증과 DB 무결성 오류 구분은 Worker 도입으로 해결되지 않으므로 선행 수정한다.
@@ -293,4 +305,4 @@ Auth와 Payment 등이 별도 서비스로 분리되면 서비스 경계를 넘�
 
 - 결제 승인과 취소 자체의 비즈니스 규칙 (환불 조건, 금액 계산 등)
 - 좌석 충돌 검증 4-Layer 방어 (`docs/seat-conflict-validation.md`)
-- 예약(PendingBooking) 만료 처리 방식 개편
+- Reservation 만료 처리 방식 개편

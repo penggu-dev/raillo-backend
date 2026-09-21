@@ -101,9 +101,7 @@ public class PaymentValidator {
 	/**
 	 * 게이트웨이 응답이 원 요청과 일치하는지 검증한다.
 	 *
-	 * <p>사용자 재시도 시 조회 API로 상태를 재확인하는 경로에서는 조회 결과가 다른 주문의
-	 * 결제일 수 있으므로 {@code orderCode}까지 반드시 확인한다. 승인 confirm 응답은 요청과 같은
-	 * orderCode를 되돌려주므로 같은 검증이 무해하다.
+	 * <p>사용자 재시도로 조회 API를 태우는 경로에서는 응답이 다른 주문의 결제일 수 있어 {@code orderCode}까지 확인한다. 승인 confirm 응답은 같은 orderCode를 되돌려주므로 이 검증이 무해하다.
 	 */
 	public void validateGatewayResponseMatchesRequest(GatewayConfirmResult result, PaymentConfirmCommand command) {
 		if (result.totalAmount().compareTo(command.amount()) != 0) {

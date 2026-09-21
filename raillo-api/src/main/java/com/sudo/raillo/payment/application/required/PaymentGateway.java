@@ -15,11 +15,7 @@ public interface PaymentGateway {
 	GatewayConfirmResult confirm(PaymentConfirmCommand command);
 
 	/**
-	 * 게이트웨이의 결제 상태를 조회한다.
-	 *
-	 * <p>Toss 응답이 유실돼 PaymentAttempt가 IN_PROGRESS로 남았을 때, 사용자가 결제창에서
-	 * 재시도하면 이 조회 결과로 로컬 DB를 정정한다. 확정 상태(DONE)이면
-	 * {@link GatewayQueryResult#confirmResult()}에 승인 결과가 담긴다.
+	 * 게이트웨이의 결제 상태를 조회한다. Toss 응답 유실로 PaymentAttempt가 IN_PROGRESS로 남았을 때 사용자가 재시도하면 이 조회 결과로 로컬을 정정한다. 확정 상태(DONE)이면 {@link GatewayQueryResult#confirmResult()}에 승인 결과가 담긴다.
 	 */
 	GatewayQueryResult query(String paymentKey);
 

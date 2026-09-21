@@ -52,11 +52,11 @@
 
 - **키**: `member:{memberNo}:reservations` — Hash
 - **field**: `{reservationId}`, **값**: `{trainScheduleId}` (숫자 문자열)
-- 회원별 예약 조회에 사용. field TTL은 예약 본문보다 짧게 설정(옛 pending-booking-member-key 관례에서 20초 짧게)
+- 회원별 예약 조회에 사용. field TTL은 예약 본문보다 20초 짧게 설정한다. 인덱스는 살아 있는데 본문이 이미 만료된 상태를 피하기 위해서다.
 
-### 재검토 후 삭제 대상
+### 재검토로 이번 브랜치에서 제거된 항목
 
-- `{schedule:X}:reservation-payment:{reservationId}` marker — 옵션 β 적용으로 삭제 예정. 관련 Lua 스크립트 두 개(`reservation_payment_claim.lua`, `reservation_payment_release.lua`)도 함께 삭제.
+- `{schedule:X}:reservation-payment:{reservationId}` marker와 관련 Lua 스크립트 두 개(`reservation_payment_claim.lua`, `reservation_payment_release.lua`)를 함께 제거했다. 동시 결제 방지는 `PaymentAttempt.attempt_id`의 DB unique 제약과 `PaymentValidator.validateApprovable(payment)`로 커버된다.
 
 ## MySQL — 주문·결제·시도
 

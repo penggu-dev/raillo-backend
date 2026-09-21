@@ -68,8 +68,7 @@ public class TossPaymentGateway implements PaymentGateway {
 
 	private PaymentMethod mapMethod(String tossMethod) {
 		if (tossMethod == null) {
-			// Toss 조회 응답의 method는 결제 미완료 상태에서 null이 될 수 있다.
-			// DONE 응답에는 실무상 값이 오지만, 스펙이 nullable이므로 방어 코드를 유지한다.
+			// 조회 응답의 method는 결제 미완료 상태에서 null일 수 있어(스펙상 nullable) 방어한다. DONE 응답에는 실무상 값이 온다.
 			log.warn("[TOSS] 결제 수단이 null로 응답됨");
 			throw new BusinessException(PaymentError.INVALID_PAYMENT_METHOD, "결제 수단 정보가 응답에 없습니다.");
 		}
