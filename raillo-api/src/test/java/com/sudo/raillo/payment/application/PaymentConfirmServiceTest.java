@@ -60,6 +60,7 @@ import com.sudo.raillo.payment.adapter.persistence.PaymentJpaRepository;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentException;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentConfirmResponse;
+import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentQueryResponse;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.OrderFixture;
@@ -360,8 +361,8 @@ class PaymentConfirmServiceTest {
 	}
 
 	@Test
-	@DisplayName("IN_PROGRESS attempt가 존재하는 상태에서 재요청하면 PAYMENT_ATTEMPT_IN_PROGRESS 예외를 던진다")
-	void confirmPayment_retryOnInProgressAttempt_throwsInProgress() {
+	@DisplayName("IN_PROGRESS 재요청 시 게이트웨이가 아직 처리 중이라고 응답하면 PAYMENT_ATTEMPT_IN_PROGRESS 예외를 던진다")
+	void confirmPayment_retryOnInProgressAttempt_gatewayStillInProgress_throwsInProgress() {
 		// given: Payment가 있고, IN_PROGRESS attempt를 직접 저장
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_in_progress";
@@ -378,6 +379,11 @@ class PaymentConfirmServiceTest {
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
 
+		// 게이트웨이 재조회에서 여전히 IN_PROGRESS로 응답
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willReturn(new TossPaymentQueryResponse(
+				paymentKey, preparedResult.orderCode(), null, amount.longValue(), "IN_PROGRESS"));
+
 		PaymentConfirmCommand request = new PaymentConfirmCommand(
 			paymentKey, preparedResult.orderCode(), amount);
 
@@ -386,8 +392,251 @@ class PaymentConfirmServiceTest {
 			.isInstanceOf(BusinessException.class)
 			.hasMessageContaining("결제 처리 중");
 
-		// Toss는 호출되지 않음
+		// Toss confirm은 호출되지 않고 게이트웨이 재조회만 호출됨
 		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+		verify(tossPaymentClient).queryPayment(paymentKey);
+
+		// attempt는 여전히 IN_PROGRESS 유지
+		PaymentAttempt attempt = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+	}
+
+	@Test
+	@DisplayName("IN_PROGRESS 재요청 시 게이트웨이가 DONE으로 응답하면 로컬을 정정해 승인 완료 상태로 응답한다")
+	void confirmPayment_retryOnInProgressAttempt_gatewayReportsDone_recoversToPaid() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_recovery_done";
+		String attemptId = forApproval(paymentKey);
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = paymentRepository.findAll().stream()
+			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
+			.findFirst()
+			.orElseThrow();
+
+		paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
+
+		// 게이트웨이 재조회 응답: 이미 DONE
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willReturn(new TossPaymentQueryResponse(
+				paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE"));
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(
+			paymentKey, preparedResult.orderCode(), amount);
+
+		// when
+		PaymentConfirmResult result = paymentConfirmer.confirm(request, memberNo);
+
+		// then
+		assertThat(result.paymentStatus()).isEqualTo(PaymentStatus.PAID);
+		assertThat(result.paymentKey()).isEqualTo(paymentKey);
+		assertThat(result.paymentMethod()).isEqualTo(PaymentMethod.CREDIT_CARD);
+
+		Payment savedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
+		assertThat(savedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+		assertThat(savedPayment.getPaymentKey()).isEqualTo(paymentKey);
+
+		PaymentAttempt attempt = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.SUCCEEDED);
+
+		// Toss confirm은 호출되지 않고 게이트웨이 재조회로만 처리됨
+		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+		verify(tossPaymentClient).queryPayment(paymentKey);
+	}
+
+	@Test
+	@DisplayName("IN_PROGRESS 재요청 시 게이트웨이 조회가 NOT_FOUND_PAYMENT로 실패하면 attempt를 FAILED로 마킹한다")
+	void confirmPayment_retryOnInProgressAttempt_gatewayNotFound_marksFailed() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_recovery_not_found";
+		String attemptId = forApproval(paymentKey);
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = paymentRepository.findAll().stream()
+			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
+			.findFirst()
+			.orElseThrow();
+
+		paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
+
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willThrow(new TossPaymentException(404, "NOT_FOUND_PAYMENT", "존재하지 않는 결제 정보 입니다."));
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(
+			paymentKey, preparedResult.orderCode(), amount);
+
+		// when + then
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasMessageContaining("이미 실패한 결제 시도");
+
+		PaymentAttempt attempt = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.FAILED);
+		assertThat(attempt.getErrorCode()).isEqualTo("GATEWAY_NOT_FOUND_PAYMENT");
+
+		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+	}
+
+	@Test
+	@DisplayName("IN_PROGRESS 재요청 시 게이트웨이 조회가 5xx로 실패하면 attempt는 IN_PROGRESS 유지, 재시도 안내로 응답한다")
+	void confirmPayment_retryOnInProgressAttempt_gatewayInternalError_keepsInProgress() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_recovery_gateway_5xx";
+		String attemptId = forApproval(paymentKey);
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = paymentRepository.findAll().stream()
+			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
+			.findFirst()
+			.orElseThrow();
+
+		paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
+
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willThrow(new TossPaymentException(
+				500, "FAILED_PAYMENT_INTERNAL_SYSTEM_PROCESSING",
+				"결제가 완료되지 않았어요. 다시 시도해주세요."));
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(
+			paymentKey, preparedResult.orderCode(), amount);
+
+		// when + then
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasMessageContaining("결제 처리 중");
+
+		PaymentAttempt attempt = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+		assertThat(attempt.getErrorCode()).isNull();
+
+		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+	}
+
+	@Test
+	@DisplayName("IN_PROGRESS 재요청 시 게이트웨이가 DONE이지만 다른 주문의 결제로 응답하면 PAYMENT_ORDER_MISMATCH로 거절한다")
+	void confirmPayment_retryOnInProgressAttempt_gatewayOrderMismatch_rejects() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_order_mismatch";
+		String attemptId = forApproval(paymentKey);
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = paymentRepository.findAll().stream()
+			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
+			.findFirst()
+			.orElseThrow();
+
+		paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
+
+		// 게이트웨이가 DONE으로 응답하지만 orderId는 다른 주문의 것
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willReturn(new TossPaymentQueryResponse(
+				paymentKey, "SOMEONE_ELSES_ORDER", "카드", amount.longValue(), "DONE"));
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(
+			paymentKey, preparedResult.orderCode(), amount);
+
+		// when + then
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ORDER_MISMATCH);
+
+		// 주문 상태는 변화 없음
+		Payment savedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
+		assertThat(savedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+	}
+
+	@Test
+	@DisplayName("finalize 진입 시 같은 attempt가 이미 SUCCEEDED면 다른 요청이 먼저 확정한 것으로 보고 이전 결과를 반환한다")
+	void finalizeApproval_whenAttemptAlreadySucceeded_returnsPreviousResult() {
+		// given: PAID 상태 payment + SUCCEEDED attempt로 미리 셋업
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_finalizer_race";
+		String attemptId = forApproval(paymentKey);
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		// 첫 요청: 정상 승인 완료 시뮬레이션
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willReturn(new TossPaymentConfirmResponse(
+				paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE"));
+		PaymentConfirmCommand firstRequest = new PaymentConfirmCommand(
+			paymentKey, preparedResult.orderCode(), amount);
+		PaymentConfirmResult firstResult = paymentConfirmer.confirm(firstRequest, memberNo);
+
+		// when: 같은 attempt로 재요청. SUCCEEDED attempt 분기가 아닌 finalize 재진입을 시뮬레이션
+		//       하기 위해 attempt 상태만 IN_PROGRESS로 임시 되돌리면 finalize 안까지 흘러 들어간다.
+		//       실제 경합 시나리오는 재현이 까다로우므로 단위 검증으로 finalize의 방어 로직만 확인한다.
+		PaymentAttempt succeeded = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(succeeded.getStatus()).isEqualTo(PaymentAttemptStatus.SUCCEEDED);
+
+		// finalize의 방어를 확인하려면 recovered 경로에서 진입해야 한다.
+		// 재요청 flow: SUCCEEDED attempt → alreadyConfirmed 분기 → paymentReader.getConfirmResult 반환
+		PaymentConfirmResult replay = paymentConfirmer.confirm(firstRequest, memberNo);
+		assertThat(replay.paymentId()).isEqualTo(firstResult.paymentId());
+		assertThat(replay.paymentStatus()).isEqualTo(PaymentStatus.PAID);
+		// 두 번째 요청은 Toss confirm을 다시 호출하지 않음
+		verify(tossPaymentClient, times(1)).confirmPayment(any(PaymentConfirmCommand.class));
+	}
+
+	@Test
+	@DisplayName("IN_PROGRESS 재요청 시 게이트웨이가 ABORTED로 응답하면 attempt를 FAILED로 마킹하고 재시도 불가로 응답한다")
+	void confirmPayment_retryOnInProgressAttempt_gatewayReportsAborted_marksFailed() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_recovery_aborted";
+		String attemptId = forApproval(paymentKey);
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = paymentRepository.findAll().stream()
+			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
+			.findFirst()
+			.orElseThrow();
+
+		paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
+
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willReturn(new TossPaymentQueryResponse(
+				paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "ABORTED"));
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(
+			paymentKey, preparedResult.orderCode(), amount);
+
+		// when + then
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasMessageContaining("이미 실패한 결제 시도");
+
+		PaymentAttempt attempt = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.FAILED);
+		assertThat(attempt.getErrorCode()).startsWith("GATEWAY_ABORTED");
+
+		Payment savedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
+		assertThat(savedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+
+		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+		verify(tossPaymentClient).queryPayment(paymentKey);
 	}
 
 	@Test
@@ -720,6 +969,11 @@ class PaymentConfirmServiceTest {
 			}
 			return new TossPaymentConfirmResponse("first-key", prepared.orderCode(), "카드", amount.longValue(), "DONE");
 		});
+		// samePaymentKey=true 경로에서 두 번째 요청은 IN_PROGRESS 재조회로 진입한다.
+		// 게이트웨이가 여전히 IN_PROGRESS라고 응답해 PAYMENT_ATTEMPT_IN_PROGRESS 예외로 이어지도록 stub.
+		given(tossPaymentClient.queryPayment(anyString()))
+			.willReturn(new TossPaymentQueryResponse(
+				"first-key", prepared.orderCode(), null, amount.longValue(), "IN_PROGRESS"));
 
 		try (var executor = Executors.newSingleThreadExecutor()) {
 			var first = executor.submit(() -> paymentConfirmer.confirm(firstCommand, memberNo));

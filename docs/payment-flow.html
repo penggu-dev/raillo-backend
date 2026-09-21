@@ -399,10 +399,10 @@
   </section>
 
   <section>
-    <h2>IN_PROGRESS 회복 경로</h2>
-    <p>5xx/타임아웃으로 <code>IN_PROGRESS</code>로 남은 <code>PaymentAttempt</code>는 두 경로로 회복한다. <b>온라인</b>은 유저가 같은 결제창에서 재시도할 때 서버가 <code>attemptId</code> dedup으로 기존 시도를 찾아 Toss에 실제 상태를 조회하고 로컬을 정정한다. <b>배치</b>는 Recovery Worker(#270)가 유저 요청 없이 오래 남은 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>를 대사한다. 두 경로 모두 동일한 <code>GET /v1/payments/{paymentKey}</code>로 Toss 상태를 확인한다.</p>
+    <h2>IN_PROGRESS 상태를 정상 상태로 되돌리는 두 경로</h2>
+    <p>5xx/타임아웃으로 <code>IN_PROGRESS</code>로 남은 <code>PaymentAttempt</code>는 두 방식으로 정상 상태로 되돌린다. <b>사용자 재시도로 정정</b>은 사용자가 같은 결제창에서 다시 시도할 때 서버가 <code>attemptId</code> dedup으로 기존 시도를 찾아 Toss에 실제 상태를 조회하고 로컬을 정정하는 흐름이다. <b>Worker 배치 대사</b>는 Recovery Worker(#270)가 사용자 요청이 오지 않아도 오래 남은 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>를 주기적으로 대사한다. 두 경로 모두 동일한 <code>GET /v1/payments/{paymentKey}</code>로 Toss 상태를 확인한다.</p>
 
-    <h3>온라인 회복 — 유저 재시도</h3>
+    <h3>사용자가 결제창에서 재시도했을 때</h3>
 
     <figure>
       <div class="scroll">
@@ -463,7 +463,7 @@
       <figcaption><code>attemptId</code>가 <code>paymentKey</code>에서 결정적으로 파생되므로 같은 결제창의 재요청은 자동으로 같은 <code>attemptId</code>로 매핑된다. DB의 unique 제약이 새 <code>PaymentAttempt</code> 생성을 막고, 서버는 기존 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>를 발견하면 Toss에 GET으로 실제 상태를 재조회해서 로컬 DB를 정정한 뒤 응답한다.</figcaption>
     </figure>
 
-    <h3>배치 회복 — Recovery Worker (#270)</h3>
+    <h3>사용자 재시도가 오지 않을 때 — Recovery Worker (#270)</h3>
     <p>유저 재요청이 없어도 오래 남은 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>는 Recovery Worker가 주기적으로 대사한다. 각 시도의 <code>payment_key</code>로 Toss에 <code>GET /v1/payments/{paymentKey}</code>를 호출하고, 응답 상태에 맞춰 로컬 <code>PaymentAttempt</code>와 <code>Payment</code>를 정정하거나 후속 아웃박스 이벤트를 발행한다. 이 워커의 폴링·리스·재시도 정책은 별도 이슈(#270)에서 다룬다.</p>
 
     <h3>attemptId dedup 상태별 응답</h3>
@@ -676,7 +676,7 @@ UPDATE payment
     <ul class="rules">
       <li><b>유지 항목.</b> Reservation 기반 결제 API 계약(<code>reservationIds</code>), <code>PaymentApprovalStarter</code> → Toss → <code>PaymentApprovalFinalizer</code> 3단계 구조, <code>attemptId</code>의 <code>paymentKey</code> 파생, 아웃박스 폴링 인프라(<code>PaymentOutboxWorker</code>, scheduler, retry policy, SKIP LOCKED), <code>BookingConfirmedPayload</code> schemaVersion=2, <code>Order.reservation_snapshot</code> 컬럼, <code>TrainSearchFacade</code>의 좌석 조회 이관, <code>PendingBooking</code>·<code>SeatHold</code> 스택 제거.</li>
       <li><b>동시 결제 방지.</b> <code>PaymentAttempt.attempt_id</code>의 DB unique 제약과 Payment 상태 검증(PENDING 여부) 조합으로 같은 결제창의 중복 요청과 이미 확정된 결제의 재승인을 막는다. 별도 Redis marker는 필요하지 않다.</li>
-      <li><b>Recovery Worker(#270)와의 역할 분담.</b> 유저 재요청 시점의 온라인 재조회는 이 문서의 <code>IN_PROGRESS</code> 처리 경로가 담당한다. Recovery Worker는 유저 요청 없이 오래 남은 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>를 배치로 대사한다.</li>
+      <li><b>Recovery Worker(#270)와의 역할 분담.</b> 사용자가 결제창에서 재시도한 시점의 상태 재조회는 이 문서의 <code>IN_PROGRESS</code> 처리 경로가 담당한다. Recovery Worker는 사용자 요청이 오지 않아도 오래 남은 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>를 배치로 대사한다.</li>
     </ul>
   </section>
 </main>
