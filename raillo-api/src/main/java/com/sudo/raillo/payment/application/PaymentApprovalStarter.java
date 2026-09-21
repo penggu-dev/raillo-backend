@@ -65,7 +65,7 @@ public class PaymentApprovalStarter {
 		}
 
 		paymentValidator.validateApprovable(payment);
-		// TODO(#257 Task 8, 12): 인라인 cleanup 제거 후, 이 조회 직전 다른 요청이 승인을 확정하는 경로도 검증한다.
+		// TODO(#272): 이 조회 직전 다른 요청이 승인을 확정해 PendingBooking이 정리된 경로도 통합 테스트로 검증한다.
 		List<PendingBooking> pendingBookings = getPendingBookings(order, memberNo);
 		paymentValidator.validateDuplicatePayment(order);
 
@@ -103,7 +103,7 @@ public class PaymentApprovalStarter {
 				yield PaymentApprovalStart.alreadyConfirmed(paymentReader.getConfirmResult(payment.getId()));
 			}
 			case FAILED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
-			// TODO(#257 Task 10, 12): 오래된 IN_PROGRESS의 대사/롤포워드/보상과 복구 후 재요청을 통합 검증한다.
+			// TODO(#270): 오래된 IN_PROGRESS의 대사/롤포워드/보상은 PaymentRecoveryWorker 도입 이슈에서 담당한다.
 			case IN_PROGRESS -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 		};
 	}

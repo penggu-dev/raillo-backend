@@ -1,6 +1,6 @@
 package com.sudo.raillo.payment.adapter.persistence;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 
 import java.time.LocalDateTime;
 import java.util.List;

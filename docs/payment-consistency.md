@@ -2,7 +2,7 @@
 
 Toss(외부 결제 API), DB, Redis 세 시스템의 상태 정합성을 보장하기 위한 설계. 승인 흐름부터 적용하고, 취소 흐름은 후속 이슈 #259에서 확장한다.
 
-> `PaymentRecoveryWorker`와 `OutboxWorker`는 다음 브랜치·이슈에서 구현한다. 현재 브랜치는 자동 대사·복구 또는 Redis 정리 재시도를 수행하지 않는다. 아래 목표 아키텍처와 후속 지표는 Worker 도입 이후의 설계다.
+> `OutboxWorker`는 이슈 #266에서 구현됐다. 승인 확정 후 Redis 정리는 이제 이 Worker가 담당한다. `PaymentRecoveryWorker`(승인·취소 attempt 대사·롤포워드·보상)는 이슈 #270의 범위이며 현재는 미구현이다.
 
 ## Why
 
@@ -139,13 +139,15 @@ DB 커밋 이후 Redis에 반영해야 할 작업을 기록한다. 결제 확정
 
 Payload는 Redis 정리 지점을 특정할 수 있는 최소 정보만 담는다. 예: `pendingBookingIds`, `seatIds`, `trainCarId`, `stopOrders`. 취소는 부분 취소 대비 `cancelledSeatSections[]`까지 포함한다.
 
-### OutboxWorker — 후속 이슈
+### OutboxWorker — 구현 완료 (#266)
 
-애플리케이션 내부 스케줄러로 시작. 다중 인스턴스 동시 실행에 대비해 `SELECT ... FOR UPDATE SKIP LOCKED` 또는 `processing_owner` 임차 방식으로 처리 권한을 확보한다.
+`PaymentOutboxWorker`가 `@Scheduled` 폴링으로 동작한다. 다중 인스턴스 동시 실행에 대비해 `SELECT ... FOR UPDATE SKIP LOCKED`(Hibernate 6의 `jakarta.persistence.lock.timeout=-2`)로 처리 권한을 확보한다. 처리기는 `OutboxEventDispatcher`가 이벤트 타입에 따라 위임하며, `BOOKING_CONFIRMED`는 `BookingConfirmedProcessor`가 담당한다.
 
 - 정상: Redis 정리 실행 → `status=DONE`
-- 실패: `retry_count++`, `next_retry_at = now + backoff` 갱신
-- 최대 재시도 초과: `status=FAILED` 전환, 알람
+- 실패: `OutboxRetryPolicy`가 계산한 지수 backoff로 `retry_count++`, `next_retry_at` 갱신
+- 최대 재시도 초과: `status=FAILED` 전환, `payment.outbox.failed` 카운터 증가
+
+취소 이벤트(`BOOKING_CANCELLED`) 처리기와 발행은 이슈 #259가 담당한다.
 
 ### PaymentRecoveryWorker — 후속 브랜치·이슈
 
@@ -176,14 +178,14 @@ Payload는 Redis 정리 지점을 특정할 수 있는 최소 정보만 담는�
   payment_outbox INSERT
   COMMIT
 
-[트랜잭션 밖 — 임시 인라인, Worker 이관 예정]
-  Redis 정리
+[별도 스케줄러 — 구현 완료 #266]
+  PaymentOutboxWorker가 PENDING outbox 행 폴링 → Redis 정리 → DONE / 재시도 / FAILED
 
-[후속 구현 — Recovery Worker]
+[후속 구현 — Recovery Worker #270]
   IN_PROGRESS attempt의 Toss 상태 조회 및 복구
 ```
 
-승인 자체의 원자성(Payment/Order/Booking)은 트랜잭션 B가 보장한다. 현재 Redis 정리는 승인 커밋 이후 실행하므로 승인 트랜잭션을 롤백시키지 않는다. 다만 정리 예외가 API 오류로 전파될 수 있으며, 자동 복구와 정리 재시도는 후속 Worker 작업 범위다.
+승인 자체의 원자성(Payment/Order/Booking)은 트랜잭션 B가 보장한다. Redis 정리는 이제 승인 트랜잭션 밖에서 Worker가 비동기로 수행하므로 승인 API 응답에 영향을 주지 않으며, 정리 실패 시 지수 backoff로 자동 재시도된다.
 
 `PaymentConfirmService.confirm()`은 자체 트랜잭션을 열지 않고 위 세 단계를 순서대로 연결하기만 한다.
 

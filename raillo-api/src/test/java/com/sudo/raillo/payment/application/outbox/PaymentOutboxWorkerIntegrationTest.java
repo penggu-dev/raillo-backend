@@ -1,10 +1,8 @@
 package com.sudo.raillo.payment.application.outbox;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
 import com.sudo.raillo.payment.domain.PaymentOutbox;
@@ -141,33 +139,28 @@ class PaymentOutboxWorkerIntegrationTest {
 	@Test
 	@DisplayName("처리기가 @Transactional 서비스에서 예외를 던져도 배치의 다른 정상 행 커밋과 실패 행의 재시도 상태가 롤백되지 않는다")
 	void poll_innerTransactionalFailure_doesNotRollbackBatch() {
-		// given: 두 건 PENDING — 첫 번째는 실패, 두 번째는 정상
+		// given: 두 건 PENDING — payload의 마커로 실패/성공을 구분
 		PaymentOutbox failingRow = outboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(10L, "k-tx-fail", "{}")
+			PaymentOutbox.forBookingConfirmed(10L, "k-tx-fail", "{\"marker\":\"fail\"}")
 		);
 		PaymentOutbox successRow = outboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(11L, "k-tx-success", "{}")
+			PaymentOutbox.forBookingConfirmed(11L, "k-tx-success", "{\"marker\":\"ok\"}")
 		);
 
-		org.mockito.Mockito.doAnswer(invocation -> {
+		// dispatcher가 실제 @Transactional 서비스 예외를 던지도록 스텁 — outer tx 오염 시나리오 재현
+		doAnswer(invocation -> {
 			String payload = invocation.getArgument(1);
-			if (payload.contains("tx-fail-marker")) {
-				// 실제 @Transactional 메서드에서 던져야 outer tx가 rollback-only로 마킹되는 시나리오 재현
+			if (payload.contains("\"fail\"")) {
 				failingTxService.throwInsideTransaction();
 			}
 			return null;
 		}).when(dispatcher).dispatch(any(), any());
 
-		// payload를 실패/성공 마커로 구분
-		failingRow = outboxRepository.findById(failingRow.getId()).orElseThrow();
-		// row 자체는 그대로 두고 payload 재저장이 어렵기 때문에 새로 저장
-		outboxRepository.save(PaymentOutbox.forBookingConfirmed(10L, "k-tx-fail-2", "{\"m\":\"tx-fail-marker\"}"));
-
 		// when
 		worker.poll();
 
-		// then: 실패 마커 payload는 retryCount=1로 커밋, 나머지 정상 행들은 DONE으로 커밋
-		PaymentOutbox reloadedFailing = outboxRepository.findByDeduplicationKey("k-tx-fail-2").orElseThrow();
+		// then: 실패 행은 재시도 상태로 저장, 정상 행은 DONE으로 저장 — 배치 전체 커밋이 유지됨
+		PaymentOutbox reloadedFailing = outboxRepository.findById(failingRow.getId()).orElseThrow();
 		assertThat(reloadedFailing.getStatus()).isEqualTo(PaymentOutboxStatus.PENDING);
 		assertThat(reloadedFailing.getRetryCount()).isEqualTo(1);
 		assertThat(reloadedFailing.getNextRetryAt()).isNotNull();
