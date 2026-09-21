@@ -42,18 +42,23 @@ public class PaymentConfirmService implements PaymentConfirmer {
 		}
 
 		// 2단계: Toss 승인 요청 (DB 트랜잭션 밖)
+		// IN_PROGRESS 재조회로 이미 DONE을 확인한 경우엔 Toss confirm 없이 재조회 결과로 확정한다.
 		GatewayConfirmResult approval;
-		try {
-			approval = paymentGateway.confirm(command);
-		} catch (PaymentGatewayException failure) {
-			if (failure.isDefinitiveFailure()) {
-				// Toss 4xx: 명확한 실패 → PaymentAttempt만 FAILED로 마킹. Payment는 PENDING 유지.
-				paymentAttemptManager.markFailedInNewTransaction(
-					start.attemptDbId(), failure.getErrorCode(), failure.getMessage()
-				);
+		if (start.isRecovered()) {
+			approval = start.recoveredGatewayResult();
+		} else {
+			try {
+				approval = paymentGateway.confirm(command);
+			} catch (PaymentGatewayException failure) {
+				if (failure.isDefinitiveFailure()) {
+					// Toss 4xx: 명확한 실패 → PaymentAttempt만 FAILED로 마킹. Payment는 PENDING 유지.
+					paymentAttemptManager.markFailedInNewTransaction(
+						start.attemptDbId(), failure.getErrorCode(), failure.getMessage()
+					);
+				}
+				// 결과 불명(5xx/timeout)은 IN_PROGRESS로 남기고 회복 경로(유저 재시도 · Recovery Worker)에 위임한다.
+				throw failure;
 			}
-			// 결과 불명(5xx/timeout)은 IN_PROGRESS로 남기고 회복 경로(유저 재시도 · Recovery Worker)에 위임한다.
-			throw failure;
 		}
 
 		// 3단계: 승인 확정 — 이 메서드 전체가 TX B (Order/Booking/Payment/Attempt/Outbox 원자 커밋)

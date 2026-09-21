@@ -31,7 +31,7 @@
 - 값은 `R:{reservationId}`(예약) 또는 `B:{bookingId}`(예매)다. 그 외 형식은 데이터 오염으로 보고 `SEAT_OCCUPANCY_SCRIPT_ERROR`를 낸다.
 - 키는 점유가 처음 생길 때 만들어지고, TTL이 없을 때만 `TrainCacheKey.expireAtEpochSecond(운행일)`로 EXPIREAT을 건다. 빈 열차는 키가 없다.
 - 예약 field는 HEXPIRE로 예약과 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다. 필드 단위 만료는 Redis 7.4, Valkey 9.0부터 지원한다.
-- 예매 점유(`B:`) 기록은 결제 확정 PR에서 붙는다. 그 전까지는 테스트 헬퍼만 이 값을 쓴다.
+- 예매 점유(`B:`) 기록은 `PaymentOutboxWorker`가 승인 확정 후 `BOOKING_CONFIRMED` outbox를 처리하며 `R:` → `B:`로 전환한다.
 
 ## 3. 예약 본문
 

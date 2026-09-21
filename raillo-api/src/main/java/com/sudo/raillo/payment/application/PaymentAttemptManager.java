@@ -48,22 +48,23 @@ public class PaymentAttemptManager {
 		Optional<PaymentAttempt> existing = paymentAttemptRepository.findByAttemptId(attemptId);
 		if (existing.isPresent()) {
 			paymentValidator.validateApprovalAttempt(existing.get(), paymentId, paymentKey);
-			return new PaymentAttemptStartResult(existing.get().getId(), false);
+			return new PaymentAttemptStartResult(existing.get(), false);
 		}
 
 		paymentValidator.validateApprovable(payment);
+		// 같은 attemptId 재요청은 위 findByAttemptId가 처리한다. 여기서는 attemptId가 다른 새 시도가 같은 Payment의
+		// 진행 중(IN_PROGRESS)이거나 확정된(SUCCEEDED) attempt 위에 중복되지 않도록, 같은 Payment의 최근 attempt 상태를 다시 확인한다.
 		paymentAttemptRepository.findLatestApprovalByPaymentId(paymentId).ifPresent(previous -> {
-			// IN_PROGRESS는 아직 진행 중, SUCCEEDED는 이미 확정. FAILED는 다른 카드로 재시도 허용을 위해 통과시킨다.
 			switch (previous.getStatus()) {
 				case IN_PROGRESS -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 				case SUCCEEDED -> throw new BusinessException(PaymentError.PAYMENT_ALREADY_COMPLETED);
-				case FAILED -> { /* 재시도 허용 */ }
+				case FAILED -> { /* 재시도 허용 (다른 카드) */ }
 			}
 		});
 
 		// Payment.paymentKey는 승인 확정 시에만 세팅한다. TX A에서는 PaymentAttempt에만 paymentKey를 저장한다.
 		PaymentAttempt attempt = PaymentAttempt.startApproval(paymentId, attemptId, paymentKey);
-		return new PaymentAttemptStartResult(paymentAttemptRepository.save(attempt).getId(), true);
+		return new PaymentAttemptStartResult(paymentAttemptRepository.save(attempt), true);
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)

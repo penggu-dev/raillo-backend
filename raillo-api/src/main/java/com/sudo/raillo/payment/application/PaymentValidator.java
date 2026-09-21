@@ -100,6 +100,10 @@ public class PaymentValidator {
 
 	/**
 	 * 게이트웨이 응답이 원 요청과 일치하는지 검증한다.
+	 *
+	 * <p>사용자 재시도 시 조회 API로 상태를 재확인하는 경로에서는 조회 결과가 다른 주문의
+	 * 결제일 수 있으므로 {@code orderCode}까지 반드시 확인한다. 승인 confirm 응답은 요청과 같은
+	 * orderCode를 되돌려주므로 같은 검증이 무해하다.
 	 */
 	public void validateGatewayResponseMatchesRequest(GatewayConfirmResult result, PaymentConfirmCommand command) {
 		if (result.totalAmount().compareTo(command.amount()) != 0) {
@@ -118,6 +122,16 @@ public class PaymentValidator {
 			);
 		}
 
-		log.debug("[게이트웨이 응답 검증 통과] paymentKey={}, amount={}", result.paymentKey(), result.totalAmount());
+		if (!result.orderCode().equals(command.orderId())) {
+			log.error("[게이트웨이 응답 orderCode 불일치] gatewayOrderCode={}, requestOrderCode={}",
+				result.orderCode(), command.orderId());
+			throw new BusinessException(
+				PaymentError.PAYMENT_ORDER_MISMATCH,
+				String.format("게이트웨이 주문번호가 요청 주문번호와 일치하지 않습니다. (게이트웨이: %s, 요청: %s)", result.orderCode(), command.orderId())
+			);
+		}
+
+		log.debug("[게이트웨이 응답 검증 통과] paymentKey={}, orderCode={}, amount={}",
+			result.paymentKey(), result.orderCode(), result.totalAmount());
 	}
 }

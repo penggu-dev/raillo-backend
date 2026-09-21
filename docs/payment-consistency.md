@@ -112,15 +112,31 @@ Toss 호출 직전에 `IN_PROGRESS`로 INSERT. 후속 `PaymentRecoveryWorker`는
 
 - 같은 attemptId는 `paymentId`, `paymentKey`, `APPROVAL` 타입까지 일치해야 재사용할 수 있다. 불일치하면 `PAYMENT_114`, 64자를 초과한 입력은 API 검증 또는 애플리케이션의 `PAYMENT_115`로 거절한다.
 - 성공한 시도는 DB에서 승인 결과 DTO를 직접 조회한다. 이미 로딩한 Payment 엔티티를 그대로 반환하지 않으므로, 다른 트랜잭션이 방금 승인한 결과도 반영한다. 최초 응답을 저장·재생하는 방식은 아니며 환불 등 이후 상태 변경도 반영한다.
-- `PaymentAttemptManager.startApprovalInNewTransaction`은 짧은 `REQUIRES_NEW` 트랜잭션에서 Payment 행을 잠그고, 기존 승인 시도와 승인 가능 상태를 확인한 뒤 paymentKey 갱신과 attempt INSERT를 함께 커밋한다. 잠금과 DB 트랜잭션은 Toss 호출 전에 해제한다.
+- `PaymentAttemptManager.startApprovalInNewTransaction`은 짧은 `REQUIRES_NEW` 트랜잭션에서 Payment 행을 잠그고, 기존 승인 시도와 승인 가능 상태를 확인한 뒤 attempt를 `IN_PROGRESS`로 INSERT한다. `payment.payment_key`는 이 시점에 세팅하지 않는다. 잠금과 DB 트랜잭션은 Toss 호출 전에 해제한다.
 - 반환값 `PaymentAttemptStartResult.created`가 true인 호출만 승인 API를 실행한다. 동일 시도의 재사용은 false로 반환하며, 다른 attemptId를 보내도 진행 중이거나 실패한 기존 승인을 우회할 수 없다.
 - 실패한 결제를 재시도하려면 새 주문·결제를 준비한다. 기존 Payment가 FAILED/CANCELLED/REFUNDED이면 외부 호출 전에 거절한다.
-- INSERT/커밋 무결성 오류 뒤에는 실제 동일 attempt의 존재와 요청 일치를 확인한다. 다른 제약 위반은 원래 오류로 전파하고 paymentKey와 attempt를 함께 롤백한다.
-- Toss의 4xx 응답은 확정 실패로 분류해 Payment와 attempt를 FAILED로 전환한다. 현재 두 실패 마킹은 각각 커밋되므로, 두 커밋 사이의 장애로 상태가 불일치할 수 있다. 이 간격을 원자적으로 처리하는 보완은 남아 있다. 5xx, 타임아웃, 응답 유실처럼 승인 여부를 단정할 수 없는 오류는 attempt를 IN_PROGRESS로 유지한다. 자동 대사는 후속 Recovery Worker 도입 이후에 수행한다.
-- Toss 성공 후 `PaymentApprovalFinalizer`가 새 트랜잭션에서 Payment를 다시 잠그고 Order/Booking/Payment/Attempt/Outbox를 원자적으로 확정한다. 외부 호출 전에 읽은 엔티티는 확정에 재사용하지 않는다.
+- INSERT/커밋 무결성 오류 뒤에는 실제 동일 attempt의 존재와 요청 일치를 확인한다. 다른 제약 위반은 원래 오류로 전파한다. `payment.payment_key`는 승인 확정 시에만 저장하므로 TX A 실패로 롤백할 필드가 남지 않는다.
+- Toss의 4xx 응답은 확정 실패로 분류해 attempt만 FAILED로 마킹한다. Payment는 PENDING을 유지해 같은 Order에 대한 새 결제 시도를 열어 둔다. 5xx, 타임아웃, 응답 유실처럼 승인 여부를 단정할 수 없는 오류는 attempt를 IN_PROGRESS로 유지하고 유저 재시도 시 게이트웨이 조회로 회복한다.
+- Toss 성공 후 `PaymentApprovalFinalizer`가 새 트랜잭션에서 Payment를 다시 잠그고 승인 확정 시점에 `payment.payment_key`를 세팅하며 Order/Booking/Payment/Attempt/Outbox를 원자적으로 확정한다. 외부 호출 전에 읽은 엔티티는 확정에 재사용하지 않는다.
 
-후속 Recovery 이슈에서는 새 승인을 시작하지 않고 기존 IN_PROGRESS를 확정해야 한다.
-복구와 승인 확정이 경합하는 경우의 상태 재검증·처리 권한 확보도 해당 이슈에서 검증한다.
+#### 사용자가 결제창에서 재시도했을 때 IN_PROGRESS attempt 정정
+
+`PaymentApprovalStarter.recoverInProgressAttempt`는 사용자가 같은 결제창에서 다시 시도한 시점에 `PaymentGateway.query(paymentKey)`(Toss `GET /v1/payments/{paymentKey}`)로 실제 결제 상태를 확인한다.
+
+| 게이트웨이 상태 | 처리 |
+|----------------|------|
+| `DONE` | TX B(재조회 결과)로 Order/Booking/Payment/Attempt/Outbox를 확정. Toss confirm은 재호출하지 않는다 |
+| `ABORTED` · `EXPIRED` · `CANCELED` · `PARTIAL_CANCELED` | attempt를 FAILED로 마킹(`GATEWAY_<STATUS>`)하고 `PAYMENT_ATTEMPT_ALREADY_FAILED`로 응답 |
+| `READY` · `IN_PROGRESS` · `WAITING_FOR_DEPOSIT` · 그 외 | 로컬 IN_PROGRESS 유지, `PAYMENT_ATTEMPT_IN_PROGRESS`로 응답. 재시도 안내 |
+
+게이트웨이 조회 자체가 실패한 경우도 별도로 분기한다. 조회 API의 4xx는 승인의 4xx와 의미가 다르다.
+
+| 조회 API 실패 | 처리 |
+|--------------|------|
+| `404 NOT_FOUND_PAYMENT` · `404 NOT_FOUND` | 해당 paymentKey에 대한 결제가 게이트웨이에 없음이 확정 → attempt를 FAILED로 마킹(`GATEWAY_NOT_FOUND_PAYMENT`/`GATEWAY_NOT_FOUND`) |
+| `401 UNAUTHORIZED_KEY` · `403 INCORRECT_BASIC_AUTH_FORMAT` · `403 FORBIDDEN_CONSECUTIVE_REQUEST` · `500 FAILED_PAYMENT_INTERNAL_SYSTEM_PROCESSING` · 기타 | 승인 여부 판단 불가 → 로컬 IN_PROGRESS 유지, `PAYMENT_ATTEMPT_IN_PROGRESS`로 응답 |
+
+사용자가 재시도하지 않아도 오래 남은 IN_PROGRESS는 `PaymentRecoveryWorker`(#270)가 같은 조회 API로 대사한다. 사용자 재시도 정정 경로가 있어도 이 Worker는 사용자가 창을 닫아 재시도가 오지 않는 케이스와 크래시 회복을 커버한다.
 
 ### payment_outbox
 
@@ -164,15 +180,16 @@ Payload는 Redis 정리 지점을 특정할 수 있는 최소 정보만 담는�
 ```
 [트랜잭션 A — Toss 호출 전]
   Payment SELECT FOR UPDATE
-  payment.payment_key 갱신
-  payment_attempt INSERT (IN_PROGRESS)
+  payment_attempt INSERT (IN_PROGRESS, payment_key 사전 저장)
   COMMIT
 
 [트랜잭션 밖]
   Toss 호출 (외부 I/O)
+  — IN_PROGRESS 재요청 시엔 confirm 대신 PaymentGateway.query로 상태 재조회
 
 [트랜잭션 B — 승인 확정]
   Payment SELECT FOR UPDATE + 최신 상태 재검증
+  payment.payment_key 세팅 (승인 확정 시점)
   Order / Payment / Booking 상태 변경
   payment_attempt.status = SUCCEEDED
   payment_outbox INSERT
@@ -202,7 +219,8 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 
 | 실패 지점 | 대응 |
 |----------|------|
-| Toss 승인 후 DB 커밋 전 크래시 | `PaymentRecoveryWorker`가 `IN_PROGRESS` attempt를 Toss 조회로 확정 |
+| Toss 5xx·타임아웃·응답 유실 (유저 재요청) | `PaymentApprovalStarter.recoverInProgressAttempt`가 `PaymentGateway.query`로 Toss 상태 재조회 후 로컬 정정 |
+| Toss 승인 후 DB 커밋 전 크래시 (유저 재요청 없음) | `PaymentRecoveryWorker`가 `IN_PROGRESS` attempt를 Toss 조회로 확정 |
 | DB 커밋 후 Redis 정리 실패 | `OutboxWorker`가 `PENDING` outbox 행 재시도 |
 | Redis 정리 중 일시 오류 | outbox 재시도, `retry_count` 초과 시 알람 |
 | Toss 취소 후 DB 커밋 전 크래시 | Recovery Worker가 취소 attempt 확정 |
