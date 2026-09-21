@@ -72,6 +72,15 @@ payment:
       secret-key: ${TOSS_SECRET_KEY}
       version: v1
 
+raillo:
+  payment:
+    outbox:
+      polling-interval: 5s
+      batch-size: 50
+      initial-backoff: 30s
+      max-backoff: 10m
+      max-retries: 5
+
 # Prometheus
 management:
   endpoints:
