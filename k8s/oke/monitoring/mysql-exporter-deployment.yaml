@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-exporter
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-exporter
+  template:
+    metadata:
+      labels:
+        app: mysql-exporter
+    spec:
+      containers:
+        - name: mysql-exporter
+          image: docker.io/prom/mysqld-exporter:v0.20.0
+          # 비밀번호는 mysql-exporter-secret의 MYSQLD_EXPORTER_PASSWORD로 전달
+          args:
+            - --mysqld.address=mysql.mysql.svc.cluster.local:3306
+            - --mysqld.username=exporter
+          envFrom:
+            - secretRef:
+                name: mysql-exporter-secret
+          ports:
+            - name: metrics
+              containerPort: 9104
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

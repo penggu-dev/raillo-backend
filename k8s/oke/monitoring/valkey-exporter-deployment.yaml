@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valkey-exporter
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: valkey-exporter
+  template:
+    metadata:
+      labels:
+        app: valkey-exporter
+    spec:
+      containers:
+        - name: valkey-exporter
+          image: docker.io/oliver006/redis_exporter:v1.91.1
+          env:
+            - name: REDIS_ADDR
+              value: redis://valkey.valkey.svc.cluster.local:6379
+          envFrom:
+            - secretRef:
+                name: valkey-exporter-secret
+          ports:
+            - name: metrics
+              containerPort: 9121
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

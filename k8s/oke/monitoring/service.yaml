@@ -1,0 +1,62 @@
+# Grafana 데이터소스용
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app: prometheus
+  ports:
+    - name: prometheus
+      port: 9090
+      targetPort: prometheus
+
+---
+# Ingress용
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana
+  ports:
+    - name: grafana
+      port: 3000
+      targetPort: grafana
+
+---
+# Prometheus 수집용
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey-exporter
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app: valkey-exporter
+  ports:
+    - name: metrics
+      port: 9121
+      targetPort: metrics
+
+---
+# Prometheus 수집용
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-exporter
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql-exporter
+  ports:
+    - name: metrics
+      port: 9104
+      targetPort: metrics
