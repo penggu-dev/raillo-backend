@@ -10,11 +10,13 @@ import com.sudo.raillo.payment.application.result.PaymentAttemptStartResult;
 import com.sudo.raillo.payment.application.required.PaymentRepository;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
+import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 
 import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * attempt 라이프사이클을 각각 독립된 트랜잭션에서 커밋한다.
@@ -24,6 +26,7 @@ import lombok.RequiredArgsConstructor;
  *
  * <p>승인 단계 전체의 조회·검증은 {@link PaymentApprovalStarter}가 담당한다.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PaymentAttemptManager {
@@ -66,10 +69,18 @@ public class PaymentAttemptManager {
 		return new PaymentAttemptStartResult(paymentAttemptRepository.save(attempt), true);
 	}
 
+	/**
+	 * 이미 종결(SUCCEEDED/FAILED)된 attempt에 대한 재호출은 no-op으로 종료한다. 동시 재시도 경합에서 뒤늦게 도착한 markFailed 호출을 무해하게 종결하기 위한 idempotency 방어.
+	 */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void markFailedInNewTransaction(Long attemptDbId, String errorCode, String errorMessage) {
 		PaymentAttempt attempt = paymentAttemptRepository.findById(attemptDbId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_ATTEMPT_NOT_FOUND));
+		if (attempt.getStatus() != PaymentAttemptStatus.IN_PROGRESS) {
+			log.info("[markFailed - 이미 종결된 attempt, no-op] attemptId={}, currentStatus={}",
+				attempt.getAttemptId(), attempt.getStatus());
+			return;
+		}
 		attempt.markFailed(errorCode, errorMessage);
 	}
 }

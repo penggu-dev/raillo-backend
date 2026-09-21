@@ -141,8 +141,7 @@ public class PaymentApprovalStarter {
 			}
 			case ABORTED, EXPIRED, CANCELED, PARTIAL_CANCELED -> {
 				// Toss 상 확정 실패 - attempt를 FAILED로 마킹하고 사용자에게 안내한다.
-				log.warn("[결제 재요청 - 게이트웨이가 확정 실패로 응답] status={}, paymentKey={}",
-					status, paymentKey);
+				log.warn("[결제 재요청 - 게이트웨이가 확정 실패로 응답] status={}, paymentKey={}", status, paymentKey);
 				paymentAttemptManager.markFailedInNewTransaction(
 					existing.getId(), "GATEWAY_" + status.name(), "게이트웨이가 확정 실패로 응답했습니다."
 				);
@@ -150,8 +149,7 @@ public class PaymentApprovalStarter {
 			}
 			case READY, IN_PROGRESS, WAITING_FOR_DEPOSIT, UNKNOWN -> {
 				// 아직 처리 중이거나 상태 불명 - 로컬 IN_PROGRESS를 유지하고 사용자에게 재시도를 안내한다.
-				log.info("[결제 재요청 - 게이트웨이가 아직 처리 중] status={}, paymentKey={}",
-					status, paymentKey);
+				log.info("[결제 재요청 - 게이트웨이가 아직 처리 중] status={}, paymentKey={}", status, paymentKey);
 				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 			}
 		};
@@ -170,7 +168,7 @@ public class PaymentApprovalStarter {
 			);
 			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 		}
-		log.warn("[결제 재요청 - 게이트웨이 조회 실패, 로컬 IN_PROGRESS 유지] httpStatus={}, errorCode={}",
+		log.warn("[결제 재요청 - 게이트웨이 조회 실패, IN_PROGRESS 유지 후 Recovery 대기] httpStatus={}, errorCode={}",
 			failure.getHttpStatus(), failure.getErrorCode());
 		throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 	}

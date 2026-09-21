@@ -5,6 +5,9 @@ import java.math.BigDecimal;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.domain.PaymentMethod;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
 /**
  * 외부 결제 게이트웨이 required port.
  *
@@ -43,15 +46,19 @@ public interface PaymentGateway {
 	/**
 	 * 결제 게이트웨이가 보고하는 결제 상태. 토스 결제조회 API의 status 값을 도메인 중립 표현으로 매핑한다.
 	 */
+	@Getter
+	@RequiredArgsConstructor
 	enum GatewayPaymentStatus {
-		READY,
-		IN_PROGRESS,
-		WAITING_FOR_DEPOSIT,
-		DONE,
-		CANCELED,
-		PARTIAL_CANCELED,
-		ABORTED,
-		EXPIRED,
-		UNKNOWN
+		READY("결제 생성 초기 상태, 인증 전"),
+		IN_PROGRESS("결제수단 인증 완료, 승인 API 호출 대기"),
+		WAITING_FOR_DEPOSIT("가상계좌 발급 후 구매자 입금 대기"),
+		DONE("승인 완료"),
+		CANCELED("승인된 결제가 취소됨(가상계좌 입금 전 취소 포함)"),
+		PARTIAL_CANCELED("승인된 결제가 부분 취소됨"),
+		ABORTED("승인 실패"),
+		EXPIRED("유효 시간 30분 경과로 자동 취소"),
+		UNKNOWN("매핑되지 않은 게이트웨이 상태(방어용)");
+
+		private final String description;
 	}
 }

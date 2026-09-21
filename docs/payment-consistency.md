@@ -227,6 +227,23 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 
 이 구조 덕에 두 요청이 거의 동시에 들어와도 늦게 잠금을 잡은 요청이 `PAYMENT_ALREADY_COMPLETED`로 저지되고, Toss로 두 번째 승인 호출이 나가 이중 청구가 발생하지 않는다.
 
+### 동시 진입 방어 매커니즘
+
+3층 재검증이 "언제 무엇을 확인하나"라면, 아래는 "재확인에서 늦게 도착한 요청을 어떻게 안전하게 종결하나"의 매커니즘이다. 핵심은 TX B의 Payment pessimistic lock으로 동시 진입을 직렬화한 뒤 attempt status로 뒤늦은 진입을 무해 처리하는 것이다.
+
+| 방어 지점 | 위치 | 동작 |
+|---|---|---|
+| TX B 락 직렬화 | `PaymentApprovalFinalizer.finalizeApproval` | `paymentRepository.findByIdForUpdate(paymentId)`로 Payment에 pessimistic lock을 잡는다. 같은 Payment에 대한 두 TX B 진입은 DB가 순차 처리한다. |
+| Finalizer 이중 진입 조기 리턴 | `PaymentApprovalFinalizer.finalizeApproval` | 락 획득 후 `attempt.status == SUCCEEDED`이면 이전 결과를 그대로 반환한다. 원본과 재시도가 둘 다 DONE 경로로 갔을 때 뒤늦게 락을 얻은 쪽이 커밋하지 않는다. |
+| markFailed idempotency | `PaymentAttemptManager.markFailedInNewTransaction` | attempt가 이미 종결(SUCCEEDED/FAILED)이면 no-op으로 종료한다. 원본과 재시도가 둘 다 markFailed로 갈 때 뒤늦은 호출을 무해하게 종결한다. |
+| 도메인 상태 전이 검증 | `PaymentAttempt.markSucceeded` · `markFailed` | status가 IN_PROGRESS가 아니면 `DomainException(PAYMENT_ATTEMPT_NOT_TRANSITIONABLE)`. 위 방어를 모두 우회하는 경로에서 최후 방어선이다. |
+
+이 매커니즘이 겹쳐 있어 다음 시나리오가 데이터 오염 없이 종결된다.
+
+- **원본 confirm 대기 중 유저가 재시도, 둘 다 DONE 확인**: 두 스레드가 TX B에서 락 경합. 먼저 획득한 쪽이 확정하고, 뒤 쪽은 attempt.status == SUCCEEDED로 조기 리턴한다.
+- **원본은 4xx 실패, 재시도가 먼저 ABORTED로 markFailed**: 원본의 뒤늦은 markFailed는 idempotency로 no-op 종료.
+- **원본이 5xx, 재시도가 DONE**: 5xx는 attempt를 IN_PROGRESS로 남기므로 재시도가 정상 확정 경로로 진행한다.
+
 ## Failure Coverage — 후속 작업 완료 후 목표
 
 | 실패 지점 | 대응 |

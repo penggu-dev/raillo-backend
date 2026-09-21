@@ -129,7 +129,6 @@ public class PaymentValidator {
 			);
 		}
 
-		log.debug("[게이트웨이 응답 검증 통과] paymentKey={}, orderCode={}, amount={}",
-			result.paymentKey(), result.orderCode(), result.totalAmount());
+		log.debug("[게이트웨이 응답 검증 통과] paymentKey={}, orderCode={}, amount={}", result.paymentKey(), result.orderCode(), result.totalAmount());
 	}
 }
