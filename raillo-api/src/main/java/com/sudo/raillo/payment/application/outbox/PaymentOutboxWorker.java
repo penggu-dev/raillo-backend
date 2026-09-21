@@ -1,6 +1,6 @@
 package com.sudo.raillo.payment.application.outbox;
 
-import com.sudo.raillo.payment.adapter.observability.PaymentMetrics;
+import com.sudo.raillo.payment.application.required.OutboxMetrics;
 import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
 import com.sudo.raillo.payment.domain.PaymentOutbox;
 import java.time.LocalDateTime;
@@ -26,7 +26,7 @@ public class PaymentOutboxWorker {
 	private final OutboxEventDispatcher dispatcher;
 	private final OutboxRetryPolicy retryPolicy;
 	private final OutboxProperties properties;
-	private final PaymentMetrics paymentMetrics;
+	private final OutboxMetrics outboxMetrics;
 
 	@Scheduled(fixedDelayString = "${raillo.payment.outbox.polling-interval}")
 	@Transactional
@@ -49,11 +49,11 @@ public class PaymentOutboxWorker {
 		} catch (Exception e) {
 			log.warn("[Outbox 처리 실패] id={}, retryCount={}, cause={}",
 				row.getId(), row.getRetryCount(), e.toString());
-			paymentMetrics.incrementCleanupFailure();
+			outboxMetrics.incrementCleanupFailure();
 			int nextRetryCount = row.getRetryCount() + 1;
 			if (retryPolicy.shouldGiveUp(nextRetryCount)) {
 				row.markFailed();
-				paymentMetrics.incrementOutboxFailed();
+				outboxMetrics.incrementOutboxFailed();
 				log.error("[Outbox 최대 재시도 초과] id={}, retryCount={}", row.getId(), nextRetryCount);
 			} else {
 				row.markRetry(retryPolicy.nextRetryAt(now, row.getRetryCount()));

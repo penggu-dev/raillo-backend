@@ -2,6 +2,7 @@ package com.sudo.raillo.payment.adapter.observability;
 
 import org.springframework.stereotype.Component;
 
+import com.sudo.raillo.payment.application.required.OutboxMetrics;
 import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
 import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
 
@@ -10,7 +11,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 
 @Component
-public class PaymentMetrics {
+public class PaymentMetrics implements OutboxMetrics {
 
 	private final MeterRegistry meterRegistry;
 	private final Counter prepareCounter;
@@ -60,10 +61,12 @@ public class PaymentMetrics {
 			.increment();
 	}
 
+	@Override
 	public void incrementOutboxFailed() {
 		outboxFailedCounter.increment();
 	}
 
+	@Override
 	public void incrementCleanupFailure() {
 		cleanupFailureCounter.increment();
 	}

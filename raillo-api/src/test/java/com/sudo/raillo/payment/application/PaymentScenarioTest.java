@@ -159,8 +159,8 @@ class PaymentScenarioTest {
 		);
 		assertThat(seatBookings).hasSize(1);
 
-		// then - PendingBooking 삭제 검증 (Redis에서 제거됨)
-		assertThat(bookingRedisRepository.getPendingBooking(pendingBooking.getId())).isEmpty();
+		// PendingBooking 삭제와 Seat Hold 해제는 PaymentOutboxWorker가 비동기로 수행하므로
+		// 별도 통합 테스트(PaymentApprovalOutboxE2ETest)에서 검증한다.
 	}
 
 	@Test
@@ -314,9 +314,7 @@ class PaymentScenarioTest {
 		);
 		assertThat(seatBookings).hasSize(2);
 
-		// then - 두 PendingBooking 모두 Redis에서 삭제됨
-		assertThat(bookingRedisRepository.getPendingBooking(pb1.getId())).isEmpty();
-		assertThat(bookingRedisRepository.getPendingBooking(pb2.getId())).isEmpty();
+		// PendingBooking 삭제는 PaymentOutboxWorker가 비동기로 수행하므로 여기서는 검증하지 않는다.
 
 		// then - Order, Payment 상태 검증
 		Order order = orderRepository.findByOrderCode(preparedResult.orderCode()).orElseThrow();
