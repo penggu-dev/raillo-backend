@@ -13,13 +13,15 @@ import org.springframework.stereotype.Service;
 /**
  * 결제 승인 유스케이스. 트랜잭션을 열지 않고 아래 세 단계를 순서대로 연결한다.
  *
- * <p>1. TX A — {@link PaymentApprovalStarter}: 조회·검증 후 IN_PROGRESS attempt를 커밋한다.
- * <p>2. Toss 승인 요청 — DB 트랜잭션 밖에서 호출한다. 확정 실패(4xx)만 FAILED로 마킹하고,
- * 결과 불명(5xx·타임아웃)은 IN_PROGRESS로 남겨 Recovery 대상으로 둔다.
- * <p>3. TX B — {@link PaymentApprovalFinalizer}: Order/Booking/Payment/Attempt/Outbox를 함께 커밋한다.
+ * <p>1단계 — {@link PaymentApprovalStarter}: 조회·검증 후 내부에서 TX A(REQUIRES_NEW)로
+ * IN_PROGRESS attempt를 커밋한다. Starter 자체는 트랜잭션이 아니며 TX A는 그 안의 짧은 구간이다.
+ * <p>2단계 — Toss 승인 요청: DB 트랜잭션 밖에서 호출한다. 확정 실패(4xx)만 PaymentAttempt를 FAILED로 마킹하고
+ * Payment는 PENDING을 유지한다. 결과 불명(5xx·타임아웃)은 IN_PROGRESS로 남겨 회복 경로에 위임한다.
+ * <p>3단계 — {@link PaymentApprovalFinalizer}: 이 메서드 전체가 TX B이며,
+ * Order/Booking/Payment/Attempt/Outbox를 한 트랜잭션으로 커밋한다.
  *
- * <p>PendingBooking 삭제·좌석 Hold 해제는 TX B에서 저장한 Outbox 행을
- * {@link com.sudo.raillo.payment.application.outbox.PaymentOutboxWorker}가 비동기로 처리한다.
+ * <p>Reservation의 R→B 확정은 후속 PR에서 TX B의 Outbox 행을
+ * {@link com.sudo.raillo.payment.application.outbox.PaymentOutboxWorker}가 비동기로 처리한다. 현재는 미구현 이벤트를 PENDING으로 보존한다.
  */
 @Slf4j
 @Service
@@ -29,58 +31,38 @@ public class PaymentConfirmService implements PaymentConfirmer {
 	private final PaymentApprovalStarter paymentApprovalStarter;
 	private final PaymentApprovalFinalizer paymentApprovalFinalizer;
 	private final PaymentAttemptManager paymentAttemptManager;
-	private final PaymentModifier paymentModifier;
 	private final PaymentGateway paymentGateway;
 
 	@Override
 	public PaymentConfirmResult confirm(PaymentConfirmCommand command, String memberNo) {
-		// 1. TX A - 승인 시작
+		// 1단계: 승인 시작 (내부에서 TX A로 PaymentAttempt 등록)
 		PaymentApprovalStart start = paymentApprovalStarter.start(command, memberNo);
 		if (start.isAlreadyConfirmed()) {
 			return start.previousResult();
 		}
 
-		// 2. Toss 승인 요청 (DB 트랜잭션 없음)
-		GatewayConfirmResult approval = requestTossApproval(command, start.paymentId(), start.attemptDbId());
+		// 2단계: Toss 승인 요청 (DB 트랜잭션 밖)
+		GatewayConfirmResult approval;
+		try {
+			approval = paymentGateway.confirm(command);
+		} catch (PaymentGatewayException failure) {
+			if (failure.isDefinitiveFailure()) {
+				// Toss 4xx: 명확한 실패 → PaymentAttempt만 FAILED로 마킹. Payment는 PENDING 유지.
+				paymentAttemptManager.markFailedInNewTransaction(
+					start.attemptDbId(), failure.getErrorCode(), failure.getMessage()
+				);
+			}
+			// 결과 불명(5xx/timeout)은 IN_PROGRESS로 남기고 회복 경로(유저 재시도 · Recovery Worker)에 위임한다.
+			throw failure;
+		}
 
-		// 3. TX B - 승인 확정 (Outbox INSERT까지 원자적으로 커밋)
+		// 3단계: 승인 확정 — 이 메서드 전체가 TX B (Order/Booking/Payment/Attempt/Outbox 원자 커밋)
 		PaymentConfirmResult result = paymentApprovalFinalizer.finalizeApproval(
-			start.paymentId(), start.attemptDbId(), command, approval, start.pendingBookings()
+			start.paymentId(), start.attemptDbId(), command, approval, start.reservations()
 		);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", start.paymentId(), command.orderId());
 		return result;
 	}
 
-	private GatewayConfirmResult requestTossApproval(PaymentConfirmCommand command, Long paymentId, Long attemptDbId) {
-		// TODO(#270): 응답 유실·타임아웃은 IN_PROGRESS로 유지하고 Recovery Worker가 Toss 조회로 확정한다.
-		try {
-			return paymentGateway.confirm(command);
-		} catch (PaymentGatewayException e) {
-			handleGatewayFailure(paymentId, attemptDbId, command, e);
-			throw e;
-		}
-	}
-
-	private void handleGatewayFailure(
-		Long paymentId,
-		Long attemptDbId,
-		PaymentConfirmCommand command,
-		PaymentGatewayException exception
-	) {
-		if (!exception.isDefinitiveFailure()) {
-			log.warn("[게이트웨이 결제 승인 결과 불명] IN_PROGRESS 유지: orderCode={}, httpStatus={}, code={}",
-				command.orderId(), exception.getHttpStatus(), exception.getErrorCode());
-			return;
-		}
-
-		paymentAttemptManager.markFailedInNewTransaction(
-			attemptDbId, exception.getErrorCode(), exception.getMessage()
-		);
-		paymentModifier.failPaymentInNewTransaction(
-			paymentId, exception.getErrorCode(), exception.getMessage()
-		);
-		log.info("[게이트웨이 결제 승인 확정 실패] orderCode={}, httpStatus={}, code={}, message={}",
-			command.orderId(), exception.getHttpStatus(), exception.getErrorCode(), exception.getMessage());
-	}
 }

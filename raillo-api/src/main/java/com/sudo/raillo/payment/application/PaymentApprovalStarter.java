@@ -1,6 +1,6 @@
 package com.sudo.raillo.payment.application;
 
-import com.sudo.raillo.booking.domain.PendingBooking;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -10,7 +10,7 @@ import com.sudo.raillo.payment.application.required.MemberFinder;
 import com.sudo.raillo.payment.application.required.OrderReader;
 import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
 import com.sudo.raillo.payment.application.result.PaymentAttemptStartResult;
-import com.sudo.raillo.payment.application.required.PendingBookingReader;
+import com.sudo.raillo.payment.application.required.ReservationReader;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  * 승인 시작 단계. Toss 호출에 필요한 조회·검증을 마치고 {@link PaymentAttemptManager}로 TX A를 커밋한다.
  *
  * <p>자체 트랜잭션을 열지 않는다. 조회는 각 컴포넌트의 짧은 트랜잭션에서 수행되고,
- * PendingBooking(Redis) 조회도 DB 트랜잭션 밖에 둔다. 커밋 지점은 TX A 하나뿐이다.
+ * Reservation(Redis) 조회도 DB 트랜잭션 밖에 둔다. 커밋 지점은 TX A 하나뿐이다.
  *
  * <p>같은 attemptId 재요청은 Toss를 호출하지 않고 이전 결과를 반환하거나 예외를 던진다.
  */
@@ -40,10 +40,10 @@ public class PaymentApprovalStarter {
 	private final PaymentValidator paymentValidator;
 	private final OrderReader orderReader;
 	private final MemberFinder memberFinder;
-	private final PendingBookingReader pendingBookingReader;
+	private final ReservationReader reservationReader;
 
 	public PaymentApprovalStart start(PaymentConfirmCommand command, String memberNo) {
-		String attemptId = command.attemptIdOrDerived();
+		String attemptId = command.attemptId();
 		paymentValidator.validateAttemptId(attemptId);
 		log.info("[결제 승인 시작] orderId={}, paymentKey={}, amount={}, attemptId={}",
 			command.orderId(), command.paymentKey(), command.amount(), attemptId);
@@ -57,16 +57,16 @@ public class PaymentApprovalStarter {
 		paymentValidator.validateAmounts(command.amount(), order.getTotalAmount(), payment.getAmount());
 
 		// 같은 attemptId로 재요청이 왔다면 상태에 따라 이전 결과를 반환하거나 예외를 던지고 조기 종료한다.
-		// PendingBooking 조회보다 먼저 처리해야 SUCCEEDED 재요청도 정상 응답한다.
-		// (성공한 flow에서는 PendingBooking이 이미 정리됐을 수 있어 재조회 시 만료 예외가 난다.)
+		// Reservation 조회보다 먼저 처리해야 SUCCEEDED 재요청도 정상 응답한다.
+		// (성공한 flow에서는 Reservation이 이미 정리됐을 수 있어 재조회 시 만료 예외가 난다.)
 		Optional<PaymentAttempt> existingAttempt = paymentAttemptRepository.findByAttemptId(attemptId);
 		if (existingAttempt.isPresent()) {
 			return handleExistingAttempt(existingAttempt.get(), payment, command);
 		}
 
 		paymentValidator.validateApprovable(payment);
-		// TODO(#272): 이 조회 직전 다른 요청이 승인을 확정해 PendingBooking이 정리된 경로도 통합 테스트로 검증한다.
-		List<PendingBooking> pendingBookings = getPendingBookings(order, memberNo);
+		// TODO(#272): 이 조회 직전 다른 요청이 승인을 확정해 Reservation이 정리된 경로도 통합 테스트로 검증한다.
+		List<Reservation> reservations = getReservations(order, memberNo);
 		paymentValidator.validateDuplicatePayment(order);
 
 		PaymentAttemptStartResult registered;
@@ -86,7 +86,7 @@ public class PaymentApprovalStarter {
 			return handleExistingAttempt(existing, payment, command);
 		}
 
-		return PaymentApprovalStart.started(payment.getId(), registered.attemptDbId(), pendingBookings);
+		return PaymentApprovalStart.started(payment.getId(), registered.attemptDbId(), reservations);
 	}
 
 	private PaymentApprovalStart handleExistingAttempt(
@@ -108,12 +108,12 @@ public class PaymentApprovalStarter {
 		};
 	}
 
-	private List<PendingBooking> getPendingBookings(Order order, String memberNo) {
-		List<String> pendingBookingIds = orderReader.getPendingBookingIds(order);
-		if (pendingBookingIds.isEmpty()) {
-			log.error("[PendingBooking 검증 실패] pendingBookingIds가 없음: orderCode={}", order.getOrderCode());
-			throw new BusinessException(BookingError.PENDING_BOOKING_IDS_REQUIRED);
+	private List<Reservation> getReservations(Order order, String memberNo) {
+		List<String> reservationIds = orderReader.getReservationIds(order);
+		if (reservationIds.isEmpty()) {
+			log.error("[Reservation 검증 실패] reservationIds가 없음: orderCode={}", order.getOrderCode());
+			throw new BusinessException(BookingError.RESERVATION_IDS_REQUIRED);
 		}
-		return pendingBookingReader.getPendingBookings(pendingBookingIds, memberNo);
+		return reservationReader.getReservations(reservationIds, memberNo);
 	}
 }

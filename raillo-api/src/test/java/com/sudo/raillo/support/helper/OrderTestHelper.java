@@ -66,7 +66,7 @@ public class OrderTestHelper {
 	 * // 단일 OrderBooking 주문
 	 * OrderResult result = orderTestHelper.builder(member)
 	 *     .addOrderBooking(schedule)
-	 *         .setPendingBookingId(pendingBookingId)
+	 *         .setReservationId(reservationId)
 	 *         .setDepartureScheduleStop(departureStop)
 	 *         .setArrivalScheduleStop(arrivalStop)
 	 *         .setTotalFare(BigDecimal.valueOf(10000)) // OrderBooking 운임 설정 (지정 안하면 자동 계산)
@@ -103,7 +103,7 @@ public class OrderTestHelper {
 
 			OrderBooking orderBooking = orderBookingRepository.save(
 				OrderBooking.create(
-					bookingBuilder.pendingBookingId,
+					bookingBuilder.reservationId,
 					order,
 					bookingBuilder.trainScheduleResult.trainSchedule(),
 					bookingBuilder.departureScheduleStop,
@@ -197,7 +197,7 @@ public class OrderTestHelper {
 	 * OrderBooking 생성용 Builder
 	 */
 	public class OrderBookingBuilder {
-		private String pendingBookingId = UUID.randomUUID().toString();
+		private String reservationId = UUID.randomUUID().toString();
 		private final OrderBuilder parent;
 		private final TrainScheduleResult trainScheduleResult;
 		private final List<SeatWithPassengerType> seatWithPassengerTypes = new ArrayList<>();
@@ -214,8 +214,8 @@ public class OrderTestHelper {
 		 * 예약 ID를 설정한다.
 		 * <p>설정하지 않으면 UUID로 기본 예약 ID가 생성된다.</p>
 		 */
-		public OrderBookingBuilder setPendingBookingId(String pendingBookingId) {
-			this.pendingBookingId = pendingBookingId;
+		public OrderBookingBuilder setReservationId(String reservationId) {
+			this.reservationId = reservationId;
 			return this;
 		}
 

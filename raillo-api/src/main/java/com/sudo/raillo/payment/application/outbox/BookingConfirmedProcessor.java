@@ -1,36 +1,22 @@
 package com.sudo.raillo.payment.application.outbox;
 
-import com.sudo.raillo.global.exception.BusinessException;
-import com.sudo.raillo.payment.application.BookingConfirmedPayload;
-import com.sudo.raillo.payment.application.required.PendingBookingDeleter;
-import com.sudo.raillo.payment.application.required.SeatHoldReleaser;
-import com.sudo.raillo.payment.application.required.TrainScheduleReader;
-import com.sudo.raillo.payment.application.required.TrainSeatReader;
 import com.sudo.raillo.payment.domain.PaymentOutboxType;
-import com.sudo.raillo.payment.domain.exception.PaymentError;
-import com.sudo.raillo.train.domain.ScheduleStop;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 
-@Slf4j
-@Component
-@RequiredArgsConstructor
+/**
+ * 예매 점유 확정의 후속 PR 구현 지점. 아직 Spring 처리기로 등록하지 않는다.
+ *
+ * <p>결제 시작 전에 자기 R:{reservationId} field의 TTL을 제거하여 보호한다.
+ * DB 승인/예매/Outbox 커밋 뒤에는 사용자가 아래 후처리를 기다리지 않는다.
+ *
+ * <p>후속 구현: payload snapshot과 attempt 소유권 검증 → R을 B:{bookingId}로 원자 전환
+ * → field TTL 없음 보장(운행 Hash 키 만료 유지) → 예약 본문/보호 marker 정리
+ * → 별도 slot 회원 인덱스 정리. 같은 B는 멱등 성공, 다른 R/B는 변경 금지.
+ * 빈 field는 취소된 예매일 수도 있으므로 무조건 복원하지 않는다.
+ * Redis 반영 후 DONE 커밋 실패 및 여러 운행의 부분 성공도 안전하게 재처리해야 한다.
+ *
+ * <p>구현 전에는 worker의 지원 타입 조회에서 제외되어 PENDING으로 보존된다.
+ */
 public class BookingConfirmedProcessor implements OutboxEventProcessor {
-
-	private final ObjectMapper objectMapper;
-	private final PendingBookingDeleter pendingBookingDeleter;
-	private final SeatHoldReleaser seatHoldReleaser;
-	private final TrainScheduleReader trainScheduleReader;
-	private final TrainSeatReader trainSeatReader;
-
 	@Override
 	public boolean supports(PaymentOutboxType type) {
 		return type == PaymentOutboxType.BOOKING_CONFIRMED;
@@ -38,58 +24,6 @@ public class BookingConfirmedProcessor implements OutboxEventProcessor {
 
 	@Override
 	public void process(String payload) {
-		BookingConfirmedPayload deserialized = deserialize(payload);
-		List<BookingConfirmedPayload.Entry> entries = deserialized.pendingBookings();
-		if (entries.isEmpty()) {
-			return;
-		}
-
-		deletePendingBookings(entries);
-		releaseAllSeatHolds(entries);
-
-		log.info("[Outbox 처리 완료: BOOKING_CONFIRMED] pendingBookingCount={}", entries.size());
-	}
-
-	private BookingConfirmedPayload deserialize(String payload) {
-		try {
-			return objectMapper.readValue(payload, BookingConfirmedPayload.class);
-		} catch (JacksonException e) {
-			throw new BusinessException(PaymentError.PAYMENT_OUTBOX_PAYLOAD_DESERIALIZATION_FAILED, e);
-		}
-	}
-
-	private void deletePendingBookings(List<BookingConfirmedPayload.Entry> entries) {
-		List<String> pendingBookingIds = entries.stream()
-			.map(BookingConfirmedPayload.Entry::pendingBookingId)
-			.toList();
-		String memberNo = entries.get(0).memberNo();
-		pendingBookingDeleter.deletePendingBookings(pendingBookingIds, memberNo);
-	}
-
-	private void releaseAllSeatHolds(List<BookingConfirmedPayload.Entry> entries) {
-		List<Long> allStopIds = entries.stream()
-			.flatMap(e -> Stream.of(e.departureStopId(), e.arrivalStopId()))
-			.toList();
-
-		Map<Long, ScheduleStop> stopMap = trainScheduleReader.getScheduleStops(allStopIds).stream()
-			.collect(Collectors.toMap(ScheduleStop::getId, Function.identity()));
-
-		entries.forEach(entry -> releaseSingle(entry, stopMap));
-	}
-
-	private void releaseSingle(BookingConfirmedPayload.Entry entry, Map<Long, ScheduleStop> stopMap) {
-		List<Long> seatIds = entry.seatIds();
-		Long trainCarId = trainSeatReader.getTrainCarId(seatIds);
-		ScheduleStop departureStop = stopMap.get(entry.departureStopId());
-		ScheduleStop arrivalStop = stopMap.get(entry.arrivalStopId());
-
-		seatHoldReleaser.releaseSeats(
-			entry.pendingBookingId(),
-			entry.trainScheduleId(),
-			seatIds,
-			trainCarId,
-			departureStop.getStopOrder(),
-			arrivalStop.getStopOrder()
-		);
+		throw new UnsupportedOperationException("Reservation의 R→B 확정은 후속 PR에서 구현합니다");
 	}
 }

@@ -52,14 +52,14 @@ class PaymentTest {
 	}
 
 	@Test
-	@DisplayName("paymentKey가 정상적으로 업데이트된다")
-	void updatePaymentKey_success() {
+	@DisplayName("Payment.approve로 paymentMethod와 함께 paymentKey가 저장된다")
+	void approve_setsPaymentKey() {
 		// given
 		Payment payment = Payment.create(member, order);
 		String paymentKey = "toss_payment_key_12345";
 
 		// when
-		payment.updatePaymentKey(paymentKey);
+		payment.approve(PaymentMethod.CREDIT_CARD, paymentKey);
 
 		// then
 		assertThat(payment.getPaymentKey()).isEqualTo(paymentKey);
@@ -73,7 +73,7 @@ class PaymentTest {
 		PaymentMethod paymentMethod = PaymentMethod.CREDIT_CARD;
 
 		// when
-		payment.approve(paymentMethod);
+		payment.approve(paymentMethod, "test-payment-key");
 
 		// then
 		assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
@@ -86,10 +86,10 @@ class PaymentTest {
 	void approve_whenNotPending_throwsException() {
 		// given
 		Payment payment = Payment.create(member, order);
-		payment.approve(PaymentMethod.CREDIT_CARD);
+		payment.approve(PaymentMethod.CREDIT_CARD, "test-payment-key");
 
 		// when & then
-		assertThatThrownBy(() -> payment.approve(PaymentMethod.CREDIT_CARD))
+		assertThatThrownBy(() -> payment.approve(PaymentMethod.CREDIT_CARD, "test-payment-key"))
 			.isInstanceOf(DomainException.class)
 			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_NOT_APPROVABLE)
 			.hasMessage(PaymentError.PAYMENT_NOT_APPROVABLE.getMessage());
@@ -115,7 +115,7 @@ class PaymentTest {
 	void cancel_whenNotPending_throwsException() {
 		// given
 		Payment payment = Payment.create(member, order);
-		payment.approve(PaymentMethod.CREDIT_CARD);
+		payment.approve(PaymentMethod.CREDIT_CARD, "test-payment-key");
 
 		// when & then
 		assertThatThrownBy(() -> payment.cancel("취소 사유"))
@@ -129,7 +129,7 @@ class PaymentTest {
 	void refund_success() {
 		// given
 		Payment payment = Payment.create(member, order);
-		payment.approve(PaymentMethod.CREDIT_CARD);
+		payment.approve(PaymentMethod.CREDIT_CARD, "test-payment-key");
 
 		// when
 		payment.refund();
@@ -157,7 +157,7 @@ class PaymentTest {
 	void refund_alreadyRefunded_throwsException() {
 		// given
 		Payment payment = Payment.create(member, order);
-		payment.approve(PaymentMethod.CREDIT_CARD);
+		payment.approve(PaymentMethod.CREDIT_CARD, "test-payment-key");
 		payment.refund();
 
 		// when & then
@@ -190,7 +190,7 @@ class PaymentTest {
 	void fail_whenNotPending_throwsException() {
 		// given
 		Payment payment = Payment.create(member, order);
-		payment.approve(PaymentMethod.CREDIT_CARD);
+		payment.approve(PaymentMethod.CREDIT_CARD, "test-payment-key");
 
 		// when & then
 		assertThatThrownBy(() -> payment.fail("ERROR_CODE", "에러 메시지"))

@@ -65,7 +65,7 @@ public class BookingService {
 	 * 주문으로부터 예매를 생성
 	 * @param order 주문
 	 * */
-	public void createBookingFromOrder(Order order) {
+	public java.util.List<com.sudo.raillo.booking.application.dto.ConfirmedBookingInfo> createBookingFromOrder(Order order) {
 		// 1. 도메인 규칙 검증
 		order.validateCompleted();
 
@@ -93,12 +93,14 @@ public class BookingService {
 			.collect(Collectors.toMap(Seat::getId, Function.identity()));
 
 		// 4. Booking, SeatBooking 생성
-		orderBookings.forEach(orderBooking -> {
+		var confirmed = orderBookings.stream().map(orderBooking -> {
 			List<OrderSeatBooking> relatedSeatBookings = seatBookingMap.get(orderBooking.getId());
-			createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
-		});
+			long bookingId = createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
+			return new com.sudo.raillo.booking.application.dto.ConfirmedBookingInfo(orderBooking.getReservationId(), bookingId);
+		}).toList();
 
 		log.info("[주문에 대한 예매 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());
+		return confirmed;
 	}
 
 	/**
@@ -164,7 +166,7 @@ public class BookingService {
 	}
 
 	// private Method
-	private void createBooking(
+	private long createBooking(
 		Member member,
 		Order order,
 		OrderBooking orderBooking,
@@ -184,6 +186,7 @@ public class BookingService {
 
 		IntStream.range(0, orderSeatBookings.size())
 			.forEach(i -> createSeatBooking(booking, orderSeatBookings.get(i), seatMap, reservationCode, i + 1));
+		return booking.getId();
 	}
 
 	private void createSeatBooking(

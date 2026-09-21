@@ -42,6 +42,11 @@ class PaymentOutboxWorkerIntegrationTest {
 	@Autowired
 	private FailingTxService failingTxService;
 
+	@org.junit.jupiter.api.BeforeEach
+	void register_processor_types() {
+		when(dispatcher.supportedTypes()).thenReturn(java.util.List.of(PaymentOutboxType.BOOKING_CONFIRMED));
+	}
+
 	@Test
 	@DisplayName("PENDING 행을 처리기가 성공적으로 처리하면 DONE으로 전이한다")
 	void poll_processesPending_andMarksDone() {

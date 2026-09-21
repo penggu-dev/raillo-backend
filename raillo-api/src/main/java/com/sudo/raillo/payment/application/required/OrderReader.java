@@ -15,7 +15,7 @@ public interface OrderReader {
 
 	Order getOrderByOrderCode(String orderCode);
 
-	List<String> getPendingBookingIds(Order order);
+	List<String> getReservationIds(Order order);
 
 	void validateOrderOwner(Order order, Member member);
 }

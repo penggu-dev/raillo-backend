@@ -64,7 +64,7 @@ public class TrainCarQueryRepository {
 
 		// 2. 각 객차별 예매된 좌석 수 계산
 		Map<Long, Long> occupiedSeatsPerCar = queryFactory
-			.select(trainCar.id, seatBooking.count())
+			.select(trainCar.id, seat.id.countDistinct())
 			.from(seatBooking)
 			.join(seatBooking.seat, seat)
 			.join(seat.trainCar, trainCar)
@@ -94,7 +94,7 @@ public class TrainCarQueryRepository {
 			.stream()
 			.collect(Collectors.toMap(
 				tuple -> tuple.get(trainCar.id),
-				tuple -> tuple.get(seatBooking.count())
+				tuple -> tuple.get(seat.id.countDistinct())
 			));
 
 		// 3. remainingSeats 계산하여 업데이트하고 응답용 record로 변환

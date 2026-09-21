@@ -23,8 +23,8 @@ public class OrderReaderAdapter implements OrderReader {
 	}
 
 	@Override
-	public List<String> getPendingBookingIds(Order order) {
-		return orderService.getPendingBookingIds(order);
+	public List<String> getReservationIds(Order order) {
+		return orderService.getReservationIds(order);
 	}
 
 	@Override

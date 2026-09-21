@@ -3,8 +3,7 @@ package com.sudo.raillo.train.application.facade;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sudo.raillo.booking.domain.type.PassengerType;
-import com.sudo.raillo.booking.infrastructure.SeatHoldRepository;
-import com.sudo.raillo.booking.infrastructure.SeatHoldKeyGenerator;
+import com.sudo.raillo.support.helper.SeatOccupancyTestHelper;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
@@ -51,10 +50,8 @@ class TrainSearchFacadeSeatCalculationTest {
 	private MemberRepository memberRepository;
 
 	@Autowired
-	private SeatHoldRepository seatHoldRepository;
+	private SeatOccupancyTestHelper seatOccupancy;
 
-	@Autowired
-	private SeatHoldKeyGenerator seatHoldKeyGenerator;
 
 	@Autowired
 	private RedisTemplate<String, String> customStringRedisTemplate;
@@ -317,24 +314,17 @@ class TrainSearchFacadeSeatCalculationTest {
 
 		Long trainScheduleId = scheduleResult.trainSchedule().getId();
 
-		// Hold Index에 5석 직접 삽입: 4석은 유효, 1석은 만료
+		// Hash에 5석을 기록하고 첫 좌석 field를 즉시 만료시킨다.
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 5);
-		long validScore = System.currentTimeMillis() / 1000 + 600;  // 10분 후 만료 (유효)
-		long expiredScore = System.currentTimeMillis() / 1000 - 1;  // 이미 만료
-
-		// seats[0]: 만료된 Hold
-		Seat expiredSeat = seats.get(0);
-		String expiredTrainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
-			trainScheduleId, expiredSeat.getTrainCar().getId());
-		customStringRedisTemplate.opsForZSet().add(expiredTrainCarHoldIndexKey, expiredSeat.getId() + ":0-1", expiredScore);
-
-		// seats[1..4]: 유효한 Hold (4석)
-		for (int i = 1; i < seats.size(); i++) {
-			Seat seat = seats.get(i);
-			String trainCarHoldIndexKey = seatHoldKeyGenerator.generateTrainCarHoldIndexKey(
-				trainScheduleId, seat.getTrainCar().getId());
-			customStringRedisTemplate.opsForZSet().add(trainCarHoldIndexKey, seat.getId() + ":0-1", validScore);
+		for (Seat seat : seats) {
+			seatOccupancy.markReserved(trainScheduleId, seat.getTrainCar().getId(), seat.getId(), 0, 1, "RV-test");
 		}
+		Seat expiredSeat = seats.getFirst();
+		String expiredKey = com.sudo.raillo.booking.cache.ReservationCacheKey.carSeats(trainScheduleId, expiredSeat.getTrainCar().getId());
+		String expiredField = com.sudo.raillo.booking.cache.ReservationCacheKey.seatField(expiredSeat.getId(), 0);
+		customStringRedisTemplate.execute((org.springframework.data.redis.core.RedisCallback<Object>) connection ->
+			connection.execute("HEXPIRE", expiredKey.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+				"0".getBytes(), "FIELDS".getBytes(), "1".getBytes(), expiredField.getBytes()));
 
 		// when
 		TrainSearchRequest request = new TrainSearchRequest(seoul.getId(), busan.getId(), searchDate, 1, "00");
@@ -344,7 +334,7 @@ class TrainSearchFacadeSeatCalculationTest {
 		assertThat(response.content()).hasSize(1);
 		TrainSearchResponse result = response.content().get(0);
 
-		// 만료된 1석은 ZRANGEBYSCORE에서 제외, 유효한 4석만 차감: 80 - 4 = 76
+		// 만료된 1석은 Hash 조회에서 제외, 유효한 4석만 차감: 80 - 4 = 76
 		assertThat(result.standardSeat().remainingSeats()).isEqualTo(76);
 	}
 
@@ -354,18 +344,11 @@ class TrainSearchFacadeSeatCalculationTest {
 		ScheduleStop departureStop,
 		ScheduleStop arrivalStop
 	) {
-		String pendingBookingId = "pending_test_" + System.nanoTime();
+		String reservationId = "pending_test_" + System.nanoTime();
 		int departureStopOrder = departureStop.getStopOrder();
 		int arrivalStopOrder = arrivalStop.getStopOrder();
 
-		seats.forEach(seat -> seatHoldRepository.trySeatHold(
-			trainScheduleId,
-			seat.getId(),
-			pendingBookingId,
-			departureStopOrder,
-			arrivalStopOrder,
-			seat.getTrainCar().getId(),
-			Duration.ofMinutes(10)
-		));
+		seats.forEach(seat -> seatOccupancy.markReserved(trainScheduleId, seat.getTrainCar().getId(), seat.getId(),
+			departureStopOrder, arrivalStopOrder, reservationId));
 	}
 }

@@ -119,8 +119,7 @@ class TicketServiceTest {
 			.build();
 
 		Payment payment = PaymentFixture.create(member, bookingResult.booking().getOrder());
-		payment.updatePaymentKey("toss-payment-key");
-		payment.approve(PaymentMethod.CREDIT_CARD);
+		payment.approve(PaymentMethod.CREDIT_CARD, "toss-payment-key");
 		paymentRepository.save(payment);
 
 		Ticket ticket = bookingResult.tickets().get(0);

@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import com.sudo.raillo.payment.domain.PaymentOutbox;
 import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
+import com.sudo.raillo.payment.domain.PaymentOutboxType;
 
 public interface PaymentOutboxRepository {
 
@@ -25,6 +26,8 @@ public interface PaymentOutboxRepository {
 	 * 반드시 트랜잭션 내에서 호출해야 하며, 트랜잭션이 커밋될 때까지 잠금이 유지된다.
 	 */
 	List<PaymentOutbox> lockProcessable(LocalDateTime now, int limit);
+
+	List<PaymentOutbox> lockProcessable(LocalDateTime now, int limit, List<PaymentOutboxType> types);
 
 	long countByStatus(PaymentOutboxStatus status);
 }
