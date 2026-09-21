@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: raillo-api
+  namespace: api-server
+spec:
+  type: ClusterIP
+  selector:
+    app: raillo-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

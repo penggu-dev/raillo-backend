@@ -6,7 +6,7 @@
 |-------------|----------|-------|---------|
 | Local Dev | 외부 Test DB (MySQL, `${TEST_DB_URL}`) | Redis (`compose.yaml`, port 6379) | `dev` |
 | Test | Testcontainers MySQL 8.4.10 | Testcontainers Valkey 9 | `test` |
-| Production | AWS RDS (MySQL 8.4.10) | Valkey 9 (K8s Pod) | `prod` |
+| Production | MySQL 8.4 (OKE StatefulSet) | Valkey 9 (OKE StatefulSet) | `prod` |
 
 ## Local Development
 
@@ -25,76 +25,29 @@ docker-compose up -d
 ## CI/CD Pipeline
 
 ```
-develop 브랜치 push/PR
-    └─> GitHub Actions: gradle_build_and_test.yml  (build & test)
-
-main 브랜치 push
-    ├─> GitHub Actions: deploy_raillo_with_k8s.yml (Docker build → ECR push → kubectl rollout restart)
-    └─> ArgoCD: k8s/k8s-application 매니페스트 auto-sync
-            ↓
-        AWS EKS (raillo-cluster, ap-northeast-2)
+develop push/PR
+    └─> gradle_build_and_test.yml (build & test)
+          └─ develop push에서 성공하면 (workflow_run)
+               └─> deploy_raillo_with_k8s.yml
+                     ├─ build : raillo-api·raillo-batch ARM64 이미지 → GHCR (:latest, :sha-<commit>)
+                     └─ deploy: OKE kubeconfig 생성 → ConfigMap·Secret 존재 확인
+                                → 이미지를 :sha-<commit>으로 치환 → kubectl apply → API rollout 대기
 ```
 
 ### GitHub Actions (`.github/workflows/`)
 - **`gradle_build_and_test.yml`** — `develop` 으로의 push/PR에서 실행. Java 25 (Temurin), Gradle 빌드, 테스트 수행 및 JUnit 리포트 발행.
-- **`deploy_raillo_with_k8s.yml`** — `main` push에서 실행. AWS 자격 증명 구성 → `aws eks update-kubeconfig --name raillo-cluster` → ECR 로그인 → Docker 이미지 빌드/푸시(`:latest`) → `kubectl rollout restart deployment raillo-backend -n raillo`.
+- **`deploy_raillo_with_k8s.yml`** — 위 테스트가 **develop push에서 성공했을 때만** 실행된다.
+  - 배포 대상은 `k8s/oke/api-server/*.yaml`, `k8s/oke/batch/*.yaml`
+  - 테스트한 커밋(`workflow_run.head_sha`)을 체크아웃하고 같은 sha로 이미지 태그를 붙인다.
+  - CronJob은 다음 실행 시각부터 새 이미지를 쓴다.
+  - 수동 실행(`workflow_dispatch`)은 develop 최신 커밋을 **테스트 없이** 배포한다. 긴급 배포용이다.
+  - `kubectl apply`는 삭제를 반영하지 않는다. 저장소에서 지운 리소스는 클러스터에서 직접 삭제한다.
 
-## Production (AWS EKS)
+## Production (OCI OKE)
 
 ### Infrastructure
-- **Cluster**: AWS EKS `raillo-cluster` (ap-northeast-2)
-- **Container Registry**: AWS ECR
-- **Database**: AWS RDS (MySQL 8.4.10)
-- **Redis**: Valkey `valkey/valkey:9.0-alpine` (Redis 호환, 필드 단위 만료 HEXPIRE는 9.0부터)
-- **Domain**: `server.raillo.store`
-- **TLS**: cert-manager (`raillo-issuer` ClusterIssuer, Let's Encrypt) → Secret `server-raillo-com-tls`
-
-### Kubernetes Resources (`k8s/`)
-매니페스트는 용도별 디렉터리로 분리되어 있다.
-
-- **`k8s/k8s-application/`** — 애플리케이션
-  - `depl_svc.yml` — Backend Deployment (2 replicas) + ClusterIP Service
-  - `ingress.yml` — NGINX Ingress (`server.raillo.store`, TLS)
-  - `https.yml` — cert-manager ClusterIssuer + Certificate
-- **`k8s/k8s-argocd/`** — ArgoCD
-  - `argocd-application.yml` — ArgoCD Application 정의
-  - `argocd-ingress.yml` / `argocd-https.yml` — ArgoCD 대시보드 Ingress + 인증서
-- **`k8s/k8s-monitoring/`** — 관측 스택
-  - `prometheus-depl_svc.yaml` / `prometheus-config.yml` / `prometheus-rbac.yml`
-  - `grafana-depl_svc.yml`, `node-exporter.yml`
-  - `monitoring-ingress.yml` / `monitoring-https.yml`
-
-### ArgoCD GitOps (`k8s/k8s-argocd/`)
-- Application `raillo-backend` (namespace `argocd` → 대상 namespace `raillo`)
-- Source: `github.com/penggu-dev/raillo-backend`, `targetRevision: main`, `path: k8s/k8s-application`
-- `syncPolicy.automated`:
-  - **prune**: Git에서 삭제된 리소스를 클러스터에서도 자동 삭제
-  - **selfHeal**: 클러스터 수동 변경을 Git 상태로 자동 복구
-
-### Backend Pod Configuration (`k8s/k8s-application/depl_svc.yml`)
-- Replicas: 2 (`revisionHistoryLimit: 2`)
-- **Pod 분산**: `topologySpreadConstraints` (`kubernetes.io/hostname`, `topology.kubernetes.io/zone`, `maxSkew: 1`, `ScheduleAnyway`)
-- Resources: requests 0.5 CPU / 512Mi, limits 1 CPU / 1Gi
-- Image: ECR `raillo-backend:latest`, containerPort 8080
-- **무중단 배포**: `readinessProbe` → `GET /health:8080` (initialDelay 10s, period 10s)
-- **환경변수 주입**: `envFrom` 으로 ConfigMap `raillo-config` + Secret `raillo-secrets` 주입 (둘 다 클러스터에서 외부 관리, repo 매니페스트 없음)
-- Service: ClusterIP, port 80 → targetPort 8080
-
-## Docker
-
-Multi-stage build (`Dockerfile`):
-
-```dockerfile
-# Stage 1: Build with Gradle
-FROM eclipse-temurin:25-jdk-alpine AS stage1
-WORKDIR /app
-# ... copy sources, ./gradlew bootJar ...
-
-# Stage 2: Runtime
-FROM eclipse-temurin:25-jdk-alpine
-RUN apk add --no-cache tzdata
-ENV TZ=Asia/Seoul
-ENV JAVA_TOOL_OPTIONS="-Duser.timezone=Asia/Seoul"
-COPY --from=stage1 /app/build/libs/*.jar app.jar
-ENTRYPOINT ["java", "-Dspring.profiles.active=prod", "-jar", "app.jar"]
-```
+- **Cluster**: OKE (Kubernetes v1.36), 노드 `VM.Standard.A1.Flex`(2 OCPU, 12GB, ARM64) × 2
+- **Container Registry**: GHCR (`ghcr.io/penggu-dev/raillo-api`, `ghcr.io/penggu-dev/raillo-batch`)
+- **Load Balancer**: OCI Flexible LB 10Mbps. ingress-nginx의 `Service(type: LoadBalancer)`가 생성한다.
+- **TLS**: ingress-nginx에서 종료. cert-manager `raillo-issuer`(Let's Encrypt, HTTP-01)가 Ingress 어노테이션으로 인증서를 발급한다.
+- **Domain**: `server.raillo.site`(API), `monitoring.raillo.site`(Grafana)

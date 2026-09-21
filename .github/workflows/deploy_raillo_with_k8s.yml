@@ -1,52 +1,150 @@
-name: deploy raillo raillo-backend
+name: Build ARM64 images and deploy to OKE
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [Build and Test with Gradle]
+    types: [completed]
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: raillo-oke-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+  build:
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [raillo-api, raillo-batch]
     steps:
-      # 전체 레포를 루트 기준으로 체크아웃
-      - name: checkout github
-        uses: actions/checkout@v2
-
-      - name: install kubectl
-        uses: azure/setup-kubectl@v3
+      - uses: actions/checkout@v4
         with:
-          version: "v1.25.9"
-        id: install
-
-      # AWS CLI 설치 및 configure
-      - name: configure aws
-        uses: aws-actions/configure-aws-credentials@v1
+          ref: ${{ env.DEPLOY_SHA }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_KEY }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET }}
-          aws-region: ap-northeast-2
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push ARM64 image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            APP_MODULE=${{ matrix.module }}
+          tags: |
+            ghcr.io/penggu-dev/${{ matrix.module }}:latest
+            ghcr.io/penggu-dev/${{ matrix.module }}:sha-${{ env.DEPLOY_SHA }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ env.DEPLOY_SHA }}
+          cache-from: type=gha,scope=${{ matrix.module }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.module }}
 
-      # Cluster 세팅
-      - name: update cluster infomation
-        run: aws eks update-kubeconfig --name raillo-cluster --region ap-northeast-2
-
-      - name: Login to ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: build and push docker image to ecr
-        env:
-          REGISTRY: 052104148083.dkr.ecr.ap-northeast-2.amazonaws.com
-          REPOSITORY: raillo-backend
-          IMAGE_TAG: latest
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    env:
+      OCI_CLI_AUTH: api_key
+      OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+      OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+      OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+      OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+      OCI_CLI_PASSPHRASE: ${{ secrets.OCI_CLI_PASSPHRASE }}
+      OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+      OKE_CLUSTER_OCID: ${{ secrets.OKE_CLUSTER_OCID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+      - name: Check required OCI settings
+        shell: bash
         run: |
-          docker build \
-          -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
-          -f ./Dockerfile .
-          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
-
-      - name: eks kubectl apply
+          set -euo pipefail
+          echo "KUBECONFIG=$RUNNER_TEMP/oke-kubeconfig" >> "$GITHUB_ENV"
+          for name in OCI_CLI_USER OCI_CLI_TENANCY OCI_CLI_FINGERPRINT OCI_CLI_KEY_CONTENT OCI_CLI_REGION OKE_CLUSTER_OCID; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing GitHub Secret: $name"
+              exit 1
+            fi
+          done
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install OCI CLI
+        run: python -m pip install 'oci-cli==3.93.0'
+      - name: Install Kubernetes client
+        uses: azure/setup-kubectl@v4
+        with:
+          version: ${{ secrets.KUBECTL_VERSION || 'v1.36.0' }}
+      - name: Create kubeconfig for the public OKE endpoint
+        shell: bash
         run: |
-          kubectl rollout restart deployment raillo-backend -n raillo
-        # kubectl apply -f ./k8s/depl_svc.yml
+          set -euo pipefail
+          umask 077
+          oci ce cluster create-kubeconfig \
+            --cluster-id "$OKE_CLUSTER_OCID" \
+            --region "$OCI_CLI_REGION" \
+            --file "$KUBECONFIG" \
+            --token-version 2.0.0 \
+            --kube-endpoint PUBLIC_ENDPOINT
+      - name: Check existing application config and secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for ns in api-server batch; do
+            kubectl --request-timeout=30s -n "$ns" get configmap/raillo-config secret/raillo-secrets secret/ghcr-secret -o name
+          done
+      - name: Render backend resources with this commit's images
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in k8s/oke/api-server/*.yaml k8s/oke/batch/*.yaml; do
+            echo '---'
+            sed \
+              -e "s|ghcr.io/penggu-dev/raillo-api:latest|ghcr.io/penggu-dev/raillo-api:sha-${DEPLOY_SHA}|g" \
+              -e "s|ghcr.io/penggu-dev/raillo-batch:latest|ghcr.io/penggu-dev/raillo-batch:sha-${DEPLOY_SHA}|g" \
+              "$f"
+          done > "$RUNNER_TEMP/backend.yaml"
+      - name: Apply API and CronJob resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          # ConfigMap, Secret, MySQL, Valkey, monitoring은 배포 대상에서 제외한다.
+          kubectl --request-timeout=60s apply -f "$RUNNER_TEMP/backend.yaml"
+          kubectl -n api-server rollout status deployment/raillo-api --timeout=600s
+      - name: Summarize deployment
+        shell: bash
+        run: |
+          {
+            echo "### OKE backend deployment"
+            echo "- API: ghcr.io/penggu-dev/raillo-api:sha-${DEPLOY_SHA}"
+            echo "- Batch: ghcr.io/penggu-dev/raillo-batch:sha-${DEPLOY_SHA}"
+            echo "- API rollout completed; CronJobs use the new image on their next run."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary deployment files
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/oke-kubeconfig" "$RUNNER_TEMP/backend.yaml"

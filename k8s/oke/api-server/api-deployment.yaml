@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: raillo-api
+  namespace: api-server
+spec:
+  revisionHistoryLimit: 2
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: raillo-api
+  template:
+    metadata:
+      labels:
+        app: raillo-api
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: raillo-api
+          # CI가 sha-<commit> 태그로 교체
+          image: ghcr.io/penggu-dev/raillo-api:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: raillo-config
+            - secretRef:
+                name: raillo-secrets
+          env:
+            # JAVA_TOOL_OPTIONS는 Dockerfile의 타임존 설정이 사용
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:MaxRAMPercentage=75.0
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1500m
+              memory: 2Gi
+          # ingress-nginx가 엔드포인트를 뺄 때까지 종료를 늦춤
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 60
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 60
+            failureThreshold: 3

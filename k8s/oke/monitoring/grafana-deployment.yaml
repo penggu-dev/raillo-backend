@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  replicas: 1
+  # 같은 SQLite 파일을 두 파드가 동시에 쓰지 않도록 기존 파드를 먼저 종료
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      # Prometheus와 같은 Worker에 배치
+      nodeSelector:
+        raillo-prometheus: "true"
+      # hostPath 디렉터리를 grafana 사용자(472:0)가 쓸 수 있도록 권한 설정
+      initContainers:
+        - name: init-grafana-data
+          image: docker.io/library/busybox:1.36.1
+          command:
+            - sh
+            - -c
+            - chown -R 472:0 /var/lib/grafana
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+      containers:
+        - name: grafana
+          image: docker.io/grafana/grafana:13.2.2
+          ports:
+            - name: grafana
+              containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: grafana-secret
+          env:
+            - name: GF_SERVER_ROOT_URL
+              value: https://monitoring.raillo.site
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            - name: datasource
+              mountPath: /etc/grafana/provisioning/datasources
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: grafana-data
+          hostPath:
+            path: /var/lib/raillo/grafana
+            type: DirectoryOrCreate
+        - name: datasource
+          configMap:
+            name: grafana-datasource

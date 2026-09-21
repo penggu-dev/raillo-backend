@@ -1,26 +1,26 @@
-# Stage 1: 빌드용 (Gradle multi-module → raillo-api bootJar)
-FROM eclipse-temurin:25-jdk-alpine AS stage1
+# API와 Batch가 같은 빌드/실행 환경을 사용한다.
+# 기본값은 API. Batch 이미지는 --build-arg APP_MODULE=raillo-batch로 빌드한다.
+FROM eclipse-temurin:25-jdk-noble AS build
+ARG APP_MODULE=raillo-api
 WORKDIR /app
 COPY gradle gradle
-COPY gradlew .
-COPY settings.gradle build.gradle ./
+COPY gradlew settings.gradle build.gradle ./
 COPY raillo-domain raillo-domain
 COPY raillo-api raillo-api
 COPY raillo-batch raillo-batch
-RUN chmod +x gradlew
-RUN ./gradlew :raillo-api:bootJar --no-daemon
+RUN case "$APP_MODULE" in raillo-api|raillo-batch) ;; *) exit 1 ;; esac \
+    && chmod +x gradlew \
+    && ./gradlew ":${APP_MODULE}:bootJar" --no-daemon \
+    && cp "${APP_MODULE}/build/libs/raillo-"*.jar /app/app.jar
 
-# Stage 2: 실행용
-FROM eclipse-temurin:25-jdk-alpine
-
-# 1. 타임존 데이터 설치
-RUN apk add --no-cache tzdata
-# 2. 시스템 타임존을 Asia/Seoul로 설정
-ENV TZ=Asia/Seoul
-# 3. JVM도 명시적으로 Asia/Seoul로 고정
-ENV JAVA_TOOL_OPTIONS="-Duser.timezone=Asia/Seoul"
-
+FROM eclipse-temurin:25-jre-noble AS runtime
+ENV TZ=Asia/Seoul \
+    JAVA_TOOL_OPTIONS="-Duser.timezone=Asia/Seoul" \
+    SPRING_PROFILES_ACTIVE=prod
+RUN groupadd --gid 10001 raillo \
+    && useradd --uid 10001 --gid raillo --no-create-home raillo
 WORKDIR /app
-COPY --from=stage1 /app/raillo-api/build/libs/*.jar app.jar
-
-ENTRYPOINT ["java", "-Dspring.profiles.active=prod", "-jar", "app.jar"]
+COPY --from=build --chown=raillo:raillo /app/app.jar app.jar
+USER raillo
+# CronJob의 args가 java -jar 뒤에 전달된다.
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

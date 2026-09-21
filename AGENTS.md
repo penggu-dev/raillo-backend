@@ -188,7 +188,7 @@ Java 25, Spring Boot 4.1.0, MySQL, Redis, Testcontainers, QueryDSL 5.1.0, JWT, S
 
 - Main branch: `develop`
 - CI runs on push/PR to `develop` via GitHub Actions
-- ArgoCD syncs from `main` to production
+- develop push의 테스트가 성공하면 `deploy_raillo_with_k8s.yml`이 OCI OKE에 배포한다 (`workflow_run`)
 - Performance testing: K6
 
 **이슈/브랜치/커밋/PR 흐름** — 모두 프로젝트 skill로 자동화한다:
@@ -197,7 +197,7 @@ Java 25, Spring Boot 4.1.0, MySQL, Redis, Testcontainers, QueryDSL 5.1.0, JWT, S
 3. `/commit` — 브랜치명에서 이슈번호 파싱 + 변경사항 분석해 커밋 메시지 작성
 4. `/pr` — 변경사항 분석 + 이슈 본문 기반 PR 생성
 
-배포 환경, K8s/ArgoCD/Docker 상세 → [docs/deployment.md](./docs/deployment.md)
+배포 환경, OKE/K8s/Docker 상세 → [docs/deployment.md](./docs/deployment.md)
 
 ## Situational References
 
@@ -221,4 +221,4 @@ Java 25, Spring Boot 4.1.0, MySQL, Redis, Testcontainers, QueryDSL 5.1.0, JWT, S
   핵심: 엔티티 관계도, Status enum, 한국어 용어(예약/예매/승차권) 일관 사용.
 
 - **배포/인프라/K8s 작업 시** → [docs/deployment.md](./docs/deployment.md)
-  핵심: K8s 매니페스트는 `k8s/k8s-application`·`k8s-argocd`·`k8s-monitoring`, ArgoCD는 `main` 브랜치 sync, 환경변수는 `raillo-config`(ConfigMap)·`raillo-secrets`(Secret)를 `envFrom`으로 주입.
+  핵심: 매니페스트는 `k8s/oke/{namespace}`이고 CI는 `api-server`·`batch`만 적용한다. 이미지는 GHCR `sha-<commit>` 태그를 쓴다.

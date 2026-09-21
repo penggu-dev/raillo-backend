@@ -17,6 +17,7 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: 6379
+      password: ${REDIS_PASSWORD}
 
   datasource:
     url: ${DB_URL}
@@ -28,7 +29,7 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -54,7 +55,7 @@ spring:
           writetimeout: 5000
 
 cors:
-  allowed-origins: https://www.raillo.store
+  allowed-origins: https://www.raillo.site
   allowed-methods: GET, POST, PUT, DELETE
   allowed-headers: Access-Control-Allow-Origin, Content-type, Access-Control-Allow-Headers, Authorization, X-Requested-With
 
@@ -62,7 +63,7 @@ jwt:
   secret: ${JWT_KEY}
 
 cookie:
-  domain: .raillo.store
+  domain: .raillo.site
 
 payment:
   toss:
@@ -83,7 +84,7 @@ management:
       percentiles-histogram:
         "[http.server.requests]": true
     tags:
-      application: raillo-backend
+      application: raillo-api
   endpoint:
     prometheus:
       access: unrestricted
