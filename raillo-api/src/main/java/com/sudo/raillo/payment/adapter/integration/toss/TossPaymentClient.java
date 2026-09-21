@@ -74,10 +74,7 @@ public class TossPaymentClient {
 	}
 
 	/**
-	 * 토스페이먼츠 결제 조회 API 호출 (GET /v1/payments/{paymentKey}).
-	 *
-	 * <p>Toss 응답이 유실되어 PaymentAttempt가 IN_PROGRESS로 남은 상태에서, 사용자가 결제창에서
-	 * 재시도할 때 이 API로 실제 결제 상태를 확인해 로컬 DB를 정정하는 데 사용한다.
+	 * 토스페이먼츠 결제 조회 API 호출 (GET /v1/payments/{paymentKey}). Toss 응답 유실로 PaymentAttempt가 IN_PROGRESS로 남은 상태에서 사용자가 재시도할 때 실제 상태를 확인해 로컬을 정정하는 데 사용한다.
 	 */
 	public TossPaymentQueryResponse queryPayment(String paymentKey) {
 		log.info("[TOSS] 결제 조회 요청: paymentKey={}", paymentKey);

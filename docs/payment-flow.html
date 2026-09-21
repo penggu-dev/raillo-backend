@@ -674,7 +674,7 @@ UPDATE payment
     </div>
 
     <ul class="rules">
-      <li><b>유지 항목.</b> Reservation 기반 결제 API 계약(<code>reservationIds</code>), <code>PaymentApprovalStarter</code> → Toss → <code>PaymentApprovalFinalizer</code> 3단계 구조, <code>attemptId</code>의 <code>paymentKey</code> 파생, 아웃박스 폴링 인프라(<code>PaymentOutboxWorker</code>, scheduler, retry policy, SKIP LOCKED), <code>BookingConfirmedPayload</code> schemaVersion=2, <code>Order.reservation_snapshot</code> 컬럼, <code>TrainSearchFacade</code>의 좌석 조회 이관, <code>PendingBooking</code>·<code>SeatHold</code> 스택 제거.</li>
+      <li><b>유지 항목.</b> Reservation 기반 결제 API 계약(<code>reservationIds</code>), <code>PaymentApprovalStarter</code> → Toss → <code>PaymentApprovalFinalizer</code> 3단계 구조, <code>attemptId</code>의 <code>paymentKey</code> 파생, 아웃박스 폴링 인프라(<code>PaymentOutboxWorker</code>, scheduler, retry policy, SKIP LOCKED), <code>BookingConfirmedPayload</code> schemaVersion=2, <code>Order.reservation_snapshot</code> 컬럼, <code>TrainSearchFacade</code>의 좌석 조회 이관.</li>
       <li><b>동시 결제 방지.</b> <code>PaymentAttempt.attempt_id</code>의 DB unique 제약과 Payment 상태 검증(PENDING 여부) 조합으로 같은 결제창의 중복 요청과 이미 확정된 결제의 재승인을 막는다. 별도 Redis marker는 필요하지 않다.</li>
       <li><b>Recovery Worker(#270)와의 역할 분담.</b> 사용자가 결제창에서 재시도한 시점의 상태 재조회는 이 문서의 <code>IN_PROGRESS</code> 처리 경로가 담당한다. Recovery Worker는 사용자 요청이 오지 않아도 오래 남은 <code>IN_PROGRESS</code> <code>PaymentAttempt</code>를 배치로 대사한다.</li>
     </ul>
