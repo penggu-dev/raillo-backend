@@ -27,6 +27,9 @@ public class RedisConfig {
 	@Value("${spring.data.redis.port}")
 	private int port;
 
+	@Value("${spring.data.redis.password:}")
+	private String password;
+
 	@Value("${spring.data.redis.ssl.enabled:false}")
 	private boolean sslEnabled;
 
@@ -42,6 +45,7 @@ public class RedisConfig {
 		RedisStandaloneConfiguration redisConf = new RedisStandaloneConfiguration();
 		redisConf.setHostName(host);
 		redisConf.setPort(port);
+		redisConf.setPassword(password);
 
 		// maxIdle이 maxTotal보다 작으면 반납된 연결이 닫혀 연결 생성·종료가 다시 반복된다
 		GenericObjectPoolConfig<StatefulConnection<?, ?>> poolConfig = new GenericObjectPoolConfig<>();
