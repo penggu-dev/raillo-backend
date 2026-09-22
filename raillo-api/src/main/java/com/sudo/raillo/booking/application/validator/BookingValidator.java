@@ -1,27 +1,17 @@
 package com.sudo.raillo.booking.application.validator;
 
-import com.sudo.raillo.booking.domain.Ticket;
-import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
-import com.sudo.raillo.member.domain.Member;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import org.springframework.stereotype.Component;
-
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.SeatBooking;
+import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
 import com.sudo.raillo.global.exception.BusinessException;
+import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.train.domain.ScheduleStop;
-import com.sudo.raillo.train.exception.TrainError;
-import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
-
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
@@ -40,7 +30,7 @@ public class BookingValidator {
 	}
 
 	/** 결제 단계의 DB 방어. 예약 snapshot의 구간 순서를 사용한다. */
-	public void validateSeatConflicts(java.util.List<com.sudo.raillo.booking.domain.Reservation> reservations) {
+	public void validateSeatConflicts(List<Reservation> reservations) {
 		for (var reservation : reservations) {
 			if (!seatBookingRepository.findOverlappingSeatBookings(reservation.trainScheduleId(),
 				reservation.getSeatIds(), reservation.departure().stopOrder(), reservation.arrival().stopOrder()).isEmpty()) {

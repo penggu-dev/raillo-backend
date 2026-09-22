@@ -1,11 +1,12 @@
 package com.sudo.raillo.payment.application;
 
+import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.payment.application.result.ConfirmedBookingResult;
+import com.sudo.raillo.payment.domain.PaymentAttempt;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import com.sudo.raillo.payment.application.result.ConfirmedBookingResult;
-import com.sudo.raillo.booking.domain.Reservation;
 
 /** Reservation TTL과 독립적인 후속 R→B 확정 계약. */
 public record BookingConfirmedPayload(int schemaVersion, long paymentId, String attemptId, List<Entry> bookings) {
@@ -13,8 +14,12 @@ public record BookingConfirmedPayload(int schemaVersion, long paymentId, String 
 	public record Entry(String reservationId, long bookingId, String memberNo, long trainScheduleId,
 		LocalDate operationDate, int departureStopOrder, int arrivalStopOrder, List<SeatEntry> seats) {}
 
-	public static BookingConfirmedPayload from(long paymentId, com.sudo.raillo.payment.domain.PaymentAttempt attempt,
-		List<Reservation> reservations, List<ConfirmedBookingResult> confirmed) {
+	public static BookingConfirmedPayload from(
+		long paymentId,
+		PaymentAttempt attempt,
+		List<Reservation> reservations,
+		List<ConfirmedBookingResult> confirmed
+	) {
 		Map<String, Long> ids = confirmed.stream().collect(Collectors.toMap(
 			ConfirmedBookingResult::reservationId, ConfirmedBookingResult::bookingId));
 		if (reservations.isEmpty() || ids.size() != reservations.size()) {

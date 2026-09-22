@@ -2,6 +2,7 @@ package com.sudo.raillo.order.application;
 
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.global.exception.BusinessException;
+import com.sudo.raillo.global.redis.util.RedisJsonConverter;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -42,7 +43,7 @@ public class OrderService {
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
 	private final MemberRepository memberRepository;
-	private final com.sudo.raillo.global.redis.util.RedisJsonConverter jsonConverter;
+	private final RedisJsonConverter jsonConverter;
 	private final OrderValidator orderValidator;
 
 	/**
