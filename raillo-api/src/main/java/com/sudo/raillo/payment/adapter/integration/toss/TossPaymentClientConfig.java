@@ -118,6 +118,7 @@ public class TossPaymentClientConfig {
 				.setConnectionRequestTimeout(Timeout.of(properties.connectionRequestTimeout()))
 				.setResponseTimeout(Timeout.of(properties.readTimeout()))
 				.build())
+			.setRetryStrategy(new TossGetRetryStrategy())
 			.evictIdleConnections(TimeValue.of(properties.evictIdleAfter()))
 			.evictExpiredConnections()
 			.build();
