@@ -50,6 +50,11 @@ public class TossApiTimerAspect {
 		return timeApiCall(joinPoint, "cancel");
 	}
 
+	@Around("execution(* com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient.queryPayment(..))")
+	public Object timeQueryPayment(ProceedingJoinPoint joinPoint) throws Throwable {
+		return timeApiCall(joinPoint, "query");
+	}
+
 	private Object timeApiCall(ProceedingJoinPoint joinPoint, String operation) throws Throwable {
 		// 이중 try/finally 구조:
 		//   외부 try — LongTaskTimer 활성 카운트 leak 방지
