@@ -280,10 +280,10 @@ class PaymentConfirmServiceTest {
 		PaymentPrepareResult prepared = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
 
-		// Toss timeout·네트워크 오류 → TossPaymentClient가 BusinessException(PAYMENT_SYSTEM_ERROR)로 래핑
+		// Toss timeout·네트워크 오류 → TossPaymentClient가 BusinessException(PAYMENT_ATTEMPT_IN_PROGRESS)로 래핑
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
-			.willThrow(new BusinessException(PaymentError.PAYMENT_SYSTEM_ERROR,
-				"결제 승인 처리 중 알 수 없는 오류가 발생했습니다: read timed out"));
+			.willThrow(new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS,
+				new java.net.SocketTimeoutException("read timed out")));
 
 		PaymentConfirmCommand command = new PaymentConfirmCommand(
 			paymentKey, prepared.orderCode(), amount);
@@ -291,7 +291,7 @@ class PaymentConfirmServiceTest {
 		// when
 		assertThatThrownBy(() -> paymentConfirmer.confirm(command, memberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR);
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 
 		// then: attempt는 IN_PROGRESS 유지 (Recovery Worker #270이 대사·복구)
 		PaymentAttempt attempt = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();

@@ -198,7 +198,7 @@ class TossPaymentClientTest {
 		}
 
 		@Test
-		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_SYSTEM_ERROR BusinessException으로 래핑된다")
+		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_ATTEMPT_IN_PROGRESS BusinessException으로 래핑된다")
 		void fail_unexpectedException() {
 			// given
 			PaymentConfirmCommand request = new PaymentConfirmCommand(
@@ -209,18 +209,17 @@ class TossPaymentClientTest {
 				.andExpect(method(POST))
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
-			// when & then
+			// when & then: 결과 불명이므로 IN_PROGRESS로 래핑되어 Recovery Worker에 위임된다
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
-				.hasMessageContaining("결제 승인 처리 중 알 수 없는 오류가 발생했습니다");
+				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 
 			server.verify();
 		}
 
 		@Test
-		@DisplayName("SocketTimeoutException(read timeout)이 발생하면 PAYMENT_SYSTEM_ERROR로 래핑된다")
-		void fail_socketTimeout_wrappedAsSystemError() {
+		@DisplayName("SocketTimeoutException(read timeout)이 발생하면 PAYMENT_ATTEMPT_IN_PROGRESS로 래핑된다")
+		void fail_socketTimeout_wrappedAsInProgress() {
 			// given
 			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
@@ -230,11 +229,10 @@ class TossPaymentClientTest {
 				.andExpect(method(POST))
 				.andRespond(withException(new SocketTimeoutException("read timed out")));
 
-			// when & then: 상위는 TossPaymentException이 아닌 BusinessException(PAYMENT_SYSTEM_ERROR)만 본다
+			// when & then: 결과 불명이므로 상위에는 IN_PROGRESS로 노출된다 (TossPaymentException은 새지 않는다)
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
-				.hasMessageContaining("결제 승인 처리 중 알 수 없는 오류가 발생했습니다");
+				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 
 			server.verify();
 		}
