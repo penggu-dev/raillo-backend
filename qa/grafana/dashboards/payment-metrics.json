@@ -332,8 +332,8 @@
       },
       {
         "type": "timeseries",
-        "title": "Toss API 진행 중 요청 age (max/sum)",
-        "description": "지금 이 순간 진행 중인 Toss 호출의 age 분포. max는 가장 오래 물려 있는 요청의 경과 시간, sum은 모든 진행 중 요청의 누적. 완료 데이터 없이도 Toss 지연·hang을 즉시 감지한다.",
+        "title": "Toss API 진행 중 요청 age (max/avg/p95/p99)",
+        "description": "지금 이 순간 진행 중인 Toss 호출의 age 분포. max·평균·p95·p99를 함께 보여준다. avg는 (gsum/gcount)로 파생, percentile은 활성 히스토그램 버킷 스냅샷에서 histogram_quantile로 계산한다. 완료 데이터 없이도 Toss 지연·hang을 즉시 감지한다.",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
         "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
         "fieldConfig": {
@@ -341,19 +341,27 @@
             "color": { "mode": "palette-classic" },
             "custom": {
               "lineWidth": 2,
-              "fillOpacity": 10,
+              "fillOpacity": 5,
               "showPoints": "auto"
             },
             "unit": "s"
           },
           "overrides": [
             {
-              "matcher": { "id": "byName", "options": "confirm max" },
+              "matcher": { "id": "byRegexp", "options": ".*max$" },
               "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
             },
             {
-              "matcher": { "id": "byName", "options": "cancel max" },
+              "matcher": { "id": "byRegexp", "options": ".*p99$" },
               "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+            },
+            {
+              "matcher": { "id": "byRegexp", "options": ".*p95$" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }]
+            },
+            {
+              "matcher": { "id": "byRegexp", "options": ".*avg$" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
             }
           ]
         },
@@ -364,9 +372,19 @@
             "refId": "A"
           },
           {
-            "expr": "sum by (operation) (toss_api_active_seconds_gsum{application=\"raillo-backend\"})",
-            "legendFormat": "{{operation}} sum",
+            "expr": "sum by (operation) (toss_api_active_seconds_gsum{application=\"raillo-backend\"}) / sum by (operation) (toss_api_active_seconds_gcount{application=\"raillo-backend\"})",
+            "legendFormat": "{{operation}} avg",
             "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum by (le, operation) (toss_api_active_seconds_bucket{application=\"raillo-backend\"}))",
+            "legendFormat": "{{operation}} p95",
+            "refId": "C"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum by (le, operation) (toss_api_active_seconds_bucket{application=\"raillo-backend\"}))",
+            "legendFormat": "{{operation}} p99",
+            "refId": "D"
           }
         ]
       },
