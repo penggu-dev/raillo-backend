@@ -273,33 +273,33 @@
           },
           "overrides": [
             {
-              "matcher": { "id": "byName", "options": "P50" },
+              "matcher": { "id": "byRegexp", "options": ".* P50$" },
               "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
             },
             {
-              "matcher": { "id": "byName", "options": "P95" },
+              "matcher": { "id": "byRegexp", "options": ".* P95$" },
               "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
             },
             {
-              "matcher": { "id": "byName", "options": "P99" },
+              "matcher": { "id": "byRegexp", "options": ".* P99$" },
               "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
             }
           ]
         },
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, sum by (le) (rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m])))",
-            "legendFormat": "P50",
+            "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", outcome=\"success\"}[1m])))",
+            "legendFormat": "{{operation}} P50",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.95, sum by (le) (rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m])))",
-            "legendFormat": "P95",
+            "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", outcome=\"success\"}[1m])))",
+            "legendFormat": "{{operation}} P95",
             "refId": "B"
           },
           {
-            "expr": "histogram_quantile(0.99, sum by (le) (rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m])))",
-            "legendFormat": "P99",
+            "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", outcome=\"success\"}[1m])))",
+            "legendFormat": "{{operation}} P99",
             "refId": "C"
           }
         ]
@@ -317,8 +317,8 @@
         },
         "targets": [
           {
-            "expr": "topk(5, sum by (toss_code) (increase(toss_api_failure_total{application=\"raillo-backend\"}[5m])))",
-            "legendFormat": "{{toss_code}}",
+            "expr": "topk(5, sum by (operation, toss_code) (increase(toss_api_failure_total{application=\"raillo-backend\"}[5m])))",
+            "legendFormat": "{{operation}} / {{toss_code}}",
             "refId": "A",
             "format": "table",
             "instant": true
