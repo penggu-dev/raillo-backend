@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
@@ -73,5 +74,22 @@ class TossApiMetricsTest {
 			"http_status", "500",
 			"toss_code", "UNKNOWN").count();
 		assertThat(count).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("커넥션 풀 gauge 3개가 등록되고 초기 풀에서 모두 0을 반환한다")
+	void connectionPoolGauges_areRegisteredWithZeroInitial() {
+		// TossApiMetrics 생성 시(필드 초기화 시점) 등록된 gauge 검증
+		Gauge active = meterRegistry.find("toss.pool.connections.active").gauge();
+		Gauge idle = meterRegistry.find("toss.pool.connections.idle").gauge();
+		Gauge pending = meterRegistry.find("toss.pool.connections.pending").gauge();
+
+		assertThat(active).as("active gauge 등록").isNotNull();
+		assertThat(idle).as("idle gauge 등록").isNotNull();
+		assertThat(pending).as("pending gauge 등록").isNotNull();
+
+		assertThat(active.value()).as("초기 leased").isZero();
+		assertThat(idle.value()).as("초기 available").isZero();
+		assertThat(pending.value()).as("초기 pending").isZero();
 	}
 }
