@@ -88,6 +88,9 @@ public class ReservationValidator {
 		if (reservationIds == null || reservationIds.isEmpty()) {
 			throw new BusinessException(BookingError.RESERVATION_IDS_REQUIRED);
 		}
+		if (new HashSet<>(reservationIds).size() != reservationIds.size()) {
+			throw new BusinessException(BookingError.DUPLICATE_RESERVATION_IDS);
+		}
 	}
 
 	/**

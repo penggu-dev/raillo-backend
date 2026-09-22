@@ -1,37 +1,37 @@
 package com.sudo.raillo.payment.application;
 
+import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.payment.application.result.ConfirmedBookingResult;
+import com.sudo.raillo.payment.domain.PaymentAttempt;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-import com.sudo.raillo.booking.domain.PendingBooking;
+/** Reservation TTL과 독립적인 후속 R→B 확정 계약. */
+public record BookingConfirmedPayload(int schemaVersion, long paymentId, String attemptId, List<Entry> bookings) {
+	public record SeatEntry(long seatId, long trainCarId) {}
+	public record Entry(String reservationId, long bookingId, String memberNo, long trainScheduleId,
+		LocalDate operationDate, int departureStopOrder, int arrivalStopOrder, List<SeatEntry> seats) {}
 
-/**
- * OutboxWorker가 결제 성공 후 Redis 정리에 참조할 최소 정보.
- *
- * <p>실제 처리 로직은 새 Redis 아키텍처 확정 후 도입 예정이므로,
- * 이 payload 스키마는 향후 확장될 수 있다.
- */
-public record BookingConfirmedPayload(List<Entry> pendingBookings) {
-
-	public record Entry(
-		String pendingBookingId,
-		String memberNo,
-		Long trainScheduleId,
-		Long departureStopId,
-		Long arrivalStopId,
-		List<Long> seatIds
-	) {}
-
-	public static BookingConfirmedPayload from(List<PendingBooking> pendingBookings) {
-		List<Entry> entries = pendingBookings.stream()
-			.map(pb -> new Entry(
-				pb.getId(),
-				pb.getMemberNo(),
-				pb.getTrainScheduleId(),
-				pb.getDepartureStopId(),
-				pb.getArrivalStopId(),
-				pb.getSeatIds()
-			))
-			.toList();
-		return new BookingConfirmedPayload(entries);
+	public static BookingConfirmedPayload from(
+		long paymentId,
+		PaymentAttempt attempt,
+		List<Reservation> reservations,
+		List<ConfirmedBookingResult> confirmed
+	) {
+		Map<String, Long> ids = confirmed.stream().collect(Collectors.toMap(
+			ConfirmedBookingResult::reservationId, ConfirmedBookingResult::bookingId));
+		if (reservations.isEmpty() || ids.size() != reservations.size()) {
+			throw new IllegalArgumentException("예약과 생성된 예매의 매핑이 일치해야 합니다");
+		}
+		var entries = reservations.stream().map(r -> {
+			Long bookingId = ids.get(r.reservationId());
+			if (bookingId == null) throw new IllegalArgumentException("예매 ID가 없는 예약입니다: " + r.reservationId());
+			return new Entry(r.reservationId(), bookingId, r.memberNo(), r.trainScheduleId(), r.operationDate(),
+				r.departure().stopOrder(), r.arrival().stopOrder(),
+				r.seats().stream().map(s -> new SeatEntry(s.seatId(), s.trainCarId())).toList());
+		}).toList();
+		return new BookingConfirmedPayload(2, paymentId, attempt.getAttemptId(), entries);
 	}
 }

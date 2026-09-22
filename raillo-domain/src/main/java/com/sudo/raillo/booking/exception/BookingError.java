@@ -32,11 +32,7 @@ public enum BookingError implements ErrorCode {
 	RESERVATION_IDS_REQUIRED("조회할 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "BOOKING_306"),
 	RESERVATION_EXPIRED("만료된 예약이 있습니다. 다시 예약해주세요.", HttpStatus.BAD_REQUEST, "BOOKING_307"),
 
-	// 옛 예약(PendingBooking) (3xx) - 결제 도메인이 아직 참조한다. 결제 전환 PR에서 제거한다
-	PENDING_BOOKING_ACCESS_DENIED("해당 예약에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "BOOKING_301"),
-	PENDING_BOOKING_IDS_REQUIRED("조회할 예약 ID 목록이 필요합니다.", HttpStatus.BAD_REQUEST, "BOOKING_302"),
-	PENDING_BOOKING_EXPIRED("만료된 예약이 있습니다. 다시 예약해주세요.", HttpStatus.BAD_REQUEST, "BOOKING_303"),
-	INVALID_PENDING_BOOKING_TTL("예약을 처리할 수 없습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "BOOKING_304"),
+	DUPLICATE_RESERVATION_IDS("예약 ID를 중복 지정할 수 없습니다.", HttpStatus.BAD_REQUEST, "BOOKING_309"),
 
 	// 좌석 점유·충돌 (4xx)
 	SEAT_CONFLICT_WITH_BOOKING("이미 예매된 좌석이 있는 구간입니다.", HttpStatus.CONFLICT, "BOOKING_401"),

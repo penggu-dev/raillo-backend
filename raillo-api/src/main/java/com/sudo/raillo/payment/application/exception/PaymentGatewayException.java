@@ -21,4 +21,11 @@ public class PaymentGatewayException extends ExternalApiException {
 	public boolean isDefinitiveFailure() {
 		return getHttpStatus() >= 400 && getHttpStatus() < 500;
 	}
+
+	/**
+	 * 조회한 결제가 게이트웨이에 존재하지 않는 상태로 확정된 응답인지 확인한다. HTTP 404 계열이 여기에 해당한다.
+	 */
+	public boolean isResourceNotFound() {
+		return getHttpStatus() == 404;
+	}
 }

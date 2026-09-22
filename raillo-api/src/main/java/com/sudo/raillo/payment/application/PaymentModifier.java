@@ -1,15 +1,12 @@
 package com.sudo.raillo.payment.application;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.application.required.PaymentRepository;
 import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.domain.exception.PaymentError;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,15 +29,5 @@ public class PaymentModifier {
 		Payment saved = paymentRepository.save(payment);
 		log.info("[결제 생성] paymentId={}, orderId={}, amount={}", saved.getId(), order.getId(), order.getTotalAmount());
 		return saved;
-	}
-
-	/**
-	 * 결제 실패 정보를 별도 트랜잭션으로 저장한다. 외부 게이트웨이 실패 시 반드시 반영되어야 하므로 REQUIRES_NEW.
-	 */
-	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	public void failPaymentInNewTransaction(Long paymentId, String failureCode, String failureMessage) {
-		Payment payment = paymentRepository.findById(paymentId)
-			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
-		payment.fail(failureCode, failureMessage);
 	}
 }

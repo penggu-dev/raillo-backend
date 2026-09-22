@@ -16,7 +16,7 @@ class PaymentOutboxTest {
 	@DisplayName("BookingConfirmed outbox row를 PENDING으로 생성한다")
 	void forBookingConfirmed_isPending() {
 		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(
-			100L, "payment:100:booking-confirmed", "{\"pendingBookingIds\":[\"pb-1\"]}"
+			100L, "payment:100:booking-confirmed", "{\"reservationIds\":[\"RV-1\"]}"
 		);
 
 		assertThat(outbox.getType()).isEqualTo(PaymentOutboxType.BOOKING_CONFIRMED);

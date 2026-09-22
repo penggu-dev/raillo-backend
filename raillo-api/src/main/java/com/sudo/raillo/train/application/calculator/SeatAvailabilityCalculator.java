@@ -21,19 +21,19 @@ import lombok.extern.slf4j.Slf4j;
 public class SeatAvailabilityCalculator {
 
 	/**
-	 * 구간별 좌석 상태 계산 (전체 좌석 - SeatBooking - Seat Hold = 잔여석)
+	 * 구간별 좌석 상태 계산 (전체 좌석 - SeatBooking - Redis 추가 점유 = 잔여석)
 	 */
 	public SectionSeatStatus calculateSectionSeatStatus(
 		List<SeatBookingInfo> overlappingBookings,
 		Map<CarType, Integer> totalSeats,
-		Map<CarType, Integer> holdSeatsCountByCarType,
+		Map<CarType, Integer> additionalOccupiedCounts,
 		int requestedPassengerCount
 	) {
 		Map<CarType, Long> seatBooking = overlappingBookings.stream()
-			.collect(Collectors.groupingBy(SeatBookingInfo::carType, Collectors.counting()));
+			.collect(Collectors.groupingBy(SeatBookingInfo::carType, Collectors.collectingAndThen(Collectors.mapping(SeatBookingInfo::seatId, Collectors.toSet()), seats -> (long) seats.size())));
 
-		int standardRemaining = calculateRemaining(CarType.STANDARD, totalSeats, seatBooking, holdSeatsCountByCarType);
-		int firstClassRemaining = calculateRemaining(CarType.FIRST_CLASS, totalSeats, seatBooking, holdSeatsCountByCarType);
+		int standardRemaining = calculateRemaining(CarType.STANDARD, totalSeats, seatBooking, additionalOccupiedCounts);
+		int firstClassRemaining = calculateRemaining(CarType.FIRST_CLASS, totalSeats, seatBooking, additionalOccupiedCounts);
 
 		return new SectionSeatStatus(
 			standardRemaining,
@@ -49,11 +49,11 @@ public class SeatAvailabilityCalculator {
 		CarType carType,
 		Map<CarType, Integer> totalSeats,
 		Map<CarType, Long> occupySeatBooking,
-		Map<CarType, Integer> holdSeatsCountByCarType
+		Map<CarType, Integer> additionalOccupiedCounts
 	) {
 		int total = totalSeats.getOrDefault(carType, 0);
 		int seatBooking = occupySeatBooking.getOrDefault(carType, 0L).intValue();
-		int holdCount = holdSeatsCountByCarType.getOrDefault(carType, 0);
+		int holdCount = additionalOccupiedCounts.getOrDefault(carType, 0);
 		return Math.max(0, total - seatBooking - holdCount);
 	}
 }

@@ -1,30 +1,20 @@
 package com.sudo.raillo.booking.application.service;
 
-import com.sudo.raillo.booking.domain.Ticket;
-import com.sudo.raillo.booking.infrastructure.TicketRepository;
-import com.sudo.raillo.booking.util.TicketNumberGenerator;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import java.util.stream.IntStream;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.sudo.raillo.booking.application.dto.BookingInfo;
 import com.sudo.raillo.booking.application.dto.BookingTimeFilter;
+import com.sudo.raillo.booking.application.dto.ConfirmedBookingInfo;
 import com.sudo.raillo.booking.application.dto.response.BookingResponse;
 import com.sudo.raillo.booking.application.mapper.BookingMapper;
 import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
-import com.sudo.raillo.booking.domain.type.PassengerType;
+import com.sudo.raillo.booking.domain.Ticket;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingQueryRepository;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatBookingRepository;
+import com.sudo.raillo.booking.infrastructure.TicketRepository;
+import com.sudo.raillo.booking.util.TicketNumberGenerator;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
@@ -38,10 +28,15 @@ import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
-
-import jakarta.persistence.OptimisticLockException;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -65,7 +60,7 @@ public class BookingService {
 	 * 주문으로부터 예매를 생성
 	 * @param order 주문
 	 * */
-	public void createBookingFromOrder(Order order) {
+	public List<ConfirmedBookingInfo> createBookingFromOrder(Order order) {
 		// 1. 도메인 규칙 검증
 		order.validateCompleted();
 
@@ -93,12 +88,14 @@ public class BookingService {
 			.collect(Collectors.toMap(Seat::getId, Function.identity()));
 
 		// 4. Booking, SeatBooking 생성
-		orderBookings.forEach(orderBooking -> {
+		var confirmed = orderBookings.stream().map(orderBooking -> {
 			List<OrderSeatBooking> relatedSeatBookings = seatBookingMap.get(orderBooking.getId());
-			createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
-		});
+			long bookingId = createBooking(order.getMember(), order, orderBooking, relatedSeatBookings, seatMap);
+			return new ConfirmedBookingInfo(orderBooking.getReservationId(), bookingId);
+		}).toList();
 
 		log.info("[주문에 대한 예매 생성 완료]: orderId={}, memberNo={}", order.getId(), order.getMember().getId());
+		return confirmed;
 	}
 
 	/**
@@ -164,7 +161,7 @@ public class BookingService {
 	}
 
 	// private Method
-	private void createBooking(
+	private long createBooking(
 		Member member,
 		Order order,
 		OrderBooking orderBooking,
@@ -184,6 +181,7 @@ public class BookingService {
 
 		IntStream.range(0, orderSeatBookings.size())
 			.forEach(i -> createSeatBooking(booking, orderSeatBookings.get(i), seatMap, reservationCode, i + 1));
+		return booking.getId();
 	}
 
 	private void createSeatBooking(

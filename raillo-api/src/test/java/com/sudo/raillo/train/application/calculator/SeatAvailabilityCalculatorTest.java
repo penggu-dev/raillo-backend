@@ -23,6 +23,18 @@ class SeatAvailabilityCalculatorTest {
 	private SeatAvailabilityCalculator calculator;
 
 	@Test
+	@DisplayName("같은 좌석의 서로 다른 구간 예매는 잔여석에서 한 번만 차감한다")
+	void repeated_seat_counts_once() {
+		// given
+		var bookings = List.of(new SeatBookingInfo(1L, CarType.STANDARD, 1L, 2L),
+			new SeatBookingInfo(1L, CarType.STANDARD, 2L, 3L));
+		// when
+		var result = calculator.calculateSectionSeatStatus(bookings, Map.of(CarType.STANDARD, 10), Map.of(), 1);
+		// then
+		assertThat(result.standardRemaining()).isEqualTo(9);
+	}
+
+	@Test
 	@DisplayName("일반실 좌석 잔여석을 총 좌석에서 확정 좌석을 뺀 값으로 계산한다")
 	void calculateStandardSeats() {
 		// given

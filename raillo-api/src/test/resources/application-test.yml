@@ -54,9 +54,17 @@ payment:
       secret-key: test_sk_stub
       version: v1
 
+raillo:
+  payment:
+    outbox:
+      enabled: false
+      polling-interval: 500ms
+      batch-size: 10
+      initial-backoff: 100ms
+      max-backoff: 1s
+      max-retries: 3
+
 # redis TTL
 redis:
   ttl:
     reservation: 10m
-    pending-booking: 10m
-    pending-booking-member-key: 580s # 유령 인덱스 방지를 위해 주 키의 TTL 설정 값보다 20초 짧게 설정

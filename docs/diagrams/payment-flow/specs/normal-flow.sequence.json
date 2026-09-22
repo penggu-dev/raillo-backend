@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "정상 확정 흐름과 재사용 응답",
+    "output": "docs/diagrams/payment-flow/normal-flow.html",
+    "viewBox": [1080, 920],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      { "id": "case-1", "label": "케이스 1 · 정상 결제 확정", "focus": ["client", "starter", "db", "toss"], "note": "새 attemptId로 들어온 요청이 3층 방어를 모두 통과하고 Toss 승인 성공 후 TX B에서 원자적으로 확정된다. Outbox 발행으로 Reservation 정리가 후속 Worker에 위임된다." },
+      { "id": "case-5", "label": "케이스 5 · 같은 attemptId 재요청 (SUCCEEDED 재사용)", "focus": ["client", "starter", "db"], "note": "이미 SUCCEEDED인 attempt에 같은 attemptId가 다시 들어오면 Toss 재호출 없이 이전 확정 결과를 조회해 응답한다. 별도 읽기 트랜잭션이라 다른 트랜잭션이 방금 확정한 최신 상태도 반영한다." }
+    ]
+  },
+  "participants": [
+    { "id": "client", "type": "external", "label": "클라이언트", "sublabel": "결제 요청" },
+    { "id": "starter", "type": "backend", "label": "결제 승인 경로", "sublabel": "Starter · Manager · Finalizer" },
+    { "id": "db", "type": "database", "label": "MySQL", "sublabel": "Payment · Attempt · Order · Outbox" },
+    { "id": "toss", "type": "external", "label": "Toss Payments", "sublabel": "confirm" }
+  ],
+  "segments": [
+    { "from": 140, "to": 570, "label": "케이스 1 · 정상 결제 확정" },
+    { "from": 590, "to": 840, "label": "케이스 5 · 같은 attemptId · SUCCEEDED 재사용" }
+  ],
+  "messages": [
+    { "from": "client", "to": "starter", "y": 170, "label": "POST /confirm (attemptId 신규 · paymentKey · amount)", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 210, "label": "findByAttemptId · pre-check", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 250, "label": "empty · 신규 승인 진행", "variant": "return" },
+    { "from": "starter", "to": "db", "y": 290, "label": "validateApprovable · Reservation 조회 · validateDuplicatePayment", "variant": "default" },
+    { "from": "starter", "to": "db", "y": 335, "label": "TX A · SELECT FOR UPDATE + attempt(IN_PROGRESS) 저장", "variant": "emphasis" },
+    { "from": "starter", "to": "toss", "y": 380, "label": "POST /v1/payments/confirm", "variant": "emphasis" },
+    { "from": "toss", "to": "starter", "y": 420, "label": "200 승인 성공", "variant": "return" },
+    { "from": "starter", "to": "db", "y": 465, "label": "TX B · Payment PAID + attempt SUCCEEDED + Order ORDERED + Outbox INSERT", "variant": "emphasis" },
+    { "from": "starter", "to": "client", "y": 540, "label": "200 결제 완료 (PaymentConfirmResult)", "variant": "return" },
+
+    { "from": "client", "to": "starter", "y": 620, "label": "POST /confirm (같은 attemptId · 재요청)", "variant": "emphasis" },
+    { "from": "starter", "to": "db", "y": 660, "label": "findByAttemptId · pre-check", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 700, "label": "existing attempt · SUCCEEDED", "variant": "return" },
+    { "from": "starter", "to": "db", "y": 740, "label": "getConfirmResult · 별도 읽기 트랜잭션", "variant": "default" },
+    { "from": "db", "to": "starter", "y": 780, "label": "최신 확정 결과 (환불 등 이후 변경도 반영)", "variant": "return" },
+    { "from": "starter", "to": "client", "y": 820, "label": "200 이전 결과 재사용 (Toss 호출 없음)", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "starter", "from": 165, "to": 540, "type": "backend" },
+    { "participant": "db", "from": 205, "to": 470, "type": "database" },
+    { "participant": "toss", "from": 375, "to": 425, "type": "external" },
+
+    { "participant": "starter", "from": 615, "to": 820, "type": "backend" },
+    { "participant": "db", "from": 655, "to": 785, "type": "database" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "정상 확정의 두 트랜잭션", "items": ["TX A — Toss 호출 전 attempt(IN_PROGRESS) 커밋, Payment 잠금 해제 후 Toss 호출", "Toss 호출은 트랜잭션 밖", "TX B — Payment/Order/Booking/Attempt/Outbox 원자적 확정"] },
+    { "dot": "orange", "title": "Reservation 정리의 비동기화", "items": ["TX B에서 Outbox INSERT까지만 원자적", "실제 Redis 정리는 PaymentOutboxWorker(#266)가 담당", "정리 실패가 승인 결과를 되돌리지 않는다"] },
+    { "dot": "emerald", "title": "재사용 응답의 의미", "items": ["Toss는 재호출하지 않는다 (이중 청구 방지)", "저장된 응답을 재생하는 게 아니라 DB 최신 상태를 조회", "환불·부분 취소 등 이후 상태 변경도 응답에 반영"] }
+  ]
+}

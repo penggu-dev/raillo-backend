@@ -89,8 +89,7 @@ class PaymentReaderTest {
 	void getConfirmResult_populatesAllFieldsFromDb() {
 		// given: 승인 완료된 Payment 저장
 		Payment payment = Payment.create(member, order);
-		payment.updatePaymentKey("toss_pk_projection_test");
-		payment.approve(PaymentMethod.CREDIT_CARD);
+		payment.approve(PaymentMethod.CREDIT_CARD, "toss_pk_projection_test");
 		Payment saved = paymentRepository.save(payment);
 
 		// when

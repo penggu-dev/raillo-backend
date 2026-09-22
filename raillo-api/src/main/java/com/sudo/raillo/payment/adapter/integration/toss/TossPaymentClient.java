@@ -74,6 +74,39 @@ public class TossPaymentClient {
 	}
 
 	/**
+	 * 토스페이먼츠 결제 조회 API 호출 (GET /v1/payments/{paymentKey}). Toss 응답 유실로 PaymentAttempt가 IN_PROGRESS로 남은 상태에서 사용자가 재시도할 때 실제 상태를 확인해 로컬을 정정하는 데 사용한다.
+	 */
+	public TossPaymentQueryResponse queryPayment(String paymentKey) {
+		log.info("[TOSS] 결제 조회 요청: paymentKey={}", paymentKey);
+
+		try {
+			TossPaymentQueryResponse response = tossPaymentRestClient.get()
+				.uri("/v1/payments/{paymentKey}", paymentKey)
+				.exchange((req, res) -> {
+					if (res.getStatusCode().isError()) {
+						handleErrorResponse(res, "query");
+					}
+					return res.bodyTo(TossPaymentQueryResponse.class);
+				});
+
+			log.info("[TOSS] 결제 조회 성공: paymentKey={}, status={}, method={}",
+				response.paymentKey(), response.status(), response.method());
+
+			return response;
+
+		} catch (TossPaymentException e) {
+			throw e;
+		} catch (Exception e) {
+			log.error("[TOSS] 결제 조회 중 알 수 없는 예외 발생", e);
+			tossApiMetrics.incrementFailure("query", 0, "CLIENT_ERROR");
+			throw new BusinessException(
+				PaymentError.PAYMENT_SYSTEM_ERROR,
+				"결제 조회 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
+			);
+		}
+	}
+
+	/**
 	 * 토스페이먼츠 결제 취소 API 호출
 	 *
 	 * @param paymentKey 결제 키

@@ -6,12 +6,18 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.sudo.raillo.payment.domain.PaymentOutbox;
 import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
+import com.sudo.raillo.payment.domain.PaymentOutboxType;
+
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 
 @Repository
 public interface PaymentOutboxJpaRepository extends JpaRepository<PaymentOutbox, Long> {
@@ -30,4 +36,36 @@ public interface PaymentOutboxJpaRepository extends JpaRepository<PaymentOutbox,
 		@Param("now") LocalDateTime now,
 		Limit limit
 	);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "-2"))
+	@Query("""
+		select o
+		  from PaymentOutbox o
+		 where o.status = :status
+		   and (o.nextRetryAt is null or o.nextRetryAt <= :now)
+		 order by o.nextRetryAt asc nulls first, o.id asc
+		""")
+	List<PaymentOutbox> lockProcessable(
+		@Param("status") PaymentOutboxStatus status,
+		@Param("now") LocalDateTime now,
+		Limit limit
+	);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "-2"))
+	@Query("""
+		select o from PaymentOutbox o
+		where o.status = :status and o.type in :types
+		  and (o.nextRetryAt is null or o.nextRetryAt <= :now)
+		order by o.nextRetryAt asc nulls first, o.id asc
+		""")
+	List<PaymentOutbox> lockProcessable(
+		@Param("status") PaymentOutboxStatus status,
+		@Param("now") LocalDateTime now,
+		@Param("types") List<PaymentOutboxType> types,
+		Limit limit
+	);
+
+	long countByStatus(PaymentOutboxStatus status);
 }

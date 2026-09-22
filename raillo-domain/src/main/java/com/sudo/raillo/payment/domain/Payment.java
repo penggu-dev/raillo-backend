@@ -107,14 +107,14 @@ public class Payment {
 		return payment;
 	}
 
-	// paymentKey 업데이트
-	public void updatePaymentKey(String paymentKey) {
-		this.paymentKey = paymentKey;
-	}
-
-	public void approve(PaymentMethod paymentMethod) {
+	/**
+	 * 승인 확정 시 결제 방법과 Toss가 최종 발급한 paymentKey를 함께 저장한다.
+	 * paymentKey는 이후 취소·환불에서 Toss에 넘기는 결제 식별자로 사용된다.
+	 */
+	public void approve(PaymentMethod paymentMethod, String paymentKey) {
 		validatePayable();
 		this.paymentMethod = paymentMethod;
+		this.paymentKey = paymentKey;
 		this.paymentStatus = PaymentStatus.PAID;
 		this.paidAt = LocalDateTime.now();
 	}

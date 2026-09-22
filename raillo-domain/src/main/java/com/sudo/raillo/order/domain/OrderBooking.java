@@ -32,7 +32,7 @@ public class OrderBooking extends BaseEntity {
 
 	@Column(name = "pending_booking_id", nullable = false)
 	@Comment("예약 ID")
-	private String pendingBookingId;
+	private String reservationId;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "order_id", nullable = false)
@@ -59,8 +59,15 @@ public class OrderBooking extends BaseEntity {
 	@Comment("총 운임")
 	private BigDecimal totalFare;
 
+	@Column(name = "reservation_snapshot", columnDefinition = "TEXT")
+	private String reservationSnapshot;
+
+	public void captureReservation(String snapshot) {
+		this.reservationSnapshot = snapshot;
+	}
+
 	public static OrderBooking create(
-		String pendingBookingId,
+		String reservationId,
 		Order order,
 		TrainSchedule trainSchedule,
 		ScheduleStop departureStop,
@@ -68,7 +75,7 @@ public class OrderBooking extends BaseEntity {
 		BigDecimal totalFare
 	) {
 		OrderBooking orderBooking = new OrderBooking();
-		orderBooking.pendingBookingId = pendingBookingId;
+		orderBooking.reservationId = reservationId;
 		orderBooking.order = order;
 		orderBooking.trainSchedule = trainSchedule;
 		orderBooking.departureStop = departureStop;

@@ -1,9 +1,8 @@
 package com.sudo.raillo.order.application;
 
-import com.sudo.raillo.train.application.calculator.FareCalculator;
-import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.global.exception.BusinessException;
+import com.sudo.raillo.global.redis.util.RedisJsonConverter;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.exception.MemberError;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -18,11 +17,9 @@ import com.sudo.raillo.order.infrastructure.OrderBookingRepository;
 import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.train.domain.ScheduleStop;
-import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.TrainSchedule;
 import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.ScheduleStopRepository;
-import com.sudo.raillo.train.infrastructure.SeatRepository;
 import com.sudo.raillo.train.infrastructure.TrainScheduleRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -45,9 +42,8 @@ public class OrderService {
 	private final OrderSeatBookingRepository orderSeatBookingRepository;
 	private final TrainScheduleRepository trainScheduleRepository;
 	private final ScheduleStopRepository scheduleStopRepository;
-	private final SeatRepository seatRepository;
 	private final MemberRepository memberRepository;
-	private final FareCalculator fareCalculator;
+	private final RedisJsonConverter jsonConverter;
 	private final OrderValidator orderValidator;
 
 	/**
@@ -72,33 +68,32 @@ public class OrderService {
 	}
 
 	/**
-	 * Order에 연결된 PendingBooking ID 목록 조회
+	 * Order에 연결된 Reservation ID 목록 조회
 	 */
 	@Transactional(readOnly = true)
-	public List<String> getPendingBookingIds(Order order) {
+	public List<String> getReservationIds(Order order) {
 		return orderBookingRepository.findByOrderId(order.getId()).stream()
-			.map(OrderBooking::getPendingBookingId)
+			.map(OrderBooking::getReservationId)
 			.toList();
 	}
 
 	/**
 	 * 주문 생성
 	 * @param memberNo 회원 번호
-	 * @param pendingBookings 주문할 PendingBooking 리스트
+	 * @param reservations 주문할 Reservation 리스트
 	 * @return 생성된 Order
 	 */
-	public Order createOrder(String memberNo, List<PendingBooking> pendingBookings) {
-		orderValidator.validatePendingBookingsNotEmpty(pendingBookings);
+	public Order createOrder(String memberNo, List<Reservation> reservations) {
+		orderValidator.validateReservationsNotEmpty(reservations);
 
 		Member member = getMember(memberNo);
 
 		// 1. 연관 엔티티 일괄 조회 (N+1 방지)
-		Map<Long, Seat> seatMap = getSeatMap(pendingBookings);
-		Map<Long, TrainSchedule> scheduleMap = getScheduleMap(pendingBookings);
-		Map<Long, ScheduleStop> stopMap = getStopMap(pendingBookings);
+		Map<Long, TrainSchedule> scheduleMap = getScheduleMap(reservations);
+		Map<Long, ScheduleStop> stopMap = getStopMap(reservations);
 
 		// 2. 운임 계산 정보 생성
-		List<OrderBookingInfo> orderBookingInfos = createOrderBookingInfos(pendingBookings, seatMap, stopMap);
+		List<OrderBookingInfo> orderBookingInfos = createOrderBookingInfos(reservations);
 
 		// 3. 총 주문 금액 계산
 		BigDecimal totalAmount = orderBookingInfos.stream()
@@ -110,7 +105,9 @@ public class OrderService {
 		orderRepository.save(order);
 
 		// 5. OrderBooking, OrderSeatBooking 생성
-		orderBookingInfos.forEach(info -> createOrderBooking(order, info, scheduleMap, stopMap));
+		for (int i = 0; i < reservations.size(); i++) {
+			createOrderBooking(order, orderBookingInfos.get(i), scheduleMap, stopMap, reservations.get(i));
+		}
 		log.info("[주문 생성] orderId={}, memberNo={}, totalAmount={}", order.getId(), memberNo, totalAmount);
 		return order;
 	}
@@ -119,16 +116,18 @@ public class OrderService {
 		Order order,
 		OrderBookingInfo orderBookingInfo,
 		Map<Long, TrainSchedule> scheduleMap,
-		Map<Long, ScheduleStop> stopMap
+		Map<Long, ScheduleStop> stopMap,
+		Reservation reservation
 	) {
 		OrderBooking orderBooking = OrderBooking.create(
-			orderBookingInfo.pendingBookingId(),
+			orderBookingInfo.reservationId(),
 			order,
 			scheduleMap.get(orderBookingInfo.trainScheduleId()),
 			stopMap.get(orderBookingInfo.departureStopId()),
 			stopMap.get(orderBookingInfo.arrivalStopId()),
 			orderBookingInfo.totalFare()
 		);
+		orderBooking.captureReservation(jsonConverter.toJson(reservation));
 		orderBookingRepository.save(orderBooking);
 		createOrderSeatBookings(orderBookingInfo, orderBooking);
 	}
@@ -143,24 +142,9 @@ public class OrderService {
 			)).forEach(orderSeatBookingRepository::save);
 	}
 
-	private Map<Long, Seat> getSeatMap(List<PendingBooking> pendingBookings) {
-		List<Long> seatIds = pendingBookings.stream()
-			.flatMap(pb -> pb.getPendingSeatBookings().stream())
-			.map(PendingSeatBooking::seatId)
-			.toList();
-
-		List<Seat> seats = seatRepository.findAllByIdWithTrainCar(seatIds);
-
-		if (seats.size() != seatIds.size()) {
-			throw new BusinessException(TrainError.SEAT_NOT_FOUND);
-		}
-
-		return seats.stream().collect(Collectors.toMap(Seat::getId, seat -> seat));
-	}
-
-	private Map<Long, TrainSchedule> getScheduleMap(List<PendingBooking> pendingBookings) {
-		Set<Long> scheduleIds = pendingBookings.stream()
-			.map(PendingBooking::getTrainScheduleId)
+	private Map<Long, TrainSchedule> getScheduleMap(List<Reservation> reservations) {
+		Set<Long> scheduleIds = reservations.stream()
+			.map(Reservation::trainScheduleId)
 			.collect(Collectors.toSet());
 
 		List<TrainSchedule> schedules = trainScheduleRepository.findAllByIdWithTrain(scheduleIds);
@@ -172,9 +156,9 @@ public class OrderService {
 		return schedules.stream().collect(Collectors.toMap(TrainSchedule::getId, schedule -> schedule));
 	}
 
-	private Map<Long, ScheduleStop> getStopMap(List<PendingBooking> pendingBookings) {
-		Set<Long> stopIds = pendingBookings.stream()
-			.flatMap(pb -> java.util.stream.Stream.of(pb.getDepartureStopId(), pb.getArrivalStopId()))
+	private Map<Long, ScheduleStop> getStopMap(List<Reservation> reservations) {
+		Set<Long> stopIds = reservations.stream()
+			.flatMap(pb -> java.util.stream.Stream.of(pb.departure().stopId(), pb.arrival().stopId()))
 			.collect(Collectors.toSet());
 
 		List<ScheduleStop> stops = scheduleStopRepository.findAllByIdWithStation(stopIds);
@@ -186,62 +170,13 @@ public class OrderService {
 		return stops.stream().collect(Collectors.toMap(ScheduleStop::getId, scheduleStop -> scheduleStop));
 	}
 
-	private List<OrderBookingInfo> createOrderBookingInfos(
-		List<PendingBooking> pendingBookings,
-		Map<Long, Seat> seatMap,
-		Map<Long, ScheduleStop> stopMap
-	) {
-		return pendingBookings.stream()
-			.map(booking -> createOrderBookingInfo(booking, seatMap, stopMap))
-			.toList();
-	}
-
-	private OrderBookingInfo createOrderBookingInfo(
-		PendingBooking pendingBooking,
-		Map<Long, Seat> seatMap,
-		Map<Long, ScheduleStop> stopMap
-	) {
-		ScheduleStop departureStop = stopMap.get(pendingBooking.getDepartureStopId());
-		ScheduleStop arrivalStop = stopMap.get(pendingBooking.getArrivalStopId());
-
-		List<OrderSeatBookingInfo> seatInfos = calculateSeatFares(
-			pendingBooking.getPendingSeatBookings(),
-			departureStop.getStation().getId(),
-			arrivalStop.getStation().getId(),
-			seatMap
-		);
-
-		BigDecimal totalFare = seatInfos.stream()
-			.map(OrderSeatBookingInfo::fare)
-			.reduce(BigDecimal.ZERO, BigDecimal::add);
-
-		return new OrderBookingInfo(
-			pendingBooking.getId(),
-			pendingBooking.getTrainScheduleId(),
-			pendingBooking.getDepartureStopId(),
-			pendingBooking.getArrivalStopId(),
-			totalFare,
-			seatInfos
-		);
-	}
-
-	private List<OrderSeatBookingInfo> calculateSeatFares(
-		List<PendingSeatBooking> pendingSeatBookings,
-		Long departureStationId,
-		Long arrivalStationId,
-		Map<Long, Seat> seatMap
-	) {
-		return pendingSeatBookings.stream()
-			.map(seatBooking -> {
-				Seat seat = seatMap.get(seatBooking.seatId());
-				BigDecimal fare = fareCalculator.calculateFare(
-					departureStationId,
-					arrivalStationId,
-					seatBooking.passengerType(),
-					seat.getTrainCar().getCarType()
-				);
-				return new OrderSeatBookingInfo(seatBooking.seatId(), seatBooking.passengerType(), fare);
-			}).toList();
+	private List<OrderBookingInfo> createOrderBookingInfos(List<Reservation> reservations) {
+		return reservations.stream().map(reservation -> new OrderBookingInfo(
+			reservation.reservationId(), reservation.trainScheduleId(), reservation.departure().stopId(),
+			reservation.arrival().stopId(), reservation.totalFare(),
+			reservation.seats().stream().map(seat -> new OrderSeatBookingInfo(
+				seat.seatId(), seat.passengerType(), seat.fare())).toList()
+		)).toList();
 	}
 
 	private Member getMember(String memberNo) {

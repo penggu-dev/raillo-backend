@@ -15,10 +15,6 @@ public class RedisKeyGenerator {
 	private static final String REFRESH_TOKEN_KEY_PREFIX = "auth:no:{memberNo}:refreshToken";
 	private static final String LOGOUT_KEY_PREFIX = "auth:accessToken:{token}:logout";
 
-	// booking
-	private static final String PENDING_BOOKING_KEY_PREFIX = "booking:pendingBooking:{pendingBookingId}";
-	private static final String PENDING_BOOKING_MEMBER_KEY_PREFIX = "booking:member:{memberNo}:pendingBooking:%s";
-
 	public String generateMemberNoKey(String email) {
 		return MEMBER_NO_KEY_PREFIX.replace("{email}", email);
 	}
@@ -39,17 +35,4 @@ public class RedisKeyGenerator {
 		return LOGOUT_KEY_PREFIX.replace("{token}", accessToken);
 	}
 
-	public String generatePendingBookingKey(String pendingBookingId) {
-		return PENDING_BOOKING_KEY_PREFIX.replace("{pendingBookingId}", pendingBookingId);
-	}
-
-	public String generatePendingBookingMemberKey(String memberNo, String pendingBookingId) {
-		return PENDING_BOOKING_MEMBER_KEY_PREFIX.replace("{memberNo}", memberNo)
-			.replace("%s", pendingBookingId);
-	}
-
-	public String generatePendingBookingMemberKeyPattern(String memberNo) {
-		return PENDING_BOOKING_MEMBER_KEY_PREFIX.replace("{memberNo}", memberNo)
-			.replace("%s", "*");
-	}
 }

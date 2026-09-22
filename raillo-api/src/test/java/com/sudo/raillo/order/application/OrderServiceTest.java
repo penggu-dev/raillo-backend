@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sudo.raillo.booking.domain.PendingBooking;
-import com.sudo.raillo.booking.domain.PendingSeatBooking;
+import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.support.helper.PaymentReservationTestHelper.SeatPassenger;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -22,7 +22,7 @@ import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.OrderFixture;
-import com.sudo.raillo.support.fixture.PendingBookingFixture;
+import com.sudo.raillo.support.helper.PaymentReservationTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
@@ -38,6 +38,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @ServiceTest
 class OrderServiceTest {
+	@org.springframework.beans.factory.annotation.Autowired
+	private PaymentReservationTestHelper paymentReservations;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -126,16 +128,16 @@ class OrderServiceTest {
 		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
+		Reservation reservation = paymentReservations.builder()
 			.withMemberNo(member.getMemberDetail().getMemberNo())
 			.withTrainScheduleId(result.trainSchedule().getId())
 			.withDepartureStopId(result.scheduleStops().get(0).getId())
 			.withArrivalStopId(result.scheduleStops().get(1).getId())
-			.withPendingSeatBookings(List.of(new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)))
+			.withSeats(List.of(new SeatPassenger(seats.get(0).getId(), PassengerType.ADULT)))
 			.build();
 
 		// when
-		orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(pendingBooking));
+		orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(reservation));
 
 		// then
 		List<Order> orders = orderRepository.findAll();
@@ -153,7 +155,7 @@ class OrderServiceTest {
 		assertThat(orderBookings).hasSize(1);
 
 		OrderBooking savedOrderBooking = orderBookings.get(0);
-		assertThat(savedOrderBooking.getPendingBookingId()).isEqualTo(pendingBooking.getId());
+		assertThat(savedOrderBooking.getReservationId()).isEqualTo(reservation.reservationId());
 		assertThat(savedOrderBooking.getOrder().getId()).isEqualTo(savedOrder.getId());
 		assertThat(savedOrderBooking.getTrainSchedule().getId()).isEqualTo(result.trainSchedule().getId());
 		assertThat(savedOrderBooking.getDepartureStop().getId()).isEqualTo(result.scheduleStops().get(0).getId());
@@ -167,7 +169,7 @@ class OrderServiceTest {
 	}
 
 	@Test
-	@DisplayName("여러 개의 PendingBooking으로 주문 생성에 성공한다")
+	@DisplayName("여러 개의 Reservation으로 주문 생성에 성공한다")
 	void createOrder_success_with_multiple_pending_bookings() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
@@ -175,26 +177,26 @@ class OrderServiceTest {
 		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);
 		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
 
-		PendingBooking pendingBooking1 = PendingBookingFixture.builder()
+		Reservation reservation1 = paymentReservations.builder()
 			.withMemberNo(member.getMemberDetail().getMemberNo())
 			.withTrainScheduleId(result.trainSchedule().getId())
 			.withDepartureStopId(result.scheduleStops().get(0).getId())
 			.withArrivalStopId(result.scheduleStops().get(1).getId())
-			.withPendingSeatBookings(List.of(new PendingSeatBooking(seats.get(0).getId(), PassengerType.ADULT)))
+			.withSeats(List.of(new SeatPassenger(seats.get(0).getId(), PassengerType.ADULT)))
 			.build();
 
-		PendingBooking pendingBooking2 = PendingBookingFixture.builder()
+		Reservation reservation2 = paymentReservations.builder()
 			.withMemberNo(member.getMemberDetail().getMemberNo())
 			.withTrainScheduleId(result.trainSchedule().getId())
 			.withDepartureStopId(result.scheduleStops().get(0).getId())
 			.withArrivalStopId(result.scheduleStops().get(1).getId())
-			.withPendingSeatBookings(List.of(new PendingSeatBooking(seats.get(1).getId(), PassengerType.SENIOR)))
+			.withSeats(List.of(new SeatPassenger(seats.get(1).getId(), PassengerType.SENIOR)))
 			.build();
 
-		List<PendingBooking> pendingBookings = List.of(pendingBooking1, pendingBooking2);
+		List<Reservation> reservations = List.of(reservation1, reservation2);
 
 		// when
-		orderService.createOrder(member.getMemberDetail().getMemberNo(), pendingBookings);
+		orderService.createOrder(member.getMemberDetail().getMemberNo(), reservations);
 
 		// then
 		List<Order> orders = orderRepository.findAll();
@@ -221,17 +223,10 @@ class OrderServiceTest {
 		String nonExistentMemberNo = "999999999999";
 		Member member = memberRepository.save(MemberFixture.create());
 
-		PendingBooking pendingBooking = PendingBookingFixture.builder()
-			.withMemberNo(member.getMemberDetail().getMemberNo())
-			.withTrainScheduleId(1L)
-			.withDepartureStopId(1L)
-			.withArrivalStopId(2L)
-			.withPendingSeatBookings(List.of(new PendingSeatBooking(1L, PassengerType.ADULT)))
-			.withTotalFare(BigDecimal.valueOf(30000))
-			.build();
+		Reservation reservation = com.sudo.raillo.support.fixture.ReservationFixture.create();
 
 		// when & then
-		assertThatThrownBy(() -> orderService.createOrder(nonExistentMemberNo, List.of(pendingBooking)))
+		assertThatThrownBy(() -> orderService.createOrder(nonExistentMemberNo, List.of(reservation)))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(MemberError.USER_NOT_FOUND.getMessage());
 	}
@@ -243,12 +238,12 @@ class OrderServiceTest {
 		Member member = memberRepository.save(MemberFixture.create());
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		List<PendingBooking> emptyPendingBookings = Collections.emptyList();
+		List<Reservation> emptyReservations = Collections.emptyList();
 
 		// when & then
-		assertThatThrownBy(() -> orderService.createOrder(memberNo, emptyPendingBookings))
+		assertThatThrownBy(() -> orderService.createOrder(memberNo, emptyReservations))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(OrderError.EMPTY_PENDING_BOOKINGS.getMessage());
+			.hasMessage(OrderError.EMPTY_RESERVATIONS.getMessage());
 	}
 
 	@Test
@@ -258,11 +253,11 @@ class OrderServiceTest {
 		Member member = memberRepository.save(MemberFixture.create());
 		String memberNo = member.getMemberDetail().getMemberNo();
 
-		List<PendingBooking> emptyPendingBookings = null;
+		List<Reservation> emptyReservations = null;
 
 		// when & then
-		assertThatThrownBy(() -> orderService.createOrder(memberNo, emptyPendingBookings))
+		assertThatThrownBy(() -> orderService.createOrder(memberNo, emptyReservations))
 			.isInstanceOf(BusinessException.class)
-			.hasMessage(OrderError.EMPTY_PENDING_BOOKINGS.getMessage());
+			.hasMessage(OrderError.EMPTY_RESERVATIONS.getMessage());
 	}
 }

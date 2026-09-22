@@ -1,6 +1,7 @@
 package com.sudo.raillo.train.application.facade;
 
-import com.sudo.raillo.booking.application.service.SeatHoldService;
+import com.sudo.raillo.booking.application.service.SeatOccupancyQueryService;
+import com.sudo.raillo.booking.application.dto.SeatOccupancyQuery;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.train.application.calculator.SeatAvailabilityCalculator;
 import com.sudo.raillo.train.application.dto.SeatBookingInfo;
@@ -63,7 +64,7 @@ public class TrainSearchFacade {
 	private final TrainSearchService trainSearchService;
 	private final TrainScheduleService trainScheduleService;
 	private final TrainSeatQueryService trainSeatQueryService;
-	private final SeatHoldService seatHoldService;
+	private final SeatOccupancyQueryService seatOccupancyQueryService;
 	private final SeatAvailabilityCalculator seatAvailabilityCalculator;
 	private final TrainSearchValidator trainSearchValidator;
 	private final TrainSearchResponseMapper responseMapper;
@@ -128,9 +129,12 @@ public class TrainSearchFacade {
 		List<TrainCarInfo> carsWithConfirmedAvailability = trainSeatQueryService.getAvailableTrainCars(
 			request.trainScheduleId(), request.departureStationId(), request.arrivalStationId());
 
-		// 5. Seat Hold 좌석 차감 적용
-		List<TrainCarInfo> availableCars = deductHoldSeats(
-			carsWithConfirmedAvailability, request.trainScheduleId(), departureStop.getStopOrder(), arrivalStop.getStopOrder());
+		// 5. DB 예매와 Redis R/B 점유의 합집합으로 차감한다.
+		Set<Long> bookedSeatIds = trainSearchService.findOverlappingBookingsBatch(
+			List.of(request.trainScheduleId()), request.departureStationId(), request.arrivalStationId())
+			.getOrDefault(request.trainScheduleId(), List.of()).stream().map(SeatBookingInfo::seatId).collect(Collectors.toSet());
+		List<TrainCarInfo> availableCars = deductOccupiedSeats(
+			carsWithConfirmedAvailability, request.trainScheduleId(), departureStop.getStopOrder(), arrivalStop.getStopOrder(), bookedSeatIds);
 
 		// 6. 승객 수에 맞는 추천 객차 선택 (Application Service 책임)
 		String recommendedCarNumber = carRecommendationService.selectRecommendedCar(availableCars, request.passengerCount());
@@ -162,15 +166,12 @@ public class TrainSearchFacade {
 		// 1. 객차 좌석 상세 조회
 		TrainCarSeatInfo carSeatInfo = trainSeatQueryService.getTrainCarSeatDetail(request);
 
-		// 2. Seat Hold된 seatId 조회
-		Set<Long> holdSeats = seatHoldService.getSeatIdsOnHold(
-			request.trainScheduleId(),
-			request.trainCarId(),
-			carSeatInfo.departureStopOrder(),
-			carSeatInfo.arrivalStopOrder()
-		);
+		// 2. Redis 점유된 seatId 조회
+		Set<Long> holdSeats = seatOccupancyQueryService.findOccupiedSeatIds(new SeatOccupancyQuery(
+			request.trainScheduleId(), List.of(request.trainCarId()),
+			carSeatInfo.departureStopOrder(), carSeatInfo.arrivalStopOrder())).getOrDefault(request.trainCarId(), Set.of());
 
-		// 3. Seat Hold를 반영해 좌석 가용 상태 계산 후 응답 생성
+		// 3. Redis 점유를 반영해 좌석 가용 상태 계산 후 응답 생성
 		Set<Long> availableSeatIds = calculateAvailableSeatIds(carSeatInfo, holdSeats);
 		return responseMapper.mapToSeatDetailResponse(carSeatInfo, availableSeatIds);
 	}
@@ -196,7 +197,7 @@ public class TrainSearchFacade {
 		Map<Long, List<SeatBookingInfo>> overlappingBookingsMap = trainSearchService.findOverlappingBookingsBatch(
 			trainScheduleIds, request.departureStationId(), request.arrivalStationId());
 
-		// 2. Seat Hold 조회용 객차 ID 배치 조회
+		// 2. Redis 점유 조회용 객차 ID 배치 조회
 		TrainCarIdsBatch trainCarIdsBatch = trainSearchService.getTrainCarIdsBatch(trainScheduleIds);
 
 		// 3. 각 열차별로 배치 조회된 데이터를 사용해 응답 생성
@@ -240,10 +241,10 @@ public class TrainSearchFacade {
 		Map<CarType, Integer> totalSeatsByCarType = seatInfoBatch.getSeatsCountByCarType(trainScheduleId);
 		// SeatBooking 좌석
 		List<SeatBookingInfo> overlappingBookings = overlappingBookingsMap.getOrDefault(trainScheduleId, List.of());
-		// 열차의 CarType별 Seat Hold 좌석 수 계산
-		Map<CarType, Integer> holdSeatsCountByCarType = getHoldSeatsCountByCarType(trainInfo, trainCarIdsBatch);
+		// 열차의 CarType별 Redis 점유 좌석 수 계산
+		Map<CarType, Integer> holdSeatsCountByCarType = getAdditionalOccupiedSeatsByCarType(trainInfo, trainCarIdsBatch, overlappingBookings);
 
-		// 좌석 상태 계산 (전체 좌석 - SeatBooking - Seat Hold = 잔여석)
+		// 좌석 상태 계산 (전체 좌석 - SeatBooking - Redis 점유 = 잔여석)
 		SectionSeatStatus sectionStatus = seatAvailabilityCalculator
 			.calculateSectionSeatStatus(overlappingBookings, totalSeatsByCarType, holdSeatsCountByCarType, passengerCount);
 
@@ -251,53 +252,37 @@ public class TrainSearchFacade {
 	}
 
 	/**
-	 * CarType별 Seat Hold 점유 좌석 수 조회
+	 * CarType별 Redis 점유 점유 좌석 수 조회
 	 */
-	private Map<CarType, Integer> getHoldSeatsCountByCarType(TrainBasicInfo trainInfo, TrainCarIdsBatch trainCarIdsBatch) {
-		Long trainScheduleId = trainInfo.trainScheduleId();
-		int departureStopOrder = trainInfo.departureStopOrder();
-		int arrivalStopOrder = trainInfo.arrivalStopOrder();
-
-		Map<CarType, Integer> holdSeatsCountByCarType = new HashMap<>();
-		for (CarType carType : CarType.values()) {
-			List<Long> trainCarIds = trainCarIdsBatch.getTrainCarIds(trainScheduleId, carType);
-			int holdSeatsCount = seatHoldService
-				.getHoldSeatsCount(trainScheduleId, trainCarIds, departureStopOrder, arrivalStopOrder);
-			holdSeatsCountByCarType.put(carType, holdSeatsCount);
+	private Map<CarType, Integer> getAdditionalOccupiedSeatsByCarType(
+		TrainBasicInfo trainInfo, TrainCarIdsBatch carIdsBatch, List<SeatBookingInfo> bookings) {
+		long scheduleId = trainInfo.trainScheduleId();
+		Set<Long> bookedIds = bookings.stream().map(SeatBookingInfo::seatId).collect(Collectors.toSet());
+		List<Long> carIds = java.util.Arrays.stream(CarType.values())
+			.flatMap(type -> carIdsBatch.getTrainCarIds(scheduleId, type).stream()).distinct().toList();
+		var occupied = seatOccupancyQueryService.findOccupiedSeatIds(new SeatOccupancyQuery(
+			scheduleId, carIds, trainInfo.departureStopOrder(), trainInfo.arrivalStopOrder()));
+		Map<CarType, Integer> counts = new HashMap<>();
+		for (CarType type : CarType.values()) {
+			int additional = (int) carIdsBatch.getTrainCarIds(scheduleId, type).stream()
+				.flatMap(id -> occupied.getOrDefault(id, Set.of()).stream())
+				.filter(id -> !bookedIds.contains(id)).distinct().count();
+			counts.put(type, additional);
 		}
-		return holdSeatsCountByCarType;
+		return counts;
 	}
 
-	/**
-	 * 객차별 Seat Hold 좌석 차감 적용
-	 * Seat Hold 차감 후 잔여석이 0인 객차는 목록에서 제외
-	 */
-	private List<TrainCarInfo> deductHoldSeats(
-		List<TrainCarInfo> availableCars,
-		Long trainScheduleId,
-		int departureStopOrder,
-		int arrivalStopOrder
-	) {
-		List<TrainCarInfo> adjustedCars = availableCars.stream()
-			.map(car -> {
-				int holdSeats = seatHoldService.getHoldSeatsCount(
-					trainScheduleId,
-					List.of(car.id()),
-					departureStopOrder,
-					arrivalStopOrder
-				);
-				// 음수 방지
-				int remainingSeats = Math.max(0, car.remainingSeats() - holdSeats);
-				return car.withRemainingSeats(remainingSeats);
-			})
-			.filter(car -> car.remainingSeats() > 0)
-			.toList();
-
-		if (adjustedCars.isEmpty()) {
-			throw new BusinessException(TrainError.NO_AVAILABLE_CARS);
-		}
-
-		return adjustedCars;
+	private List<TrainCarInfo> deductOccupiedSeats(List<TrainCarInfo> cars, long scheduleId,
+		int departure, int arrival, Set<Long> bookedIds) {
+		var occupied = seatOccupancyQueryService.findOccupiedSeatIds(new SeatOccupancyQuery(
+			scheduleId, cars.stream().map(TrainCarInfo::id).toList(), departure, arrival));
+		List<TrainCarInfo> adjusted = cars.stream().map(car -> {
+			long additional = occupied.getOrDefault(car.id(), Set.of()).stream()
+				.filter(id -> !bookedIds.contains(id)).count();
+			return car.withRemainingSeats(Math.max(0, car.remainingSeats() - (int) additional));
+		}).filter(car -> car.remainingSeats() > 0).toList();
+		if (adjusted.isEmpty()) throw new BusinessException(TrainError.NO_AVAILABLE_CARS);
+		return adjusted;
 	}
 
 	private Set<Long> calculateAvailableSeatIds(TrainCarSeatInfo carSeatInfo, Set<Long> holdSeats) {

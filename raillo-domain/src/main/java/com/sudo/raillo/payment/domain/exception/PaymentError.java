@@ -32,10 +32,12 @@ public enum PaymentError implements ErrorCode {
 	PAYMENT_AMOUNT_MISMATCH("결제 금액이 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "PAYMENT_201"),
 	INVALID_PAYMENT_METHOD("지원하지 않는 결제 수단입니다.", HttpStatus.BAD_REQUEST, "PAYMENT_202"),
 	PAYMENT_KEY_MISMATCH("결제 키가 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "PAYMENT_203"),
+	PAYMENT_ORDER_MISMATCH("결제 주문번호가 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "PAYMENT_204"),
 
 	// 시스템 (9xx)
 	PAYMENT_SYSTEM_ERROR("결제 시스템 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "PAYMENT_901"),
-	PAYMENT_OUTBOX_PAYLOAD_SERIALIZATION_FAILED("Outbox payload 직렬화에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "PAYMENT_902");
+	PAYMENT_OUTBOX_PAYLOAD_SERIALIZATION_FAILED("Outbox payload 직렬화에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "PAYMENT_902"),
+	PAYMENT_OUTBOX_PAYLOAD_DESERIALIZATION_FAILED("Outbox payload 역직렬화에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "PAYMENT_903");
 
 	private final String message;
 	private final HttpStatus status;
