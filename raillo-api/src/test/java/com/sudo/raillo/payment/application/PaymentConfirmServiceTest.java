@@ -270,6 +270,42 @@ class PaymentConfirmServiceTest {
 	}
 
 	@Test
+	@DisplayName("Toss 호출이 SocketTimeout 등 알 수 없는 오류로 실패하면 Attempt는 IN_PROGRESS로 유지된다")
+	void confirmPayment_tossSystemError_keepsAttemptInProgress() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_system_error";
+		String attemptId = forApproval(paymentKey);
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		// Toss timeout·네트워크 오류 → TossPaymentClient가 BusinessException(PAYMENT_SYSTEM_ERROR)로 래핑
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willThrow(new BusinessException(PaymentError.PAYMENT_SYSTEM_ERROR,
+				"결제 승인 처리 중 알 수 없는 오류가 발생했습니다: read timed out"));
+
+		PaymentConfirmCommand command = new PaymentConfirmCommand(
+			paymentKey, prepared.orderCode(), amount);
+
+		// when
+		assertThatThrownBy(() -> paymentConfirmer.confirm(command, memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR);
+
+		// then: attempt는 IN_PROGRESS 유지 (Recovery Worker #270이 대사·복구)
+		PaymentAttempt attempt = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+		assertThat(attempt.getErrorCode()).isNull();
+
+		Order savedOrder = orderRepository.findByOrderCode(prepared.orderCode()).orElseThrow();
+		Payment savedPayment = paymentRepository.findByOrder(savedOrder).orElseThrow();
+		assertThat(savedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+		assertThat(savedPayment.getPaymentKey()).isNull();
+		assertThat(savedOrder.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
+	}
+
+	@Test
 	@DisplayName("Toss 5xx 응답은 결과 불명으로 처리하여 Payment와 Attempt를 진행 중 상태로 유지한다")
 	void confirmPayment_tossServerError_keepsAttemptInProgress() {
 		// given

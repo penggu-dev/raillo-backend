@@ -6,6 +6,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 import java.math.BigDecimal;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
@@ -209,6 +210,27 @@ class TossPaymentClientTest {
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
 			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
+				.hasMessageContaining("결제 승인 처리 중 알 수 없는 오류가 발생했습니다");
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("SocketTimeoutException(read timeout)이 발생하면 PAYMENT_SYSTEM_ERROR로 래핑된다")
+		void fail_socketTimeout_wrappedAsSystemError() {
+			// given
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
+				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
+
+			// Toss 응답 대기 중 read timeout 재현
+			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
+				.andExpect(method(POST))
+				.andRespond(withException(new SocketTimeoutException("read timed out")));
+
+			// when & then: 상위는 TossPaymentException이 아닌 BusinessException(PAYMENT_SYSTEM_ERROR)만 본다
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
