@@ -28,13 +28,13 @@ class TossApiMetricsTest {
 		tossApiMetrics.incrementFailure("confirm", 500, "INTERNAL_ERROR");
 
 		// then
-		double invalidRequestCount = meterRegistry.counter("toss_api_failure_total",
+		double invalidRequestCount = meterRegistry.counter("toss.api.failure",
 			"operation", "confirm",
 			"http_status", "400",
 			"toss_code", "INVALID_REQUEST").count();
 		assertThat(invalidRequestCount).isEqualTo(2);
 
-		double internalErrorCount = meterRegistry.counter("toss_api_failure_total",
+		double internalErrorCount = meterRegistry.counter("toss.api.failure",
 			"operation", "confirm",
 			"http_status", "500",
 			"toss_code", "INTERNAL_ERROR").count();
@@ -49,11 +49,11 @@ class TossApiMetricsTest {
 		tossApiMetrics.incrementFailure("cancel", 400, "INVALID_REQUEST");
 
 		// then
-		double confirmCount = meterRegistry.counter("toss_api_failure_total",
+		double confirmCount = meterRegistry.counter("toss.api.failure",
 			"operation", "confirm",
 			"http_status", "400",
 			"toss_code", "INVALID_REQUEST").count();
-		double cancelCount = meterRegistry.counter("toss_api_failure_total",
+		double cancelCount = meterRegistry.counter("toss.api.failure",
 			"operation", "cancel",
 			"http_status", "400",
 			"toss_code", "INVALID_REQUEST").count();
@@ -68,7 +68,7 @@ class TossApiMetricsTest {
 		tossApiMetrics.incrementFailure("confirm", 500, null);
 
 		// then
-		double count = meterRegistry.counter("toss_api_failure_total",
+		double count = meterRegistry.counter("toss.api.failure",
 			"operation", "confirm",
 			"http_status", "500",
 			"toss_code", "UNKNOWN").count();

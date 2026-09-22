@@ -288,17 +288,17 @@
         },
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\"}[1m]))",
+            "expr": "histogram_quantile(0.50, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m]))",
             "legendFormat": "P50",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.95, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\"}[1m]))",
+            "expr": "histogram_quantile(0.95, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m]))",
             "legendFormat": "P95",
             "refId": "B"
           },
           {
-            "expr": "histogram_quantile(0.99, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\"}[1m]))",
+            "expr": "histogram_quantile(0.99, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m]))",
             "legendFormat": "P99",
             "refId": "C"
           }

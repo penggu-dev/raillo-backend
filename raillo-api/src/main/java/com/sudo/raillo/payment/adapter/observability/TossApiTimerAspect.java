@@ -31,12 +31,19 @@ public class TossApiTimerAspect {
 	private Object timeApiCall(ProceedingJoinPoint joinPoint, String operation) throws Throwable {
 		tossApiMetrics.incrementInFlight(operation);
 		Sample sample = Timer.start(meterRegistry);
+		// outcome은 stop 시점에 결정된다. success/error를 분리해야 4xx 즉시 거절(빠름)과 timeout(느림)이
+		// p99를 서로 오염시키지 않고, 에러율도 이 미터 하나에서 파생할 수 있다.
+		String outcome = "success";
 		try {
 			return joinPoint.proceed();
+		} catch (Throwable t) {
+			outcome = "error";
+			throw t;
 		} finally {
-			sample.stop(Timer.builder("toss_api_duration_seconds")
+			sample.stop(Timer.builder("toss.api.duration")
 				.description("Toss API 호출 응답 시간")
 				.tag("operation", operation)
+				.tag("outcome", outcome)
 				.publishPercentileHistogram(true)
 				.register(meterRegistry));
 			tossApiMetrics.decrementInFlight(operation);
