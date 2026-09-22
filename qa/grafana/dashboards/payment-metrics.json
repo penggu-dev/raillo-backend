@@ -288,17 +288,17 @@
         },
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m]))",
+            "expr": "histogram_quantile(0.50, sum by (le) (rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m])))",
             "legendFormat": "P50",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.95, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m]))",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m])))",
             "legendFormat": "P95",
             "refId": "B"
           },
           {
-            "expr": "histogram_quantile(0.99, rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m]))",
+            "expr": "histogram_quantile(0.99, sum by (le) (rate(toss_api_duration_seconds_bucket{application=\"raillo-backend\", operation=\"confirm\", outcome=\"success\"}[1m])))",
             "legendFormat": "P99",
             "refId": "C"
           }
@@ -329,6 +329,72 @@
           "showValue": "always",
           "barWidth": 0.7
         }
+      },
+      {
+        "type": "timeseries",
+        "title": "Toss API 진행 중 요청 age (max/sum)",
+        "description": "지금 이 순간 진행 중인 Toss 호출의 age 분포. max는 가장 오래 물려 있는 요청의 경과 시간, sum은 모든 진행 중 요청의 누적. 완료 데이터 없이도 Toss 지연·hang을 즉시 감지한다.",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "auto"
+            },
+            "unit": "s"
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "confirm max" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "cancel max" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+            }
+          ]
+        },
+        "targets": [
+          {
+            "expr": "sum by (operation) (toss_api_active_seconds_max{application=\"raillo-backend\"})",
+            "legendFormat": "{{operation}} max",
+            "refId": "A"
+          },
+          {
+            "expr": "sum by (operation) (toss_api_active_seconds_duration_sum{application=\"raillo-backend\"})",
+            "legendFormat": "{{operation}} sum",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "Toss API 진행 중 요청 수",
+        "description": "operation별 현재 진행 중 요청 개수. LongTaskTimer의 active_count 시리즈로, 배포 직후 catch-up·Toss 지연·풀 고갈을 개수 관점에서 관측한다.",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "auto"
+            },
+            "unit": "short"
+          },
+          "overrides": []
+        },
+        "targets": [
+          {
+            "expr": "sum by (operation) (toss_api_active_seconds_active_count{application=\"raillo-backend\"})",
+            "legendFormat": "{{operation}}",
+            "refId": "A"
+          }
+        ]
       }
     ]
 }
