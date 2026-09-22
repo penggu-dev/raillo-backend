@@ -364,7 +364,7 @@
             "refId": "A"
           },
           {
-            "expr": "sum by (operation) (toss_api_active_seconds_duration_sum{application=\"raillo-backend\"})",
+            "expr": "sum by (operation) (toss_api_active_seconds_gsum{application=\"raillo-backend\"})",
             "legendFormat": "{{operation}} sum",
             "refId": "B"
           }
@@ -390,8 +390,83 @@
         },
         "targets": [
           {
-            "expr": "sum by (operation) (toss_api_active_seconds_active_count{application=\"raillo-backend\"})",
+            "expr": "sum by (operation) (toss_api_active_seconds_gcount{application=\"raillo-backend\"})",
             "legendFormat": "{{operation}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "Toss HTTP 커넥션 풀 상태",
+        "description": "Apache HttpClient 5 커넥션 풀의 실시간 상태. leased(사용 중)·available(유휴)·pending(획득 대기)을 함께 보여준다. pending이 지속적으로 0보다 크면 풀 부족 신호로 maxTotal 또는 maxPerRoute 상향을 검토해야 한다.",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 42 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "showPoints": "auto"
+            },
+            "unit": "short"
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "leased (사용 중)" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "available (유휴)" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "pending (획득 대기)" },
+              "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+            }
+          ]
+        },
+        "targets": [
+          {
+            "expr": "toss_pool_connections_active{application=\"raillo-backend\"}",
+            "legendFormat": "leased (사용 중)",
+            "refId": "A"
+          },
+          {
+            "expr": "toss_pool_connections_idle{application=\"raillo-backend\"}",
+            "legendFormat": "available (유휴)",
+            "refId": "B"
+          },
+          {
+            "expr": "toss_pool_connections_pending{application=\"raillo-backend\"}",
+            "legendFormat": "pending (획득 대기)",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "type": "timeseries",
+        "title": "Toss HTTP 커넥션 풀 pending",
+        "description": "커넥션 획득 대기 요청 수 단독 그래프. 이 값이 지속적으로 0보다 크면 풀 크기가 실제 부하 대비 부족하다는 강한 신호. 알람 임계값으로 사용하기 좋다.",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 42 },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "fixed", "fixedColor": "red" },
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "showPoints": "auto"
+            },
+            "unit": "short"
+          },
+          "overrides": []
+        },
+        "targets": [
+          {
+            "expr": "toss_pool_connections_pending{application=\"raillo-backend\"}",
+            "legendFormat": "pending",
             "refId": "A"
           }
         ]
