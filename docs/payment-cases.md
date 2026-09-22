@@ -23,6 +23,7 @@
 | 13 | 새 세션 재시도 (이전 IN_PROGRESS) | 다른 attemptId, 같은 Payment의 이전 attempt가 IN_PROGRESS | `PAYMENT_ATTEMPT_IN_PROGRESS` — TX A `findLatestApprovalByPaymentId`가 차단 | [retry-defense · case-13](./diagrams/payment-flow/retry-defense.html) |
 | 14 | pre-check와 잠금 사이 SUCCEEDED race | pre-check 통과 후 TX A 잠금 획득 전에 다른 요청이 확정 커밋 | `PAYMENT_ALREADY_COMPLETED` — TX A가 SUCCEEDED 발견 | [retry-defense · case-14](./diagrams/payment-flow/retry-defense.html) |
 | 15 | 동시 TX B 진입 경합 | 원본 confirm 대기 중 유저가 재시도, 둘 다 DONE 확인 → 둘 다 TX B 진입 | TX B 락 직렬화 후 늦게 진입한 쪽이 `attempt.status == SUCCEEDED` 조기 리턴. 유저 관점 성공 응답 | [tx-b-race · case-15](./diagrams/payment-flow/tx-b-race.html) |
+| 16 | markFailed idempotency 경합 | 원본 4xx 실패 대기 중 재시도가 먼저 ABORTED로 markFailed 커밋 | 원본의 뒤늦은 markFailed는 `attempt.status != IN_PROGRESS`라 no-op 종료. 원본에는 원래 4xx 예외 그대로 전파 | [markfail-race · case-16](./diagrams/payment-flow/markfail-race.html) |
 
 ## 케이스별 상태 전이 표
 
@@ -43,6 +44,7 @@
 | 13 | 그대로 | 그대로 | PENDING | PENDING | 새 attempt 생성 안 됨 | TX A `findLatestApprovalByPaymentId`가 이전 IN_PROGRESS 발견해 차단 |
 | 14 | 그대로 | 그대로 | 이미 ORDERED | 이미 PAID | 새 attempt 생성 안 됨 | TX A가 SUCCEEDED 발견 후 차단 (다른 요청이 먼저 확정) |
 | 15 | 그대로 | 성공 시 R→(후속 B) | 성공 시 ORDERED · 실패 시 PENDING | 성공 시 PAID · 실패 시 PENDING | 하나로만 확정 (SUCCEEDED or FAILED) | 두 스레드가 동시 TX B 진입해도 락으로 직렬화 |
+| 16 | 그대로 | 그대로 | PENDING | PENDING | 하나로만 FAILED | markFailed 두 번 호출돼도 idempotency로 no-op |
 
 ## 케이스별 재시도 정책
 
@@ -55,6 +57,7 @@
 | 13 (새 세션 IN_PROGRESS) | 안 함 | 이전 결제 결과 대기 안내 |
 | 14 (SUCCEEDED race) | 안 함 | 이미 완료된 결제 안내 |
 | 15 (TX B 동시 진입) | 방어 매커니즘이 자동 처리 (락 + status) | 유저에겐 하나의 응답만 반환 |
+| 16 (markFailed 경합) | 방어 매커니즘이 자동 처리 (idempotency) | 두 요청 모두 실패로 일관 응답 |
 
 ## 각 케이스의 로그 관측 지점
 

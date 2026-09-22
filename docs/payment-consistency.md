@@ -241,8 +241,8 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 이 매커니즘이 겹쳐 있어 다음 시나리오가 데이터 오염 없이 종결된다.
 
 - **원본 confirm 대기 중 유저가 재시도, 둘 다 DONE 확인** ([케이스 15](./payment-cases.md)): 두 스레드가 TX B에서 락 경합. 먼저 획득한 쪽이 확정하고, 뒤 쪽은 attempt.status == SUCCEEDED로 조기 리턴한다.
-- **원본은 4xx 실패, 재시도가 먼저 ABORTED로 markFailed**: 원본의 뒤늦은 markFailed는 idempotency로 no-op 종료.
-- **원본이 5xx, 재시도가 DONE**: 5xx는 attempt를 IN_PROGRESS로 남기므로 재시도가 정상 확정 경로로 진행한다.
+- **원본은 4xx 실패, 재시도가 먼저 ABORTED로 markFailed** ([케이스 16](./payment-cases.md)): 원본의 뒤늦은 markFailed는 idempotency로 no-op 종료.
+- **원본이 5xx, 재시도가 DONE** ([케이스 4](./payment-cases.md)): 5xx는 attempt를 IN_PROGRESS로 남기므로 재시도가 정상 확정 경로로 진행한다.
 
 ## Failure Coverage — 후속 작업 완료 후 목표
 

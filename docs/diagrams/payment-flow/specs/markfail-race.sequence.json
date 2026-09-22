@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "markFailed idempotency 경합 · 케이스 16",
+    "output": "docs/diagrams/payment-flow/markfail-race.html",
+    "viewBox": [1080, 1000],
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      { "id": "case-16", "label": "케이스 16 · 원본 4xx와 재시도 ABORTED가 둘 다 markFailed 시도", "focus": ["client", "starter", "manager", "db", "toss"], "note": "원본이 Toss 4xx로 markFailed 대기 중, 재시도가 먼저 ABORTED로 markFailed 커밋. 원본의 뒤늦은 markFailed는 idempotency 로 no-op." }
+    ]
+  },
+  "participants": [
+    { "id": "client", "type": "external", "label": "클라이언트", "sublabel": "원본 · 재시도" },
+    { "id": "starter", "type": "backend", "label": "ApprovalStarter", "sublabel": "재조회 분기" },
+    { "id": "manager", "type": "backend", "label": "AttemptManager", "sublabel": "markFailed 커밋" },
+    { "id": "db", "type": "database", "label": "MySQL", "sublabel": "PaymentAttempt" },
+    { "id": "toss", "type": "external", "label": "Toss Payments", "sublabel": "confirm · query" }
+  ],
+  "segments": [
+    { "from": 180, "to": 440, "label": "원본은 Toss 4xx 실패, 재시도는 query에서 ABORTED 확인" },
+    { "from": 460, "to": 940, "label": "재시도가 먼저 markFailed 커밋, 원본은 idempotency로 no-op" }
+  ],
+  "messages": [
+    { "from": "client", "to": "starter", "y": 210, "label": "[원본] POST /confirm (attemptId=X)", "variant": "emphasis" },
+    { "from": "starter", "to": "toss", "y": 250, "label": "POST /v1/payments/confirm  · 응답 대기", "variant": "dashed" },
+    { "from": "client", "to": "starter", "y": 295, "label": "[재시도] POST /confirm (같은 attemptId=X)", "variant": "emphasis" },
+    { "from": "starter", "to": "toss", "y": 335, "label": "GET /v1/payments/{key}  · 상태 재조회", "variant": "dashed" },
+    { "from": "toss", "to": "starter", "y": 375, "label": "[재시도] status=ABORTED (확정 실패)", "variant": "return" },
+    { "from": "toss", "to": "starter", "y": 415, "label": "[원본] 4xx 응답 (지연 도착)", "variant": "return" },
+
+    { "from": "starter", "to": "manager", "y": 490, "label": "[재시도] markFailedInNewTransaction(GATEWAY_ABORTED)", "variant": "emphasis" },
+    { "from": "manager", "to": "db", "y": 530, "label": "attempt.status = IN_PROGRESS → FAILED 커밋", "variant": "default" },
+    { "from": "manager", "to": "starter", "y": 570, "label": "return", "variant": "return" },
+    { "from": "starter", "to": "client", "y": 610, "label": "[재시도] PAYMENT_ATTEMPT_ALREADY_FAILED", "variant": "return" },
+
+    { "from": "starter", "to": "manager", "y": 685, "label": "[원본] markFailedInNewTransaction(4xx errorCode)", "variant": "emphasis" },
+    { "from": "manager", "to": "db", "y": 725, "label": "findById attempt · status = FAILED (재시도가 이미 마킹)", "variant": "default" },
+    { "from": "db", "to": "manager", "y": 765, "label": "status != IN_PROGRESS", "variant": "return" },
+    { "from": "manager", "to": "starter", "y": 810, "label": "no-op return (log: '이미 종결된 attempt, no-op')", "variant": "return" },
+    { "from": "starter", "to": "client", "y": 855, "label": "[원본] throw PaymentGatewayException (원래 4xx 전파)", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "starter", "from": 205, "to": 870, "type": "backend" },
+    { "participant": "toss", "from": 245, "to": 420, "type": "external" },
+    { "participant": "manager", "from": 485, "to": 580, "type": "backend" },
+    { "participant": "manager", "from": 680, "to": 820, "type": "backend" },
+    { "participant": "db", "from": 525, "to": 770, "type": "database" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "왜 둘 다 markFailed로 가나", "items": ["원본 catch: PaymentGatewayException.isDefinitiveFailure()=true (4xx)", "재시도 handleQueryFailure: Toss.query가 ABORTED 응답", "각자 attempt.markFailed를 시도"] },
+    { "dot": "orange", "title": "idempotency 없으면", "items": ["원본이 뒤늦게 markFailed → 도메인의 status != IN_PROGRESS 검증에 걸림", "DomainException(PAYMENT_ATTEMPT_NOT_TRANSITIONABLE) 발생", "정상 방어이지만 스택트레이스 노이즈"] },
+    { "dot": "violet", "title": "PaymentAttemptManager의 idempotency", "items": ["attempt 조회 후 status != IN_PROGRESS면 log만 남기고 return", "예외 없이 조용히 종결", "각 호출자마다 try-catch 붙일 필요 없음"] },
+    { "dot": "emerald", "title": "유저 관점", "items": ["재시도: PAYMENT_ATTEMPT_ALREADY_FAILED", "원본: 원래 Toss 4xx 예외 전파", "두 응답 모두 실패로 일관"] }
+  ]
+}

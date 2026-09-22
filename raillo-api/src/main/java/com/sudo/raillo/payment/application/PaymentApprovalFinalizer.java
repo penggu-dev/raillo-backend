@@ -67,8 +67,7 @@ public class PaymentApprovalFinalizer {
 		// 최초 confirm과 사용자 재시도의 상태 재조회가 같은 attempt에 대해 동시에 TX B에 진입한 경우,
 		// 먼저 잠금을 얻은 쪽이 이미 SUCCEEDED로 확정했다면 실패로 응답하지 않고 이전 결과를 그대로 돌려준다.
 		if (attempt.getStatus() == PaymentAttemptStatus.SUCCEEDED) {
-			log.info("[결제 확정 - 동시 요청이 먼저 확정] attemptId={}, paymentId={}",
-				attempt.getAttemptId(), paymentId);
+			log.info("[결제 확정 - 동시 요청이 먼저 확정] attemptId={}, paymentId={}", attempt.getAttemptId(), paymentId);
 			return PaymentConfirmResult.from(payment);
 		}
 
