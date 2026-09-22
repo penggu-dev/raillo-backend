@@ -39,7 +39,7 @@ Webhook까지 도입되면 응답 유실·장애 시나리오의 방어층이 �
 작업 축은 네 개입니다.
 
 **A. Reservation lifecycle과 정합성**
-- [#270](https://github.com/penggu-dev/raillo-backend/issues/270) Recovery Worker 도입과 예약 lifecycle 관리 (P1-2 흡수).
+- [#270](https://github.com/penggu-dev/raillo-backend/issues/270) Recovery Worker 도입과 예약 lifecycle 관리. Recovery Worker 대사와 예약 lifecycle 관리(결제 시작 시 TTL 연장, 실패 시 복원, 최대 대기 초과 시 삭제)를 함께 다룹니다. P1-2 흡수.
 - [#280](https://github.com/penggu-dev/raillo-backend/issues/280) 예약 단위 결제 소유권 강제 (P1-1).
 - [#259](https://github.com/penggu-dev/raillo-backend/issues/259) 결제 취소 정합성.
 - [#272](https://github.com/penggu-dev/raillo-backend/issues/272) 통합 테스트 강화.
@@ -66,7 +66,7 @@ Webhook까지 도입되면 응답 유실·장애 시나리오의 방어층이 �
 1. **#283 리뷰·머지** — 이번 PR. 3단계 정합성 기반이 develop에 반영돼야 후속 작업의 기준선이 확정됩니다.
 2. **#289 HTTP 클라이언트 정비** — timeout이 유한하지 않으면 5xx/응답 유실 경로의 정합성 방어가 실제로 발동하지 않습니다. 가장 시급합니다.
 3. **병렬 진행 가능** — 서로 상태 판단 로직을 공유합니다.
-   - #270 Recovery Worker + 예약 lifecycle 관리.
+   - #270 Recovery Worker + 예약 lifecycle 관리. 착수 시점에 방향 A(TTL을 attempt lifecycle에 종속) vs 방향 B(스냅샷 저장)를 확정하고 상태 전이별 예약 정리 정책, 최대 대기 시간, Redis 원자적 TTL 조작 Lua 스크립트까지 이 이슈에서 함께 다룹니다. 상세는 §8 참조.
    - #291 Webhook 수신 + `recoverInProgressAttempt` 로직 공용화.
 4. **#259 결제 취소 정합성** — #270·#291의 상태 판단 공용 컴포넌트를 사용해 취소 흐름 발행·소비까지 완성합니다. 착수 시 취소 attempt_id 파생 규칙을 확정합니다(코멘트 참조).
 5. **#260 Idempotency-Key 계약** — #259 이후. 클라이언트 헤더 계약과 서버 attempt_id, Toss 헤더 승격까지 chain을 완성합니다.
@@ -114,7 +114,29 @@ flowchart TD
 
 관련 코멘트: https://github.com/penggu-dev/raillo-backend/issues/259#issuecomment-5762779635
 
-## 8. 참고 문서
+## 8. Reservation lifecycle 관리 방향
+
+`#270` 착수 시점에 아래 항목을 확정합니다. 이 결정은 예약 만료 후 회복 불가(P1-2) 시나리오를 어떻게 다룰지 정의하며, 결제 정합성 방어층의 마지막 조각입니다.
+
+### 방향 후보
+
+- **A. 예약 TTL을 attempt lifecycle에 종속** — `PaymentAttemptManager.startApprovalInNewTransaction` 시점에 대상 예약의 R field HPERSIST와 예약 본문 PERSIST를 걸어 attempt 처리 완료 시점까지 만료 방지. 스키마 변경이 없고 좌석 충돌 시나리오도 자연스럽게 회피되지만, 예약 정리 책임이 attempt 상태 전이에 붙어 코드 경로가 늘어납니다.
+- **B. `payment_attempt`에 원래 요청 스냅샷 저장** — Recovery Worker가 스냅샷으로 finalize를 재실행. Redis 예약 만료와 무관하게 회복 가능하지만 좌석이 다른 예약에 재배정된 경우의 보상 정책이 별도로 필요합니다. `#270` 이슈 본문의 체크리스트가 이 방향에 기울어 있습니다.
+
+### attempt 상태 전이별 예약 정리 정책
+
+- `SUCCEEDED` — TX B의 R→B 전환에서 예약 삭제, 예매 좌석 저장.
+- `FAILED` (Toss 4xx 또는 게이트웨이 조회에서 `ABORTED`/`EXPIRED` 확인) — 예약 본문의 `expiresAt`으로 남은 TTL 재계산해 복원. 사용자가 남은 시간 안에 새 결제 시도를 열 수 있게 합니다.
+- 최대 대기 시간 초과 — Recovery Worker가 강제 FAILED로 마킹하고 예약 삭제.
+
+### 함께 확정할 정책
+
+- Recovery Worker 최대 대기 시간(예: attempt 생성 후 24시간).
+- Redis 원자적 TTL 조작을 위한 Lua 스크립트 설계(여러 field HEXPIRE + 본문 EXPIRE 조합).
+
+관련 코멘트: https://github.com/penggu-dev/raillo-backend/issues/270#issuecomment-5753956325
+
+## 9. 참고 문서
 
 - [`docs/payment-consistency.md`](./payment-consistency.md) — 결제 정합성 설계 상세.
 - [`docs/payment-flow.html`](./payment-flow.html) — 결제 승인 흐름 다이어그램과 시나리오.
@@ -122,9 +144,9 @@ flowchart TD
 - [`docs/payment-data-contracts.md`](./payment-data-contracts.md) — Redis·MySQL 데이터 계약.
 - [`docs/payment-reservation-revised-plan.md`](./payment-reservation-revised-plan.md) — 재검토 시점의 계획서(이력).
 
-## 9. 확정하지 않은 사항
+## 10. 확정하지 않은 사항
 
 - Webhook 수신 endpoint의 인증·인가 규칙(Toss가 public endpoint로 호출)은 `#291` 착수 시 결정합니다.
 - Circuit Breaker 임계값(failure rate, sliding window, wait duration)은 `#289` 완료 후 응답 시간 실측을 기반으로 `#290`에서 결정합니다.
-- Recovery Worker 폴링 주기와 최대 대기 시간은 `#270` 착수 시 정합니다.
+- Reservation lifecycle 방향(A vs B)과 최대 대기 시간은 `#270` 착수 시 확정합니다. 상세는 §8 참조.
 - 취소 attempt_id 파생 규칙은 `#259` 착수 시 티켓 단위 정책과 함께 확정합니다.
