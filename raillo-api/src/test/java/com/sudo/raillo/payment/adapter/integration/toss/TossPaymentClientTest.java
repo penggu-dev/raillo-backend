@@ -30,6 +30,8 @@ import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 
 @RestClientTest(TossPaymentClient.class)
 @Import(TossPaymentClientTest.TestConfig.class)
@@ -55,9 +57,15 @@ class TossPaymentClientTest {
 			return new SimpleMeterRegistry();
 		}
 
+		@Bean(destroyMethod = "close")
+		public PoolingHttpClientConnectionManager tossHttpConnectionManager() {
+			return PoolingHttpClientConnectionManagerBuilder.create().build();
+		}
+
 		@Bean
-		public TossApiMetrics tossApiMetrics(MeterRegistry meterRegistry) {
-			return new TossApiMetrics(meterRegistry);
+		public TossApiMetrics tossApiMetrics(MeterRegistry meterRegistry,
+			PoolingHttpClientConnectionManager tossHttpConnectionManager) {
+			return new TossApiMetrics(meterRegistry, tossHttpConnectionManager);
 		}
 	}
 

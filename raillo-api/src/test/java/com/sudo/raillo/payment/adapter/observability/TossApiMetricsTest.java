@@ -9,11 +9,15 @@ import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 
 class TossApiMetricsTest {
 
 	private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
-	private final TossApiMetrics tossApiMetrics = new TossApiMetrics(meterRegistry);
+	private final PoolingHttpClientConnectionManager connectionManager =
+		PoolingHttpClientConnectionManagerBuilder.create().build();
+	private final TossApiMetrics tossApiMetrics = new TossApiMetrics(meterRegistry, connectionManager);
 
 	@Test
 	@DisplayName("실패 시 toss_api_failure_total 카운터가 태그별로 증가한다")

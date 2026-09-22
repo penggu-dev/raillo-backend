@@ -7,7 +7,6 @@ import org.springframework.stereotype.Component;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-
 import io.micrometer.core.instrument.Timer.Sample;
 import lombok.RequiredArgsConstructor;
 
@@ -17,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 public class TossApiTimerAspect {
 
 	private final MeterRegistry meterRegistry;
+	private final TossApiMetrics tossApiMetrics;
 
 	@Around("execution(* com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient.confirmPayment(..))")
 	public Object timeConfirmPayment(ProceedingJoinPoint joinPoint) throws Throwable {
@@ -29,6 +29,7 @@ public class TossApiTimerAspect {
 	}
 
 	private Object timeApiCall(ProceedingJoinPoint joinPoint, String operation) throws Throwable {
+		tossApiMetrics.incrementInFlight(operation);
 		Sample sample = Timer.start(meterRegistry);
 		try {
 			return joinPoint.proceed();
@@ -38,6 +39,7 @@ public class TossApiTimerAspect {
 				.tag("operation", operation)
 				.publishPercentileHistogram(true)
 				.register(meterRegistry));
+			tossApiMetrics.decrementInFlight(operation);
 		}
 	}
 }
