@@ -10,12 +10,6 @@
       "Content-Type": "application/json"
     },
     "transformers": ["response-template"],
-    "jsonBody": {
-      "paymentKey": "{{jsonPath request.body '$.paymentKey'}}",
-      "orderId": "{{jsonPath request.body '$.orderId'}}",
-      "method": "카드",
-      "totalAmount": "{{jsonPath request.body '$.amount'}}",
-      "status": "DONE"
-    }
+    "body": "{\"paymentKey\": \"{{jsonPath request.body '$.paymentKey'}}\", \"orderId\": \"{{jsonPath request.body '$.orderId'}}\", \"method\": \"카드\", \"totalAmount\": {{jsonPath request.body '$.amount'}}, \"status\": \"DONE\"}"
   }
 }

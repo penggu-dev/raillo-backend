@@ -5,18 +5,18 @@ import { check, sleep } from 'k6';
 // Payment 메트릭 테스트 스크립트
 // Grafana에서 Payment 관련 메트릭을 시각적으로 확인하기 위한 소규모 부하 테스트
 //
-// 사전 준비:
-//   1. docker compose -f compose-test.yaml up -d
-//   2. python qa/db-scripts/generate_members.py --total 100 --batch 100
-//   3. DB에 train_schedule, train_car, seat 데이터 존재 확인
-//   4. (선택) python qa/db-scripts/generate_schedule_preoccupy.py --schedule-ids <ID>
+// 사전 준비 (한 번에):
+//   bash qa/scripts/bootstrap-test-env.sh
+//
+//   내부 단계:
+//     - jar 빌드 (raillo-api, raillo-batch)
+//     - docker compose -f compose-test.yaml up -d (MySQL, Redis, WireMock, Prometheus, Grafana)
+//     - trainInitialize batch job으로 역·열차·좌석·스케줄 기준정보 적재
+//     - qa/db-scripts/generate_members.py로 회원 100명 생성
+//     - qa/db-scripts/generate_k6_schedule_config.py로 좌석 범위 스냅샷
 //
 // 실행:
-//   1. 스케줄 설정 자동 생성 (서버가 떠있어야 함):
-//      python3 qa/db-scripts/generate_k6_schedule_config.py
-//
-//   2. k6 테스트 실행:
-//      K6_WEB_DASHBOARD=true k6 run qa/k6/payment-metrics-test.js
+//   K6_WEB_DASHBOARD=true k6 run qa/k6/payment-metrics-test.js
 //
 // schedule-config.json 없이도 실행 가능 (SCHEDULES 기본값 사용)
 // ================================================================================
@@ -155,42 +155,42 @@ export default function (data) {
     // → 하나의 스케줄에 좌석이 몰리지 않아 충돌 감소
     const schedule = SCHEDULES[Math.floor(Math.random() * SCHEDULES.length)];
 
-    // ── Step 1: Pending Booking 생성 ──
-    // 선택된 스케줄의 좌석 범위 내에서 랜덤으로 1~2석을 골라 임시 예약 요청
-    // 성공하면 pendingBookingId를 받아서 다음 단계로 진행
+    // ── Step 1: Reservation 생성 ──
+    // 선택된 스케줄의 좌석 범위 내에서 랜덤으로 1~2석을 골라 임시 예약(Reservation) 요청
+    // 성공하면 reservationId를 받아서 다음 단계로 진행
     const seatCount = randomIntBetween(1, 2);
     const seatIds = pickRandomSeats(seatCount, schedule.seatStart, schedule.seatEnd);
     const passengerTypes = seatIds.map(() => 'ADULT');  // 좌석 수만큼 ADULT 탑승자
 
-    const pendingRes = http.post(`${BASE_URL}/api/v1/pending-bookings`, JSON.stringify({
+    const reservationRes = http.post(`${BASE_URL}/api/v1/reservations`, JSON.stringify({
         trainScheduleId: schedule.scheduleId,
         departureStationId: schedule.departureStation,
         arrivalStationId: schedule.arrivalStation,
         passengerTypes: passengerTypes,
         seatIds: seatIds,
-    }), { headers, tags: { name: 'pending_booking' }, timeout: '10s' });
+    }), { headers, tags: { name: 'reservation' }, timeout: '10s' });
 
     // 좌석 충돌(409) 등으로 실패하면 이번 iteration은 포기하고 다음으로
-    if (pendingRes.status !== 200 && pendingRes.status !== 201) {
+    if (reservationRes.status !== 200 && reservationRes.status !== 201) {
         sleep(randomIntBetween(1, 2));
         return;
     }
 
-    // 응답에서 pendingBookingId 추출 (결제 준비에 필요)
-    let pendingBookingId;
+    // 응답에서 reservationId 추출 (결제 준비에 필요)
+    let reservationId;
     try {
-        pendingBookingId = JSON.parse(pendingRes.body).result.pendingBookingId;
+        reservationId = JSON.parse(reservationRes.body).result.reservationId;
     } catch (e) {
-        console.error(`[Pending] 응답 파싱 실패: ${pendingRes.body}`);
+        console.error(`[Reservation] 응답 파싱 실패: ${reservationRes.body}`);
         sleep(1);
         return;
     }
 
     // ── Step 2: Payment Prepare ──
-    // pendingBookingId를 넘겨서 Order + Payment 엔티티 생성
+    // reservationId를 넘겨서 Order + Payment 엔티티 생성
     // 응답으로 orderId와 amount를 받음 (원래는 이걸로 Toss 위젯을 띄우는 단계)
     const prepareRes = http.post(`${BASE_URL}/api/v1/payments/prepare`, JSON.stringify({
-        pendingBookingIds: [pendingBookingId],
+        reservationIds: [reservationId],
     }), { headers, tags: { name: 'payment_prepare' }, timeout: '10s' });
 
     // → 이 시점에서 payment_prepare_total 메트릭이 증가함
