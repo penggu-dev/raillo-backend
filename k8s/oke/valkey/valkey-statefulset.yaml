@@ -44,7 +44,7 @@ spec:
                 --appendonly yes \
                 --appendfsync everysec \
                 --save '' \
-                --maxmemory 5gb \
+                --maxmemory 2gb \
                 --maxmemory-policy noeviction
           env:
             - name: REDIS_PASSWORD
@@ -86,10 +86,10 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 6Gi
+              memory: 3Gi
             limits:
               cpu: 500m
-              memory: 6Gi
+              memory: 3Gi
       volumes:
         - name: valkey-data
           hostPath:
