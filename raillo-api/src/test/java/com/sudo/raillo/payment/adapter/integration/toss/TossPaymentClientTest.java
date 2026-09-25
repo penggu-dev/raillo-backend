@@ -6,6 +6,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 import java.math.BigDecimal;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
@@ -30,6 +31,8 @@ import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 
 @RestClientTest(TossPaymentClient.class)
 @Import(TossPaymentClientTest.TestConfig.class)
@@ -55,9 +58,15 @@ class TossPaymentClientTest {
 			return new SimpleMeterRegistry();
 		}
 
+		@Bean(destroyMethod = "close")
+		public PoolingHttpClientConnectionManager tossHttpConnectionManager() {
+			return PoolingHttpClientConnectionManagerBuilder.create().build();
+		}
+
 		@Bean
-		public TossApiMetrics tossApiMetrics(MeterRegistry meterRegistry) {
-			return new TossApiMetrics(meterRegistry);
+		public TossApiMetrics tossApiMetrics(MeterRegistry meterRegistry,
+			PoolingHttpClientConnectionManager tossHttpConnectionManager) {
+			return new TossApiMetrics(meterRegistry, tossHttpConnectionManager);
 		}
 	}
 
@@ -189,7 +198,7 @@ class TossPaymentClientTest {
 		}
 
 		@Test
-		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_SYSTEM_ERROR BusinessException으로 래핑된다")
+		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_ATTEMPT_IN_PROGRESS BusinessException으로 래핑된다")
 		void fail_unexpectedException() {
 			// given
 			PaymentConfirmCommand request = new PaymentConfirmCommand(
@@ -200,11 +209,30 @@ class TossPaymentClientTest {
 				.andExpect(method(POST))
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
-			// when & then
+			// when & then: 결과 불명이므로 IN_PROGRESS로 래핑되어 Recovery Worker에 위임된다
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
 				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
-				.hasMessageContaining("결제 승인 처리 중 알 수 없는 오류가 발생했습니다");
+				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("SocketTimeoutException(read timeout)이 발생하면 PAYMENT_ATTEMPT_IN_PROGRESS로 래핑된다")
+		void fail_socketTimeout_wrappedAsInProgress() {
+			// given
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
+				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
+
+			// Toss 응답 대기 중 read timeout 재현
+			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
+				.andExpect(method(POST))
+				.andRespond(withException(new SocketTimeoutException("read timed out")));
+
+			// when & then: 결과 불명이므로 상위에는 IN_PROGRESS로 노출된다 (TossPaymentException은 새지 않는다)
+			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 
 			server.verify();
 		}

@@ -26,6 +26,8 @@ import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 
 @RestClientTest(TossPaymentClient.class)
 @Import(TossPaymentClientMetricsTest.TestConfig.class)
@@ -51,9 +53,15 @@ class TossPaymentClientMetricsTest {
 			return new SimpleMeterRegistry();
 		}
 
+		@Bean(destroyMethod = "close")
+		public PoolingHttpClientConnectionManager tossHttpConnectionManager() {
+			return PoolingHttpClientConnectionManagerBuilder.create().build();
+		}
+
 		@Bean
-		public TossApiMetrics tossApiMetrics(MeterRegistry meterRegistry) {
-			return new TossApiMetrics(meterRegistry);
+		public TossApiMetrics tossApiMetrics(MeterRegistry meterRegistry,
+			PoolingHttpClientConnectionManager tossHttpConnectionManager) {
+			return new TossApiMetrics(meterRegistry, tossHttpConnectionManager);
 		}
 	}
 
@@ -88,14 +96,14 @@ class TossPaymentClientMetricsTest {
 				.andExpect(method(POST))
 				.andRespond(withBadRequest().body(errorBody).contentType(MediaType.APPLICATION_JSON));
 
-			double before = meterRegistry.counter("toss_api_failure_total",
+			double before = meterRegistry.counter("toss.api.failure",
 				"operation", "confirm", "http_status", "400", "toss_code", "REJECT_CARD_PAYMENT").count();
 
 			// when
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request));
 
 			// then
-			double after = meterRegistry.counter("toss_api_failure_total",
+			double after = meterRegistry.counter("toss.api.failure",
 				"operation", "confirm", "http_status", "400", "toss_code", "REJECT_CARD_PAYMENT").count();
 			assertThat(after).isEqualTo(before + 1);
 
@@ -120,14 +128,14 @@ class TossPaymentClientMetricsTest {
 				.andExpect(method(POST))
 				.andRespond(withServerError().body(errorBody).contentType(MediaType.APPLICATION_JSON));
 
-			double before = meterRegistry.counter("toss_api_failure_total",
+			double before = meterRegistry.counter("toss.api.failure",
 				"operation", "confirm", "http_status", "500", "toss_code", "PROVIDER_ERROR").count();
 
 			// when
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request));
 
 			// then
-			double after = meterRegistry.counter("toss_api_failure_total",
+			double after = meterRegistry.counter("toss.api.failure",
 				"operation", "confirm", "http_status", "500", "toss_code", "PROVIDER_ERROR").count();
 			assertThat(after).isEqualTo(before + 1);
 
@@ -145,14 +153,14 @@ class TossPaymentClientMetricsTest {
 				.andExpect(method(POST))
 				.andRespond(withServerError());
 
-			double before = meterRegistry.counter("toss_api_failure_total",
+			double before = meterRegistry.counter("toss.api.failure",
 				"operation", "confirm", "http_status", "500", "toss_code", "EMPTY_ERROR_BODY").count();
 
 			// when
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request));
 
 			// then
-			double after = meterRegistry.counter("toss_api_failure_total",
+			double after = meterRegistry.counter("toss.api.failure",
 				"operation", "confirm", "http_status", "500", "toss_code", "EMPTY_ERROR_BODY").count();
 			assertThat(after).isEqualTo(before + 1);
 
@@ -170,14 +178,14 @@ class TossPaymentClientMetricsTest {
 				.andExpect(method(POST))
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
-			double before = meterRegistry.counter("toss_api_failure_total",
+			double before = meterRegistry.counter("toss.api.failure",
 				"operation", "confirm", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
 
 			// when
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request));
 
 			// then
-			double after = meterRegistry.counter("toss_api_failure_total",
+			double after = meterRegistry.counter("toss.api.failure",
 				"operation", "confirm", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
 			assertThat(after).isEqualTo(before + 1);
 
@@ -200,14 +208,14 @@ class TossPaymentClientMetricsTest {
 				.andExpect(method(POST))
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
-			double before = meterRegistry.counter("toss_api_failure_total",
+			double before = meterRegistry.counter("toss.api.failure",
 				"operation", "cancel", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
 
 			// when
 			assertThatThrownBy(() -> tossPaymentClient.cancelPayment(paymentKey, request));
 
 			// then
-			double after = meterRegistry.counter("toss_api_failure_total",
+			double after = meterRegistry.counter("toss.api.failure",
 				"operation", "cancel", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
 			assertThat(after).isEqualTo(before + 1);
 

@@ -64,12 +64,10 @@ public class TossPaymentClient {
 			throw e;
 		} catch (Exception e) {
 			log.error("[TOSS] 결제 승인 중 알 수 없는 예외 발생", e);
-			// http_status=0: HTTP 응답을 정상적으로 수신하지 못한 경우 (타임아웃, 네트워크 오류, 응답 파싱 실패 등)
+			// http_status=0: HTTP 응답을 정상적으로 수신하지 못한 경우 (타임아웃, 네트워크 오류, 응답 파싱 실패 등).
+			// 결과 불명이므로 PaymentAttempt는 IN_PROGRESS로 남기고 Recovery Worker(#270)에 위임한다.
 			tossApiMetrics.incrementFailure("confirm", 0, "CLIENT_ERROR");
-			throw new BusinessException(
-				PaymentError.PAYMENT_SYSTEM_ERROR,
-				"결제 승인 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
-			);
+			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS, e);
 		}
 	}
 

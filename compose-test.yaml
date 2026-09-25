@@ -6,14 +6,14 @@ services:
       - "8080:8080"
     working_dir: /app
     volumes:
-      - ./build/libs:/app/libs
+      - ./raillo-api/build/libs:/app/libs
       - ./.env:/app/.env
     entrypoint: [
       "java",
       "-XX:MaxRAMPercentage=75.0",
       "-Dspring.profiles.active=dev",
       "-jar",
-      "/app/libs/raillo-0.0.1-SNAPSHOT.jar"
+      "/app/libs/raillo-api-0.0.1-SNAPSHOT.jar"
     ]
     env_file:
       - .env
@@ -21,14 +21,72 @@ services:
       - SPRING_DOCKER_COMPOSE_ENABLED=false
       - SPRING_DATA_REDIS_HOST=redis
       - PAYMENT_TOSS_API_BASE_URL=http://wiremock:8080
+      # compose-test 자체가 완결된 스택이므로 DB 접속 정보를 .env와 무관하게 고정한다.
+      - DB_URL=jdbc:mysql://mysql:3306/raillo?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Seoul
+      - DB_USERNAME=raillo
+      - DB_PW=raillo-local
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
     depends_on:
-      - redis
-      - wiremock
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      wiremock:
+        condition: service_started
     deploy:
       resources:
         limits:
-          cpus: '1.0' # application server cpu 코어 수
-          memory: 1G # application server 메모리 용량
+          cpus: '1.0'
+          memory: 1G
+
+  raillo-batch:
+    # profiles로 감춰서 일반 up 명령에서는 기동하지 않는다. bootstrap 스크립트가 명시 호출한다.
+    profiles: ["batch"]
+    image: amazoncorretto:25-alpine-jdk
+    working_dir: /app
+    volumes:
+      - ./raillo-batch/build/libs:/app/libs
+      - ./.env:/app/.env
+    env_file:
+      - .env
+    environment:
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
+      - SPRING_DATA_REDIS_HOST=redis
+      - DB_URL=jdbc:mysql://mysql:3306/raillo?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Seoul
+      - DB_USERNAME=raillo
+      - DB_PW=raillo-local
+      - SPRING_BATCH_JDBC_INITIALIZE_SCHEMA=always
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    entrypoint: [
+      "java",
+      "-Dspring.profiles.active=dev",
+      "-jar",
+      "/app/libs/raillo-batch-0.0.1-SNAPSHOT.jar"
+    ]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  mysql:
+    image: mysql:8.4.10
+    container_name: raillo-test-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root-local
+      - MYSQL_DATABASE=raillo
+      - MYSQL_USER=raillo
+      - MYSQL_PASSWORD=raillo-local
+    volumes:
+      - raillo-test-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot-local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
 
   redis:
     image: 'valkey/valkey:9.0-alpine'
@@ -37,7 +95,6 @@ services:
     command: >
       valkey-server
       --maxmemory 512mb
-    # Redis 메모리 용량
 
   wiremock:
     image: wiremock/wiremock:latest
@@ -46,7 +103,6 @@ services:
       - "8081:8080"
     volumes:
       - ./qa/wiremock/mappings:/home/wiremock/mappings
-
     command: --global-response-templating --verbose
 
   redis-exporter:
@@ -96,7 +152,9 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=true
     volumes:
-      - ./qa/grafana/dashboards:/tmp/custom-dashboards
+      # 대시보드 JSON 파일을 컨테이너에 바인드 마운트해서 호스트 수정이 실시간 반영되도록 한다.
+      # provisioning의 updateIntervalSeconds가 이 경로를 폴링해 갱신을 잡아낸다.
+      - ./qa/grafana/dashboards:/var/lib/grafana/dashboards/raillo:ro
     depends_on:
       - prometheus
     user: root
@@ -107,7 +165,7 @@ services:
         mkdir -p /etc/grafana/provisioning/datasources
         mkdir -p /etc/grafana/provisioning/dashboards
         mkdir -p /var/lib/grafana/dashboards
-        
+
         echo 'apiVersion: 1
         datasources:
           - name: Prometheus
@@ -116,7 +174,7 @@ services:
             access: proxy
             url: http://prometheus:9090
             isDefault: true' > /etc/grafana/provisioning/datasources/datasource.yml
-        
+
         echo 'apiVersion: 1
         providers:
           - name: "default"
@@ -125,20 +183,23 @@ services:
             type: file
             disableDeletion: false
             updateIntervalSeconds: 10
+            allowUiUpdates: false
             options:
+              foldersFromFilesStructure: true
               path: /var/lib/grafana/dashboards' > /etc/grafana/provisioning/dashboards/dashboard.yml
-        
-        echo "Downloading Dashboards..."
-        wget -O /var/lib/grafana/dashboards/springboot.json https://grafana.com/api/dashboards/11378/revisions/latest/download
-        wget -O /var/lib/grafana/dashboards/redis.json https://grafana.com/api/dashboards/11835/revisions/latest/download
 
-        echo "Copying custom dashboards..."
-        cp /tmp/custom-dashboards/*.json /var/lib/grafana/dashboards/ 2>/dev/null || true
-        
+        echo "Downloading community dashboards..."
+        wget -O /var/lib/grafana/dashboards/springboot.json https://grafana.com/api/dashboards/11378/revisions/latest/download || true
+        wget -O /var/lib/grafana/dashboards/redis.json https://grafana.com/api/dashboards/11835/revisions/latest/download || true
+
         for file in /var/lib/grafana/dashboards/*.json; do
+          [ -f "$$file" ] || continue
           sed -i 's/\$${DS_PROMETHEUS}/prometheus/g' "$$file"
           sed -i 's/"datasource":\s*"Prometheus"/"datasource": "prometheus"/g' "$$file"
           sed -i 's/"uid":\s*"\$${DS_PROMETHEUS}"/"uid": "prometheus"/g' "$$file"
         done
-        
+
         /run.sh
+
+volumes:
+  raillo-test-mysql-data:
