@@ -9,7 +9,6 @@ data:
       scrape_interval: 15s
 
     scrape_configs:
-      # 노드 주소(<IP>:10250)를 node-exporter 포트로 바꿔 수집
       - job_name: node-exporter
         kubernetes_sd_configs:
           - role: node

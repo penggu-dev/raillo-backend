@@ -22,7 +22,6 @@ spec:
         - name: ghcr-secret
       containers:
         - name: raillo-api
-          # CI가 sha-<commit> 태그로 교체
           image: ghcr.io/penggu-dev/raillo-api:latest
           ports:
             - name: http
@@ -33,7 +32,6 @@ spec:
             - secretRef:
                 name: raillo-secrets
           env:
-            # JAVA_TOOL_OPTIONS는 Dockerfile의 타임존 설정이 사용
             - name: JDK_JAVA_OPTIONS
               value: -XX:MaxRAMPercentage=75.0
           resources:
@@ -43,7 +41,6 @@ spec:
             limits:
               cpu: 1000m
               memory: 2Gi
-          # ingress-nginx가 엔드포인트를 뺄 때까지 종료를 늦춤
           lifecycle:
             preStop:
               sleep:
