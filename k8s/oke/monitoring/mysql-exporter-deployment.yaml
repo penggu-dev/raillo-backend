@@ -13,6 +13,8 @@ spec:
       labels:
         app: mysql-exporter
     spec:
+      nodeSelector:
+        raillo-node: data
       containers:
         - name: mysql-exporter
           image: docker.io/prom/mysqld-exporter:v0.20.0

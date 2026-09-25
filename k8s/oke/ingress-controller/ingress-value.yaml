@@ -1,4 +1,7 @@
 controller:
+  nodeSelector:
+    kubernetes.io/os: linux
+    raillo-node: app
   service:
     type: LoadBalancer
     annotations:
