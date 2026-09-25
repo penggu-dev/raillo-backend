@@ -38,10 +38,10 @@ spec:
               value: -XX:MaxRAMPercentage=75.0
           resources:
             requests:
-              cpu: 500m
-              memory: 1Gi
+              cpu: 1000m
+              memory: 2Gi
             limits:
-              cpu: 1500m
+              cpu: 1000m
               memory: 2Gi
           # ingress-nginx가 엔드포인트를 뺄 때까지 종료를 늦춤
           lifecycle:
