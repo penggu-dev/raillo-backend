@@ -10,6 +10,7 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.helper.BookingResult;
 import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
@@ -387,6 +388,54 @@ public class TrainSearchFacadeCarAndSeatTest {
 		assertThat(standardRemainingSeats).isEqualTo(50);
 		// 24석 - Hold 5석 = 19석
 		assertThat(firstClassRemainingSeats).isEqualTo(19);
+	}
+
+	@DisplayName("같은 좌석이 DB 예매와 Redis 예매 점유에 모두 있으면 객차 잔여석에서 한 번만 뺀다")
+	@Test
+	void getAvailableTrainCars_deducts_seat_in_both_db_booking_and_redis_hold_only_once() {
+		// given
+		// 일반실: 2개 객차 * 10행 * 4석 = 80석
+		// 특실: 1개 객차 * 8행 * 3석 = 24석
+		Train train = trainTestHelper.createRealisticTrain(2, 1, 10, 8);
+		TrainScheduleResult scheduleResult = trainScheduleTestHelper.createDefault(train);
+		Member member = memberRepository.save(MemberFixture.create());
+
+		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
+		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
+		Long trainScheduleId = scheduleResult.trainSchedule().getId();
+
+		ScheduleStop departureStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleResult, "서울");
+		ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleResult, "부산");
+
+		List<Seat> bookedStandardSeats = trainTestHelper.getSeats(train, CarType.STANDARD, 20);
+		// 일반실 20석을 확정 예매(DB SeatBooking)로 점유
+		BookingResult bookingResult = bookingTestHelper.builder(member, scheduleResult)
+			.setDepartureScheduleStop(departureStop)
+			.setArrivalScheduleStop(arrivalStop)
+			.addSeats(bookedStandardSeats, PassengerType.ADULT)
+			.build();
+
+		// 같은 20석에 Redis 예매 점유(B:)도 함께 기록한다 - 결제 확정 후 R→B 처리기가 이미 전환을 마친 상태를 재현
+		long bookingId = bookingResult.booking().getId();
+		bookedStandardSeats.forEach(seat -> seatOccupancy.markBooked(
+			trainScheduleId, seat.getTrainCar().getId(), seat.getId(),
+			departureStop.getStopOrder(), arrivalStop.getStopOrder(), String.valueOf(bookingId)));
+
+		TrainCarListRequest request = new TrainCarListRequest(
+			trainScheduleId, seoul.getId(), busan.getId(), 1
+		);
+
+		// when
+		TrainCarListResponse response = trainSearchFacade.getAvailableTrainCars(request);
+
+		// then
+		int standardRemainingSeats = response.carInfos().stream()
+			.filter(car -> car.carType() == CarType.STANDARD)
+			.mapToInt(TrainCarInfo::remainingSeats)
+			.sum();
+
+		// 80석 - 20석(DB 예매와 Redis 예매 점유가 겹치는 같은 좌석, 한 번만 차감) = 60석
+		assertThat(standardRemainingSeats).isEqualTo(60);
 	}
 
 	@DisplayName("객차의 좌석 상세 정보를 조회한다")
