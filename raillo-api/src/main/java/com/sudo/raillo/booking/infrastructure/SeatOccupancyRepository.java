@@ -28,6 +28,7 @@ public class SeatOccupancyRepository {
 	private final StringRedisTemplate stringRedisTemplate;
 	private final DefaultRedisScript<List> reservationCreateScript;
 	private final DefaultRedisScript<List> reservationDeleteScript;
+	private final DefaultRedisScript<List> reservationBookingConfirmScript;
 
 	/**
 	 * 요청 구간에 다른 점유가 없으면 좌석을 예약으로 점유하고 예약을 저장한다. 검사와 쓰기가 한 스크립트에서 원자적으로 끝난다.
@@ -57,6 +58,43 @@ public class SeatOccupancyRepository {
 		} catch (Exception e) {
 			log.error("[좌석 점유 스크립트 오류] reservationId={}, trainScheduleId={}, error={}",
 				command.reservationId(), command.trainScheduleId(), e.getMessage(), e);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
+		}
+	}
+
+	/**
+	 * 자기 예약 점유를 예매 점유로 바꾸고 예약 본문을 지운다. 다른 예약이나 예매가 점유한 구간이 있으면 아무것도 쓰지 않는다.
+	 *
+	 * @return 성공 또는 첫 번째 충돌 정보
+	 * @throws BusinessException 스크립트 실행이 실패했거나 응답이 계약과 다를 때
+	 */
+	public SeatOccupancyResult confirmBooking(BookingOccupancyCommand command) {
+		List<String> keys = buildKeys(command.trainScheduleId(), command.reservationId(), command.seats());
+
+		List<String> args = new ArrayList<>();
+		args.add(command.reservationId());
+		args.add(String.valueOf(command.bookingId()));
+		args.add(String.valueOf(command.keyExpireAtEpochSecond()));
+		args.add(String.valueOf(command.departureStopOrder()));
+		args.add(String.valueOf(command.arrivalStopOrder()));
+		args.addAll(buildSeatArgs(command.seats()));
+
+		try {
+			@SuppressWarnings("unchecked")
+			List<Object> raw = stringRedisTemplate.execute(reservationBookingConfirmScript, keys, args.toArray());
+			SeatOccupancyResult result = SeatOccupancyResult.fromLuaResult(raw);
+			if (result.success()) {
+				log.info("[예매 점유 전환 성공] reservationId={}, bookingId={}",
+					command.reservationId(), command.bookingId());
+			} else {
+				log.warn("[예매 점유 전환 충돌] reservationId={}, bookingId={}, seatId={}, section={}, type={}",
+					command.reservationId(), command.bookingId(),
+					result.conflictSeatId(), result.conflictSectionIndex(), result.conflictType());
+			}
+			return result;
+		} catch (Exception e) {
+			log.error("[예매 점유 전환 스크립트 오류] reservationId={}, bookingId={}, error={}",
+				command.reservationId(), command.bookingId(), e.getMessage(), e);
 			throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
 		}
 	}

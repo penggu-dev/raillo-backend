@@ -5,7 +5,7 @@ import java.util.List;
 import com.sudo.raillo.booking.cache.SeatOccupancyValue;
 
 /**
- * 좌석 점유 생성 스크립트 결과.
+ * 예약 생성과 예매 점유 전환, 두 좌석 점유 스크립트의 결과.
  *
  * @param conflictSeatId 충돌한 좌석 ID. 성공이면 {@code null}
  * @param conflictSectionIndex 충돌한 구간 index. 성공이면 {@code null}
@@ -27,6 +27,8 @@ public record SeatOccupancyResult(
 
 	/**
 	 * Lua 반환값 {@code {1}} 또는 {@code {0, seatId, sectionIndex, "R"|"B"}}를 파싱한다.
+	 * 점유 유형 자리에는 {@code "R"}이나 {@code "B"} 외에 알 수 없는 값(예: {@code "X"})도 올 수 있으며,
+	 * 이때는 {@link IllegalStateException}을 던진다.
 	 *
 	 * @throws IllegalStateException 반환 형식이 계약과 다르거나 알 수 없는 점유 값을 만났을 때
 	 */

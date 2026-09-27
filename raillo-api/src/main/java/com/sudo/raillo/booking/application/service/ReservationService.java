@@ -1,8 +1,10 @@
 package com.sudo.raillo.booking.application.service;
 
+import com.sudo.raillo.booking.application.dto.BookingConversionRequest;
 import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.booking.infrastructure.BookingOccupancyCommand;
 import com.sudo.raillo.booking.infrastructure.ReservationRedisRepository;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand.SeatCar;
@@ -132,6 +134,35 @@ public class ReservationService {
 
 		removeMemberIndexQuietly(memberNo, reservationId);
 		log.info("[예약 삭제] reservationId={}, memberNo={}", reservationId, memberNo);
+	}
+
+	/**
+	 * 결제가 확정된 예약의 좌석을 예매 점유로 바꾸고 회원 인덱스를 지운다. 예약 본문은 스크립트가 지운다.
+	 *
+	 * @return 전환했으면 true, 다른 예약이나 예매와 충돌해 아무것도 쓰지 않았으면 false
+	 */
+	public boolean convertToBooking(BookingConversionRequest request) {
+		SeatOccupancyResult result = seatOccupancyRepository.confirmBooking(new BookingOccupancyCommand(
+			request.trainScheduleId(),
+			request.reservationId(),
+			request.bookingId(),
+			TrainCacheKey.expireAtEpochSecond(request.operationDate()),
+			request.departureStopOrder(),
+			request.arrivalStopOrder(),
+			request.seats().stream()
+				.map(seat -> new SeatOccupancyCommand.SeatCar(seat.seatId(), seat.trainCarId()))
+				.toList()
+		));
+		if (result.success()) {
+			reservationRedisRepository.removeMemberIndex(request.memberNo(), request.reservationId());
+		}
+		return result.success();
+	}
+
+	/** 좌석은 그대로 두고 예약 본문과 회원 인덱스만 지운다. */
+	public void discardReservation(long trainScheduleId, String reservationId, String memberNo) {
+		reservationRedisRepository.delete(trainScheduleId, reservationId);
+		reservationRedisRepository.removeMemberIndex(memberNo, reservationId);
 	}
 
 	private SeatOccupancyCommand toOccupyCommand(Reservation reservation, Duration ttl) {
