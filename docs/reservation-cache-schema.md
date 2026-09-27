@@ -31,7 +31,58 @@
 - 값은 `R:{reservationId}`(예약) 또는 `B:{bookingId}`(예매)다. 그 외 형식은 데이터 오염으로 보고 `SEAT_OCCUPANCY_SCRIPT_ERROR`를 낸다.
 - 키는 점유가 처음 생길 때 만들어지고, TTL이 없을 때만 `TrainCacheKey.expireAtEpochSecond(운행일)`로 EXPIREAT을 건다. 빈 열차는 키가 없다.
 - 예약 field는 HEXPIRE로 예약과 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다. 필드 단위 만료는 Redis 7.4, Valkey 9.0부터 지원한다.
-- 예매 점유(`B:`) 기록은 `PaymentOutboxWorker`가 승인 확정 후 `BOOKING_CONFIRMED` outbox를 처리하며 `R:` → `B:`로 전환한다.
+- 예매 점유(`B:`) 기록은 `PaymentOutboxWorker`가 승인 확정 후 `BOOKING_CONFIRMED` outbox를 `BookingConfirmedProcessor`에 넘겨 `R:` → `B:`로 전환한다(`reservation_booking_confirm.lua`).
+  - 자기 예약 `R:`은 `B:{bookingId}`로 바꾸고 field 만료를 없앤다. 같은 `B:`는 그대로 성공한다. 빈 field는 DB 예매가 유효할 때만 `B:`를 쓴다.
+  - 다른 R이나 B가 하나라도 있으면 아무것도 바꾸지 않고, 처리기가 예외를 던져 Outbox 재시도에 맡긴다.
+  - 전환하면 예약 본문을 지우고, 별도 slot인 회원 인덱스 field는 Lua 밖에서 HDEL한다. 객차 키에 만료가 없으면 운행일 기준 EXPIREAT을 건다.
+  - 운행일이 지났거나 예매가 없거나 취소된 항목은 좌석을 건드리지 않고 예약 본문과 회원 인덱스만 지운다.
+
+### R→B 충돌이 생기는 경우
+
+처리기는 자기 `R:` field가 아직 좌석을 잡고 있다고 보고 전환한다. 자기 field는 예약 TTL(10분)을 따르므로 전환 전에 사라질 수 있고, 그 사이 다른 예약이 같은 좌석을 잡으면 충돌한다. 다른 예약은 결제 준비의 DB 재검증(`SeatConflictValidator`)에 막혀 결제할 수 없으므로 이중 판매로 이어지지 않는다. 그 예약은 최대 10분 뒤 사라지고, 그 뒤 재시도하면 전환된다. 같은 예약으로 만든 두 주문(#280)은 예외다. 두 주문 모두 결제 준비를 통과한 뒤 결제되면 DB에 이미 이중 판매가 생긴 것이고, R→B 충돌은 그것을 드러낼 뿐이다(표의 마지막 행).
+
+| 경우 | 지금의 처리 | 후속 처리 |
+|---|---|---|
+| 예약 만료 직전에 결제해 Toss 응답을 기다리는 사이 자기 `R:`이 만료된다 | Outbox 재시도. 재시도 창(초기 30초, 최대 5회, 약 7.5분)이 예약 TTL보다 짧아 FAILED로 끝날 수 있다 | #270 후속 작업의 결제 중 좌석 보호(prepare에서 confirm 마감까지 연장, 결제 시작 시 연장, 결과 불명 시 HPERSIST)로 자기 field가 먼저 사라지지 않게 한다 |
+| Worker 지연이나 장애가 남은 field TTL보다 길다 | 위와 같다 | #270 후속 작업에서 재시도 창을 예약 TTL보다 길게 조정해 다른 예약이 사라진 뒤 자동으로 전환되게 한다 |
+| 처리기 배포 직후 쌓여 있던 행을 처리한다 | 쌓인 행의 자기 `R:`은 이미 만료됐다. 배포 순간 다른 예약이 잡고 있으면 위와 같이 재시도한다 | 일회성이다. FAILED가 되면 아래 재투입 SQL로 다시 처리한다 |
+| 같은 예약으로 만든 두 주문이 전환 전에 모두 결제된다(#280) | 두 번째 전환이 `B:{다른 bookingId}`를 만나 재시도로 풀리지 않고 FAILED가 된다. DB에 같은 좌석 예매가 둘 생긴 것이다 | #280 주문 표시로 한 예약이 한 주문에만 쓰이게 해 막는다. 이미 생긴 건은 수동 확인과 환불(#259)로 정리한다 |
+
+FAILED로 끝난 행은 처리기가 멱등하고 다른 점유를 바꾸지 않으므로 다시 넣어도 안전하다.
+
+```sql
+UPDATE payment_outbox SET status = 'PENDING', retry_count = 0, next_retry_at = NOW()
+WHERE type = 'BOOKING_CONFIRMED' AND status = 'FAILED' AND payload LIKE '%"schemaVersion":2%';
+```
+
+### 예매 점유 백필 (필요할 때)
+
+Redis에 `B:`가 없는 예매 좌석은 예약 생성 Lua가 빈 좌석으로 보고 예약을 만들어 준다. 결제 준비의 DB 재검증에서 막히므로 이중 판매는 없지만, 사용자는 예약한 뒤에야 거절된다. 검색과 좌석맵은 DB 예매와 Redis 점유를 합쳐 계산하므로 화면은 정상이다. 지금은 운영 데이터가 없어 백필하지 않으며, 아래 경우가 생기면 백필을 검토한다.
+
+- R→B 처리기 배포 전에 만들어진 예매 중 운행일이 남은 것
+- `BOOKING_CONFIRMED`가 FAILED로 끝났고 재투입하지 않은 예매
+- 장애, flush, 새 클러스터 이전 등으로 운행 키가 사라진 경우. 기준정보 캐시 적재 Job(`trainStaticCacheLoad`, `trainScheduleCacheLoad`)은 좌석 점유를 채우지 않는다
+- DB 복원이나 직접 적재로 예매가 Redis를 거치지 않고 들어온 경우
+
+방법은 다음과 같다. raillo-batch Job으로 만들고 키와 값은 `ReservationCacheKey`, `SeatOccupancyValue`로 만든다.
+
+1. 대상 예매 좌석을 조회한다. 운행일 비교는 `TrainCacheKey.ZONE`(Asia/Seoul) 기준 오늘이다.
+
+   ```sql
+   SELECT b.booking_id, ts.train_schedule_id, ts.operation_date, s.train_car_id, sb.seat_id,
+          sb.departure_stop_order, sb.arrival_stop_order
+   FROM seat_booking sb
+   JOIN booking b ON b.booking_id = sb.booking_id
+   JOIN train_schedule ts ON ts.train_schedule_id = sb.train_schedule_id
+   JOIN seat s ON s.seat_id = sb.seat_id
+   WHERE b.booking_status = 'BOOKED'
+     AND ts.operation_date >= :today;
+   ```
+
+2. 행마다 `{schedule:{train_schedule_id}}:car:{train_car_id}:seats`의 `{seat_id}:{i}` field(i = 출발 stopOrder부터 도착 stopOrder - 1까지)에 `B:{booking_id}`를 쓴다. 객차 키 하나를 Lua 한 번으로 처리한다.
+   - 빈 field에만 쓴다(HSETNX). 이미 값이 있으면 덮어쓰지 않는다. 같은 `B:{booking_id}`는 이미 채워진 것이고, 다른 `R:`은 결제 준비에서 막혀 만료될 예약이다. 다른 `B:`는 DB에서 좌석이 이중으로 팔렸다는 신호이므로 건너뛰고 로그로 남겨 확인한다.
+   - field 만료는 걸지 않는다. 객차 키에 만료가 없을 때만 `TrainCacheKey.expireAtEpochSecond(operation_date)`로 EXPIREAT을 건다.
+3. 멱등하므로 서비스 중에 실행해도 되고, 다시 실행해도 된다. 실행 중에 새로 생긴 예매는 R→B 처리기가 채운다.
 
 ## 3. 예약 본문
 

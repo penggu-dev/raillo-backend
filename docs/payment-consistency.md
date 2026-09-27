@@ -280,7 +280,7 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 기존 Tasks 8–12를 하나의 Worker PR로 묶는 계획에서 다음 두 범위로 나눈다. 이 문서의 후속 항목은 현재 브랜치에서 구현하지 않는다.
 
 - **Recovery Worker — 다음 브랜치·이슈:** 네트워크 타임아웃·응답 유실, Toss 성공 후 DB 확정/커밋 실패로 남은 `IN_PROGRESS`를 Toss 조회로 대사한다. 결과가 미확정이면 실패로 단정하거나 승인 API를 재호출하지 않고 다음 폴링까지 유지한다. 처리 권한 확보, 승인 확정과의 경합, 복구 지표 및 복구 후 같은 attemptId 재요청을 검증한다.
-- **Outbox — 이슈 #266에서 완료.** 승인 확정 시 outbox INSERT, `PaymentOutboxWorker`의 폴링·재시도·최대 시도 초과 정책, Reservation 정리(`BookingConfirmedProcessor`)까지 이번 브랜치에서 함께 이관됐다. 인라인 정리 코드는 이 시점에 제거됐다.
+- **Outbox — #266에서 인프라, #270에서 R→B 처리기 완료.** #266은 승인 확정 시 outbox INSERT와 `PaymentOutboxWorker`의 폴링, 재시도, 최대 시도 초과 정책을 도입하고 인라인 정리 코드를 제거했다. `BookingConfirmedProcessor`는 #266 시점에는 등록되지 않아 `BOOKING_CONFIRMED`가 PENDING으로 쌓였고, #270에서 구현해 등록했다. 처리 규칙은 `docs/reservation-cache-schema.md` 2장에 있다.
 
 승인 재요청의 요청 일치 검증, 최신 결과 조회, 결제별 동시 승인 차단, 승인 가능 상태 검증,
 입력 검증과 DB 무결성 오류 구분은 Worker 도입으로 해결되지 않으므로 선행 수정한다.

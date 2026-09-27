@@ -29,10 +29,10 @@
 
 | # | Reservation | 좌석 field | Order | Payment | Attempt | 비고 |
 |---|---|---|---|---|---|---|
-| 1 | 그대로 | R (후속 PR에서 B) | ORDERED | PAID (+paymentKey) | SUCCEEDED | Outbox BOOKING_CONFIRMED 발행 |
+| 1 | 그대로 | R (Outbox 처리 후 B) | ORDERED | PAID (+paymentKey) | SUCCEEDED | Outbox BOOKING_CONFIRMED 발행 |
 | 2 | 그대로 | 그대로 | PENDING | PENDING | 첫 Attempt FAILED · 새 Attempt IN_PROGRESS → SUCCEEDED | 같은 Order/Payment 재사용 |
-| 3 | 그대로 | 성공 시 R→(후속 B) | 성공 시 ORDERED · 실패 시 PENDING | 성공 시 PAID · 실패 시 PENDING | 재조회 후 정정 | 인라인 재조회로 3xx도 사실은 확정됨 감지 |
-| 4 | 그대로 | 성공 시 R→(후속 B) | 성공 시 ORDERED · 실패 시 PENDING | 성공 시 PAID · 실패 시 PENDING | 재조회 후 정정 | 유저 요청 트리거 |
+| 3 | 그대로 | 성공 시 R (Outbox 처리 후 B) | 성공 시 ORDERED · 실패 시 PENDING | 성공 시 PAID · 실패 시 PENDING | 재조회 후 정정 | 인라인 재조회로 3xx도 사실은 확정됨 감지 |
+| 4 | 그대로 | 성공 시 R (Outbox 처리 후 B) | 성공 시 ORDERED · 실패 시 PENDING | 성공 시 PAID · 실패 시 PENDING | 재조회 후 정정 | 유저 요청 트리거 |
 | 5 | 그대로 | 그대로 | 이전 트랜잭션 결과 유지 | 이전 결과 | SUCCEEDED (재사용) | Toss 호출 없음 |
 | 6 | 그대로 | 그대로 | PENDING | PENDING | FAILED (변화 없음) | 예외 응답 |
 | 7 | 자연 만료 | 자연 만료 | PENDING (배치 정리) | PENDING (배치 정리) | — | 유저에게 재예약 안내 |
@@ -43,7 +43,7 @@
 | 12 | 상황 따라 | 상황 따라 | 대사 결과 | 대사 결과 | 정정 | 배치, 유저 응답 없음 |
 | 13 | 그대로 | 그대로 | PENDING | PENDING | 새 attempt 생성 안 됨 | TX A `findLatestApprovalByPaymentId`가 이전 IN_PROGRESS 발견해 차단 |
 | 14 | 그대로 | 그대로 | 이미 ORDERED | 이미 PAID | 새 attempt 생성 안 됨 | TX A가 SUCCEEDED 발견 후 차단 (다른 요청이 먼저 확정) |
-| 15 | 그대로 | 성공 시 R→(후속 B) | 성공 시 ORDERED · 실패 시 PENDING | 성공 시 PAID · 실패 시 PENDING | 하나로만 확정 (SUCCEEDED or FAILED) | 두 스레드가 동시 TX B 진입해도 락으로 직렬화 |
+| 15 | 그대로 | 성공 시 R (Outbox 처리 후 B) | 성공 시 ORDERED · 실패 시 PENDING | 성공 시 PAID · 실패 시 PENDING | 하나로만 확정 (SUCCEEDED or FAILED) | 두 스레드가 동시 TX B 진입해도 락으로 직렬화 |
 | 16 | 그대로 | 그대로 | PENDING | PENDING | 하나로만 FAILED | markFailed 두 번 호출돼도 idempotency로 no-op |
 
 ## 케이스별 재시도 정책

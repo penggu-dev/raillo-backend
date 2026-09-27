@@ -13,7 +13,7 @@
 
 객차 점유 Hash에는 예약 점유(`R:{reservationId}`)와 예매 점유(`B:{bookingId}`)가 같은 field 형식으로 들어간다. Lua가 요청 구간의 field를 HMGET 한 번으로 읽어 두 경우를 모두 막고, 충돌이 없을 때만 점유를 쓴다. 검사와 쓰기가 한 스크립트 안에서 끝나므로 동시 요청 사이에 race가 없다.
 
-예매 점유 기록은 결제 확정 시 `R:` → `B:` 전환으로 붙고, Batch 복구 Step이 `SeatBooking`으로 다시 채운다.
+예매 점유 기록은 결제 확정 뒤 Outbox 처리기(`BookingConfirmedProcessor`)가 `R:` → `B:`로 전환해 붙인다. 별도의 Batch 복구 Step은 없다. 이 처리기 도입 전에 생긴 예매는 Redis에 `B:`가 없어 예약 생성 검사(Layer 2)는 통과하고 결제 준비의 DB 재검증(Layer 3)에서야 막힌다. 백필이 필요해지는 경우와 방법은 [reservation-cache-schema.md 2장](./reservation-cache-schema.md#예매-점유-백필-필요할-때)에 있다.
 
 ## Layer 3 — 결제 직전 DB 재검증을 유지하는 이유
 
