@@ -47,7 +47,7 @@ Member → Order (1:N)
 2. **좌석 선택** — Create Reservation (Redis: 객차 점유 Hash + 예약 JSON + 회원 인덱스, TTL 10min). 기준정보 캐시만 읽는다
 3. **결제 준비** — Convert to Order (PENDING) + OrderBooking + OrderSeatBooking, create Payment (PENDING)
 4. **결제 승인** — Toss Payments approval → Payment (PAID), Order (ORDERED)
-5. **예매 확정** — Convert to Booking + SeatBooking, issue Tickets, 좌석 점유 `H:` → `B:` 전환 (결제 전환 PR)
+5. **예매 확정** — Convert to Booking + SeatBooking, issue Tickets. 결제 확정 후 Outbox 처리기(`BookingConfirmedProcessor`)가 좌석 점유 `R:` → `B:` 전환
 
 ## Domain Terminology (Korean)
 
