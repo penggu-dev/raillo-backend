@@ -13,6 +13,8 @@ spec:
       labels:
         app: valkey-exporter
     spec:
+      nodeSelector:
+        raillo-node: data
       containers:
         - name: valkey-exporter
           image: docker.io/oliver006/redis_exporter:v1.91.1

@@ -14,10 +14,8 @@ spec:
       labels:
         app: valkey
     spec:
-      # raillo-valkey=true label이 있는 Worker에만 배치
       nodeSelector:
-        raillo-valkey: "true"
-      # hostPath 디렉터리를 valkey 사용자(999:1000)가 쓸 수 있도록 권한 설정
+        raillo-node: data
       initContainers:
         - name: init-valkey-data
           image: docker.io/library/busybox:1.36.1
@@ -31,7 +29,6 @@ spec:
       containers:
         - name: valkey
           image: docker.io/valkey/valkey:9.0-alpine
-          # command가 이미지 entrypoint를 대체하므로 사용자 전환을 직접 지정
           securityContext:
             runAsUser: 999
             runAsGroup: 1000
@@ -45,7 +42,7 @@ spec:
                 --appendonly yes \
                 --appendfsync everysec \
                 --save '' \
-                --maxmemory 5gb \
+                --maxmemory 2gb \
                 --maxmemory-policy noeviction
           env:
             - name: REDIS_PASSWORD
@@ -59,7 +56,6 @@ spec:
           volumeMounts:
             - name: valkey-data
               mountPath: /data
-          # AOF 로딩 중에는 PING이 LOADING을 반환하므로 PONG일 때까지 최대 10분 대기
           startupProbe:
             exec:
               command:
@@ -87,10 +83,10 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 6Gi
+              memory: 3Gi
             limits:
               cpu: 500m
-              memory: 6Gi
+              memory: 3Gi
       volumes:
         - name: valkey-data
           hostPath:
