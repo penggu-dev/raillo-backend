@@ -3,8 +3,10 @@ package com.sudo.raillo.order.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.booking.domain.ReservationSeat;
 import com.sudo.raillo.support.helper.PaymentReservationTestHelper.SeatPassenger;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.global.exception.BusinessException;
@@ -22,6 +24,7 @@ import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.OrderFixture;
+import com.sudo.raillo.support.helper.OrderTestHelper;
 import com.sudo.raillo.support.helper.PaymentReservationTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
@@ -61,6 +64,9 @@ class OrderServiceTest {
 
 	@Autowired
 	private TrainScheduleTestHelper trainScheduleTestHelper;
+
+	@Autowired
+	private OrderTestHelper orderTestHelper;
 
 	@Test
 	@DisplayName("주문 코드로 주문 조회에 성공한다")
@@ -259,5 +265,54 @@ class OrderServiceTest {
 		assertThatThrownBy(() -> orderService.createOrder(memberNo, emptyReservations))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(OrderError.EMPTY_RESERVATIONS.getMessage());
+	}
+
+	@Test
+	@DisplayName("주문의 예약 스냅샷을 주문 생성 시점의 예약으로 복원한다")
+	void getReservationSnapshots_returns_reservations_captured_at_order_creation() {
+		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 1);
+		Reservation reservation = paymentReservations.builder()
+			.withMemberNo(member.getMemberDetail().getMemberNo())
+			.withTrainScheduleId(result.trainSchedule().getId())
+			.withDepartureStopId(result.scheduleStops().get(0).getId())
+			.withArrivalStopId(result.scheduleStops().get(1).getId())
+			.withSeats(List.of(new SeatPassenger(seats.get(0).getId(), PassengerType.ADULT)))
+			.build();
+		Order order = orderService.createOrder(member.getMemberDetail().getMemberNo(), List.of(reservation));
+
+		// when
+		List<Reservation> snapshots = orderService.getReservationSnapshots(order);
+
+		// then
+		assertThat(snapshots).hasSize(1);
+		Reservation snapshot = snapshots.get(0);
+		assertThat(snapshot.reservationId()).isEqualTo(reservation.reservationId());
+		assertThat(snapshot.memberNo()).isEqualTo(reservation.memberNo());
+		assertThat(snapshot.trainScheduleId()).isEqualTo(reservation.trainScheduleId());
+		assertThat(snapshot.operationDate()).isEqualTo(reservation.operationDate());
+		assertThat(snapshot.departure().stopOrder()).isEqualTo(reservation.departure().stopOrder());
+		assertThat(snapshot.arrival().stopOrder()).isEqualTo(reservation.arrival().stopOrder());
+		assertThat(snapshot.seats())
+			.extracting(ReservationSeat::seatId, ReservationSeat::trainCarId)
+			.containsExactly(tuple(seats.get(0).getId(), seats.get(0).getTrainCar().getId()));
+	}
+
+	@Test
+	@DisplayName("예약 스냅샷이 없는 주문의 스냅샷을 조회하면 ORDER_RESERVATION_SNAPSHOT_MISSING 예외가 발생한다")
+	void getReservationSnapshots_throws_when_snapshot_missing() {
+		// given - OrderTestHelper는 스냅샷 없이 OrderBooking을 만든다
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleResult result = trainScheduleTestHelper.createDefault(train);
+		Order order = orderTestHelper.createDefault(member, result).order();
+
+		// when & then
+		assertThatThrownBy(() -> orderService.getReservationSnapshots(order))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(OrderError.ORDER_RESERVATION_SNAPSHOT_MISSING.getMessage());
 	}
 }

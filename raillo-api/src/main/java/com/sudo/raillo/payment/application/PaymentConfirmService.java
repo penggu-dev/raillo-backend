@@ -58,7 +58,7 @@ public class PaymentConfirmService implements PaymentConfirmer {
 
 		// 3단계: 승인 확정 — 이 메서드 전체가 TX B (Order/Booking/Payment/Attempt/Outbox 원자 커밋)
 		PaymentConfirmResult result = paymentApprovalFinalizer.finalizeApproval(
-			start.paymentId(), start.attemptDbId(), command, approval, start.reservations()
+			start.paymentId(), start.attemptDbId(), command, approval
 		);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", start.paymentId(), command.orderId());

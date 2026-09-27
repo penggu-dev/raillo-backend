@@ -53,8 +53,7 @@ public class PaymentApprovalFinalizer {
 		Long paymentId,
 		Long attemptDbId,
 		PaymentConfirmCommand command,
-		GatewayConfirmResult gatewayResult,
-		List<Reservation> reservations
+		GatewayConfirmResult gatewayResult
 	) {
 		Payment payment = paymentRepository.findByIdForUpdate(paymentId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
@@ -81,6 +80,7 @@ public class PaymentApprovalFinalizer {
 		payment.approve(gatewayResult.method(), gatewayResult.paymentKey());
 		attempt.markSucceeded();
 
+		List<Reservation> reservations = orderReader.getReservationSnapshots(order);
 		paymentOutboxRepository.save(buildBookingConfirmedOutbox(BookingConfirmedPayload.from(paymentId, attempt, reservations, confirmed)));
 		return PaymentConfirmResult.from(payment);
 	}

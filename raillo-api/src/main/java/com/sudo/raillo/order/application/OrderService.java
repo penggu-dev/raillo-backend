@@ -77,6 +77,24 @@ public class OrderService {
 			.toList();
 	}
 
+	/** 주문 생성 시점에 저장한 예약 스냅샷. Redis 예약이 만료된 뒤에도 결제 확정에 쓴다. */
+	@Transactional(readOnly = true)
+	public List<Reservation> getReservationSnapshots(Order order) {
+		return orderBookingRepository.findByOrderId(order.getId()).stream()
+			.map(this::toReservation)
+			.toList();
+	}
+
+	private Reservation toReservation(OrderBooking orderBooking) {
+		String snapshot = orderBooking.getReservationSnapshot();
+		if (snapshot == null) {
+			log.error("[예약 스냅샷 없음] orderBookingId={}, reservationId={}",
+				orderBooking.getId(), orderBooking.getReservationId());
+			throw new BusinessException(OrderError.ORDER_RESERVATION_SNAPSHOT_MISSING);
+		}
+		return jsonConverter.fromJson(snapshot, Reservation.class);
+	}
+
 	/**
 	 * 주문 생성
 	 * @param memberNo 회원 번호

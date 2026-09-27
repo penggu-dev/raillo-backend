@@ -1,6 +1,5 @@
 package com.sudo.raillo.payment.application;
 
-import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -17,6 +16,7 @@ import com.sudo.raillo.payment.application.result.PaymentAttemptStartResult;
 import com.sudo.raillo.payment.application.required.ReservationReader;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
+import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import java.util.List;
 import java.util.Optional;
@@ -78,7 +78,7 @@ public class PaymentApprovalStarter {
 		//   Order 하나에 Payment가 여러 개 붙는 경로는 정상 흐름이 아니지만 예약 소유권 강제(#280)까지의 방어층으로 남겨둔다.
 		paymentValidator.validateApprovable(payment);
 		// TODO(#272): 이 조회 직전 다른 요청이 승인을 확정해 Reservation이 정리된 경로도 통합 테스트로 검증한다.
-		List<Reservation> reservations = getReservations(order, memberNo);
+		validateReservationsAlive(order, memberNo);
 		paymentValidator.validateDuplicatePayment(order);
 
 		// UNIQUE(attempt_id)가 최종 방어층으로, pre-check와 TX A 락이 놓친 경합 케이스를 여기서 잡는다.
@@ -96,7 +96,7 @@ public class PaymentApprovalStarter {
 			return handleExistingAttempt(registered.attempt(), payment, ctx);
 		}
 
-		return PaymentApprovalStart.started(payment.getId(), registered.attemptDbId(), reservations);
+		return PaymentApprovalStart.started(payment.getId(), registered.attemptDbId());
 	}
 
 	private PaymentApprovalStart handleExistingAttempt(
@@ -134,10 +134,22 @@ public class PaymentApprovalStarter {
 			case DONE -> {
 				// Toss 상 이미 승인 완료 - 로컬 DB를 TX B에서 정정한다.
 				paymentValidator.validateGatewayResponseMatchesRequest(query.confirmResult(), ctx.command());
-				List<Reservation> reservations = getReservations(ctx.order(), ctx.memberNo());
-				yield PaymentApprovalStart.recovered(
-					payment.getId(), existing.getId(), reservations, query.confirmResult()
-				);
+				try {
+					validateReservationsAlive(ctx.order(), ctx.memberNo());
+				} catch (BusinessException reservationCheckFailed) {
+					// 이 조회와 검증 사이 원 요청이 TX B를 커밋하고 Outbox Worker가 R→B(예약→예매 점유 전환)까지
+					// 끝냈다면 예약이 이미 정리된 것이 정상이다. attempt를 다시 읽어 SUCCEEDED면 확정 결과를 반환하고,
+					// 아니면 원래 예외(예약 만료 등)를 그대로 던진다.
+					PaymentAttempt refreshed = paymentAttemptRepository.findById(existing.getId())
+						.orElseThrow(() -> reservationCheckFailed);
+					if (refreshed.getStatus() != PaymentAttemptStatus.SUCCEEDED) {
+						throw reservationCheckFailed;
+					}
+					log.info("[결제 재요청 - 조회 중 원 요청이 먼저 확정] attemptId={}, paymentId={}",
+						existing.getAttemptId(), payment.getId());
+					yield PaymentApprovalStart.alreadyConfirmed(paymentReader.getConfirmResult(payment.getId()));
+				}
+				yield PaymentApprovalStart.recovered(payment.getId(), existing.getId(), query.confirmResult());
 			}
 			case ABORTED, EXPIRED, CANCELED, PARTIAL_CANCELED -> {
 				// Toss 상 확정 실패 - attempt를 FAILED로 마킹하고 사용자에게 안내한다.
@@ -173,13 +185,13 @@ public class PaymentApprovalStarter {
 		throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 	}
 
-	private List<Reservation> getReservations(Order order, String memberNo) {
+	private void validateReservationsAlive(Order order, String memberNo) {
 		List<String> reservationIds = orderReader.getReservationIds(order);
 		if (reservationIds.isEmpty()) {
 			log.error("[Reservation 검증 실패] reservationIds가 없음: orderCode={}", order.getOrderCode());
 			throw new BusinessException(BookingError.RESERVATION_IDS_REQUIRED);
 		}
-		return reservationReader.getReservations(reservationIds, memberNo);
+		reservationReader.getReservations(reservationIds, memberNo);
 	}
 
 	/**
