@@ -2,6 +2,7 @@ package com.sudo.raillo.payment.application.required;
 
 import java.util.List;
 
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 
@@ -16,6 +17,8 @@ public interface OrderReader {
 	Order getOrderByOrderCode(String orderCode);
 
 	List<String> getReservationIds(Order order);
+
+	List<Reservation> getReservationSnapshots(Order order);
 
 	void validateOrderOwner(Order order, Member member);
 }

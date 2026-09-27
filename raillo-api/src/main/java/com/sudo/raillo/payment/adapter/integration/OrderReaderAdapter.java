@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.application.OrderService;
 import com.sudo.raillo.order.domain.Order;
@@ -25,6 +26,11 @@ public class OrderReaderAdapter implements OrderReader {
 	@Override
 	public List<String> getReservationIds(Order order) {
 		return orderService.getReservationIds(order);
+	}
+
+	@Override
+	public List<Reservation> getReservationSnapshots(Order order) {
+		return orderService.getReservationSnapshots(order);
 	}
 
 	@Override
