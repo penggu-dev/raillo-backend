@@ -51,6 +51,7 @@ import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
 import com.sudo.raillo.payment.application.result.PaymentConfirmResult;
 
 import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
+import com.sudo.raillo.payment.application.required.PaymentGateway.GatewayConfirmResult;
 import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
@@ -1199,4 +1200,65 @@ class PaymentConfirmServiceTest {
 
 	// attemptId 필드는 API에서 제거되어 서버가 paymentKey에서 SHA-256으로 파생한다.
 	// 64자 초과 검증 테스트는 필드 삭제로 무효화되어 제거.
+
+	@Test
+	@DisplayName("같은 attemptId로 재요청했는데 attempt가 수동 확인 대상이면 PAYMENT_ATTEMPT_REVIEW_REQUIRED 예외가 발생하고 Toss를 호출하지 않는다")
+	void confirmPayment_retryOnReviewRequiredAttempt_rejects() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_review_required_retry";
+		String attemptId = forApproval(paymentKey);
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = paymentRepository.findAll().stream()
+			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
+			.findFirst()
+			.orElseThrow();
+
+		PaymentAttempt reviewed = PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey);
+		reviewed.markReviewRequired("REVIEW_DEPARTED", "출발 후 승인");
+		paymentAttemptRepository.save(reviewed);
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(paymentKey, preparedResult.orderCode(), amount);
+
+		// when & then
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED.getMessage());
+		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+		verify(tossPaymentClient, never()).queryPayment(any());
+	}
+
+	@Test
+	@DisplayName("수동 확인 대상 attempt로 승인 확정에 들어오면 PAYMENT_ATTEMPT_REVIEW_REQUIRED 예외가 발생하고 예매를 만들지 않는다")
+	void finalizeApproval_rejects_review_required_attempt() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_review_required_finalize";
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = paymentRepository.findAll().stream()
+			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
+			.findFirst()
+			.orElseThrow();
+
+		PaymentAttempt reviewed = PaymentAttempt.startApproval(payment.getId(), forApproval(paymentKey), paymentKey);
+		reviewed.markReviewRequired("REVIEW_SEAT_LOST", "좌석 충돌");
+		PaymentAttempt saved = paymentAttemptRepository.save(reviewed);
+
+		PaymentConfirmCommand command = new PaymentConfirmCommand(paymentKey, preparedResult.orderCode(), amount);
+		GatewayConfirmResult gatewayResult = new GatewayConfirmResult(
+			paymentKey, preparedResult.orderCode(), amount, PaymentMethod.CREDIT_CARD);
+
+		// when & then
+		assertThatThrownBy(() -> paymentApprovalFinalizer.finalizeApproval(
+			payment.getId(), saved.getId(), command, gatewayResult))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED.getMessage());
+		assertThat(bookingRepository.count()).isZero();
+	}
 }

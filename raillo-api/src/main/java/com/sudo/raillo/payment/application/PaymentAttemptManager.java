@@ -60,6 +60,8 @@ public class PaymentAttemptManager {
 			switch (previous.getStatus()) {
 				case IN_PROGRESS -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 				case SUCCEEDED -> throw new BusinessException(PaymentError.PAYMENT_ALREADY_COMPLETED);
+				// 이미 돈이 나간 결제를 사람이 확인하기 전에 다른 카드로 다시 청구하지 않는다.
+				case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 				case FAILED -> { /* 재시도 허용 (다른 카드) */ }
 			}
 		});

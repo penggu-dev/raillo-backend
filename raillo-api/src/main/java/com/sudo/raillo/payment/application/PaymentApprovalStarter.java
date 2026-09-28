@@ -110,6 +110,7 @@ public class PaymentApprovalStarter {
 				yield PaymentApprovalStart.alreadyConfirmed(paymentReader.getConfirmResult(payment.getId()));
 			}
 			case FAILED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
+			case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 			case IN_PROGRESS -> recoverInProgressAttempt(existing, payment, ctx);
 		};
 	}

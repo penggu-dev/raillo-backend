@@ -173,6 +173,21 @@ class PaymentAttemptManagerTest {
 		assertThat(updated.getErrorMessage()).isEqualTo("카드 거절");
 	}
 
+	@Test
+	@DisplayName("최근 승인 시도가 수동 확인 대상이면 다른 카드로 시작한 새 승인은 PAYMENT_ATTEMPT_REVIEW_REQUIRED 예외로 거절된다")
+	void rejects_new_attempt_when_latest_is_review_required() {
+		// given
+		PaymentAttempt reviewed = PaymentAttempt.startApproval(payment.getId(), "first", "first-key");
+		reviewed.markReviewRequired("REVIEW_SEAT_LOST", "좌석 충돌");
+		paymentAttemptRepository.save(reviewed);
+
+		// when & then
+		assertThatThrownBy(() -> paymentAttemptManager.startApprovalInNewTransaction(payment.getId(), "second", "second-key"))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED.getMessage());
+		assertThat(paymentAttemptRepository.findByAttemptId("second")).isEmpty();
+	}
+
 	private String startTogether(String attemptId, CountDownLatch ready, CountDownLatch start) throws InterruptedException {
 		ready.countDown();
 		if (!start.await(5, TimeUnit.SECONDS)) {
