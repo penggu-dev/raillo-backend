@@ -119,13 +119,14 @@
 | `payment_id` | FK | 인덱스 있음 |
 | `attempt_id` | String(64), unique | `SHA256(apv:paymentKey)` 파생. **paymentKey당 유일** |
 | `attempt_type` | Enum | `APPROVAL`, `CANCELLATION` |
-| `status` | Enum | `IN_PROGRESS`, `SUCCEEDED`, `FAILED`. 인덱스 있음 |
+| `status` | String(20) | `IN_PROGRESS`, `SUCCEEDED`, `FAILED`, `REVIEW_REQUIRED`. 인덱스 있음. MySQL ENUM이 아니라 VARCHAR로 매핑한다(`@JdbcTypeCode(SqlTypes.VARCHAR)`, 전환 SQL `docs/db-migrations/2026-09-26-payment-attempt-status-varchar.sql`). `REVIEW_REQUIRED`는 Toss에서 승인됐지만 자동으로 확정하지 않는 attempt이며, 재시도와 같은 결제의 새 attempt에는 `PAYMENT_ATTEMPT_REVIEW_REQUIRED`(`PAYMENT_117`)를 응답한다 |
 | `payment_key` | String | TX A에서 사전 저장 → recovery용 durable key |
-| `error_code`, `error_message` | String | 실패 시 |
+| `error_code`, `error_message` | String | 실패 시(예: Toss 오류 코드, `GATEWAY_{상태}`), 수동 확인 시(`REVIEW_SEAT_LOST`, `REVIEW_DEPARTED`, `REVIEW_RESULT_MISMATCH`) |
 | `processing_owner`, `processing_lease_until` | Recovery Worker 리스 관리용 |
 
 - **인덱스**: `idx_payment_attempt_payment_id`, `idx_payment_attempt_status_type`, `uk_payment_attempt_attempt_id`(unique)
 - **dedup 계약**: `attemptId` unique 제약이 서버 측 idempotency 역할. 같은 attemptId 두 번째 insert는 DB에서 거부됨
+- **조회 결과 불명**: 결제 조회가 timeout이나 응답 본문 끊김으로 끝나면 `TossPaymentClient.queryPayment`가 `QUERY_UNCERTAIN_{TIMEOUT|BODY|IO}` 코드(504 또는 502)로 알린다. 본문 읽기 실패는 최대 2회 다시 조회한다. 4xx가 아니므로 사용자 재시도는 attempt를 IN_PROGRESS로 남기고 재시도를 안내한다.
 
 ### PaymentOutbox
 

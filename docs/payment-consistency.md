@@ -246,8 +246,8 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 |---|---|---|
 | TX B 락 직렬화 | `PaymentApprovalFinalizer.finalizeApproval` | `paymentRepository.findByIdForUpdate(paymentId)`로 Payment에 pessimistic lock을 잡는다. 같은 Payment에 대한 두 TX B 진입은 DB가 순차 처리한다. |
 | Finalizer 이중 진입 조기 리턴 | `PaymentApprovalFinalizer.finalizeApproval` | 락 획득 후 `attempt.status == SUCCEEDED`이면 이전 결과를 그대로 반환한다. 원본과 재시도가 둘 다 DONE 경로로 갔을 때 뒤늦게 락을 얻은 쪽이 커밋하지 않는다. |
-| markFailed idempotency | `PaymentAttemptManager.markFailedInNewTransaction` | attempt가 이미 종결(SUCCEEDED/FAILED)이면 no-op으로 종료한다. 원본과 재시도가 둘 다 markFailed로 갈 때 뒤늦은 호출을 무해하게 종결한다. |
-| 도메인 상태 전이 검증 | `PaymentAttempt.markSucceeded` · `markFailed` | status가 IN_PROGRESS가 아니면 `DomainException(PAYMENT_ATTEMPT_NOT_TRANSITIONABLE)`. 위 방어를 모두 우회하는 경로에서 최후 방어선이다. |
+| markFailed 잠금과 idempotency | `PaymentAttemptManager.markFailedInNewTransaction`, `markReviewRequiredInNewTransaction` | TX B와 같은 Payment pessimistic lock을 먼저 잡은 뒤 attempt를 처음 읽는다. 잠금 전에 읽으면 그 시점 스냅샷으로 판단해 먼저 커밋된 SUCCEEDED를 FAILED로 덮어쓸 수 있다(#292). attempt가 이미 종결(SUCCEEDED, FAILED, REVIEW_REQUIRED)이면 no-op으로 종료한다. |
+| 도메인 상태 전이 검증 | `PaymentAttempt.markSucceeded`, `markFailed`, `markReviewRequired` | status가 IN_PROGRESS가 아니면 `DomainException(PAYMENT_ATTEMPT_NOT_TRANSITIONABLE)`. 위 방어를 모두 우회하는 경로에서 최후 방어선이다. |
 
 이 매커니즘이 겹쳐 있어 다음 시나리오가 데이터 오염 없이 종결된다.
 
