@@ -105,16 +105,16 @@ Toss 호출 직전에 `IN_PROGRESS`로 INSERT. 후속 `PaymentRecoveryWorker`는
 - **클라이언트 Idempotency-Key와의 연결.** 이슈 #260에서 클라이언트가 보내는 `Idempotency-Key` 헤더를 그대로 `attempt_id`에 저장하면 API 계층의 중복 방지와 도메인 계층의 시도 관리가 하나의 키로 이어진다.
 - **관심사 분리.** `payment_key`는 Toss가 발급하는 외부 시스템 키, `attempt_id`는 우리 도메인의 시도 참조 키다. 하나로 뭉치면 PG 교체나 시도 이력 확장 시 스키마 변경 범위가 커진다.
 
-현재 승인 API는 요청 body의 `attemptId`를 사용하며, 생략 시 `SHA-256("apv:" + paymentKey)`의
-64자리 16진수 문자열을 사용한다. Idempotency-Key 헤더 연동은 #260 범위다.
+현재 승인 API 요청 body에는 `attemptId` 필드가 없고, 서버가 항상 `SHA-256("apv:" + paymentKey)`의
+64자리 16진수 문자열을 파생해 쓴다(`PaymentAttemptIds`, `PaymentConfirmCommand.attemptId()`). Idempotency-Key 헤더 연동은 #260 범위다.
 
 #### 승인 재요청과 동시 실행 방어
 
 - 같은 attemptId는 `paymentId`, `paymentKey`, `APPROVAL` 타입까지 일치해야 재사용할 수 있다. 불일치하면 `PAYMENT_114`, 64자를 초과한 입력은 API 검증 또는 애플리케이션의 `PAYMENT_115`로 거절한다.
 - 성공한 시도는 DB에서 승인 결과 DTO를 직접 조회한다. 이미 로딩한 Payment 엔티티를 그대로 반환하지 않으므로, 다른 트랜잭션이 방금 승인한 결과도 반영한다. 최초 응답을 저장·재생하는 방식은 아니며 환불 등 이후 상태 변경도 반영한다.
 - `PaymentAttemptManager.startApprovalInNewTransaction`은 짧은 `REQUIRES_NEW` 트랜잭션에서 Payment 행을 잠그고, 기존 승인 시도와 승인 가능 상태를 확인한 뒤 attempt를 `IN_PROGRESS`로 INSERT한다. `payment.payment_key`는 이 시점에 세팅하지 않는다. 잠금과 DB 트랜잭션은 Toss 호출 전에 해제한다.
-- 반환값 `PaymentAttemptStartResult.created`가 true인 호출만 승인 API를 실행한다. 동일 시도의 재사용은 false로 반환하며, 다른 attemptId를 보내도 진행 중이거나 실패한 기존 승인을 우회할 수 없다.
-- 실패한 결제를 재시도하려면 새 주문·결제를 준비한다. 기존 Payment가 FAILED/CANCELLED/REFUNDED이면 외부 호출 전에 거절한다.
+- 반환값 `PaymentAttemptStartResult.created`가 true인 호출만 승인 API를 실행한다. 동일 시도의 재사용은 false로 반환한다. 다른 attemptId를 보내도 진행 중(`IN_PROGRESS`)이거나 확인 필요(`REVIEW_REQUIRED`)인 기존 승인은 우회할 수 없다. 실패(`FAILED`)한 승인 뒤에는 새 attemptId로 다시 시도할 수 있다(다른 카드 재결제).
+- Payment 자체가 FAILED/CANCELLED/REFUNDED로 끝났다면 새 주문과 결제를 준비한다. 그 Payment로 들어온 승인 요청은 외부 호출 전에 거절한다.
 - INSERT/커밋 무결성 오류 뒤에는 실제 동일 attempt의 존재와 요청 일치를 확인한다. 다른 제약 위반은 원래 오류로 전파한다. `payment.payment_key`는 승인 확정 시에만 저장하므로 TX A 실패로 롤백할 필드가 남지 않는다.
 - Toss의 4xx 응답은 확정 실패로 분류해 attempt만 FAILED로 마킹한다. Payment는 PENDING을 유지해 같은 Order에 대한 새 결제 시도를 열어 둔다. 5xx, 타임아웃, 응답 유실처럼 승인 여부를 단정할 수 없는 오류는 attempt를 IN_PROGRESS로 유지하고 유저 재시도 시 게이트웨이 조회로 회복한다.
 - Toss 성공 후 `PaymentApprovalFinalizer`가 새 트랜잭션에서 Payment를 다시 잠그고 승인 확정 시점에 `payment.payment_key`를 세팅하며 Order/Booking/Payment/Attempt/Outbox를 원자적으로 확정한다. 외부 호출 전에 읽은 엔티티는 확정에 재사용하지 않는다.
@@ -395,6 +395,109 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 | Redis 정리 중 일시 오류 | outbox 재시도, `retry_count` 초과 시 알람 |
 | Toss 취소 후 DB 커밋 전 크래시 | Recovery Worker가 취소 attempt 확정 |
 | DB 취소 커밋 후 좌석 해제 실패 | outbox 재시도로 좌석 해제 최종 반영 |
+
+## 결제 중 좌석 보호 — 방침 미확정
+
+문서 세 개가 서로 다른 말을 하고 있어 정리가 필요하다.
+
+| 문서 | 서술 |
+|---|---|
+| `payment-reservation-revised-plan.md` 5줄 | "결제 중 좌석 보호 전제를 폐기하고, 예약 TTL만 신뢰하는 방향으로 재작업한다" |
+| `reservation-cache-schema.md` 46줄 | "#270 후속 작업의 결제 중 좌석 보호로 자기 field가 먼저 사라지지 않게 한다" |
+| `payment-reservation-work-roadmap.md` §8 | 방향 A(HPERSIST로 attempt 완료까지 만료 방지)를 #270 착수 시 결정할 후보로 남겨둠 |
+
+브랜치 이름도 `feature/270-seat-protection-worker`라 폐기 이후 다시 검토한 흔적이 있다.
+
+### 왜 정해야 하나
+
+예약 TTL이 10분인데, 확정을 늦게 하는 경로들이 그 시간을 넘긴다.
+
+- Recovery Worker는 정의상 오래 남은 `IN_PROGRESS`를 처리한다. 그 기준이 10분을 넘으면 좌석은 이미 풀려 있다.
+- Webhook은 사용자가 결제창을 닫은 뒤 도착하므로 시간이 지나 있을 수 있다.
+- Outbox 재시도 창은 약 7.5분으로 TTL보다 짧지만, Worker가 지연되면 걸친다.
+
+즉 Recovery Worker를 도입하면 `REVIEW_SEAT_LOST`가 구조적으로 발생한다. 드문 예외가 아니라 늦게 확정하는 경로를 만들면 따라오는 결과다.
+
+### 카드 거절 후 재결제와 TTL
+
+늦게 확정하는 경로 말고 재결제도 TTL을 소비한다. 잔액 부족이나 한도 초과로 승인이 거절되면 사용자는 다른 카드로 다시 결제해야 하고, 그동안 좌석이 유지되어야 한다. 흐름 자체는 [케이스 2](./payment-cases.md)와 `payment-reservation-revised-plan.md` 31~36줄에 이미 있으므로 여기서는 TTL 논점만 다룬다.
+
+재결제가 새 결제창 경로가 되는 근거는 우리 코드 안에 있다. 같은 `paymentKey`로 다시 들어오면 `attemptId`가 같으므로 `PaymentApprovalStarter.handleExistingAttempt`의 `case FAILED`가 `PAYMENT_ATTEMPT_ALREADY_FAILED`를 던진다. 게이트웨이 동작과 무관하게 새 `paymentKey`를 받아야 통과한다.
+
+| 단계 | 결과 |
+|---|---|
+| 결제창 → `paymentKey` A → confirm 4xx | `PaymentConfirmService`가 attempt A를 `FAILED`로 기록. `Payment`는 `PENDING` 유지 |
+| 같은 `paymentKey`로 재요청 | `attemptId`가 같아 `PAYMENT_ATTEMPT_ALREADY_FAILED`로 거절 |
+| 결제창 재오픈 → 새 `paymentKey` B | 새 `attemptId`(`SHA-256("apv:" + paymentKey)`) |
+| TX A의 직전 attempt 검사 | `case FAILED -> { /* 재시도 허용 (다른 카드) */ }`로 통과 |
+
+정상 경로에는 추가 구현이 없고 제약은 남은 예약 TTL뿐이다. 사용자가 카드를 바꿔 다시 결제하는 시간이 거기 들어가야 하므로, TTL 연장 여부를 정할 때 Recovery Worker나 Webhook뿐 아니라 이 경로도 함께 본다.
+
+다만 예외가 하나 있다. 4xx 뒤 `markFailedInNewTransaction`이 Payment 잠금 대기 등으로 실패하면 로그만 남고 attempt는 `IN_PROGRESS`로 남는다(`PaymentConfirmService` 50~61줄). 이 상태에서 다른 카드로 재시도하면 `case IN_PROGRESS -> PAYMENT_ATTEMPT_IN_PROGRESS`에 막힌다. 코드 주석은 Recovery Worker가 대사하는 것으로 넘기지만 그 Worker가 이 섹션이 다루는 후속 작업이라, 현재는 회복 주체가 없다. 재결제 가능 조건이 TTL 하나만은 아니라는 뜻이다.
+
+`payment-reservation-revised-plan.md` 16줄과 18줄은 **같은 재결제 시나리오를 근거로** "예약 TTL 하나로 충분하고 결제 시점 별도 보호는 UX 저하만 만든다"고 결론 낸다. 이 섹션은 같은 시나리오를 TTL 연장 검토 근거로 쓰므로, 입장 차이를 인지한 상태에서 정해야 한다.
+
+### 선택지
+
+| 안 | 내용 | 비용 |
+|---|---|---|
+| TTL만 신뢰 (현재 방침) | 만료되면 `REVIEW_REQUIRED`로 분리 | 운영자 확인 건수가 쌓인다. 규모는 Worker 폴링 주기에 달렸다 |
+| 결제 시작 시 TTL 연장 (폐기된 방향 A) | attempt가 끝날 때까지 좌석 보호 | 예약 정리 책임이 attempt 상태 전이에 붙어 코드 경로가 늘어난다 |
+| 정해진 만큼만 연장 | 결제 시작 시 TTL을 한 번 연장하고 무한 보호는 하지 않는다 | 연장 폭과 만료 후 처리를 따로 정해야 한다 |
+
+### 먼저 할 것
+
+어느 안을 고르든 `REVIEW_REQUIRED` 건수 지표와 알림이 먼저 필요하다. 얼마나 쌓이는지 보지 않으면 TTL 연장이 필요한지 판단할 근거가 없다. 지표를 붙이고 실제 발생량을 확인한 뒤에 정한다.
+
+함께 확인할 것:
+
+- 카드 거절이 항상 4xx로 오는지, 2xx에 `DONE`이 아닌 `status`로 오는 경로는 없는지. 후자라면 [결제 수단별 확정 시점](#결제-수단별-확정-시점--확인-필요) 문제와 같은 뿌리다
+- 승인 거절 시 게이트웨이 결제 상태가 `ABORTED`로 확정되는지. 우리 코드는 조회에서 `ABORTED`를 보면 확정 실패로 다루지만, 4xx 거절이 `ABORTED`를 만든다는 근거는 저장소에 없다
+- 결제창 연동 방식(리다이렉트, 팝업)에 따라 거절 후 사용자가 어느 화면으로 돌아오는지
+- 재결제에 걸리는 실제 시간 분포. TTL 연장 폭을 정하려면 필요하다
+- `paymentKey`가 결제창 세션당 하나인지. 우리 문서에는 그렇게 적혀 있으나 게이트웨이가 보장한다는 외부 근거는 없다
+
+## 결제 수단별 확정 시점 — 확인 필요
+
+`TossPaymentGateway.confirm()`이 승인 응답의 `status`를 읽지 않고, 2xx면 곧바로 승인 성공으로 다룬다. `query()`는 `status`로 분기하지만 `confirm()`에는 그 분기가 없다. `TossPaymentConfirmResponse`에는 `status` 필드가 이미 있으므로 읽기만 하면 된다.
+
+카드와 간편결제는 승인 응답이 `DONE`이라 문제가 없다. 가상계좌는 승인 응답이 `WAITING_FOR_DEPOSIT`이고 **입금 전에도 2xx가 돌아온다.** 지금 코드는 이것을 `SUCCEEDED`로 확정하고 예매까지 발행하므로, 입금하지 않은 승차권이 나간다.
+
+`PaymentMethod`에 `VIRTUAL_ACCOUNT`와 `TRANSFER`가 있고 `TossPaymentGateway.mapMethod`도 두 값을 매핑한다. 다만 결제 위젯에서 실제로 노출되는 수단은 Toss 대시보드 설정이라 저장소에서 확인할 수 없다.
+
+### 먼저 확인할 것
+
+- Toss 대시보드에서 가상계좌와 계좌이체가 켜져 있는지
+- 꺼져 있다면 앞으로 켤 계획이 있는지
+
+둘 다 아니라면 `PaymentMethod`에서 해당 값을 지우거나, 승인 응답이 `DONE`이 아닐 때 거절하는 방어만 두고 끝낸다.
+
+### 켤 경우 결정할 것
+
+| 항목 | 내용 |
+|---|---|
+| 확정 조건 | 승인 응답 `status == DONE`일 때만 `SUCCEEDED`로 확정한다. `WAITING_FOR_DEPOSIT`은 별도 처리 |
+| 입금 대기 표현 | 승인은 성공했으나 입금 전인 상태를 어떻게 남길지. 기존 `IN_PROGRESS`를 재사용하면 Recovery Worker가 결과 불명으로 오인하므로 구분이 필요하다 |
+| 좌석 확보 | 입금 기한이 보통 며칠이라 예약 TTL 10분과 맞지 않는다. 입금 전까지 좌석을 어떻게 잡아둘지 정해야 한다 |
+| 입금 통지 | 입금 완료는 Webhook(`DEPOSIT_CALLBACK`)으로만 알 수 있다. 가상계좌를 켜면 Webhook(#291)이 선택이 아니라 필수가 된다 |
+| 입금 오류 | Toss v1.4 이후 입금 오류 시 `DONE`에서 `WAITING_FOR_DEPOSIT`으로 되돌아간다. 확정 후 되돌아오는 유일한 경로이므로 발권 이후라면 `REVIEW_REQUIRED`로 분리한다 |
+| 기한 만료 | 입금 기한이 지나면 좌석을 해제하고 주문을 정리하는 경로가 필요하다 |
+
+### 범위 판단
+
+가상계좌를 지원하려면 확정 시점과 좌석 확보 정책이 카드와 완전히 달라진다. 결제 수단 하나를 늘리는 작업이 아니라 **별도 흐름을 하나 더 만드는 작업**에 가깝다. 승인 응답 `status` 검사만 먼저 넣어 입금 전 발권을 막고, 가상계좌 지원 여부는 별도 이슈에서 판단한다.
+
+## 취소 멱등키 — 파생 규칙을 쓰지 않는다
+
+`TossPaymentClient.cancelPayment`는 `Idempotency-Key` 헤더를 보내지만 값이 `UUID.randomUUID()`다. 호출할 때마다 새 키라서 같은 취소를 재시도하면 게이트웨이가 별개 요청으로 받는다.
+
+규칙이 없어서가 아니다. `PaymentAttemptIds.forCancellation(paymentKey, cancellationSequence)`가 `sha256Hex("cnl:" + paymentKey + ":" + sequence)`로 이미 구현돼 있고 단위 테스트도 있다. 승인의 `apv:` 규칙과 나란히 있으며 부분 취소를 sequence로 구분하는 의도까지 javadoc에 적혀 있다. `cancelPayment`가 그 규칙을 쓰지 않는 것이 실제 갭이다.
+
+`forCancellation`은 프로덕션 호출자가 없고 `cancelPayment`도 호출자가 타이머 aspect뿐이라 취소 경로 전체가 아직 배선 전이다. 지금 바꿔도 회귀 위험이 없다.
+
+열린 문제는 하나다. **취소 단위를 승차권으로 잡으면 `cancellationSequence`를 무엇으로 채울지 정해야 한다.** 결제당 취소 횟수를 세는 값이면 동시 취소에서 같은 sequence가 나올 수 있고, 취소 대상 승차권 집합에서 파생하면 같은 승차권을 두 번 취소하는 요청이 같은 키가 되어 의도한 멱등성이 된다. 취소 API 설계와 함께 정한다.
+
+`confirmPayment`에는 `Idempotency-Key` 헤더가 없다. 같은 `paymentKey`로 두 번 승인되지 않는 것은 헤더가 아니라 `paymentKey`가 결제창 세션당 하나라는 성질과 우리 쪽 `attempt_id` unique 제약에서 온다. 앞의 성질은 우리 문서에만 있는 서술이라 [먼저 할 것](#먼저-할-것)의 확인 목록에 함께 올려 두었다.
 
 ## Metrics — 후속 이슈에서 도입
 

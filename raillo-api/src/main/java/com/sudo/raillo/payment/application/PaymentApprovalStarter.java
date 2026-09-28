@@ -152,7 +152,7 @@ public class PaymentApprovalStarter {
 						// 이미 카드가 승인된 상태이므로 재예약을 안내하는 reservationCheckFailed를 그대로 던지면 안 된다.
 						throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 					}
-					// 그 외(IN_PROGRESS·FAILED)는 원래 예외(예약 만료 등)를 그대로 던진다.
+					// 그 외(IN_PROGRESS와 FAILED)는 원래 예외(예약 만료 등)를 그대로 던진다.
 					throw reservationCheckFailed;
 				}
 				yield PaymentApprovalStart.recovered(payment.getId(), existing.getId(), query.confirmResult());
