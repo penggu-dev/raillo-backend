@@ -48,7 +48,8 @@ public class PaymentConfirmService implements PaymentConfirmer {
 				if (failure.isDefinitiveFailure()) {
 					// Toss 4xx는 확정 실패이므로 attempt만 FAILED로 마킹한다(Payment는 PENDING 유지).
 					paymentAttemptManager.markFailedInNewTransaction(
-						start.attemptDbId(), failure.getErrorCode(), failure.getMessage()
+						start.paymentId(), start.attemptDbId(),
+						new AttemptError(failure.getErrorCode(), failure.getMessage())
 					);
 				}
 				// 5xx/timeout은 결과 불명이라 IN_PROGRESS로 남기고 회복 경로(사용자 재시도·Recovery Worker)에 위임한다.

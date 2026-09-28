@@ -3,6 +3,8 @@ package com.sudo.raillo.payment.domain;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.Comment;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -53,6 +55,7 @@ public class PaymentAttempt {
 	private PaymentAttemptType attemptType;
 
 	@Enumerated(EnumType.STRING)
+	@JdbcTypeCode(SqlTypes.VARCHAR)
 	@Column(name = "status", nullable = false, length = 20)
 	private PaymentAttemptStatus status;
 
@@ -105,6 +108,19 @@ public class PaymentAttempt {
 			throw new DomainException(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
 		}
 		this.status = PaymentAttemptStatus.FAILED;
+		this.errorCode = errorCode;
+		this.errorMessage = errorMessage;
+	}
+
+	/**
+	 * Toss에서 승인돼 돈이 나갔지만 자동으로 예매를 확정하면 안 되는 attempt로 표시한다.
+	 * errorCode는 {@code REVIEW_SEAT_LOST}, {@code REVIEW_DEPARTED}, {@code REVIEW_RESULT_MISMATCH} 중 하나다.
+	 */
+	public void markReviewRequired(String errorCode, String errorMessage) {
+		if (this.status != PaymentAttemptStatus.IN_PROGRESS) {
+			throw new DomainException(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
+		}
+		this.status = PaymentAttemptStatus.REVIEW_REQUIRED;
 		this.errorCode = errorCode;
 		this.errorMessage = errorMessage;
 	}

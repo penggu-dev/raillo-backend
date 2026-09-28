@@ -60,6 +60,8 @@ public class PaymentAttemptManager {
 			switch (previous.getStatus()) {
 				case IN_PROGRESS -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 				case SUCCEEDED -> throw new BusinessException(PaymentError.PAYMENT_ALREADY_COMPLETED);
+				// 이미 돈이 나간 결제를 사람이 확인하기 전에 다른 카드로 다시 청구하지 않는다.
+				case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 				case FAILED -> { /* 재시도 허용 (다른 카드) */ }
 			}
 		});
@@ -70,17 +72,38 @@ public class PaymentAttemptManager {
 	}
 
 	/**
-	 * 이미 종결(SUCCEEDED/FAILED)된 attempt에 대한 재호출은 no-op으로 종료한다. 동시 재시도 경합에서 뒤늦게 도착한 markFailed 호출을 무해하게 종결하기 위한 idempotency 방어.
+	 * attempt를 FAILED로 바꾼다. 이미 종결된 attempt면 아무것도 하지 않는다.
+	 *
+	 * <p>승인 확정(TX B)과 같은 Payment 잠금을 먼저 얻은 뒤 attempt를 처음 읽는다. 잠금 전에 attempt를 읽으면
+	 * 그 시점의 스냅샷으로 판단해 먼저 커밋된 SUCCEEDED를 덮어쓸 수 있다(#292).
 	 */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	public void markFailedInNewTransaction(Long attemptDbId, String errorCode, String errorMessage) {
+	public void markFailedInNewTransaction(Long paymentId, Long attemptDbId, AttemptError error) {
+		lockPaymentAndLoadInProgress(paymentId, attemptDbId, "markFailed")
+			.ifPresent(attempt -> attempt.markFailed(error.code(), error.message()));
+	}
+
+	/**
+	 * attempt를 수동 확인 대상(REVIEW_REQUIRED)으로 바꾼다. 이미 종결된 attempt면 아무것도 하지 않는다.
+	 * 잠금 순서와 이유는 {@link #markFailedInNewTransaction}과 같다.
+	 */
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void markReviewRequiredInNewTransaction(Long paymentId, Long attemptDbId, AttemptError error) {
+		lockPaymentAndLoadInProgress(paymentId, attemptDbId, "markReviewRequired")
+			.ifPresent(attempt -> attempt.markReviewRequired(error.code(), error.message()));
+	}
+
+	/** Payment를 잠근 뒤 attempt를 처음 읽는다. attempt가 IN_PROGRESS가 아니면 비어 있는 결과를 돌려준다. */
+	private Optional<PaymentAttempt> lockPaymentAndLoadInProgress(Long paymentId, Long attemptDbId, String action) {
+		paymentRepository.findByIdForUpdate(paymentId)
+			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
 		PaymentAttempt attempt = paymentAttemptRepository.findById(attemptDbId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_ATTEMPT_NOT_FOUND));
-
 		if (attempt.getStatus() != PaymentAttemptStatus.IN_PROGRESS) {
-			log.info("[markFailed - 이미 종결된 attempt, no-op] attemptId={}, currentStatus={}", attempt.getAttemptId(), attempt.getStatus());
-			return;
+			log.info("[{} - 이미 종결된 attempt, no-op] attemptId={}, currentStatus={}",
+				action, attempt.getAttemptId(), attempt.getStatus());
+			return Optional.empty();
 		}
-		attempt.markFailed(errorCode, errorMessage);
+		return Optional.of(attempt);
 	}
 }

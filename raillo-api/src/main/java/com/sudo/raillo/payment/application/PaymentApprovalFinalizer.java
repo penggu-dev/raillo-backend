@@ -70,6 +70,13 @@ public class PaymentApprovalFinalizer {
 			return PaymentConfirmResult.from(payment);
 		}
 
+		// Worker가 먼저 수동 확인 대상으로 바꾼 attempt는 자동으로 확정하지 않는다.
+		if (attempt.getStatus() == PaymentAttemptStatus.REVIEW_REQUIRED) {
+			log.warn("[결제 확정 거절 - 수동 확인 대상] attemptId={}, paymentId={}, errorCode={}",
+				attempt.getAttemptId(), paymentId, attempt.getErrorCode());
+			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
+		}
+
 		paymentValidator.validateApprovable(payment);
 		paymentValidator.validateAmounts(command.amount(), order.getTotalAmount(), payment.getAmount());
 		paymentValidator.validateDuplicatePayment(order);
