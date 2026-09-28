@@ -2,9 +2,11 @@ package com.sudo.raillo.payment.adapter.integration.toss;
 
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -25,6 +27,10 @@ import lombok.extern.slf4j.Slf4j;
 public class TossPaymentClient {
 
 	private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+
+	/** 응답 본문 읽기에 실패했을 때 결제 조회를 다시 하는 최대 횟수(스펙 9장). */
+	private static final int QUERY_BODY_MAX_RETRIES = 2;
+	private static final long QUERY_BODY_RETRY_INTERVAL_MILLIS = 200L;
 
 	private final RestClient tossPaymentRestClient;
 	private final ObjectMapper objectMapper;
@@ -72,35 +78,85 @@ public class TossPaymentClient {
 	}
 
 	/**
-	 * 토스페이먼츠 결제 조회 API 호출 (GET /v1/payments/{paymentKey}). Toss 응답 유실로 PaymentAttempt가 IN_PROGRESS로 남은 상태에서 사용자가 재시도할 때 실제 상태를 확인해 로컬을 정정하는 데 사용한다.
+	 * 토스페이먼츠 결제 조회 API 호출 (GET /v1/payments/{paymentKey}). Toss 응답 유실로 PaymentAttempt가 IN_PROGRESS로 남은 상태에서 실제 상태를 확인해 로컬을 정정하는 데 사용한다.
+	 *
+	 * <p>Toss 오류 응답은 그 상태와 코드의 {@link TossPaymentException}으로 던진다. 응답 헤더는 받았지만 본문을 읽거나
+	 * 해석하지 못하면 최대 {@value #QUERY_BODY_MAX_RETRIES}회 다시 조회한다. 헤더 수신 전 실패는 Apache 재시도가 이미 다뤘으므로
+	 * 다시 조회하지 않는다. 끝내 결과를 알 수 없으면 {@code QUERY_UNCERTAIN_{원인}} 코드의 예외를 던진다.
 	 */
 	public TossPaymentQueryResponse queryPayment(String paymentKey) {
 		log.info("[TOSS] 결제 조회 요청: paymentKey={}", paymentKey);
 
+		for (int retry = 0; ; retry++) {
+			try {
+				TossPaymentQueryResponse response = tossPaymentRestClient.get()
+					.uri("/v1/payments/{paymentKey}", paymentKey)
+					.exchange((req, res) -> {
+						if (res.getStatusCode().isError()) {
+							handleErrorResponse(res, "query");
+						}
+						try {
+							return res.bodyTo(TossPaymentQueryResponse.class);
+						} catch (RuntimeException e) {
+							throw new QueryBodyReadException(e);
+						}
+					});
+
+				log.info("[TOSS] 결제 조회 성공: paymentKey={}, status={}, method={}",
+					response.paymentKey(), response.status(), response.method());
+				return response;
+
+			} catch (TossPaymentException e) {
+				throw e;
+			} catch (QueryBodyReadException e) {
+				if (retry < QUERY_BODY_MAX_RETRIES && sleepBeforeQueryRetry()) {
+					log.warn("[TOSS] 결제 조회 응답 본문 읽기 실패, 다시 조회: paymentKey={}, retry={}",
+						paymentKey, retry + 1, e.getCause());
+					continue;
+				}
+				throw queryUncertain("BODY", HttpStatus.BAD_GATEWAY, e.getCause());
+			} catch (Exception e) {
+				if (isTimeout(e)) {
+					throw queryUncertain("TIMEOUT", HttpStatus.GATEWAY_TIMEOUT, e);
+				}
+				throw queryUncertain("IO", HttpStatus.BAD_GATEWAY, e);
+			}
+		}
+	}
+
+	private TossPaymentException queryUncertain(String cause, HttpStatus status, Throwable e) {
+		String errorCode = "QUERY_UNCERTAIN_" + cause;
+		log.error("[TOSS] 결제 조회 결과 불명: errorCode={}", errorCode, e);
+		tossApiMetrics.incrementFailure("query", 0, errorCode);
+		return new TossPaymentException(status.value(), errorCode, "결제 조회 결과를 확인하지 못했습니다.");
+	}
+
+	/** @return 기다린 뒤 다시 조회해도 되면 true, 인터럽트되면 false */
+	private boolean sleepBeforeQueryRetry() {
 		try {
-			TossPaymentQueryResponse response = tossPaymentRestClient.get()
-				.uri("/v1/payments/{paymentKey}", paymentKey)
-				.exchange((req, res) -> {
-					if (res.getStatusCode().isError()) {
-						handleErrorResponse(res, "query");
-					}
-					return res.bodyTo(TossPaymentQueryResponse.class);
-				});
+			Thread.sleep(QUERY_BODY_RETRY_INTERVAL_MILLIS);
+			return true;
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return false;
+		}
+	}
 
-			log.info("[TOSS] 결제 조회 성공: paymentKey={}, status={}, method={}",
-				response.paymentKey(), response.status(), response.method());
+	/** 연결, 커넥션 획득, 읽기 timeout은 모두 InterruptedIOException 계열이다. */
+	private static boolean isTimeout(Throwable e) {
+		for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+			if (cause instanceof InterruptedIOException) {
+				return true;
+			}
+		}
+		return false;
+	}
 
-			return response;
+	/** 결제 조회 응답의 헤더는 받았지만 본문을 읽거나 해석하지 못했음을 표시한다. 조회 재시도 판단에만 쓴다. */
+	private static final class QueryBodyReadException extends RuntimeException {
 
-		} catch (TossPaymentException e) {
-			throw e;
-		} catch (Exception e) {
-			log.error("[TOSS] 결제 조회 중 알 수 없는 예외 발생", e);
-			tossApiMetrics.incrementFailure("query", 0, "CLIENT_ERROR");
-			throw new BusinessException(
-				PaymentError.PAYMENT_SYSTEM_ERROR,
-				"결제 조회 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
-			);
+		private QueryBodyReadException(Throwable cause) {
+			super(cause);
 		}
 	}
 
