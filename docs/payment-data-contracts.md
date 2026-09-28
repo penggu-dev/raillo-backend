@@ -119,7 +119,7 @@
 | `payment_id` | FK | 인덱스 있음 |
 | `attempt_id` | String(64), unique | `SHA256(apv:paymentKey)` 파생. **paymentKey당 유일** |
 | `attempt_type` | Enum | `APPROVAL`, `CANCELLATION` |
-| `status` | String(20) | `IN_PROGRESS`, `SUCCEEDED`, `FAILED`, `REVIEW_REQUIRED`. 인덱스 있음. MySQL ENUM이 아니라 VARCHAR로 매핑한다(`@JdbcTypeCode(SqlTypes.VARCHAR)`, 전환 SQL `docs/db-migrations/2026-09-26-payment-attempt-status-varchar.sql`). `REVIEW_REQUIRED`는 Toss에서 승인됐지만 자동으로 확정하지 않는 attempt이며, 재시도와 같은 결제의 새 attempt에는 `PAYMENT_ATTEMPT_REVIEW_REQUIRED`(`PAYMENT_117`)를 응답한다 |
+| `status` | String(20) | `IN_PROGRESS`, `SUCCEEDED`, `FAILED`, `REVIEW_REQUIRED`. 인덱스 있음. MySQL ENUM이 아니라 VARCHAR로 매핑한다(`@Enumerated(EnumType.STRING)`, `@JdbcTypeCode(SqlTypes.VARCHAR)`, 전환 SQL `docs/db-migrations/2026-09-26-payment-attempt-status-varchar.sql`). 이 VARCHAR 매핑은 ALTER로 전환한 기존 컬럼(개발과 운영 DB)에서만 값 추가가 DB 작업 없이 끝난다. 테스트 컨테이너처럼 엔티티 매핑으로 스키마를 새로 만드는 환경은 Hibernate가 `@Enumerated(EnumType.STRING)`에서 `status varchar(20) not null check (status in (...))` 형태의 CHECK 제약을 함께 생성하고 `ddl-auto: update`는 기존 CHECK를 갱신하지 않으므로, 새 상태 값을 추가하면 그런 환경에서만 거부될 수 있다. `REVIEW_REQUIRED`는 Toss에서 승인됐지만 자동으로 확정하지 않는 attempt이며, 재시도와 같은 결제의 새 attempt에는 `PAYMENT_ATTEMPT_REVIEW_REQUIRED`(`PAYMENT_117`)를 응답한다 |
 | `payment_key` | String | TX A에서 사전 저장 → recovery용 durable key |
 | `error_code`, `error_message` | String | 실패 시(예: Toss 오류 코드, `GATEWAY_{상태}`), 수동 확인 시(`REVIEW_SEAT_LOST`, `REVIEW_DEPARTED`, `REVIEW_RESULT_MISMATCH`) |
 | `processing_owner`, `processing_lease_until` | Recovery Worker 리스 관리용 |
