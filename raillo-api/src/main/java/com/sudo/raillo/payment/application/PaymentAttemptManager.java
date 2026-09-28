@@ -13,6 +13,7 @@ import com.sudo.raillo.payment.domain.PaymentAttempt;
 import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
@@ -93,12 +94,23 @@ public class PaymentAttemptManager {
 			.ifPresent(attempt -> attempt.markReviewRequired(error.code(), error.message()));
 	}
 
-	/** Payment를 잠근 뒤 attempt를 처음 읽는다. attempt가 IN_PROGRESS가 아니면 비어 있는 결과를 돌려준다. */
+	/**
+	 * Payment를 잠근 뒤 attempt를 처음 읽는다. attempt가 IN_PROGRESS가 아니면 비어 있는 결과를 돌려준다.
+	 *
+	 * <p>attempt가 이 paymentId 소유가 아니면 곧바로 거절한다. paymentId로 잠근 행과 attemptDbId로 읽은 행이
+	 * 서로 다르면, 호출자가 기대한 것과 다른 Payment 잠금 아래에서 전이가 일어나 TX B와 잠금 순서를 맞추려던
+	 * 목적(#292)이 깨지고도 예외나 로그 없이 조용히 성공한다.
+	 */
 	private Optional<PaymentAttempt> lockPaymentAndLoadInProgress(Long paymentId, Long attemptDbId, String action) {
 		paymentRepository.findByIdForUpdate(paymentId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
 		PaymentAttempt attempt = paymentAttemptRepository.findById(attemptDbId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_ATTEMPT_NOT_FOUND));
+		if (!Objects.equals(attempt.getPaymentId(), paymentId)) {
+			log.error("[{} - attempt가 요청한 paymentId 소유가 아님] attemptId={}, attemptPaymentId={}, requestedPaymentId={}",
+				action, attempt.getAttemptId(), attempt.getPaymentId(), paymentId);
+			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REQUEST_MISMATCH);
+		}
 		if (attempt.getStatus() != PaymentAttemptStatus.IN_PROGRESS) {
 			log.info("[{} - 이미 종결된 attempt, no-op] attemptId={}, currentStatus={}",
 				action, attempt.getAttemptId(), attempt.getStatus());

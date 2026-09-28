@@ -139,26 +139,37 @@ public class PaymentApprovalStarter {
 					validateReservationsAlive(ctx.order(), ctx.memberNo());
 				} catch (BusinessException reservationCheckFailed) {
 					// 이 조회와 검증 사이 원 요청이 TX B를 커밋하고 Outbox Worker가 R→B(예약→예매 점유 전환)까지
-					// 끝냈다면 예약이 이미 정리된 것이 정상이다. attempt를 다시 읽어 SUCCEEDED면 확정 결과를 반환하고,
-					// 아니면 원래 예외(예약 만료 등)를 그대로 던진다.
+					// 끝냈다면 예약이 이미 정리된 것이 정상이다. attempt를 다시 읽어 상태에 따라 분기한다.
 					PaymentAttempt refreshed = paymentAttemptRepository.findById(existing.getId())
 						.orElseThrow(() -> reservationCheckFailed);
-					if (refreshed.getStatus() != PaymentAttemptStatus.SUCCEEDED) {
-						throw reservationCheckFailed;
+					if (refreshed.getStatus() == PaymentAttemptStatus.SUCCEEDED) {
+						log.info("[결제 재요청 - 조회 중 원 요청이 먼저 확정] attemptId={}, paymentId={}",
+							existing.getAttemptId(), payment.getId());
+						yield PaymentApprovalStart.alreadyConfirmed(paymentReader.getConfirmResult(payment.getId()));
 					}
-					log.info("[결제 재요청 - 조회 중 원 요청이 먼저 확정] attemptId={}, paymentId={}",
-						existing.getAttemptId(), payment.getId());
-					yield PaymentApprovalStart.alreadyConfirmed(paymentReader.getConfirmResult(payment.getId()));
+					if (refreshed.getStatus() == PaymentAttemptStatus.REVIEW_REQUIRED) {
+						// 조회 사이 다른 절차가 attempt를 수동 확인 대상으로 바꿨다면 예약 만료가 아니라 확인 필요로 안내한다.
+						// 이미 카드가 승인된 상태이므로 재예약을 안내하는 reservationCheckFailed를 그대로 던지면 안 된다.
+						throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
+					}
+					// 그 외(IN_PROGRESS·FAILED)는 원래 예외(예약 만료 등)를 그대로 던진다.
+					throw reservationCheckFailed;
 				}
 				yield PaymentApprovalStart.recovered(payment.getId(), existing.getId(), query.confirmResult());
 			}
 			case ABORTED, EXPIRED, CANCELED, PARTIAL_CANCELED -> {
 				// Toss 상 확정 실패 - attempt를 FAILED로 마킹하고 사용자에게 안내한다.
 				log.warn("[결제 재요청 - 게이트웨이가 확정 실패로 응답] status={}, paymentKey={}", status, paymentKey);
-				paymentAttemptManager.markFailedInNewTransaction(
-					payment.getId(), existing.getId(),
-					new AttemptError("GATEWAY_" + status.name(), "게이트웨이가 확정 실패로 응답했습니다.")
-				);
+				// 마킹이 실패해도 아래에서 던지는 PAYMENT_ATTEMPT_ALREADY_FAILED를 가리면 안 된다.
+				try {
+					paymentAttemptManager.markFailedInNewTransaction(
+						payment.getId(), existing.getId(),
+						new AttemptError("GATEWAY_" + status.name(), "게이트웨이가 확정 실패로 응답했습니다.")
+					);
+				} catch (RuntimeException markingError) {
+					log.error("[결제 재요청 - attempt 실패 마킹 중 오류] paymentId={}, attemptDbId={}, markingErrorCode={}",
+						payment.getId(), existing.getId(), markingErrorCode(markingError), markingError);
+				}
 				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 			}
 			case READY, IN_PROGRESS, WAITING_FOR_DEPOSIT, UNKNOWN -> {
@@ -177,15 +188,26 @@ public class PaymentApprovalStarter {
 		if (failure.isResourceNotFound()) {
 			log.warn("[결제 재요청 - 게이트웨이가 paymentKey를 찾지 못함] httpStatus={}, errorCode={}, message={}",
 				failure.getHttpStatus(), failure.getErrorCode(), failure.getMessage());
-			paymentAttemptManager.markFailedInNewTransaction(
-				payment.getId(), existing.getId(),
-				new AttemptError("GATEWAY_" + failure.getErrorCode(), failure.getMessage())
-			);
+			// 마킹이 실패해도 아래에서 던지는 PAYMENT_ATTEMPT_ALREADY_FAILED를 가리면 안 된다.
+			try {
+				paymentAttemptManager.markFailedInNewTransaction(
+					payment.getId(), existing.getId(),
+					new AttemptError("GATEWAY_" + failure.getErrorCode(), failure.getMessage())
+				);
+			} catch (RuntimeException markingError) {
+				log.error("[결제 재요청 - attempt 실패 마킹 중 오류] paymentId={}, attemptDbId={}, markingErrorCode={}",
+					payment.getId(), existing.getId(), markingErrorCode(markingError), markingError);
+			}
 			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 		}
 		log.warn("[결제 재요청 - 게이트웨이 조회 실패, IN_PROGRESS 유지 후 Recovery 대기] httpStatus={}, errorCode={}",
 			failure.getHttpStatus(), failure.getErrorCode());
 		throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+	}
+
+	/** 마킹 실패 로그용 코드. BusinessException이면 ErrorCode를, 그 외에는 예외 클래스명을 쓴다. */
+	private static String markingErrorCode(RuntimeException e) {
+		return e instanceof BusinessException be ? String.valueOf(be.getErrorCode()) : e.getClass().getSimpleName();
 	}
 
 	private void validateReservationsAlive(Order order, String memberNo) {
