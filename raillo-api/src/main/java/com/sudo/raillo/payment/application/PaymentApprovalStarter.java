@@ -126,7 +126,7 @@ public class PaymentApprovalStarter {
 		try {
 			query = paymentGateway.query(paymentKey);
 		} catch (PaymentGatewayException gatewayFailure) {
-			return handleQueryFailure(existing, gatewayFailure);
+			return handleQueryFailure(existing, payment, gatewayFailure);
 		}
 		GatewayPaymentStatus status = query.status();
 		log.info("[결제 재요청 - 게이트웨이 상태 조회] paymentKey={}, status={}", paymentKey, status);
@@ -156,7 +156,8 @@ public class PaymentApprovalStarter {
 				// Toss 상 확정 실패 - attempt를 FAILED로 마킹하고 사용자에게 안내한다.
 				log.warn("[결제 재요청 - 게이트웨이가 확정 실패로 응답] status={}, paymentKey={}", status, paymentKey);
 				paymentAttemptManager.markFailedInNewTransaction(
-					existing.getId(), "GATEWAY_" + status.name(), "게이트웨이가 확정 실패로 응답했습니다."
+					payment.getId(), existing.getId(),
+					new AttemptError("GATEWAY_" + status.name(), "게이트웨이가 확정 실패로 응답했습니다.")
 				);
 				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 			}
@@ -172,12 +173,13 @@ public class PaymentApprovalStarter {
 	 * 게이트웨이 조회 자체가 실패한 경우의 처리. 조회 API의 4xx는 승인의 4xx와 의미가 달라, "결제 없음"이 확정된 응답만 attempt를 FAILED로 마킹한다.
 	 * 그 외(인증 오류·rate limit·게이트웨이 내부 오류)는 승인 여부 판단 불가라 로컬 상태를 유지하고 재시도를 안내하며, Recovery Worker(#270)가 이어서 대사한다.
 	 */
-	private PaymentApprovalStart handleQueryFailure(PaymentAttempt existing, PaymentGatewayException failure) {
+	private PaymentApprovalStart handleQueryFailure(PaymentAttempt existing, Payment payment, PaymentGatewayException failure) {
 		if (failure.isResourceNotFound()) {
 			log.warn("[결제 재요청 - 게이트웨이가 paymentKey를 찾지 못함] httpStatus={}, errorCode={}, message={}",
 				failure.getHttpStatus(), failure.getErrorCode(), failure.getMessage());
 			paymentAttemptManager.markFailedInNewTransaction(
-				existing.getId(), "GATEWAY_" + failure.getErrorCode(), failure.getMessage()
+				payment.getId(), existing.getId(),
+				new AttemptError("GATEWAY_" + failure.getErrorCode(), failure.getMessage())
 			);
 			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 		}
