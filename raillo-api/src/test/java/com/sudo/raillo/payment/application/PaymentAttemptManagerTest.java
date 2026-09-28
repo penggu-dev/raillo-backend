@@ -220,6 +220,26 @@ class PaymentAttemptManagerTest {
 	}
 
 	@Test
+	@DisplayName("attempt가 요청한 paymentId 소유가 아니면 실패 처리를 거절하고 attempt 상태를 바꾸지 않는다")
+	void markFailed_rejects_attempt_owned_by_different_payment() {
+		// given: 다른 Payment 소유의 IN_PROGRESS attempt
+		var otherMember = memberRepository.save(MemberFixture.createOther());
+		var otherOrder = orderRepository.save(OrderFixture.create(otherMember));
+		Payment otherPayment = paymentRepository.save(Payment.create(otherMember, otherOrder));
+		PaymentAttempt otherAttempt = paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(otherPayment.getId(), "attempt-other", "toss-key"));
+
+		// when / then: 이번 payment의 잠금으로 다른 payment 소유 attempt를 실패 처리하려 하면 거절된다
+		assertThatThrownBy(() -> paymentAttemptManager.markFailedInNewTransaction(
+			payment.getId(), otherAttempt.getId(), new AttemptError("REJECT", "카드 거절")))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(PaymentError.PAYMENT_ATTEMPT_REQUEST_MISMATCH.getMessage());
+
+		PaymentAttempt unchanged = paymentAttemptRepository.findById(otherAttempt.getId()).orElseThrow();
+		assertThat(unchanged.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+	}
+
+	@Test
 	@DisplayName("markReviewRequiredInNewTransaction으로 IN_PROGRESS attempt를 REVIEW_REQUIRED로 바꾸고 사유를 기록한다")
 	void markReviewRequiredInNewTransaction_transitions() {
 		// given

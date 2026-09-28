@@ -77,6 +77,17 @@ public class PaymentApprovalFinalizer {
 			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 		}
 
+		// attempt가 이미 FAILED인데 여기까지 왔다면 Toss는 승인했고 카드는 청구됐는데 우리 기록만 FAILED로
+		// 남아 예매가 만들어지지 않은 상태다. Recovery Worker는 IN_PROGRESS만 다시 집기 때문에 이 레코드는
+		// 아무도 다시 보지 않는다. FAILED → REVIEW_REQUIRED 전이는 도메인이 막고 있으므로(markReviewRequired는
+		// IN_PROGRESS에서만 허용) 여기서는 탐지와 알림만 하고 해결은 후속 계획으로 넘긴다.
+		if (attempt.getStatus() == PaymentAttemptStatus.FAILED) {
+			log.error("[결제 확정 위험 - 이미 FAILED인 attempt에 승인 확정 진입] paymentKey={}, attemptId={}, paymentId={}, "
+					+ "돈이 이미 빠져나갔을 수 있으나 attempt는 FAILED이고 예매는 생성되지 않았습니다.",
+				command.paymentKey(), attempt.getAttemptId(), paymentId);
+			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
+		}
+
 		paymentValidator.validateApprovable(payment);
 		paymentValidator.validateAmounts(command.amount(), order.getTotalAmount(), payment.getAmount());
 		paymentValidator.validateDuplicatePayment(order);

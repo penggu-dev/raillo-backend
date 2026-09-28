@@ -8,6 +8,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -450,6 +451,21 @@ class TossPaymentClientTest {
 				.isInstanceOf(TossPaymentException.class)
 				.hasFieldOrPropertyWithValue("errorCode", "QUERY_UNCERTAIN_TIMEOUT")
 				.hasFieldOrPropertyWithValue("httpStatus", 504);
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("응답 헤더를 받기 전에 timeout이 아닌 IO 오류가 나면 다시 조회하지 않고 QUERY_UNCERTAIN_IO 코드와 502 상태의 TossPaymentException이 발생한다")
+		void does_not_retry_on_non_timeout_io_failure() {
+			// given
+			server.expect(ExpectedCount.once(), requestTo(QUERY_URL)).andExpect(method(GET))
+				.andRespond(withException(new SocketException("Connection reset")));
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.queryPayment("toss_pk_123"))
+				.isInstanceOf(TossPaymentException.class)
+				.hasFieldOrPropertyWithValue("errorCode", "QUERY_UNCERTAIN_IO")
+				.hasFieldOrPropertyWithValue("httpStatus", 502);
 			server.verify();
 		}
 
