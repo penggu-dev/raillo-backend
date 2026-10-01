@@ -74,4 +74,8 @@ public class ReservationFacade {
 			.map(reservationMapper::toResponse)
 			.toList();
 	}
+
+	public void deleteReservation(String reservationId, String memberNo) {
+		reservationService.cancel(reservationId, memberNo);
+	}
 }
