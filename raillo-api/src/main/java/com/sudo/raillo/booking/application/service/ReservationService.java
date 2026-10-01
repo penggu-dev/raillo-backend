@@ -8,14 +8,17 @@ import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand.SeatCar;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyResult;
+import com.sudo.raillo.booking.infrastructure.SeatReleaseCommand;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.global.redis.util.RedisJsonConverter;
 import com.sudo.raillo.train.cache.TrainCacheKey;
 import com.sudo.raillo.train.exception.TrainError;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -101,6 +104,36 @@ public class ReservationService {
 		return reservations;
 	}
 
+	public List<Reservation> getMyReservations(String memberNo) {
+		Map<String, Long> scheduleIds = reservationRedisRepository.findScheduleIds(memberNo);
+		return reservationRedisRepository.findAll(scheduleIds).values().stream()
+			.filter(reservation -> reservation.memberNo().equals(memberNo))
+			.sorted(Comparator.comparing(Reservation::createdAt).thenComparing(Reservation::reservationId))
+			.toList();
+	}
+
+	/**
+	 * 내 예약을 지우고 좌석 점유를 해제한다. 이미 만료됐거나 없는 예약은 성공으로 본다.
+	 * 점유 해제를 먼저 하고 회원 인덱스를 나중에 지운다. 반대 순서면 점유가 남은 채 인덱스만 사라져 다시 지울 수 없다.
+	 *
+	 * @throws BusinessException 다른 회원의 예약이거나 점유 해제에 실패했을 때
+	 */
+	public void cancel(String reservationId, String memberNo) {
+		Optional<Long> scheduleId = reservationRedisRepository.findScheduleId(memberNo, reservationId);
+		if (scheduleId.isEmpty()) {
+			return;
+		}
+
+		Optional<Reservation> reservation = reservationRedisRepository.find(scheduleId.get(), reservationId);
+		if (reservation.isPresent()) {
+			reservationValidator.validateOwner(reservation.get(), memberNo);
+			seatOccupancyRepository.release(toReleaseCommand(reservation.get()));
+		}
+
+		removeMemberIndexQuietly(memberNo, reservationId);
+		log.info("[예약 삭제] reservationId={}, memberNo={}", reservationId, memberNo);
+	}
+
 	private SeatOccupancyCommand toOccupyCommand(Reservation reservation, Duration ttl) {
 		return new SeatOccupancyCommand(
 			reservation.trainScheduleId(),
@@ -108,6 +141,18 @@ public class ReservationService {
 			toTtlSeconds(ttl),
 			TrainCacheKey.expireAtEpochSecond(reservation.operationDate()),
 			redisJsonConverter.toJson(reservation),
+			reservation.departure().stopOrder(),
+			reservation.arrival().stopOrder(),
+			reservation.seats().stream()
+				.map(seat -> new SeatCar(seat.seatId(), seat.trainCarId()))
+				.toList()
+		);
+	}
+
+	private static SeatReleaseCommand toReleaseCommand(Reservation reservation) {
+		return new SeatReleaseCommand(
+			reservation.trainScheduleId(),
+			reservation.reservationId(),
 			reservation.departure().stopOrder(),
 			reservation.arrival().stopOrder(),
 			reservation.seats().stream()
@@ -127,6 +172,15 @@ public class ReservationService {
 		} catch (RuntimeException e) {
 			log.warn("[예약 저장 여부 확인 실패] reservationId={}, error={}", reservation.reservationId(), e.getMessage());
 			return false;
+		}
+	}
+
+	private void removeMemberIndexQuietly(String memberNo, String reservationId) {
+		try {
+			reservationRedisRepository.removeMemberIndex(memberNo, reservationId);
+		} catch (RuntimeException e) {
+			// field TTL로 사라지고 조회는 본문 없는 인덱스를 만료로 처리하므로 실패해도 무해하다
+			log.warn("[회원 인덱스 삭제 실패] reservationId={}, memberNo={}, error={}", reservationId, memberNo, e.getMessage());
 		}
 	}
 

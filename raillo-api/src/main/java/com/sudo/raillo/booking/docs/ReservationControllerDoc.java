@@ -1,9 +1,12 @@
 package com.sudo.raillo.booking.docs;
 
+import java.util.List;
+
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
+import com.sudo.raillo.booking.application.dto.response.ReservationResponse;
 import com.sudo.raillo.global.response.ErrorResponse;
 import com.sudo.raillo.global.response.SuccessResponse;
 
@@ -49,4 +52,24 @@ public interface ReservationControllerDoc {
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	SuccessResponse<ReservationCreateResponse> createReservation(ReservationCreateRequest request, UserDetails userDetails);
+
+	@Operation(method = "GET", summary = "내 예약 목록 조회",
+		description = "만료되지 않은 내 예약을 생성 순서대로 조회합니다. 예약이 없으면 빈 목록을 반환합니다.",
+		security = {@SecurityRequirement(name = "bearerAuth")})
+	@ApiResponses(value = {
+		@ApiResponse(responseCode = "200", description = "예약 목록을 성공적으로 조회했습니다.")
+	})
+	SuccessResponse<List<ReservationResponse>> getMyReservations(UserDetails userDetails);
+
+	@Operation(method = "DELETE", summary = "예약 삭제",
+		description = "내 예약을 지우고 점유한 좌석을 즉시 해제합니다. 이미 만료되었거나 없는 예약은 성공으로 처리합니다.",
+		security = {@SecurityRequirement(name = "bearerAuth")})
+	@ApiResponses(value = {
+		@ApiResponse(responseCode = "204", description = "예약이 성공적으로 삭제되었습니다."),
+		@ApiResponse(responseCode = "403", description = "해당 예약에 대한 접근 권한이 없습니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "500", description = "좌석 점유 해제에 실패했습니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+	})
+	SuccessResponse<?> deleteReservation(String reservationId, UserDetails userDetails);
 }

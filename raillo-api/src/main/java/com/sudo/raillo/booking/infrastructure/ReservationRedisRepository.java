@@ -45,6 +45,12 @@ public class ReservationRedisRepository {
 		stringRedisTemplate.opsForHash().delete(ReservationCacheKey.memberReservations(memberNo), reservationId);
 	}
 
+	public Optional<Long> findScheduleId(String memberNo, String reservationId) {
+		Object value = stringRedisTemplate.opsForHash()
+			.get(ReservationCacheKey.memberReservations(memberNo), reservationId);
+		return Optional.ofNullable(value).map(v -> Long.parseLong((String)v));
+	}
+
 	/**
 	 * 회원 인덱스에서 예약 ID별 운행 ID를 찾는다. 인덱스에 없는 예약은 결과에서 빠진다.
 	 */
@@ -62,6 +68,19 @@ public class ReservationRedisRepository {
 		return scheduleIds;
 	}
 
+	/**
+	 * 회원 인덱스의 전체 예약 ID별 운행 ID를 읽는다
+	 */
+	public Map<String, Long> findScheduleIds(String memberNo) {
+		Map<Object, Object> entries = stringRedisTemplate.opsForHash()
+			.entries(ReservationCacheKey.memberReservations(memberNo));
+
+		Map<String, Long> scheduleIds = new LinkedHashMap<>();
+		entries.forEach((reservationId, scheduleId) ->
+			scheduleIds.put((String)reservationId, Long.parseLong((String)scheduleId)));
+		return scheduleIds;
+	}
+
 	/** 예약 본문 키가 있는지 확인한다. 점유와 본문은 한 스크립트에서 저장되므로 점유 저장 여부로도 쓴다. */
 	public boolean exists(long trainScheduleId, String reservationId) {
 		return Boolean.TRUE.equals(
@@ -74,11 +93,6 @@ public class ReservationRedisRepository {
 		return Optional.ofNullable(json).map(value -> redisJsonConverter.fromJson(value, Reservation.class));
 	}
 
-	/**
-	 * 예약 본문을 한 번에 읽는다. 만료돼 없는 예약은 결과에서 빠진다.
-	 *
-	 * @param scheduleIdByReservationId 예약 ID별 운행 ID. {@link #findScheduleIds} 결과를 그대로 넘긴다
-	 */
 	public Map<String, Reservation> findAll(Map<String, Long> scheduleIdByReservationId) {
 		if (scheduleIdByReservationId.isEmpty()) {
 			return Map.of();

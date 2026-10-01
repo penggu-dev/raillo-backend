@@ -163,4 +163,32 @@ class ReservationRedisRepositoryTest {
 		assertThat(stored).isTrue();
 		assertThat(missing).isFalse();
 	}
+
+	@Test
+	@DisplayName("회원 인덱스 전체를 예약 ID별 운행 ID로 읽는다")
+	void find_all_schedule_ids_of_member() {
+		// given
+		reservationRedisRepository.indexForMember(MEMBER_NO, "RV1", 1001L, Duration.ofSeconds(300));
+		reservationRedisRepository.indexForMember(MEMBER_NO, "RV2", 1002L, Duration.ofSeconds(300));
+		reservationRedisRepository.indexForMember("202601010002", "RV3", 1003L, Duration.ofSeconds(300));
+
+		// when
+		Map<String, Long> scheduleIds = reservationRedisRepository.findScheduleIds(MEMBER_NO);
+
+		// then
+		assertThat(scheduleIds).containsOnly(Map.entry("RV1", 1001L), Map.entry("RV2", 1002L));
+	}
+
+	@Test
+	@DisplayName("예약 하나의 운행 ID는 인덱스에 없으면 비어 있다")
+	void find_schedule_id_of_one() {
+		// given
+		reservationRedisRepository.indexForMember(MEMBER_NO, "RV1", 1001L, Duration.ofSeconds(300));
+
+		// when
+
+		// then
+		assertThat(reservationRedisRepository.findScheduleId(MEMBER_NO, "RV1")).contains(1001L);
+		assertThat(reservationRedisRepository.findScheduleId(MEMBER_NO, "RV9")).isEmpty();
+	}
 }
