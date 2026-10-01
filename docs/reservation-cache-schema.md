@@ -80,6 +80,28 @@ ARGV       reservationId, ttlSec(>=1), keyExpireAt, json, depOrder, arrOrder, "s
 
 결제가 예약을 읽을 때는 `member:{memberNo}:reservations`에서 HMGET으로 운행 ID를 얻고 예약 키를 MGET한다. 인덱스에 없는 예약은 만료된 것으로 본다. 다른 회원의 예약은 요청자의 인덱스에 없으므로 같은 이유로 `RESERVATION_EXPIRED`가 된다. `RESERVATION_ACCESS_DENIED`는 인덱스와 본문의 회원번호가 어긋난 경우에만 남는다.
 
+내 예약 목록(`GET /api/v1/reservations`)은 인덱스를 HGETALL로 읽고 같은 방식으로 본문을 MGET한다. 본문이 먼저 만료된 인덱스는 결과에서 빠지고, 생성 시각 순으로 정렬한다.
+
+## 5-1. 삭제
+
+`DELETE /api/v1/reservations/{reservationId}`는 자기 예약의 점유만 즉시 해제한다.
+
+1. 회원 인덱스에서 운행 ID를 찾는다. 없으면 이미 만료·삭제된 예약(또는 남의 예약)이라 아무것도 하지 않고 성공한다.
+2. 본문이 있으면 소유자를 검증하고 `reservation_delete.lua`로 점유 해제와 본문 삭제를 원자적으로 처리한다. 본문이 먼저 만료됐다면 이 단계를 건너뛴다.
+3. 회원 인덱스를 HDEL한다. 실패해도 field TTL로 사라지고 조회가 본문 없는 인덱스를 만료로 처리한다.
+
+점유 해제를 먼저, 인덱스를 나중에 지우는 이유는 반대 순서면 점유가 남은 채 인덱스만 사라져 다시 지울 수 없기 때문이다.
+
+```text
+KEYS[1]    예약 키
+KEYS[2..]  객차 Hash (중복 없이, 처음 등장 순서)
+ARGV       reservationId, depOrder, arrOrder, "seatId:carKeyIndex"...
+
+반환  {해제한 field 수}
+```
+
+값이 정확히 `R:{reservationId}`인 field만 HDEL한다. 다른 예약의 `R:`과 예매 `B:`는 건드리지 않는다. 스크립트 실행이 실패하면 `SEAT_OCCUPANCY_RELEASE_FAILED`(500)다. 결제 진행 중인 예약의 삭제 보호는 이 범위 밖이며 결제 소유권 작업(#280, #259)에서 다룬다.
+
 ## 6. 구현 규칙
 
 - 새 Redis 코드는 `StringRedisTemplate`을 쓴다. `customStringRedisTemplate`은 hash serializer가 JDK 직렬화라 Hash field가 바이트로 깨진다.
