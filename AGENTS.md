@@ -131,6 +131,7 @@ public enum BookingError implements ErrorCode {
 
 **Redis Lua Scripts** — 좌석 동시 선점 충돌 방지. 스크립트는 `raillo-api/src/main/resources/scripts/`:
 - `reservation_create.lua` — 예약 생성. 객차 점유 Hash 검사 + 점유 + 예약 저장을 원자적으로 처리 → [docs/reservation-cache-schema.md](./docs/reservation-cache-schema.md)
+- `reservation_delete.lua` — 예약 삭제. 값이 자기 `R:{reservationId}`인 점유 field만 HDEL + 예약 본문 DEL
 - Lua 스크립트 Bean은 `booking/infrastructure/config/RedisScriptConfig`가 등록
 - 좌석 충돌 방어 계층 → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
 
