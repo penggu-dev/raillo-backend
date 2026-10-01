@@ -8,7 +8,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scripting.support.ResourceScriptSource;
 
-/** 예약 생성 Lua 스크립트. */
+/** 예약 생성·삭제 Lua 스크립트. */
 @Configuration
 public class RedisScriptConfig {
 
@@ -22,6 +22,20 @@ public class RedisScriptConfig {
 		DefaultRedisScript<List> script = new DefaultRedisScript<>();
 		script.setScriptSource(new ResourceScriptSource(
 			new ClassPathResource("scripts/reservation_create.lua")));
+		script.setResultType(List.class);
+		return script;
+	}
+
+	/**
+	 * 예약 삭제 스크립트. 자기 예약의 점유 field와 예약 본문만 지운다.
+	 *
+	 * <p>반환값: {@code {released}}</p>
+	 */
+	@Bean
+	public DefaultRedisScript<List> reservationDeleteScript() {
+		DefaultRedisScript<List> script = new DefaultRedisScript<>();
+		script.setScriptSource(new ResourceScriptSource(
+			new ClassPathResource("scripts/reservation_delete.lua")));
 		script.setResultType(List.class);
 		return script;
 	}

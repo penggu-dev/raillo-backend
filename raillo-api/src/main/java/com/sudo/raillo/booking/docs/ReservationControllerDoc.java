@@ -60,4 +60,16 @@ public interface ReservationControllerDoc {
 		@ApiResponse(responseCode = "200", description = "예약 목록을 성공적으로 조회했습니다.")
 	})
 	SuccessResponse<List<ReservationResponse>> getMyReservations(UserDetails userDetails);
+
+	@Operation(method = "DELETE", summary = "예약 삭제",
+		description = "내 예약을 지우고 점유한 좌석을 즉시 해제합니다. 이미 만료되었거나 없는 예약은 성공으로 처리합니다.",
+		security = {@SecurityRequirement(name = "bearerAuth")})
+	@ApiResponses(value = {
+		@ApiResponse(responseCode = "204", description = "예약이 성공적으로 삭제되었습니다."),
+		@ApiResponse(responseCode = "403", description = "해당 예약에 대한 접근 권한이 없습니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "500", description = "좌석 점유 해제에 실패했습니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+	})
+	SuccessResponse<?> deleteReservation(String reservationId, UserDetails userDetails);
 }

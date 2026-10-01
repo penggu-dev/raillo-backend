@@ -45,6 +45,12 @@ public class ReservationRedisRepository {
 		stringRedisTemplate.opsForHash().delete(ReservationCacheKey.memberReservations(memberNo), reservationId);
 	}
 
+	public Optional<Long> findScheduleId(String memberNo, String reservationId) {
+		Object value = stringRedisTemplate.opsForHash()
+			.get(ReservationCacheKey.memberReservations(memberNo), reservationId);
+		return Optional.ofNullable(value).map(v -> Long.parseLong((String)v));
+	}
+
 	/**
 	 * 회원 인덱스에서 예약 ID별 운행 ID를 찾는다. 인덱스에 없는 예약은 결과에서 빠진다.
 	 */
