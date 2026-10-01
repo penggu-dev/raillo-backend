@@ -14,6 +14,7 @@ import com.sudo.raillo.train.cache.TrainCacheKey;
 import com.sudo.raillo.train.exception.TrainError;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -99,6 +100,14 @@ public class ReservationService {
 		List<Reservation> reservations = reservationIds.stream().map(found::get).toList();
 		reservations.forEach(reservation -> reservationValidator.validateOwner(reservation, memberNo));
 		return reservations;
+	}
+
+	public List<Reservation> getMyReservations(String memberNo) {
+		Map<String, Long> scheduleIds = reservationRedisRepository.findScheduleIds(memberNo);
+		return reservationRedisRepository.findAll(scheduleIds).values().stream()
+			.filter(reservation -> reservation.memberNo().equals(memberNo))
+			.sorted(Comparator.comparing(Reservation::createdAt).thenComparing(Reservation::reservationId))
+			.toList();
 	}
 
 	private SeatOccupancyCommand toOccupyCommand(Reservation reservation, Duration ttl) {

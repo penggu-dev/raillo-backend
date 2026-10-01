@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.sudo.raillo.booking.application.dto.ReservationDraft;
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
+import com.sudo.raillo.booking.application.dto.response.ReservationResponse;
 import com.sudo.raillo.booking.application.mapper.ReservationMapper;
 import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.application.validator.ReservationValidator;
@@ -66,5 +67,11 @@ public class ReservationFacade {
 		reservationService.reserve(reservation, ttl);
 
 		return new ReservationCreateResponse(reservation.reservationId(), reservation.expiresAt());
+	}
+
+	public List<ReservationResponse> getMyReservations(String memberNo) {
+		return reservationService.getMyReservations(memberNo).stream()
+			.map(reservationMapper::toResponse)
+			.toList();
 	}
 }
