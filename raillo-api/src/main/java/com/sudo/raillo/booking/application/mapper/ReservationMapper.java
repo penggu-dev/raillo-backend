@@ -7,6 +7,9 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.application.dto.ReservationDraft;
+import com.sudo.raillo.booking.application.dto.response.ReservationResponse;
+import com.sudo.raillo.booking.application.dto.response.ReservationResponse.SeatResponse;
+import com.sudo.raillo.booking.application.dto.response.ReservationResponse.StopResponse;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.ReservationSeat;
 import com.sudo.raillo.booking.domain.ReservationStop;
@@ -37,6 +40,28 @@ public class ReservationMapper {
 			draft.createdAt(),
 			draft.ttl()
 		);
+	}
+
+	public ReservationResponse toResponse(Reservation reservation) {
+		return new ReservationResponse(
+			reservation.reservationId(),
+			reservation.trainNumber(),
+			reservation.trainName(),
+			reservation.operationDate(),
+			toStopResponse(reservation.departure()),
+			toStopResponse(reservation.arrival()),
+			reservation.departureAt(),
+			reservation.carType(),
+			reservation.seats().stream()
+				.map(seat -> new SeatResponse(seat.carNumber(), seat.seatLabel(), seat.passengerType(), seat.fare()))
+				.toList(),
+			reservation.totalFare(),
+			reservation.expiresAt()
+		);
+	}
+
+	private static StopResponse toStopResponse(ReservationStop stop) {
+		return new StopResponse(stop.stationName(), stop.time());
 	}
 
 	/** 출발 정차역은 출발 시각을 담는다. */

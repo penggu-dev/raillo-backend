@@ -1,9 +1,12 @@
 package com.sudo.raillo.booking.docs;
 
+import java.util.List;
+
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
+import com.sudo.raillo.booking.application.dto.response.ReservationResponse;
 import com.sudo.raillo.global.response.ErrorResponse;
 import com.sudo.raillo.global.response.SuccessResponse;
 
@@ -49,4 +52,12 @@ public interface ReservationControllerDoc {
 			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
 	SuccessResponse<ReservationCreateResponse> createReservation(ReservationCreateRequest request, UserDetails userDetails);
+
+	@Operation(method = "GET", summary = "내 예약 목록 조회",
+		description = "만료되지 않은 내 예약을 생성 순서대로 조회합니다. 예약이 없으면 빈 목록을 반환합니다.",
+		security = {@SecurityRequirement(name = "bearerAuth")})
+	@ApiResponses(value = {
+		@ApiResponse(responseCode = "200", description = "예약 목록을 성공적으로 조회했습니다.")
+	})
+	SuccessResponse<List<ReservationResponse>> getMyReservations(UserDetails userDetails);
 }
