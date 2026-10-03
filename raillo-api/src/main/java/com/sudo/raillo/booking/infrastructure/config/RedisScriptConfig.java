@@ -45,6 +45,26 @@ public class RedisScriptConfig {
 	}
 
 	/**
+	 * 결제 중 좌석 보호 스크립트. 자기 예약 점유의 만료를 없애고 사라진 field를 다시 점유한다.
+	 *
+	 * <p>반환값: {@code {1}} 또는 {@code {0, seatId, sectionIndex, "R"|"B"|"X"}}</p>
+	 */
+	@Bean
+	public DefaultRedisScript<List> reservationPaymentHoldScript() {
+		return listScript("scripts/reservation_payment_hold.lua");
+	}
+
+	/**
+	 * 결제 중 좌석 보호 해제 스크립트. 자기 예약 점유의 만료를 보호 이전 상태로 되돌린다.
+	 *
+	 * <p>반환값: {@code {restoredCount, deletedCount}}</p>
+	 */
+	@Bean
+	public DefaultRedisScript<List> reservationPaymentReleaseScript() {
+		return listScript("scripts/reservation_payment_release.lua");
+	}
+
+	/**
 	 * Lua 스크립트를 등록한다. 모든 스크립트가 List를 반환하므로 등록 방식이 같고, 빈마다 다른 것은
 	 * 경로와 반환 계약뿐이다.
 	 *
