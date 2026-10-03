@@ -30,8 +30,8 @@
 
 - field는 `{seatId}:{sectionIndex}`. 구간 index는 정차 순서 i에서 i+1로 가는 한 칸이며 값은 i다. 출발 stopOrder d, 도착 stopOrder a인 요청은 d..a-1 구간 field를 점유한다.
 - 값은 `R:{reservationId}`(예약) 또는 `B:{bookingId}`(예매)다. 그 외 형식은 데이터 오염이다. 오염은 재시도로 낫지 않으므로 스크립트 실행 자체가 실패한 경우(`SEAT_OCCUPANCY_SCRIPT_ERROR`)와 다른 코드로 구분한다.
-  - 점유를 **쓰거나 전환하는** 스크립트(`reservation_create`, `reservation_booking_confirm`)는 검사 단계에서 오염을 만나면 `"X"`를 돌려주고 호출자가 `SEAT_OCCUPANCY_CORRUPTED`(500)를 낸다. 아무것도 쓰지 않는다.
-  - **해제** 스크립트(`reservation_delete`)는 자기 값이 아닌 field를 건드리지 않으므로 오염을 보고하지 않고 건너뛴다. 결과 수(`released`)만 줄어든다.
+  - 점유를 **쓰거나 전환하는** 스크립트(`reservation_create`, `reservation_booking_confirm`, `reservation_payment_hold`)는 검사 단계에서 오염을 만나면 `"X"`를 돌려주고 호출자가 `SEAT_OCCUPANCY_CORRUPTED`(500)를 낸다. 아무것도 쓰지 않는다.
+  - **해제** 스크립트(`reservation_delete`, `reservation_payment_release`)는 자기 값이 아닌 field를 건드리지 않으므로 오염을 보고하지 않고 건너뛴다. 결과 수(`released`, `restored`/`deleted`)만 줄어든다. 보호 해제의 경우 건너뛴 field가 좌석을 묶을 수 있다(§5).
   - **읽기** 경로(`SeatOccupancyQueryRepository`)는 field 이름이나 값이 계약과 다르면 `SEAT_OCCUPANCY_CORRUPTED`를 낸다. 좌석 하나가 아니라 그 호출 전체가 실패한다.
   - field **이름**(`{seatId}:{sectionIndex}`)의 오염은 쓰기·전환 스크립트가 구분하지 못한다. Lua가 숫자 변환에 실패한 자리는 응답에서 빠지고 Java는 형식 불일치로 읽어 `SEAT_OCCUPANCY_SCRIPT_ERROR`가 된다. 현재 의도된 한계다.
 - 키는 점유가 처음 생길 때 만들어지고, TTL이 없을 때만 `TrainCacheKey.expireAtEpochSecond(운행일)`로 EXPIREAT을 건다. 빈 열차는 키가 없다.
@@ -141,15 +141,15 @@ ARGV       reservationId, ttlSec(>=1), keyExpireAt, json, depOrder, arrOrder, "s
 | `reservation_payment_hold.lua` | Toss 응답이 결과 불명일 때, Recovery Worker가 attempt를 처리할 때 | 자기 `R:` field의 만료를 없앤다(HPERSIST). 비어 있는 field에는 `R:`을 다시 쓰고 만료를 없앤다. 다른 값이 하나라도 있으면 아무것도 쓰지 않고 충돌을 돌려준다 |
 | `reservation_payment_release.lua` | 확정 실패를 기록할 때 | 자기 `R:` field의 만료를 보호 이전 상태로 되돌린다. 주문 표시가 살아 있으면 표시의 남은 TTL을, 없으면 예약 본문의 남은 TTL을 쓴다. 둘 다 없으면 field를 삭제한다 |
 
-해제는 좌석을 버리는 것이 아니라 보호 이전으로 되돌리는 것이다. 카드가 거절되면 사용자는 다른 카드로 다시 결제하고 그동안 좌석이 남아 있어야 한다. 그래서 `release`는 자기 `R:`이 아닌 field를 건드리지 않는다. 다른 예약의 `R:`은 남의 좌석이고, 자기 `B:`는 이미 확정된 예매라 되돌릴 대상이 아니다.
+해제는 좌석을 버리는 것이 아니라 보호 이전으로 되돌리는 것이다. 카드가 거절되면 사용자는 다른 카드로 다시 결제하고 그동안 좌석이 남아 있어야 한다. 그래서 `releaseHold`는 자기 `R:`이 아닌 field를 건드리지 않는다. 다른 예약의 `R:`은 남의 좌석이고, 자기 `B:`는 이미 확정된 예매라 되돌릴 대상이 아니다.
 
-두 스크립트 모두 예약 본문을 쓰지 않는다. `release`는 본문의 남은 TTL을 읽기만 한다. 그 값은 `Reservation.expiresAt`과 같은 시각이다.
+두 스크립트 모두 예약 본문을 쓰지 않는다. `releaseHold`는 본문의 남은 TTL을 읽기만 한다. 그 값은 `Reservation.expiresAt`과 같은 시각이다.
 
 ```text
 reservation_payment_hold.lua
 KEYS[1..]  객차 Hash (중복 없이, 처음 등장 순서)
 ARGV       reservationId, keyExpireAt, depOrder, arrOrder, "seatId:carKeyIndex"...
-반환       {1} 또는 {0, seatId, sectionIndex, "R"|"B"|"X"}
+반환       {1} 또는 {0, seatId, sectionIndex, "R"|"B"|"X"}   ("X" → SEAT_OCCUPANCY_CORRUPTED)
 
 reservation_payment_release.lua
 KEYS[1]    예약 본문 키
@@ -161,7 +161,9 @@ ARGV       reservationId, depOrder, arrOrder, "seatId:carKeyIndex"...
 
 만료를 읽을 때는 `TTL`, field 만료를 걸 때는 `HEXPIRE`를 쓴다. 둘 다 상대 초다. 절대 시각 `EXPIREAT`은 운행일 기준이 필요한 객차 키 만료에만 쓴다.
 
-주문 표시 키는 계획 B가 쓰기 시작한다. 그전까지 `release`는 항상 예약 본문의 남은 TTL로 되돌린다.
+주문 표시 키는 계획 B가 쓰기 시작한다. 그전까지 `releaseHold`는 항상 예약 본문의 남은 TTL로 되돌린다.
+
+보호 해제가 건너뛴 field는 `hold`가 이미 만료를 없앴기 때문에 **만료도 주인도 없는 상태로 남아 객차 키의 운행일 만료까지 팔리지 않는다.** 건너뛰는 이유가 둘이라 실패로 단정할 수 없다. 사이에 예매로 전환된 `B:` field는 정상적으로 건너뛰는 것이고, 오염된 값은 좌석을 묶는 것이다. 그래서 `releaseHold`는 예외를 던지지 않고 `restored + deleted`가 기대 수보다 적을 때 경고 로그만 남긴다.
 
 ## 6. 조회
 

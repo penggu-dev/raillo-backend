@@ -115,12 +115,13 @@ public class SeatOccupancyRepository {
 	 * 결제 결과를 모르는 동안 자기 예약의 좌석 field를 붙잡는다. 다른 예약이나 예매가 점유한 구간이 있으면 아무것도 쓰지 않는다.
 	 *
 	 * @return 성공 또는 첫 번째 충돌 정보
-	 * @throws BusinessException 스크립트 실행이 실패했거나 응답이 계약과 다를 때
+	 * @throws BusinessException 스크립트 실행이 실패했거나 응답이 계약과 다를 때({@code SEAT_OCCUPANCY_SCRIPT_ERROR}),
+	 *     좌석 점유 값이 아닌 값을 만났을 때({@code SEAT_OCCUPANCY_CORRUPTED})
 	 */
 	public SeatOccupancyResult hold(SeatHoldCommand command) {
-		List<Long> trainCarIds = distinctTrainCarIds(command.seats());
+		// 이 스크립트는 예약 키를 쓰지 않아 객차 Hash가 KEYS[1]부터다. carKeyIndex 오프셋은 0
 		List<String> keys = new ArrayList<>();
-		for (long trainCarId : trainCarIds) {
+		for (long trainCarId : distinctTrainCarIds(command.seats())) {
 			keys.add(ReservationCacheKey.carSeats(command.trainScheduleId(), trainCarId));
 		}
 
@@ -129,9 +130,7 @@ public class SeatOccupancyRepository {
 		args.add(String.valueOf(command.keyExpireAtEpochSecond()));
 		args.add(String.valueOf(command.departureStopOrder()));
 		args.add(String.valueOf(command.arrivalStopOrder()));
-		for (SeatCar seat : command.seats()) {
-			args.add(seat.seatId() + ":" + (trainCarIds.indexOf(seat.trainCarId()) + 1));
-		}
+		args.addAll(buildSeatArgs(command.seats()));
 
 		try {
 			@SuppressWarnings("unchecked")
@@ -146,6 +145,10 @@ public class SeatOccupancyRepository {
 					result.conflictSeatId(), result.conflictSectionIndex(), result.conflictType());
 			}
 			return result;
+		} catch (SeatOccupancyCorruptedException e) {
+			log.error("[결제 중 좌석 보호 데이터 오염] reservationId={}, trainScheduleId={}, error={}",
+				command.reservationId(), command.trainScheduleId(), e.getMessage(), e);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED);
 		} catch (Exception e) {
 			log.error("[결제 중 좌석 보호 스크립트 오류] reservationId={}, trainScheduleId={}, error={}",
 				command.reservationId(), command.trainScheduleId(), e.getMessage(), e);
@@ -160,11 +163,11 @@ public class SeatOccupancyRepository {
 	 * @throws BusinessException 스크립트 실행이 실패했거나 응답이 계약과 다를 때
 	 */
 	public SeatHoldReleaseResult releaseHold(SeatHoldReleaseCommand command) {
-		List<Long> trainCarIds = distinctTrainCarIds(command.seats());
+		// 이 스크립트는 예약 키와 주문 표시 키를 앞에 두므로 객차 Hash가 KEYS[3]부터다. carKeyIndex 오프셋은 2
 		List<String> keys = new ArrayList<>();
 		keys.add(ReservationCacheKey.reservation(command.trainScheduleId(), command.reservationId()));
 		keys.add(ReservationCacheKey.reservationOrder(command.trainScheduleId(), command.reservationId()));
-		for (long trainCarId : trainCarIds) {
+		for (long trainCarId : distinctTrainCarIds(command.seats())) {
 			keys.add(ReservationCacheKey.carSeats(command.trainScheduleId(), trainCarId));
 		}
 
@@ -172,9 +175,7 @@ public class SeatOccupancyRepository {
 		args.add(command.reservationId());
 		args.add(String.valueOf(command.departureStopOrder()));
 		args.add(String.valueOf(command.arrivalStopOrder()));
-		for (SeatCar seat : command.seats()) {
-			args.add(seat.seatId() + ":" + (trainCarIds.indexOf(seat.trainCarId()) + 1));
-		}
+		args.addAll(buildSeatArgs(command.seats()));
 
 		try {
 			@SuppressWarnings("unchecked")
@@ -182,6 +183,7 @@ public class SeatOccupancyRepository {
 			SeatHoldReleaseResult result = SeatHoldReleaseResult.fromLuaResult(raw);
 			log.info("[결제 중 좌석 보호 해제] reservationId={}, trainScheduleId={}, restored={}, deleted={}",
 				command.reservationId(), command.trainScheduleId(), result.restoredCount(), result.deletedCount());
+			warnIfFieldsLeftBehind(command, result);
 			return result;
 		} catch (Exception e) {
 			log.error("[결제 중 좌석 보호 해제 스크립트 오류] reservationId={}, trainScheduleId={}, error={}",
@@ -211,6 +213,24 @@ public class SeatOccupancyRepository {
 			log.error("[좌석 점유 해제 스크립트 오류] reservationId={}, trainScheduleId={}, error={}",
 				command.reservationId(), command.trainScheduleId(), e.getMessage(), e);
 			throw new BusinessException(BookingError.SEAT_OCCUPANCY_RELEASE_FAILED);
+		}
+	}
+
+	/**
+	 * 보호 해제가 손대지 못한 field가 있으면 경고로 남긴다.
+	 *
+	 * <p>{@code hold}가 HPERSIST로 만료를 없앴기 때문에, 해제가 건너뛴 field는 만료도 주인도 없는 상태로 남아
+	 * 객차 키의 운행일 만료까지 팔리지 않는다. 실패로 볼 수는 없다. 같은 사이 다른 스레드가 예매로 전환한 field도
+	 * 정상적으로 건너뛰기 때문이다. 그래서 던지지 않고 찾을 수 있는 신호만 남긴다.</p>
+	 */
+	private static void warnIfFieldsLeftBehind(SeatHoldReleaseCommand command, SeatHoldReleaseResult result) {
+		int sections = command.arrivalStopOrder() - command.departureStopOrder();
+		int expected = command.seats().size() * sections;
+		int handled = result.restoredCount() + result.deletedCount();
+		if (handled < expected) {
+			log.warn("[결제 중 좌석 보호 해제 - 손대지 못한 field] reservationId={}, trainScheduleId={}, "
+					+ "expected={}, handled={}, leftBehind={} (예매 전환이면 정상, 오염이면 운행일까지 좌석이 묶인다)",
+				command.reservationId(), command.trainScheduleId(), expected, handled, expected - handled);
 		}
 	}
 

@@ -445,7 +445,20 @@ class SeatOccupancyRepositoryTest {
 		}
 
 		@Test
-		@DisplayName("알 수 없는 형식의 점유 값을 만나면 SEAT_OCCUPANCY_SCRIPT_ERROR 예외가 발생한다")
+		@DisplayName("객차 키가 Hash가 아니면 오염이 아니라 SEAT_OCCUPANCY_SCRIPT_ERROR 예외가 발생한다")
+		void throws_script_error_when_car_key_is_not_hash() {
+			// given - 스크립트 실행 자체가 실패하는 상황(WRONGTYPE)
+			stringRedisTemplate.opsForValue().set(carKey(CAR_1), "not-a-hash");
+
+			// when & then
+			assertThatThrownBy(() -> seatOccupancyRepository.hold(
+				holdCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1))))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
+		}
+
+		@Test
+		@DisplayName("알 수 없는 형식의 점유 값을 만나면 SEAT_OCCUPANCY_CORRUPTED 예외가 발생한다")
 		void rejects_unknown_value() {
 			// given
 			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_A, 1), "Z:bad");
@@ -454,7 +467,7 @@ class SeatOccupancyRepositoryTest {
 			assertThatThrownBy(() -> seatOccupancyRepository.hold(
 				holdCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1))))
 				.isInstanceOf(BusinessException.class)
-				.hasMessage(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR.getMessage());
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_CORRUPTED);
 		}
 	}
 
