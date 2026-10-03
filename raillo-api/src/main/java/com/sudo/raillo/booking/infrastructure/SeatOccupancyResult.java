@@ -27,10 +27,14 @@ public record SeatOccupancyResult(
 
 	/**
 	 * Lua 반환값 {@code {1}} 또는 {@code {0, seatId, sectionIndex, "R"|"B"}}를 파싱한다.
-	 * 점유 유형 자리에는 {@code "R"}이나 {@code "B"} 외에 알 수 없는 값(예: {@code "X"})도 올 수 있으며,
-	 * 이때는 {@link IllegalStateException}을 던진다.
+	 * 점유 유형 자리에는 {@code "R"}이나 {@code "B"} 외에 알 수 없는 값(예: {@code "X"})도 올 수 있다.
 	 *
-	 * @throws IllegalStateException 반환 형식이 계약과 다르거나 알 수 없는 점유 값을 만났을 때
+	 * <p>두 실패를 구분해서 던진다. 응답 형식이 계약과 다른 것은 인프라 문제이므로
+	 * {@link IllegalStateException}, 점유 유형이 아닌 값은 Redis 데이터 오염이므로
+	 * {@link SeatOccupancyCorruptedException}이다. 전자는 재시도가 의미 있고 후자는 없다.</p>
+	 *
+	 * @throws IllegalStateException 반환 형식이 계약과 다를 때
+	 * @throws SeatOccupancyCorruptedException 좌석 점유 유형이 아닌 값이 들어 있을 때
 	 */
 	public static SeatOccupancyResult fromLuaResult(List<Object> result) {
 		if (result == null || result.isEmpty()) {
@@ -47,7 +51,7 @@ public record SeatOccupancyResult(
 		try {
 			conflictType = SeatOccupancyValue.Type.fromCode((String)result.get(3));
 		} catch (IllegalArgumentException e) {
-			throw new IllegalStateException("알 수 없는 좌석 점유 값을 만났습니다: " + result, e);
+			throw new SeatOccupancyCorruptedException("좌석 점유 유형이 아닌 값이 들어 있습니다: " + result, e);
 		}
 
 		return new SeatOccupancyResult(

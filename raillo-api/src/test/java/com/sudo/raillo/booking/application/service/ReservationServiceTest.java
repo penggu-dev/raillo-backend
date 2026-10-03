@@ -184,6 +184,25 @@ class ReservationServiceTest {
 		}
 
 		@Test
+		@DisplayName("점유 스크립트가 데이터 오염을 알리면 본문이 저장돼 있어도 구제하지 않고 회원 인덱스를 되돌린다")
+		void does_not_rescue_corruption_even_when_stored() {
+			// given - 저장은 됐지만 오염을 알린 상황. 저장 여부 확인은 통과한다
+			doAnswer(invocation -> {
+				invocation.callRealMethod();
+				throw new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED);
+			}).when(seatOccupancyRepository).occupy(any());
+			Reservation reservation = reservation("RV1", 11L);
+
+			// when
+
+			// then 오염은 스크립트가 아무것도 쓰지 않았다는 확정 신호라 타임아웃 구제 대상이 아니다
+			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_CORRUPTED);
+			assertThat(memberIndexValue("RV1")).isNull();
+		}
+
+		@Test
 		@DisplayName("점유 스크립트가 실패하고 저장 여부 확인도 실패하면 회원 인덱스를 되돌리고 원래 예외를 던진다")
 		void rolls_back_index_when_store_check_fails() {
 			// given

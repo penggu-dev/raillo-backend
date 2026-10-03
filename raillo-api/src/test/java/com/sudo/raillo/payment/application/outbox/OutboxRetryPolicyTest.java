@@ -2,6 +2,11 @@ package com.sudo.raillo.payment.application.outbox;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.global.exception.BusinessException;
+import com.sudo.raillo.global.exception.DomainException;
+import com.sudo.raillo.global.redis.exception.RedisException;
+import com.sudo.raillo.payment.domain.exception.PaymentError;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
@@ -57,5 +62,43 @@ class OutboxRetryPolicyTest {
 		assertThat(policy.shouldGiveUp(4)).isFalse();
 		assertThat(policy.shouldGiveUp(5)).isTrue();
 		assertThat(policy.shouldGiveUp(6)).isTrue();
+	}
+
+	@Test
+	@DisplayName("BusinessException이 아닌 실패는 모두 재시도 대상이다")
+	void isRetryable_nonBusinessException() {
+		assertThat(policy.isRetryable(new RuntimeException("redis timeout"))).isTrue();
+		assertThat(policy.isRetryable(new IllegalStateException("contract"))).isTrue();
+	}
+
+	@Test
+	@DisplayName("재시도 가능을 선언한 에러 코드는 재시도 대상이다")
+	void isRetryable_retryableErrorCode() {
+		assertThat(policy.isRetryable(
+			new BusinessException(PaymentError.PAYMENT_OUTBOX_BOOKING_CONVERSION_CONFLICT))).isTrue();
+		assertThat(policy.isRetryable(
+			new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR))).isTrue();
+	}
+
+	@Test
+	@DisplayName("재시도 불가를 선언한 에러 코드만 재시도 대상에서 빠진다")
+	void isRetryable_nonRetryableErrorCode() {
+		assertThat(policy.isRetryable(
+			new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED))).isFalse();
+	}
+
+	@Test
+	@DisplayName("에러 코드를 싣는 예외는 클래스가 달라도 같게 판정한다")
+	void isRetryable_dispatchesOnCarrierNotOnExceptionClass() {
+		// 에러 코드를 싣는 예외가 셋이고 공통 부모가 RuntimeException뿐이라, 한 클래스만 보면 나머지가 조용히 빠진다
+		assertThat(policy.isRetryable(
+			new DomainException(BookingError.SEAT_OCCUPANCY_CORRUPTED))).isFalse();
+		assertThat(policy.isRetryable(
+			new RedisException(BookingError.SEAT_OCCUPANCY_CORRUPTED))).isFalse();
+
+		assertThat(policy.isRetryable(
+			new DomainException(PaymentError.PAYMENT_OUTBOX_NOT_TRANSITIONABLE))).isTrue();
+		assertThat(policy.isRetryable(
+			new RedisException(PaymentError.PAYMENT_OUTBOX_NOT_TRANSITIONABLE))).isTrue();
 	}
 }

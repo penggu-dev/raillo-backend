@@ -72,8 +72,9 @@ public class ReservationService {
 		try {
 			result = seatOccupancyRepository.occupy(toOccupyCommand(reservation, ttl));
 		} catch (RuntimeException e) {
-			// 응답 타임아웃처럼 스크립트가 이미 저장했을 수 있으니, 저장됐으면 성공으로 보고 인덱스를 남긴다
-			if (!isStored(reservation)) {
+			// 응답 타임아웃처럼 스크립트가 이미 저장했을 수 있으니, 저장됐으면 성공으로 보고 인덱스를 남긴다.
+			// 데이터 오염은 스크립트가 아무것도 쓰지 않았다는 확정 신호이므로 이 구제 대상이 아니다
+			if (isCorrupted(e) || !isStored(reservation)) {
 				rollbackMemberIndex(memberNo, reservationId);
 				throw e;
 			}
@@ -195,6 +196,11 @@ public class ReservationService {
 	private static long toTtlSeconds(Duration ttl) {
 		long seconds = (ttl.toMillis() + 999) / 1000;
 		return Math.max(1L, seconds);
+	}
+
+	private static boolean isCorrupted(RuntimeException e) {
+		return e instanceof BusinessException business
+			&& business.getErrorCode() == BookingError.SEAT_OCCUPANCY_CORRUPTED;
 	}
 
 	private boolean isStored(Reservation reservation) {

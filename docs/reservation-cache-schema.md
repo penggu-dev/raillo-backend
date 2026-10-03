@@ -28,7 +28,11 @@
 ```
 
 - field는 `{seatId}:{sectionIndex}`. 구간 index는 정차 순서 i에서 i+1로 가는 한 칸이며 값은 i다. 출발 stopOrder d, 도착 stopOrder a인 요청은 d..a-1 구간 field를 점유한다.
-- 값은 `R:{reservationId}`(예약) 또는 `B:{bookingId}`(예매)다. 그 외 형식은 데이터 오염으로 보고 `SEAT_OCCUPANCY_SCRIPT_ERROR`를 낸다.
+- 값은 `R:{reservationId}`(예약) 또는 `B:{bookingId}`(예매)다. 그 외 형식은 데이터 오염이다. 오염은 재시도로 낫지 않으므로 스크립트 실행 자체가 실패한 경우(`SEAT_OCCUPANCY_SCRIPT_ERROR`)와 다른 코드로 구분한다.
+  - 점유를 **쓰거나 전환하는** 스크립트(`reservation_create`, `reservation_booking_confirm`)는 검사 단계에서 오염을 만나면 `"X"`를 돌려주고 호출자가 `SEAT_OCCUPANCY_CORRUPTED`(500)를 낸다. 아무것도 쓰지 않는다.
+  - **해제** 스크립트(`reservation_delete`)는 자기 값이 아닌 field를 건드리지 않으므로 오염을 보고하지 않고 건너뛴다. 결과 수(`released`)만 줄어든다.
+  - **읽기** 경로(`SeatOccupancyQueryRepository`)는 field 이름이나 값이 계약과 다르면 `SEAT_OCCUPANCY_CORRUPTED`를 낸다. 좌석 하나가 아니라 그 호출 전체가 실패한다.
+  - field **이름**(`{seatId}:{sectionIndex}`)의 오염은 쓰기·전환 스크립트가 구분하지 못한다. Lua가 숫자 변환에 실패한 자리는 응답에서 빠지고 Java는 형식 불일치로 읽어 `SEAT_OCCUPANCY_SCRIPT_ERROR`가 된다. 현재 의도된 한계다.
 - 키는 점유가 처음 생길 때 만들어지고, TTL이 없을 때만 `TrainCacheKey.expireAtEpochSecond(운행일)`로 EXPIREAT을 건다. 빈 열차는 키가 없다.
 - 예약 field는 HEXPIRE로 예약과 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다. 필드 단위 만료는 Redis 7.4, Valkey 9.0부터 지원한다.
 - 예매 점유(`B:`) 기록은 `PaymentOutboxWorker`가 승인 확정 후 `BOOKING_CONFIRMED` outbox를 `BookingConfirmedProcessor`에 넘겨 `R:` → `B:`로 전환한다(`reservation_booking_confirm.lua`).
@@ -122,7 +126,7 @@ ARGV       reservationId, ttlSec(>=1), keyExpireAt, json, depOrder, arrOrder, "s
 반환  {1}                               성공
       {0, seatId, sectionIndex, "R"}    다른 예약이 점유 중  → SEAT_CONFLICT_WITH_RESERVATION (409)
       {0, seatId, sectionIndex, "B"}    이미 예매됨          → SEAT_CONFLICT_WITH_BOOKING (409)
-      {0, seatId, sectionIndex, "X"}    알 수 없는 값 형식   → SEAT_OCCUPANCY_SCRIPT_ERROR (500)
+      {0, seatId, sectionIndex, "X"}    알 수 없는 값 형식   → SEAT_OCCUPANCY_CORRUPTED (500)
 ```
 
 같은 `reservationId`로 다시 실행하면 자기 점유는 충돌로 보지 않는다. API는 한 객차의 좌석만 받으므로 객차 Hash는 `KEYS[2]` 하나지만, 스크립트는 여러 객차를 받을 수 있게 되어 있다.

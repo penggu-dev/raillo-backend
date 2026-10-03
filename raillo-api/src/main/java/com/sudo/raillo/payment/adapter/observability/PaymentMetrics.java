@@ -18,6 +18,7 @@ public class PaymentMetrics implements OutboxMetrics {
 	private final Counter confirmSuccessCounter;
 	private final Counter outboxFailedCounter;
 	private final Counter cleanupFailureCounter;
+	private final Counter outboxNonRetryableCounter;
 
 	public PaymentMetrics(MeterRegistry meterRegistry, PaymentOutboxRepository paymentOutboxRepository) {
 		this.meterRegistry = meterRegistry;
@@ -31,7 +32,11 @@ public class PaymentMetrics implements OutboxMetrics {
 			.register(meterRegistry);
 
 		this.outboxFailedCounter = Counter.builder("payment.outbox.failed")
-			.description("Outbox 처리 최대 재시도 초과로 FAILED 전이된 건수")
+			.description("Outbox 처리가 FAILED로 전이된 건수 (최대 재시도 초과 또는 재시도 불가)")
+			.register(meterRegistry);
+
+		this.outboxNonRetryableCounter = Counter.builder("payment.outbox.non_retryable")
+			.description("재시도로 낫지 않는 원인이라 백오프 없이 FAILED 전이된 건수")
 			.register(meterRegistry);
 
 		this.cleanupFailureCounter = Counter.builder("payment.cleanup.failure")
@@ -40,6 +45,12 @@ public class PaymentMetrics implements OutboxMetrics {
 
 		Gauge.builder("payment.outbox.pending", paymentOutboxRepository, r -> r.countByStatus(PaymentOutboxStatus.PENDING))
 			.description("현재 처리 대기 중인 outbox PENDING 건수")
+			.register(meterRegistry);
+
+		// 카운터는 프로세스를 재시작하면 누적이 사라져 과거 사고가 보이지 않는다. 사람 개입을 기다리는 행은 게이지로 본다
+		Gauge.builder("payment.outbox.failed_rows", paymentOutboxRepository,
+				r -> r.countByStatus(PaymentOutboxStatus.FAILED))
+			.description("FAILED로 종착해 사람 개입을 기다리는 outbox 행 수")
 			.register(meterRegistry);
 	}
 
@@ -69,5 +80,10 @@ public class PaymentMetrics implements OutboxMetrics {
 	@Override
 	public void incrementCleanupFailure() {
 		cleanupFailureCounter.increment();
+	}
+
+	@Override
+	public void incrementOutboxNonRetryable() {
+		outboxNonRetryableCounter.increment();
 	}
 }

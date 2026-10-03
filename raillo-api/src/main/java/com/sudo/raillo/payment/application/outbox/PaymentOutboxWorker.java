@@ -18,6 +18,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>외부 트랜잭션(poll)은 SKIP LOCKED로 배치를 선점한다. dispatcher 호출은 별도 REQUIRES_NEW 트랜잭션에서 수행하므로,
  * 처리기 내부의 @Transactional 서비스에서 발생한 예외가 outer 트랜잭션을 rollback-only로 오염시키지 않는다.
  * 결과적으로 한 행의 처리 실패가 같은 배치의 다른 정상 행 커밋이나 실패 행의 재시도 상태 저장을 롤백시키지 않는다.
+ *
+ * <p>실패는 두 갈래다. 재시도로 결과가 달라질 수 있는 실패는 지수 백오프로 최대 재시도까지 다시 시도한다.
+ * 에러 코드가 재시도 불가를 선언한 실패는 백오프를 태우지 않고 바로 FAILED로 보낸다. 몇 번 더 시도해도
+ * 같은 응답이 올 것이 확정이라, 재시도는 사람이 알아차리는 시점만 늦춘다.</p>
  */
 @Slf4j
 @Component
@@ -69,7 +73,13 @@ public class PaymentOutboxWorker {
 				row.getId(), row.getRetryCount(), e.toString());
 			outboxMetrics.incrementCleanupFailure();
 			int nextRetryCount = row.getRetryCount() + 1;
-			if (retryPolicy.shouldGiveUp(nextRetryCount)) {
+			if (!retryPolicy.isRetryable(e)) {
+				row.markFailed();
+				outboxMetrics.incrementOutboxFailed();
+				outboxMetrics.incrementOutboxNonRetryable();
+				log.error("[Outbox 재시도 불가 - 즉시 FAILED] id={}, type={}, retryCount={}, cause={}",
+					row.getId(), row.getType(), row.getRetryCount(), e.toString(), e);
+			} else if (retryPolicy.shouldGiveUp(nextRetryCount)) {
 				row.markFailed();
 				outboxMetrics.incrementOutboxFailed();
 				log.error("[Outbox 최대 재시도 초과] id={}, retryCount={}", row.getId(), nextRetryCount);
