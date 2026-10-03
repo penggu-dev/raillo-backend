@@ -67,6 +67,19 @@ class SeatOccupancyRepositoryTest {
 		return new BookingOccupancyCommand(SCHEDULE_ID, reservationId, bookingId, keyExpireAt, dep, arr, List.of(seats));
 	}
 
+	private static SeatHoldCommand holdCommand(String reservationId, int dep, int arr, SeatCar... seats) {
+		long expireAt = Instant.now().plusSeconds(3600).getEpochSecond();
+		return new SeatHoldCommand(SCHEDULE_ID, reservationId, expireAt, dep, arr, List.of(seats));
+	}
+
+	private static SeatHoldReleaseCommand holdReleaseCommand(String reservationId, int dep, int arr, SeatCar... seats) {
+		return new SeatHoldReleaseCommand(SCHEDULE_ID, reservationId, dep, arr, List.of(seats));
+	}
+
+	private String orderMarkerKey(String reservationId) {
+		return ReservationCacheKey.reservationOrder(SCHEDULE_ID, reservationId);
+	}
+
 	/** HTTL 결과. -1은 만료 없음, -2는 field 없음. */
 	@SuppressWarnings({"rawtypes", "unchecked"})
 	private long fieldTtl(long trainCarId, String field) {
@@ -291,6 +304,318 @@ class SeatOccupancyRepositoryTest {
 			assertThatThrownBy(() -> seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1))))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_CORRUPTED);
+		}
+	}
+
+	@Nested
+	@DisplayName("결제 중 좌석 보호")
+	class PaymentHold {
+
+		@Test
+		@DisplayName("자기 예약이 점유한 field는 만료가 사라져 예약 TTL이 지나도 남는다")
+		void persists_own_reservation_fields() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			SeatOccupancyResult result = seatOccupancyRepository.hold(
+				holdCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.success()).isTrue();
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isEqualTo(-1L);
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 2))).isEqualTo(-1L);
+			assertThat(carHash(CAR_1)).containsEntry(field(SEAT_A, 1), "R:RV1");
+		}
+
+		@Test
+		@DisplayName("보호가 풀려 사라진 자기 field는 다시 점유되고 만료 없이 남는다")
+		void reclaims_missing_fields() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+			stringRedisTemplate.opsForHash().delete(carKey(CAR_1), field(SEAT_A, 2));
+
+			// when
+			SeatOccupancyResult result = seatOccupancyRepository.hold(
+				holdCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.success()).isTrue();
+			assertThat(carHash(CAR_1)).containsEntry(field(SEAT_A, 2), "R:RV1");
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 2))).isEqualTo(-1L);
+		}
+
+		@Test
+		@DisplayName("다른 예약이 점유한 구간이 있으면 예약 충돌을 돌려주고 아무것도 바꾸지 않는다")
+		void conflicts_with_other_reservation() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.occupy(command("RV2", 2, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			SeatOccupancyResult result = seatOccupancyRepository.hold(
+				holdCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.success()).isFalse();
+			assertThat(result.conflictSeatId()).isEqualTo(SEAT_A);
+			assertThat(result.conflictSectionIndex()).isEqualTo(2);
+			assertThat(result.conflictType()).isEqualTo(SeatOccupancyValue.Type.RESERVED);
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isGreaterThan(0L);
+		}
+
+		@Test
+		@DisplayName("이미 예매로 전환된 구간이 있으면 예매 충돌을 돌려주고 아무것도 바꾸지 않는다")
+		void conflicts_with_booked_field() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(
+				confirmCommand("RV1", 7001L, 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			SeatOccupancyResult result = seatOccupancyRepository.hold(
+				holdCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.success()).isFalse();
+			assertThat(result.conflictType()).isEqualTo(SeatOccupancyValue.Type.BOOKED);
+			assertThat(carHash(CAR_1)).containsEntry(field(SEAT_A, 1), "B:7001");
+		}
+
+		@Test
+		@DisplayName("두 번째 객차에서 충돌하면 첫 번째 객차의 만료도 그대로 남는다")
+		void is_atomic_across_cars() {
+			// given
+			seatOccupancyRepository.occupy(
+				command("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2)));
+			stringRedisTemplate.opsForHash().put(carKey(CAR_2), field(SEAT_B, 1), "R:RV9");
+
+			// when
+			SeatOccupancyResult result = seatOccupancyRepository.hold(
+				holdCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2)));
+
+			// then
+			assertThat(result.success()).isFalse();
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isGreaterThan(0L);
+		}
+
+		@Test
+		@DisplayName("만료가 없는 객차 Hash 키에는 운행일 기준 만료를 건다")
+		void applies_car_key_expiration_when_absent() {
+			// given
+			long keyExpireAt = Instant.now().plusSeconds(3600).getEpochSecond();
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_A, 1), "R:RV1");
+
+			// when
+			seatOccupancyRepository.hold(new SeatHoldCommand(
+				SCHEDULE_ID, "RV1", keyExpireAt, 1, 2, List.of(new SeatCar(SEAT_A, CAR_1))));
+
+			// then
+			assertThat(stringRedisTemplate.getExpire(carKey(CAR_1), TimeUnit.SECONDS)).isGreaterThan(0L);
+		}
+
+		@Test
+		@DisplayName("객차 Hash 키에 이미 만료가 걸려 있으면 덮어쓰지 않는다")
+		void keeps_existing_car_key_expiration() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+			stringRedisTemplate.expire(carKey(CAR_1), 100L, TimeUnit.SECONDS);
+
+			// when - holdCommand는 3600초 뒤 만료를 넘긴다
+			seatOccupancyRepository.hold(holdCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(stringRedisTemplate.getExpire(carKey(CAR_1), TimeUnit.SECONDS)).isBetween(95L, 100L);
+		}
+
+		@Test
+		@DisplayName("같은 예약으로 다시 실행해도 결과가 같다")
+		void is_idempotent() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.hold(holdCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			SeatOccupancyResult result = seatOccupancyRepository.hold(
+				holdCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.success()).isTrue();
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isEqualTo(-1L);
+		}
+
+		@Test
+		@DisplayName("알 수 없는 형식의 점유 값을 만나면 SEAT_OCCUPANCY_SCRIPT_ERROR 예외가 발생한다")
+		void rejects_unknown_value() {
+			// given
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_A, 1), "Z:bad");
+
+			// when & then
+			assertThatThrownBy(() -> seatOccupancyRepository.hold(
+				holdCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1))))
+				.isInstanceOf(BusinessException.class)
+				.hasMessage(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR.getMessage());
+		}
+	}
+
+	@Nested
+	@DisplayName("결제 중 좌석 보호 해제")
+	class PaymentRelease {
+
+		@Test
+		@DisplayName("주문 표시가 없으면 예약 본문의 남은 수명만큼 만료가 되돌아온다")
+		void restores_from_reservation_body() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.hold(holdCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			SeatHoldReleaseResult result = seatOccupancyRepository.releaseHold(
+				holdReleaseCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.restoredCount()).isEqualTo(2);
+			assertThat(result.deletedCount()).isZero();
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isBetween(1L, TTL_SECONDS);
+			assertThat(carHash(CAR_1)).containsEntry(field(SEAT_A, 1), "R:RV1");
+		}
+
+		@Test
+		@DisplayName("주문 표시가 살아 있으면 예약 본문보다 표시의 남은 수명을 쓴다")
+		void prefers_order_marker_deadline() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 60L, 1, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.hold(holdCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+			stringRedisTemplate.opsForValue().set(orderMarkerKey("RV1"), "ORD1", 600, TimeUnit.SECONDS);
+
+			// when
+			seatOccupancyRepository.releaseHold(holdReleaseCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isGreaterThan(60L);
+		}
+
+		@Test
+		@DisplayName("주문 표시도 예약 본문도 없으면 자기 field를 삭제한다")
+		void deletes_fields_when_no_deadline_remains() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.hold(holdCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+			stringRedisTemplate.delete(reservationKey("RV1"));
+
+			// when
+			SeatHoldReleaseResult result = seatOccupancyRepository.releaseHold(
+				holdReleaseCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.restoredCount()).isZero();
+			assertThat(result.deletedCount()).isEqualTo(2);
+			assertThat(carHash(CAR_1)).doesNotContainKey(field(SEAT_A, 1));
+		}
+
+		@Test
+		@DisplayName("되돌릴 기한이 남아 있어도 자기 것이 아닌 field에는 만료를 걸지 않는다")
+		void restores_only_own_fields_when_deadline_remains() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.hold(holdCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_A, 2), "R:RV9");
+
+			// when
+			SeatHoldReleaseResult result = seatOccupancyRepository.releaseHold(
+				holdReleaseCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.restoredCount()).isEqualTo(1);
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isBetween(1L, TTL_SECONDS);
+			assertThat(carHash(CAR_1)).containsEntry(field(SEAT_A, 2), "R:RV9");
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 2))).isEqualTo(-1L);
+		}
+
+		@Test
+		@DisplayName("다른 예약이 점유한 field는 건드리지 않는다")
+		void skips_fields_owned_by_others() {
+			// given
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_A, 1), "R:RV9");
+
+			// when
+			SeatHoldReleaseResult result = seatOccupancyRepository.releaseHold(
+				holdReleaseCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.restoredCount()).isZero();
+			assertThat(result.deletedCount()).isZero();
+			assertThat(carHash(CAR_1)).containsEntry(field(SEAT_A, 1), "R:RV9");
+		}
+
+		@Test
+		@DisplayName("이미 예매로 전환된 자기 좌석은 건드리지 않는다")
+		void skips_already_booked_fields() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(
+				confirmCommand("RV1", 7001L, 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			SeatHoldReleaseResult result = seatOccupancyRepository.releaseHold(
+				holdReleaseCommand("RV1", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.restoredCount()).isZero();
+			assertThat(result.deletedCount()).isZero();
+			assertThat(carHash(CAR_1)).containsEntry(field(SEAT_A, 1), "B:7001");
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isEqualTo(-1L);
+		}
+
+		@Test
+		@DisplayName("두 객차에 걸친 예약은 두 객차 모두 되돌아온다")
+		void restores_across_two_cars() {
+			// given
+			seatOccupancyRepository.occupy(
+				command("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2)));
+			seatOccupancyRepository.hold(
+				holdCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2)));
+
+			// when
+			SeatHoldReleaseResult result = seatOccupancyRepository.releaseHold(
+				holdReleaseCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2)));
+
+			// then
+			assertThat(result.restoredCount()).isEqualTo(2);
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isGreaterThan(0L);
+			assertThat(fieldTtl(CAR_2, field(SEAT_B, 1))).isGreaterThan(0L);
+		}
+
+		@Test
+		@DisplayName("보호하지 않은 예약에 실행해도 남은 만료를 유지한 채 끝난다")
+		void is_safe_without_prior_hold() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			SeatHoldReleaseResult result = seatOccupancyRepository.releaseHold(
+				holdReleaseCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.restoredCount()).isEqualTo(1);
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isBetween(1L, TTL_SECONDS);
+		}
+
+		@Test
+		@DisplayName("같은 예약으로 다시 실행해도 결과가 같다")
+		void is_idempotent() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.hold(holdCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.releaseHold(holdReleaseCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			SeatHoldReleaseResult result = seatOccupancyRepository.releaseHold(
+				holdReleaseCommand("RV1", 1, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.restoredCount()).isEqualTo(1);
+			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isBetween(1L, TTL_SECONDS);
 		}
 	}
 

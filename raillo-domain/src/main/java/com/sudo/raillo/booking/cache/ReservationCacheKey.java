@@ -9,6 +9,7 @@ import java.util.stream.IntStream;
  * <pre>
  * {schedule:{trainScheduleId}}:car:{trainCarId}:seats     Hash    field {seatId}:{sectionIndex} → SeatOccupancyValue
  * {schedule:{trainScheduleId}}:reservation:{reservationId} String  Reservation JSON
+ * {schedule:{trainScheduleId}}:reservation:{reservationId}:order  String  예약을 가져간 주문의 orderCode
  * member:{memberNo}:reservations                          Hash    field {reservationId} → trainScheduleId
  * </pre>
  *
@@ -20,6 +21,7 @@ public final class ReservationCacheKey {
 
 	private static final String CAR_SEATS_KEY = SCHEDULE_PREFIX + "car:%d:seats";
 	private static final String RESERVATION_KEY = SCHEDULE_PREFIX + "reservation:%s";
+	private static final String RESERVATION_ORDER_KEY = RESERVATION_KEY + ":order";
 	private static final String MEMBER_RESERVATIONS_KEY = "member:%s:reservations";
 
 	private static final String SEAT_FIELD = "%d:%d";
@@ -39,6 +41,11 @@ public final class ReservationCacheKey {
 
 	public static String reservation(long trainScheduleId, String reservationId) {
 		return RESERVATION_KEY.formatted(trainScheduleId, reservationId);
+	}
+
+	/** 예약을 가져간 주문을 가리키는 표시. 값은 orderCode이고 만료는 결제 마감 시각이다. */
+	public static String reservationOrder(long trainScheduleId, String reservationId) {
+		return RESERVATION_ORDER_KEY.formatted(trainScheduleId, reservationId);
 	}
 
 	public static String memberReservations(String memberNo) {

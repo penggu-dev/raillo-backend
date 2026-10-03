@@ -29,6 +29,8 @@ public class SeatOccupancyRepository {
 	private final DefaultRedisScript<List> reservationCreateScript;
 	private final DefaultRedisScript<List> reservationDeleteScript;
 	private final DefaultRedisScript<List> reservationBookingConfirmScript;
+	private final DefaultRedisScript<List> reservationPaymentHoldScript;
+	private final DefaultRedisScript<List> reservationPaymentReleaseScript;
 
 	/**
 	 * 요청 구간에 다른 점유가 없으면 좌석을 예약으로 점유하고 예약을 저장한다. 검사와 쓰기가 한 스크립트에서 원자적으로 끝난다.
@@ -105,6 +107,85 @@ public class SeatOccupancyRepository {
 		} catch (Exception e) {
 			log.error("[예매 점유 전환 스크립트 오류] reservationId={}, bookingId={}, error={}",
 				command.reservationId(), command.bookingId(), e.getMessage(), e);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
+		}
+	}
+
+	/**
+	 * 결제 결과를 모르는 동안 자기 예약의 좌석 field를 붙잡는다. 다른 예약이나 예매가 점유한 구간이 있으면 아무것도 쓰지 않는다.
+	 *
+	 * @return 성공 또는 첫 번째 충돌 정보
+	 * @throws BusinessException 스크립트 실행이 실패했거나 응답이 계약과 다를 때
+	 */
+	public SeatOccupancyResult hold(SeatHoldCommand command) {
+		List<Long> trainCarIds = distinctTrainCarIds(command.seats());
+		List<String> keys = new ArrayList<>();
+		for (long trainCarId : trainCarIds) {
+			keys.add(ReservationCacheKey.carSeats(command.trainScheduleId(), trainCarId));
+		}
+
+		List<String> args = new ArrayList<>();
+		args.add(command.reservationId());
+		args.add(String.valueOf(command.keyExpireAtEpochSecond()));
+		args.add(String.valueOf(command.departureStopOrder()));
+		args.add(String.valueOf(command.arrivalStopOrder()));
+		for (SeatCar seat : command.seats()) {
+			args.add(seat.seatId() + ":" + (trainCarIds.indexOf(seat.trainCarId()) + 1));
+		}
+
+		try {
+			@SuppressWarnings("unchecked")
+			List<Object> raw = stringRedisTemplate.execute(reservationPaymentHoldScript, keys, args.toArray());
+			SeatOccupancyResult result = SeatOccupancyResult.fromLuaResult(raw);
+			if (result.success()) {
+				log.info("[결제 중 좌석 보호 성공] reservationId={}, trainScheduleId={}, seatCount={}",
+					command.reservationId(), command.trainScheduleId(), command.seats().size());
+			} else {
+				log.warn("[결제 중 좌석 보호 충돌] reservationId={}, trainScheduleId={}, seatId={}, section={}, type={}",
+					command.reservationId(), command.trainScheduleId(),
+					result.conflictSeatId(), result.conflictSectionIndex(), result.conflictType());
+			}
+			return result;
+		} catch (Exception e) {
+			log.error("[결제 중 좌석 보호 스크립트 오류] reservationId={}, trainScheduleId={}, error={}",
+				command.reservationId(), command.trainScheduleId(), e.getMessage(), e);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
+		}
+	}
+
+	/**
+	 * 자기 예약 좌석 field의 만료를 보호 이전 상태로 되돌린다. 자기 것이 아닌 field는 건드리지 않는다.
+	 *
+	 * @return 되돌린 field 수와 삭제한 field 수
+	 * @throws BusinessException 스크립트 실행이 실패했거나 응답이 계약과 다를 때
+	 */
+	public SeatHoldReleaseResult releaseHold(SeatHoldReleaseCommand command) {
+		List<Long> trainCarIds = distinctTrainCarIds(command.seats());
+		List<String> keys = new ArrayList<>();
+		keys.add(ReservationCacheKey.reservation(command.trainScheduleId(), command.reservationId()));
+		keys.add(ReservationCacheKey.reservationOrder(command.trainScheduleId(), command.reservationId()));
+		for (long trainCarId : trainCarIds) {
+			keys.add(ReservationCacheKey.carSeats(command.trainScheduleId(), trainCarId));
+		}
+
+		List<String> args = new ArrayList<>();
+		args.add(command.reservationId());
+		args.add(String.valueOf(command.departureStopOrder()));
+		args.add(String.valueOf(command.arrivalStopOrder()));
+		for (SeatCar seat : command.seats()) {
+			args.add(seat.seatId() + ":" + (trainCarIds.indexOf(seat.trainCarId()) + 1));
+		}
+
+		try {
+			@SuppressWarnings("unchecked")
+			List<Object> raw = stringRedisTemplate.execute(reservationPaymentReleaseScript, keys, args.toArray());
+			SeatHoldReleaseResult result = SeatHoldReleaseResult.fromLuaResult(raw);
+			log.info("[결제 중 좌석 보호 해제] reservationId={}, trainScheduleId={}, restored={}, deleted={}",
+				command.reservationId(), command.trainScheduleId(), result.restoredCount(), result.deletedCount());
+			return result;
+		} catch (Exception e) {
+			log.error("[결제 중 좌석 보호 해제 스크립트 오류] reservationId={}, trainScheduleId={}, error={}",
+				command.reservationId(), command.trainScheduleId(), e.getMessage(), e);
 			throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
 		}
 	}

@@ -12,9 +12,10 @@
 
 | 키 | 타입 | 만료 | 내용 |
 |---|---|---|---|
-| `{schedule:{trainScheduleId}}:car:{carId}:seats` | Hash | 키: 운행일 기준 EXPIREAT, 예약 field: HEXPIRE | 객차 하나의 좌석 점유 상태 |
+| `{schedule:{trainScheduleId}}:car:{carId}:seats` | Hash | 키: 운행일 기준 EXPIREAT, 예약 field: HEXPIRE (결제 중 보호는 5장 예외) | 객차 하나의 좌석 점유 상태 |
 | `{schedule:{trainScheduleId}}:reservation:{reservationId}` | String | EX = 예약 TTL | 예약 본문 JSON |
 | `member:{memberNo}:reservations` | Hash | field별 HEXPIRE = 예약 TTL | 회원별 예약 인덱스. field 예약 ID → value 운행 ID |
+| `{schedule:{trainScheduleId}}:reservation:{reservationId}:order` | String | EXPIREAT = 결제 마감 시각 | 예약을 가져간 주문의 orderCode. 계획 B가 쓰기 시작한다 |
 
 운행 단위 키는 기준정보 캐시와 같은 `{schedule:id}` hash tag를 써서 Redis Cluster에서 한 운행의 점유·예약·기준정보가 같은 slot에 놓인다. 회원 인덱스는 운행과 무관하므로 별도 slot이며 Lua 밖에서 다룬다.
 
@@ -22,7 +23,7 @@
 
 ```text
 {schedule:1001}:car:231:seats
-  field  46456:0   value  R:RV20260917120000A1B2C3    예약 점유 (예약 TTL만큼 HEXPIRE)
+  field  46456:0   value  R:RV20260917120000A1B2C3    예약 점유 (예약 TTL만큼 HEXPIRE, 결제 중 보호는 5장 예외)
   field  46456:1   value  R:RV20260917120000A1B2C3
   field  46457:2   value  B:77                        예매 점유 (만료 없음)
 ```
@@ -34,7 +35,7 @@
   - **읽기** 경로(`SeatOccupancyQueryRepository`)는 field 이름이나 값이 계약과 다르면 `SEAT_OCCUPANCY_CORRUPTED`를 낸다. 좌석 하나가 아니라 그 호출 전체가 실패한다.
   - field **이름**(`{seatId}:{sectionIndex}`)의 오염은 쓰기·전환 스크립트가 구분하지 못한다. Lua가 숫자 변환에 실패한 자리는 응답에서 빠지고 Java는 형식 불일치로 읽어 `SEAT_OCCUPANCY_SCRIPT_ERROR`가 된다. 현재 의도된 한계다.
 - 키는 점유가 처음 생길 때 만들어지고, TTL이 없을 때만 `TrainCacheKey.expireAtEpochSecond(운행일)`로 EXPIREAT을 건다. 빈 열차는 키가 없다.
-- 예약 field는 HEXPIRE로 예약과 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다. 필드 단위 만료는 Redis 7.4, Valkey 9.0부터 지원한다.
+- 예약 field는 HEXPIRE로 예약과 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다. 필드 단위 만료는 Redis 7.4, Valkey 9.0부터 지원한다. 결제가 진행 중인 예약 field는 예외로 만료가 없을 수 있다(5장).
 - 예매 점유(`B:`) 기록은 `PaymentOutboxWorker`가 승인 확정 후 `BOOKING_CONFIRMED` outbox를 `BookingConfirmedProcessor`에 넘겨 `R:` → `B:`로 전환한다(`reservation_booking_confirm.lua`).
   - 자기 예약 `R:`은 `B:{bookingId}`로 바꾸고 field 만료를 없앤다. 같은 `B:`는 그대로 성공한다. 빈 field는 DB 예매가 유효할 때만 `B:`를 쓴다.
   - 다른 R이나 B가 하나라도 있으면 아무것도 바꾸지 않고, 처리기가 예외를 던져 Outbox 재시도에 맡긴다.
@@ -131,13 +132,44 @@ ARGV       reservationId, ttlSec(>=1), keyExpireAt, json, depOrder, arrOrder, "s
 
 같은 `reservationId`로 다시 실행하면 자기 점유는 충돌로 보지 않는다. API는 한 객차의 좌석만 받으므로 객차 Hash는 `KEYS[2]` 하나지만, 스크립트는 여러 객차를 받을 수 있게 되어 있다.
 
-## 5. 조회
+## 5. 결제 중 좌석 보호와 해제
+
+결제 결과를 모르는 동안에는 좌석 field의 만료를 없애 예약 TTL이 좌석을 가져가지 못하게 막는다. 보호 대상은 좌석 field뿐이고 예약 본문과 회원 인덱스는 원래 10분 규칙을 그대로 따른다. 마이페이지가 10분 규칙을 따라야 하기 때문이다.
+
+| 스크립트 | 호출 시점 | 동작 |
+|---|---|---|
+| `reservation_payment_hold.lua` | Toss 응답이 결과 불명일 때, Recovery Worker가 attempt를 처리할 때 | 자기 `R:` field의 만료를 없앤다(HPERSIST). 비어 있는 field에는 `R:`을 다시 쓰고 만료를 없앤다. 다른 값이 하나라도 있으면 아무것도 쓰지 않고 충돌을 돌려준다 |
+| `reservation_payment_release.lua` | 확정 실패를 기록할 때 | 자기 `R:` field의 만료를 보호 이전 상태로 되돌린다. 주문 표시가 살아 있으면 표시의 남은 TTL을, 없으면 예약 본문의 남은 TTL을 쓴다. 둘 다 없으면 field를 삭제한다 |
+
+해제는 좌석을 버리는 것이 아니라 보호 이전으로 되돌리는 것이다. 카드가 거절되면 사용자는 다른 카드로 다시 결제하고 그동안 좌석이 남아 있어야 한다. 그래서 `release`는 자기 `R:`이 아닌 field를 건드리지 않는다. 다른 예약의 `R:`은 남의 좌석이고, 자기 `B:`는 이미 확정된 예매라 되돌릴 대상이 아니다.
+
+두 스크립트 모두 예약 본문을 쓰지 않는다. `release`는 본문의 남은 TTL을 읽기만 한다. 그 값은 `Reservation.expiresAt`과 같은 시각이다.
+
+```text
+reservation_payment_hold.lua
+KEYS[1..]  객차 Hash (중복 없이, 처음 등장 순서)
+ARGV       reservationId, keyExpireAt, depOrder, arrOrder, "seatId:carKeyIndex"...
+반환       {1} 또는 {0, seatId, sectionIndex, "R"|"B"|"X"}
+
+reservation_payment_release.lua
+KEYS[1]    예약 본문 키
+KEYS[2]    주문 표시 키
+KEYS[3..]  객차 Hash (중복 없이, 처음 등장 순서)
+ARGV       reservationId, depOrder, arrOrder, "seatId:carKeyIndex"...
+반환       {restoredCount, deletedCount}
+```
+
+만료를 읽을 때는 `TTL`, field 만료를 걸 때는 `HEXPIRE`를 쓴다. 둘 다 상대 초다. 절대 시각 `EXPIREAT`은 운행일 기준이 필요한 객차 키 만료에만 쓴다.
+
+주문 표시 키는 계획 B가 쓰기 시작한다. 그전까지 `release`는 항상 예약 본문의 남은 TTL로 되돌린다.
+
+## 6. 조회
 
 결제가 예약을 읽을 때는 `member:{memberNo}:reservations`에서 HMGET으로 운행 ID를 얻고 예약 키를 MGET한다. 인덱스에 없는 예약은 만료된 것으로 본다. 다른 회원의 예약은 요청자의 인덱스에 없으므로 같은 이유로 `RESERVATION_EXPIRED`가 된다. `RESERVATION_ACCESS_DENIED`는 인덱스와 본문의 회원번호가 어긋난 경우에만 남는다.
 
 내 예약 목록(`GET /api/v1/reservations`)은 인덱스를 HGETALL로 읽고 같은 방식으로 본문을 MGET한다. 본문이 먼저 만료된 인덱스는 결과에서 빠지고, 생성 시각 순으로 정렬한다.
 
-## 5-1. 삭제
+## 6-1. 삭제
 
 `DELETE /api/v1/reservations/{reservationId}`는 자기 예약의 점유만 즉시 해제한다.
 
@@ -157,7 +189,7 @@ ARGV       reservationId, depOrder, arrOrder, "seatId:carKeyIndex"...
 
 값이 정확히 `R:{reservationId}`인 field만 HDEL한다. 다른 예약의 `R:`과 예매 `B:`는 건드리지 않는다. 스크립트 실행이 실패하면 `SEAT_OCCUPANCY_RELEASE_FAILED`(500)다. 결제 진행 중인 예약의 삭제 보호는 이 범위 밖이며 결제 소유권 작업(#280, #259)에서 다룬다.
 
-## 6. 구현 규칙
+## 7. 구현 규칙
 
 - 새 Redis 코드는 `StringRedisTemplate`을 쓴다. `customStringRedisTemplate`은 hash serializer가 JDK 직렬화라 Hash field가 바이트로 깨진다.
 - 값 JSON은 `RedisJsonConverter`로 읽고 쓴다. Batch의 `TrainCacheJsonConverter`와 같은 설정이다.

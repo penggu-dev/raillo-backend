@@ -53,4 +53,32 @@ public class RedisScriptConfig {
 		script.setResultType(List.class);
 		return script;
 	}
+
+	/**
+	 * 결제 중 좌석 보호 스크립트. 자기 예약 점유의 만료를 없애고 사라진 field를 다시 점유한다.
+	 *
+	 * <p>반환값: {@code {1}} 또는 {@code {0, seatId, sectionIndex, "R"|"B"|"X"}}</p>
+	 */
+	@Bean
+	public DefaultRedisScript<List> reservationPaymentHoldScript() {
+		DefaultRedisScript<List> script = new DefaultRedisScript<>();
+		script.setScriptSource(new ResourceScriptSource(
+			new ClassPathResource("scripts/reservation_payment_hold.lua")));
+		script.setResultType(List.class);
+		return script;
+	}
+
+	/**
+	 * 결제 중 좌석 보호 해제 스크립트. 자기 예약 점유의 만료를 보호 이전 상태로 되돌린다.
+	 *
+	 * <p>반환값: {@code {restoredCount, deletedCount}}</p>
+	 */
+	@Bean
+	public DefaultRedisScript<List> reservationPaymentReleaseScript() {
+		DefaultRedisScript<List> script = new DefaultRedisScript<>();
+		script.setScriptSource(new ResourceScriptSource(
+			new ClassPathResource("scripts/reservation_payment_release.lua")));
+		script.setResultType(List.class);
+		return script;
+	}
 }
