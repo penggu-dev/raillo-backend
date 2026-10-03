@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
 import com.sudo.raillo.payment.domain.PaymentOutbox;
 import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
@@ -109,6 +111,44 @@ class PaymentOutboxWorkerIntegrationTest {
 		PaymentOutbox reloaded = outboxRepository.findById(row.getId()).orElseThrow();
 		assertThat(reloaded.getStatus()).isEqualTo(PaymentOutboxStatus.FAILED);
 		assertThat(reloaded.getProcessedAt()).isNotNull();
+	}
+
+	@Test
+	@DisplayName("재시도 불가 에러는 재시도 횟수가 남아 있어도 백오프 없이 바로 FAILED로 전이한다")
+	void poll_nonRetryableFailure_marksFailedImmediately() {
+		// given - retryCount 0, 즉 재시도 여유가 maxRetries만큼 남은 상태
+		PaymentOutbox saved = outboxRepository.save(
+			PaymentOutbox.forBookingConfirmed(10L, "k-non-retryable", "{}")
+		);
+		doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED))
+			.when(dispatcher).dispatch(any(), any());
+
+		// when
+		worker.poll();
+
+		// then
+		PaymentOutbox reloaded = outboxRepository.findById(saved.getId()).orElseThrow();
+		assertThat(reloaded.getStatus()).isEqualTo(PaymentOutboxStatus.FAILED);
+		assertThat(reloaded.getProcessedAt()).isNotNull();
+		assertThat(reloaded.getRetryCount()).isZero();
+		assertThat(reloaded.getNextRetryAt()).isNull();
+	}
+
+	@Test
+	@DisplayName("재시도 불가 에러는 payment.outbox.non_retryable 카운터를 증가시킨다")
+	void poll_nonRetryableFailure_incrementsNonRetryableCounter() {
+		double beforeNonRetryable = meterRegistry.counter("payment.outbox.non_retryable").count();
+		double beforeFailed = meterRegistry.counter("payment.outbox.failed").count();
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(11L, "k-non-retryable-metric", "{}"));
+		doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED))
+			.when(dispatcher).dispatch(any(), any());
+
+		worker.poll();
+
+		assertThat(meterRegistry.counter("payment.outbox.non_retryable").count())
+			.isEqualTo(beforeNonRetryable + 1);
+		assertThat(meterRegistry.counter("payment.outbox.failed").count())
+			.isEqualTo(beforeFailed + 1);
 	}
 
 	@Test

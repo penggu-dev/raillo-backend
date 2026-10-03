@@ -16,6 +16,7 @@ import com.sudo.raillo.booking.cache.ReservationCacheKey;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.type.PassengerType;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -226,6 +227,25 @@ class BookingConfirmedProcessorTest {
 		assertThat(seatValue(reservation, seats.get(0))).isEqualTo("R:RV-OTHER");
 		assertThat(reservationBodyExists(reservation)).isTrue();
 		assertThat(memberIndexExists(reservation)).isTrue();
+	}
+
+	@Test
+	@DisplayName("좌석 값이 오염돼 있으면 SEAT_OCCUPANCY_CORRUPTED 예외가 처리기 밖으로 그대로 나온다")
+	void process_propagates_corruption_unwrapped() {
+		// given - 좌석 점유 값이 아닌 값을 직접 심는다
+		stringRedisTemplate.opsForHash().put(
+			ReservationCacheKey.carSeats(reservation.trainScheduleId(),
+				seats.get(0).getTrainCar().getId()),
+			ReservationCacheKey.seatField(seats.get(0).getId(), reservation.departure().stopOrder()),
+			"Z:corrupted");
+		String payload = payload(List.of(reservation), booking.getId());
+
+		// when & then 워커가 재시도 불가로 갈라낼 수 있으려면 이 타입이 감싸이지 않고 올라와야 한다
+		assertThatThrownBy(() -> processor.process(payload))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_CORRUPTED);
+		assertThat(seatValue(reservation, seats.get(0))).isEqualTo("Z:corrupted");
+		assertThat(reservationBodyExists(reservation)).isTrue();
 	}
 
 	@Test

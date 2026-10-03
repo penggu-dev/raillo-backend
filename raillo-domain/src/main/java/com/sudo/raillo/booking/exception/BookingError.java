@@ -47,4 +47,13 @@ public enum BookingError implements ErrorCode {
 	private final String message;
 	private final HttpStatus status;
 	private final String code;
+
+	/**
+	 * 좌석 점유 데이터 오염은 재시도로 낫지 않는다. Redis에 이미 들어 있는 값이 좌석 점유 값이 아니므로
+	 * 같은 스크립트를 몇 번 더 실행해도 같은 응답이 돌아온다. 사람이 그 값을 치워야 한다.
+	 */
+	@Override
+	public boolean retryable() {
+		return this != SEAT_OCCUPANCY_CORRUPTED;
+	}
 }

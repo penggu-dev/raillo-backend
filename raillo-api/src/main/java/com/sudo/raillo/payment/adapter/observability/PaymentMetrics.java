@@ -18,6 +18,7 @@ public class PaymentMetrics implements OutboxMetrics {
 	private final Counter confirmSuccessCounter;
 	private final Counter outboxFailedCounter;
 	private final Counter cleanupFailureCounter;
+	private final Counter outboxNonRetryableCounter;
 
 	public PaymentMetrics(MeterRegistry meterRegistry, PaymentOutboxRepository paymentOutboxRepository) {
 		this.meterRegistry = meterRegistry;
@@ -31,7 +32,11 @@ public class PaymentMetrics implements OutboxMetrics {
 			.register(meterRegistry);
 
 		this.outboxFailedCounter = Counter.builder("payment.outbox.failed")
-			.description("Outbox 처리 최대 재시도 초과로 FAILED 전이된 건수")
+			.description("Outbox 처리가 FAILED로 전이된 건수 (최대 재시도 초과 또는 재시도 불가)")
+			.register(meterRegistry);
+
+		this.outboxNonRetryableCounter = Counter.builder("payment.outbox.non_retryable")
+			.description("재시도로 낫지 않는 원인이라 백오프 없이 FAILED 전이된 건수")
 			.register(meterRegistry);
 
 		this.cleanupFailureCounter = Counter.builder("payment.cleanup.failure")
@@ -69,5 +74,10 @@ public class PaymentMetrics implements OutboxMetrics {
 	@Override
 	public void incrementCleanupFailure() {
 		cleanupFailureCounter.increment();
+	}
+
+	@Override
+	public void incrementOutboxNonRetryable() {
+		outboxNonRetryableCounter.increment();
 	}
 }

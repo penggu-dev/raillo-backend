@@ -3,7 +3,7 @@ package com.sudo.raillo.global.exception;
 import lombok.Getter;
 
 @Getter
-public class BusinessException extends RuntimeException{
+public class BusinessException extends RuntimeException implements ErrorCodeCarrier {
 
 	private final ErrorCode errorCode;
 
