@@ -34,7 +34,8 @@ public class SeatOccupancyRepository {
 	 * 요청 구간에 다른 점유가 없으면 좌석을 예약으로 점유하고 예약을 저장한다. 검사와 쓰기가 한 스크립트에서 원자적으로 끝난다.
 	 *
 	 * @return 성공 또는 첫 번째 충돌 정보
-	 * @throws BusinessException 스크립트 실행이 실패했거나 응답이 계약과 다를 때
+	 * @throws BusinessException 스크립트 실행이 실패했거나 응답이 계약과 다를 때({@code SEAT_OCCUPANCY_SCRIPT_ERROR}),
+	 *     좌석 점유 값이 아닌 값을 만났을 때({@code SEAT_OCCUPANCY_CORRUPTED})
 	 */
 	public SeatOccupancyResult occupy(SeatOccupancyCommand command) {
 		List<String> keys = buildKeys(command);
@@ -55,6 +56,10 @@ public class SeatOccupancyRepository {
 			}
 			return result;
 
+		} catch (SeatOccupancyCorruptedException e) {
+			log.error("[좌석 점유 데이터 오염] reservationId={}, trainScheduleId={}, error={}",
+				command.reservationId(), command.trainScheduleId(), e.getMessage(), e);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED);
 		} catch (Exception e) {
 			log.error("[좌석 점유 스크립트 오류] reservationId={}, trainScheduleId={}, error={}",
 				command.reservationId(), command.trainScheduleId(), e.getMessage(), e);
@@ -66,7 +71,8 @@ public class SeatOccupancyRepository {
 	 * 자기 예약 점유를 예매 점유로 바꾸고 예약 본문을 지운다. 다른 예약이나 예매가 점유한 구간이 있으면 아무것도 쓰지 않는다.
 	 *
 	 * @return 성공 또는 첫 번째 충돌 정보
-	 * @throws BusinessException 스크립트 실행이 실패했거나 응답이 계약과 다를 때
+	 * @throws BusinessException 스크립트 실행이 실패했거나 응답이 계약과 다를 때({@code SEAT_OCCUPANCY_SCRIPT_ERROR}),
+	 *     좌석 점유 값이 아닌 값을 만났을 때({@code SEAT_OCCUPANCY_CORRUPTED})
 	 */
 	public SeatOccupancyResult confirmBooking(BookingOccupancyCommand command) {
 		List<String> keys = buildKeys(command.trainScheduleId(), command.reservationId(), command.seats());
@@ -92,6 +98,10 @@ public class SeatOccupancyRepository {
 					result.conflictSeatId(), result.conflictSectionIndex(), result.conflictType());
 			}
 			return result;
+		} catch (SeatOccupancyCorruptedException e) {
+			log.error("[예매 점유 전환 데이터 오염] reservationId={}, bookingId={}, error={}",
+				command.reservationId(), command.bookingId(), e.getMessage(), e);
+			throw new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED);
 		} catch (Exception e) {
 			log.error("[예매 점유 전환 스크립트 오류] reservationId={}, bookingId={}, error={}",
 				command.reservationId(), command.bookingId(), e.getMessage(), e);
@@ -154,6 +164,15 @@ public class SeatOccupancyRepository {
 		return args.toArray();
 	}
 
+	/**
+	 * 좌석 ARGV 항목을 만든다. 형식은 {@code seatId:carKeyIndex}이며 carKeyIndex는
+	 * {@link #distinctTrainCarIds} 순서(처음 등장 순) 안의 **1부터 시작하는 순번**이다.
+	 *
+	 * <p>이 순번을 실제 KEYS 위치로 바꾸는 오프셋은 스크립트마다 다르고 호출자 책임이다.
+	 * 객차 Hash 블록이 KEYS 몇 번째부터 시작하는지가 스크립트마다 다르기 때문이다.
+	 * 새 스크립트에 이 헬퍼를 쓸 때는 그 스크립트의 KEYS 배치를 먼저 확인해야 한다. 틀려도
+	 * 컴파일과 테스트는 통과하고 다른 객차 Hash에 쓴다.</p>
+	 */
 	private static List<String> buildSeatArgs(List<SeatCar> seats) {
 		List<Long> trainCarIds = distinctTrainCarIds(seats);
 		return seats.stream()
