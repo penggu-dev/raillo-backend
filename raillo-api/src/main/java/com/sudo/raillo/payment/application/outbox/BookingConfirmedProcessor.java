@@ -22,10 +22,14 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p>운행일이 지난 항목과 예매가 더는 유효하지 않은 항목은 좌석을 건드리지 않고 예약 본문과 회원 인덱스만 지운다.
  * 다른 예약이나 예매와 충돌한 항목이 있어도 나머지 항목은 모두 처리한 뒤 예외를 한 번만 던져 Outbox 재시도에 맡기지만,
- * 데이터 오염({@code SEAT_OCCUPANCY_CORRUPTED})은 재시도로 낫지 않아 즉시 멈추고 알려야 하며(재시도 정책 분리와 알림은 후속 작업) 스크립트 실행 실패
+ * 데이터 오염({@code SEAT_OCCUPANCY_CORRUPTED})은 재시도로 낫지 않아 즉시 멈추고 알려야 하고 스크립트 실행 실패
  * ({@code SEAT_OCCUPANCY_SCRIPT_ERROR})는 모든 항목에 똑같이 영향을 주므로
  * 두 경우는 나머지 항목을 처리하지 않고 그 항목에서 바로 멈춘다.
  * 이미 전환한 항목은 다시 처리해도 성공한다.
+ *
+ * <p>오염으로 던진 예외는 {@code ErrorCode.retryable()}이 {@code false}이므로 Outbox 워커가 백오프를 태우지 않고
+ * 바로 FAILED로 보내고 {@code payment.outbox.non_retryable} 카운터를 올린다. 충돌로 던진 예외는 재시도 대상이다.
+ * 그 카운터에 거는 알림 규칙 등록은 후속 작업이라, 지금은 FAILED에 도달하는 시점만 빨라진다.</p>
  */
 @Slf4j
 @Component
