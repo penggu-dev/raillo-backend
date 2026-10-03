@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -183,6 +184,25 @@ class ReservationServiceTest {
 		}
 
 		@Test
+		@DisplayName("점유 스크립트가 데이터 오염을 알리면 본문이 저장돼 있어도 구제하지 않고 회원 인덱스를 되돌린다")
+		void does_not_rescue_corruption_even_when_stored() {
+			// given - 저장은 됐지만 오염을 알린 상황. 저장 여부 확인은 통과한다
+			doAnswer(invocation -> {
+				invocation.callRealMethod();
+				throw new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED);
+			}).when(seatOccupancyRepository).occupy(any());
+			Reservation reservation = reservation("RV1", 11L);
+
+			// when
+
+			// then 오염은 스크립트가 아무것도 쓰지 않았다는 확정 신호라 타임아웃 구제 대상이 아니다
+			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_CORRUPTED);
+			assertThat(memberIndexValue("RV1")).isNull();
+		}
+
+		@Test
 		@DisplayName("점유 스크립트가 실패하고 저장 여부 확인도 실패하면 회원 인덱스를 되돌리고 원래 예외를 던진다")
 		void rolls_back_index_when_store_check_fails() {
 			// given
@@ -292,6 +312,198 @@ class ReservationServiceTest {
 			assertThatThrownBy(() -> reservationService.getReservations(List.of(), MEMBER_NO))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_IDS_REQUIRED);
+		}
+	}
+
+	@Nested
+	@DisplayName("getMyReservations")
+	class GetMyReservations {
+
+		@Test
+		@DisplayName("내 예약을 생성 시각 순으로 돌려준다")
+		void returns_in_created_order() {
+			// given
+			LocalDateTime base = LocalDateTime.of(2026, 9, 17, 12, 0, 0);
+			Reservation later = reservationTestHelper.save(
+				ReservationFixture.builder().withReservationId("RV2").withMemberNo(MEMBER_NO)
+					.withTrainScheduleId(SCHEDULE_ID).withSeatIds(CAR_ID, 12L).withCreatedAt(base.plusMinutes(1)).build());
+			Reservation earlier = reservationTestHelper.save(
+				ReservationFixture.builder().withReservationId("RV1").withMemberNo(MEMBER_NO)
+					.withTrainScheduleId(1002L).withSeatIds(CAR_ID, 11L).withCreatedAt(base).build());
+
+			// when
+			List<Reservation> reservations = reservationService.getMyReservations(MEMBER_NO);
+
+			// then
+			assertThat(reservations).containsExactly(earlier, later);
+		}
+
+		@Test
+		@DisplayName("다른 회원의 예약은 포함하지 않는다")
+		void excludes_other_member() {
+			// given
+			Reservation mine = reservationTestHelper.save(reservation("RV1", 11L));
+			reservationTestHelper.save(ReservationFixture.builder().withReservationId("RV2")
+				.withMemberNo("202507300002").withTrainScheduleId(SCHEDULE_ID).withSeatIds(CAR_ID, 12L).build());
+
+			// when
+			List<Reservation> reservations = reservationService.getMyReservations(MEMBER_NO);
+
+			// then
+			assertThat(reservations).containsExactly(mine);
+		}
+
+		@Test
+		@DisplayName("본문이 만료된 인덱스는 제외한다")
+		void excludes_expired_body() {
+			// given
+			Reservation alive = reservationTestHelper.save(reservation("RV1", 11L));
+			reservationTestHelper.saveIndexOnly(reservation("RV2", 12L));
+
+			// when
+			List<Reservation> reservations = reservationService.getMyReservations(MEMBER_NO);
+
+			// then
+			assertThat(reservations).containsExactly(alive);
+		}
+
+		@Test
+		@DisplayName("예약이 없으면 빈 목록을 돌려준다")
+		void empty() {
+			// given
+
+			// when
+			List<Reservation> reservations = reservationService.getMyReservations(MEMBER_NO);
+
+			// then
+			assertThat(reservations).isEmpty();
+		}
+	}
+
+	@Nested
+	@DisplayName("cancel")
+	class Cancel {
+
+		@Test
+		@DisplayName("예약을 삭제하면 점유 field, 예약 본문, 회원 인덱스가 모두 사라진다")
+		void cancel_success() {
+			// given
+			reservationService.reserve(reservation("RV1", 11L, 12L), TTL);
+
+			// when
+			reservationService.cancel("RV1", MEMBER_NO);
+
+			// then
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isNull();
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 12L, 0)).isNull();
+			assertThat(stringRedisTemplate.hasKey(ReservationCacheKey.reservation(SCHEDULE_ID, "RV1"))).isFalse();
+			assertThat(memberIndexValue("RV1")).isNull();
+		}
+
+		@Test
+		@DisplayName("삭제한 좌석은 다른 예약이 바로 잡을 수 있다")
+		void seat_is_reservable_after_cancel() {
+			// given
+			reservationService.reserve(reservation("RV1", 11L), TTL);
+			reservationService.cancel("RV1", MEMBER_NO);
+
+			// when
+			reservationService.reserve(ReservationFixture.builder().withReservationId("RV2")
+				.withMemberNo("202507300002").withTrainScheduleId(SCHEDULE_ID).withSeatIds(CAR_ID, 11L).build(), TTL);
+
+			// then
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("R:RV2");
+		}
+
+		@Test
+		@DisplayName("내 예약이 아닌 점유(다른 예약, 예매)는 건드리지 않는다")
+		void keeps_other_occupancy() {
+			// given - RV1이 잡은 좌석과 다른 좌석에 다른 예약 R:과 예매 B:가 있다
+			reservationService.reserve(reservation("RV1", 11L), TTL);
+			seatOccupancyTestHelper.markReserved(SCHEDULE_ID, CAR_ID, 12L, 0, 1, "OTHER");
+			seatOccupancyTestHelper.markBooked(SCHEDULE_ID, CAR_ID, 13L, 0, 1, "77");
+
+			// when
+			reservationService.cancel("RV1", MEMBER_NO);
+
+			// then
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 12L, 0)).isEqualTo("R:OTHER");
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 13L, 0)).isEqualTo("B:77");
+		}
+
+		@Test
+		@DisplayName("이미 만료됐거나 없는 예약은 아무 일 없이 성공한다")
+		void idempotent_when_absent() {
+			// given
+
+			// when
+
+			// then
+			reservationService.cancel("RV9", MEMBER_NO);
+		}
+
+		@Test
+		@DisplayName("본문이 먼저 만료됐으면 남은 회원 인덱스만 정리한다")
+		void cleans_index_when_body_expired() {
+			// given
+			reservationTestHelper.saveIndexOnly(reservation("RV1", 11L));
+
+			// when
+			reservationService.cancel("RV1", MEMBER_NO);
+
+			// then
+			assertThat(memberIndexValue("RV1")).isNull();
+		}
+
+		@Test
+		@DisplayName("다른 회원의 예약 ID로는 삭제할 수 없고 그 예약은 그대로 남는다")
+		void other_member_cannot_cancel() {
+			// given
+			reservationService.reserve(reservation("RV1", 11L), TTL);
+
+			// when
+			reservationService.cancel("RV1", "202507300002");
+
+			// then - 요청자의 인덱스에 없으므로 성공처럼 끝나지만 예약은 그대로다
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("R:RV1");
+			assertThat(stringRedisTemplate.hasKey(ReservationCacheKey.reservation(SCHEDULE_ID, "RV1"))).isTrue();
+			assertThat(memberIndexValue("RV1")).isEqualTo(String.valueOf(SCHEDULE_ID));
+		}
+
+		@Test
+		@DisplayName("인덱스와 본문의 회원번호가 어긋나면 RESERVATION_ACCESS_DENIED 예외가 발생하고 점유는 남는다")
+		void owner_mismatch() {
+			// given - 요청자 인덱스에는 있으나 본문은 다른 회원 소유
+			Reservation foreign = ReservationFixture.builder().withReservationId("RV1")
+				.withMemberNo("202507300002").withTrainScheduleId(SCHEDULE_ID).withSeatIds(CAR_ID, 11L).build();
+			reservationTestHelper.saveBodyOnly(foreign);
+			reservationTestHelper.saveIndexOnly(reservation("RV1", 11L));
+			seatOccupancyTestHelper.markReserved(SCHEDULE_ID, CAR_ID, 11L, 0, 1, "RV1");
+
+			// when
+
+			// then
+			assertThatThrownBy(() -> reservationService.cancel("RV1", MEMBER_NO))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_ACCESS_DENIED);
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("R:RV1");
+		}
+
+		@Test
+		@DisplayName("점유 해제 스크립트가 실패하면 SEAT_OCCUPANCY_RELEASE_FAILED 예외가 발생하고 회원 인덱스는 남는다")
+		void release_failure_keeps_index() {
+			// given
+			reservationService.reserve(reservation("RV1", 11L), TTL);
+			doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_RELEASE_FAILED))
+				.when(seatOccupancyRepository).release(any());
+
+			// when
+
+			// then
+			assertThatThrownBy(() -> reservationService.cancel("RV1", MEMBER_NO))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_RELEASE_FAILED);
+			assertThat(memberIndexValue("RV1")).isEqualTo(String.valueOf(SCHEDULE_ID));
 		}
 	}
 }

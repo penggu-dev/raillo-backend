@@ -1,11 +1,12 @@
 package com.sudo.raillo.global.redis.exception;
 
 import com.sudo.raillo.global.exception.ErrorCode;
+import com.sudo.raillo.global.exception.ErrorCodeCarrier;
 
 import lombok.Getter;
 
 @Getter
-public class RedisException extends RuntimeException {
+public class RedisException extends RuntimeException implements ErrorCodeCarrier {
 
 	private final ErrorCode errorCode;
 

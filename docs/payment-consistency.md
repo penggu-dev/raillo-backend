@@ -162,6 +162,17 @@ Payload는 Redis 정리 지점을 특정할 수 있는 최소 정보만 담는�
 - 정상: Redis 정리 실행 → `status=DONE`
 - 실패: `OutboxRetryPolicy`가 계산한 지수 backoff로 `retry_count++`, `next_retry_at` 갱신
 - 최대 재시도 초과: `status=FAILED` 전환, `payment.outbox.failed` 카운터 증가
+- **재시도 불가 실패: 백오프를 건너뛰고 즉시 `status=FAILED` 전환, `payment.outbox.failed`와 `payment.outbox.non_retryable` 카운터 증가**
+
+재시도 불가 판정은 워커가 아니라 에러 코드가 한다. `ErrorCode.retryable()`의 기본값은 `true`이고, 재시도가 결과를 바꿀 수 없는 코드만 `false`로 선언한다. 현재 해당하는 코드는 `BookingError.SEAT_OCCUPANCY_CORRUPTED` 하나다. Redis에 이미 좌석 점유 값이 아닌 값이 들어 있는 상황이라 같은 스크립트를 몇 번 더 실행해도 같은 응답이 돌아온다.
+
+판정을 에러 쪽에 둔 이유는 지식의 위치다. 재시도가 도움이 되는지를 아는 쪽은 에러를 던진 코드이고 워커가 아니다. 워커에 두면 재시도 큐가 늘어날 때마다 같은 분기를 다시 쓰게 된다. 레이어 규칙 때문은 아니다 — `payment.application`은 이미 `PaymentApprovalStarter`에서 `BookingError`를 import하고 있고 `PaymentHexagonalArchitectureTest`는 그걸 막지 않는다.
+
+판정 대상은 특정 예외 클래스가 아니라 `ErrorCodeCarrier`를 구현한 예외다. 에러 코드를 싣는 예외가 `BusinessException`·`DomainException`·`RedisException` 셋이고 공통 부모가 `RuntimeException`뿐이라, 클래스를 나열하면 새로 생긴 예외가 조용히 빠진다. 에러 코드를 싣지 않은 실패(연결 끊김, 타임아웃)는 모두 재시도 대상으로 본다.
+
+알림 대상 지표는 `payment_outbox_non_retryable_total`이다. 이 값이 0이 아니면 사람이 Redis 값을 치워야 하는 상황이며 재시도로 해결되지 않는다. **알림 규칙 등록은 후속 작업이다** — 현재 저장소에 Prometheus 알림 규칙이 없어서, 이 변경만으로는 FAILED에 도달하는 시점이 15분 빨라질 뿐 통보되지는 않는다. FAILED 행을 다시 투입하는 경로도 아직 없다.
+
+`payment.outbox.non_retryable`은 `payment.outbox.failed`의 **부분집합**이다. 재시도 불가 한 건이 두 카운터를 모두 올린다. "재시도를 소진해서 실패한 건수"를 보려면 `failed - non_retryable`로 계산한다.
 
 취소 이벤트(`BOOKING_CANCELLED`) 처리기와 발행은 이슈 #259가 담당한다.
 
@@ -262,7 +273,8 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 | `payment.attempt.in_progress` | Gauge | 진행 중 attempt 수 |
 | `payment.attempt.recovered` | Counter | Recovery Worker가 복구한 건수 |
 | `payment.outbox.pending` | Gauge | 미처리 outbox 행 수 |
-| `payment.outbox.failed` | Counter | 최대 재시도 초과 건수 |
+| `payment.outbox.failed` | Counter | FAILED 전이 건수 (최대 재시도 초과 + 재시도 불가) |
+| `payment.outbox.non_retryable` | Counter | 재시도 불가로 백오프 없이 FAILED 전이된 건수. `failed`의 부분집합 |
 | `payment.cleanup.failure` | Counter | Redis 정리 예외 발생 |
 
 ## Alternatives
@@ -280,7 +292,7 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 기존 Tasks 8–12를 하나의 Worker PR로 묶는 계획에서 다음 두 범위로 나눈다. 이 문서의 후속 항목은 현재 브랜치에서 구현하지 않는다.
 
 - **Recovery Worker — 다음 브랜치·이슈:** 네트워크 타임아웃·응답 유실, Toss 성공 후 DB 확정/커밋 실패로 남은 `IN_PROGRESS`를 Toss 조회로 대사한다. 결과가 미확정이면 실패로 단정하거나 승인 API를 재호출하지 않고 다음 폴링까지 유지한다. 처리 권한 확보, 승인 확정과의 경합, 복구 지표 및 복구 후 같은 attemptId 재요청을 검증한다.
-- **Outbox — 이슈 #266에서 완료.** 승인 확정 시 outbox INSERT, `PaymentOutboxWorker`의 폴링·재시도·최대 시도 초과 정책, Reservation 정리(`BookingConfirmedProcessor`)까지 이번 브랜치에서 함께 이관됐다. 인라인 정리 코드는 이 시점에 제거됐다.
+- **Outbox — #266에서 인프라, #270에서 R→B 처리기 완료.** #266은 승인 확정 시 outbox INSERT와 `PaymentOutboxWorker`의 폴링, 재시도, 최대 시도 초과 정책을 도입하고 인라인 정리 코드를 제거했다. `BookingConfirmedProcessor`는 #266 시점에는 등록되지 않아 `BOOKING_CONFIRMED`가 PENDING으로 쌓였고, #270에서 구현해 등록했다. 처리 규칙은 `docs/reservation-cache-schema.md` 2장에 있다.
 
 승인 재요청의 요청 일치 검증, 최신 결과 조회, 결제별 동시 승인 차단, 승인 가능 상태 검증,
 입력 검증과 DB 무결성 오류 구분은 Worker 도입으로 해결되지 않으므로 선행 수정한다.

@@ -144,14 +144,13 @@
 
 ## Outbox Payload — `BookingConfirmedPayload` v2
 
-TX B에서 Payment 승인 확정 시 함께 커밋되는 이벤트. 후속 R→B 처리기가 소비(현재 미등록 상태로 PENDING 보존).
+TX B에서 Payment 승인 확정 시 함께 커밋되는 이벤트. payload는 Redis 예약이 아니라 `OrderBooking.reservation_snapshot`으로 만든다. `BookingConfirmedProcessor`가 소비해 좌석을 `R:` → `B:`로 전환한다.
 
 ```json
 {
   "schemaVersion": 2,
   "paymentId": 501,
   "attemptId": "3c6f...",
-  "guardToken": "501:1",
   "bookings": [
     {
       "reservationId": "RV20260918143000A1B2C3",
@@ -169,16 +168,16 @@ TX B에서 Payment 승인 확정 시 함께 커밋되는 이벤트. 후속 R→B
 }
 ```
 
-- ⚠️ **재설계 후**: `guardToken` 필드는 삭제 예정 (guard 스택 삭제와 함께)
 - `bookings[].bookingId`는 TX B에서 새로 생성된 Booking의 DB PK
-- 후속 처리기는 이 payload의 스냅샷으로 `R:reservationId` → `B:bookingId` 좌석 field 전환
+- `BookingConfirmedProcessor`가 이 payload의 스냅샷으로 `R:reservationId` → `B:bookingId` 좌석 field를 전환한다
 
 ## 흐름별 데이터 변화 요약
 
 | 흐름 | Redis 예약 | Redis 좌석 field | Order | Payment | PaymentAttempt | Outbox |
 |---|---|---|---|---|---|---|
 | Prepare | 그대로 | 그대로 | INSERT (PENDING) | INSERT (PENDING, paymentKey=null) | — | — |
-| Confirm 성공 (TX B) | 그대로 | 그대로 (R로 유지, 후속 PR에서 B) | UPDATE (ORDERED) | UPDATE (PAID, paymentKey=X) | UPDATE (SUCCEEDED) | INSERT (BOOKING_CONFIRMED PENDING) |
+| Confirm 성공 (TX B) | 그대로 | 그대로 (R 유지, Outbox 처리 후 B) | UPDATE (ORDERED) | UPDATE (PAID, paymentKey=X) | UPDATE (SUCCEEDED) | INSERT (BOOKING_CONFIRMED PENDING) |
+| BOOKING_CONFIRMED 처리 (R→B) | DEL (예약 본문 + 회원 인덱스) | R→B 전환 | 그대로 (이미 ORDERED) | 그대로 (이미 PAID) | 그대로 (이미 SUCCEEDED) | UPDATE (DONE) |
 | Confirm 실패 (Toss 4xx) | 그대로 | 그대로 | 그대로 (PENDING) | 그대로 (PENDING) | UPDATE (FAILED, error_code) | — |
 | 결과 불명 (인라인 재조회 통과) | 그대로 | 그대로 | 성공/실패 케이스로 귀결 | 성공/실패 케이스로 귀결 | 성공/실패 케이스로 귀결 | 성공 시 INSERT |
 | 결과 불명 (인라인 재조회 실패) | 그대로 | 그대로 | 그대로 (PENDING) | 그대로 (PENDING) | 그대로 (IN_PROGRESS) | — |
@@ -186,4 +185,4 @@ TX B에서 Payment 승인 확정 시 함께 커밋되는 이벤트. 후속 R→B
 | 예약 TTL 만료 | DEL (자연) | 자연 만료 | 그대로 (PENDING 상태로 남음, 배치 정리 대상) | 그대로 (PENDING) | 그대로 | — |
 | 유저 명시 취소 (#259) | DEL | HDEL | UPDATE (EXPIRED 등) | UPDATE (CANCELLED) | — | INSERT (BOOKING_CANCELLED) |
 
-**핵심 원칙**: Redis 좌석 field와 예약 본문은 결제 시도의 성공/실패에 영향받지 않는다. TTL과 취소 도메인만 회수 근거.
+**핵심 원칙**: Redis 좌석 field와 예약 본문은 결제 시도 중에는 성공/실패에 영향받지 않는다. 승인 확정 뒤에는 `BookingConfirmedProcessor`가 좌석 field를 `R:`에서 `B:`로 바꾸고 예약 본문과 회원 인덱스를 지우며, 그 전까지는 TTL과 취소 도메인만 회수 근거다.

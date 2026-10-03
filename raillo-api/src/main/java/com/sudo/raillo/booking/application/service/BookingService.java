@@ -9,6 +9,7 @@ import com.sudo.raillo.booking.application.validator.BookingValidator;
 import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
+import com.sudo.raillo.booking.domain.status.BookingStatus;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.booking.infrastructure.BookingQueryRepository;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
@@ -132,6 +133,13 @@ public class BookingService {
 		// 예매 조회
 		List<BookingInfo> bookingInfos = bookingQueryRepository.findBookings(member.getId(), timeFilter);
 		return bookingMapper.convertToBookingResponse(bookingInfos);
+	}
+
+	@Transactional(readOnly = true)
+	public boolean isBooked(Long bookingId) {
+		return bookingRepository.findById(bookingId)
+			.map(booking -> booking.getBookingStatus() == BookingStatus.BOOKED)
+			.orElse(false);
 	}
 
 	/**

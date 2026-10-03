@@ -1,7 +1,12 @@
 package com.sudo.raillo.booking.presentation;
 
+import java.util.List;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -9,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sudo.raillo.booking.application.dto.request.ReservationCreateRequest;
 import com.sudo.raillo.booking.application.dto.response.ReservationCreateResponse;
+import com.sudo.raillo.booking.application.dto.response.ReservationResponse;
 import com.sudo.raillo.booking.application.facade.ReservationFacade;
 import com.sudo.raillo.booking.docs.ReservationControllerDoc;
 import com.sudo.raillo.booking.success.BookingSuccess;
@@ -31,5 +37,22 @@ public class ReservationController implements ReservationControllerDoc {
 	) {
 		ReservationCreateResponse response = reservationFacade.createReservation(request, userDetails.getUsername());
 		return SuccessResponse.of(BookingSuccess.RESERVATION_CREATE_SUCCESS, response);
+	}
+
+	@GetMapping
+	public SuccessResponse<List<ReservationResponse>> getMyReservations(
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
+		List<ReservationResponse> response = reservationFacade.getMyReservations(userDetails.getUsername());
+		return SuccessResponse.of(BookingSuccess.RESERVATION_LIST_SUCCESS, response);
+	}
+
+	@DeleteMapping("/{reservationId}")
+	public SuccessResponse<?> deleteReservation(
+		@PathVariable String reservationId,
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
+		reservationFacade.deleteReservation(reservationId, userDetails.getUsername());
+		return SuccessResponse.of(BookingSuccess.RESERVATION_DELETE_SUCCESS);
 	}
 }

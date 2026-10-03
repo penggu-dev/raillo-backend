@@ -2,6 +2,38 @@
 
 This file provides guidance to coding agents (Claude Code, Codex 등) when working with code in this repository. `CLAUDE.md`는 이 파일에 대한 심볼릭 링크다.
 
+## AI 작업 절차 (Superpowers)
+
+이 프로젝트에서 작업하는 AI는 **Superpowers 스킬을 사용하고, 변경 작업의 마지막에 별도 서브에이전트 리뷰까지 진행한다.** 사용자가 매번 스킬이나 리뷰를 요청할 필요 없이 작업 유형에 맞게 적용한다.
+
+- 작업 시작 시 `superpowers:using-superpowers`와 해당 작업에 필요한 스킬의 `SKILL.md`를 읽고 적용한다. 스킬 경로는 현재 환경의 스킬 목록에서 찾으며 개인 경로나 플러그인 버전을 하드코딩하지 않는다.
+- 프로젝트 스킬(`/test`, `/commit`, `/pr` 등)을 함께 사용한다. Superpowers는 개발 절차를, 프로젝트 스킬은 이 저장소의 컨벤션을 담당한다.
+- **작업 진행:** 사용자의 명시적 지시를 우선하며, 요청한 범위의 계획·구현·테스트·리뷰·수정을 매 단계 재승인 없이 진행한다.
+- **커밋:** 검증·리뷰를 마친 변경은 논리적인 작업 단위로 나누어 프로젝트 `/commit` 컨벤션에 따라 자동 커밋한다. 기존 사용자 변경은 임의로 포함하지 않는다. 이 자동 커밋 규칙은 `/commit` 스킬의 별도 실행 요청을 기다리는 기본값보다 우선한다. 단, 사용자가 메시지 제안만 요청하거나 커밋하지 말라고 지시하면 그 지시를 따른다.
+- **푸시·PR:** 사용자가 요청했거나 이미 승인한 경우 진행한다. 로컬 자동 커밋을 푸시·PR 생성 승인으로 간주하지 않는다.
+- Superpowers나 서브에이전트 도구가 없는 환경에서는 그 사실을 알리고 가능한 계획·구현·검증을 수행한다. 수행하지 않은 스킬 적용이나 독립 리뷰를 완료했다고 보고하지 않는다.
+
+### 계획 → 구현 → 검증
+
+| 단계 | 적용 스킬과 필수 행동 |
+|---|---|
+| 요구사항·설계 | 기능 추가·동작 변경은 `superpowers:brainstorming`으로 목적, 범위, 기존 계약, 완료 조건을 정리한다. 작은 변경은 대화 안에서 짧게 정리한다. |
+| 구현 계획 | 여러 단계가 필요한 작업은 `superpowers:writing-plans`로 변경 대상, 구현 순서, 검증 방법을 계획한다. 계획 실행에는 실행 방식에 맞는 `superpowers:executing-plans` 또는 `superpowers:subagent-driven-development`를 적용한다. |
+| 원인 분석 | 버그·테스트 실패는 `superpowers:systematic-debugging`으로 재현과 원인 확인을 먼저 수행한다. |
+| 구현·테스트 | 기능 추가·버그 수정은 `superpowers:test-driven-development`를 적용한다. 테스트 작성·수정은 반드시 프로젝트 `/test` 스킬을 함께 사용한다. |
+| 실행 검증 | `superpowers:verification-before-completion`에 따라 변경 범위에 맞는 테스트·빌드·검증 명령을 실제 실행하고 결과를 확인한다. 문서만 변경하면 내용·링크·diff 검증으로 대체한다. |
+| 독립 리뷰 | 아래 절차에 따라 `superpowers:requesting-code-review`로 별도 서브에이전트 리뷰를 수행한다. |
+| 완료 보고 | 변경 내용, 실행한 검증 명령과 결과, 서브에이전트 리뷰 결과와 반영 내용, 미해결 사항을 보고한다. 실행하지 못한 검증은 이유와 함께 명시한다. |
+
+### 마지막 서브에이전트 리뷰 (필수)
+
+1. **변경 작업은 완료 보고 전에 구현을 담당하지 않은 별도 서브에이전트로 리뷰한다.** 코드·테스트·설정 변경은 코드 리뷰를, 문서만 변경하면 정확성·일관성 리뷰를 수행한다. 파일 변경 없는 질문·조사에는 필수로 적용하지 않는다.
+2. 리뷰어에게 사용자 요구사항, 계획·완료 조건, 이번 작업의 변경 파일과 diff, 검증 결과를 전달한다. 전체 대화 이력 대신 필요한 맥락을 요약하고, 작업 시작 전부터 있던 사용자 변경은 리뷰 범위에서 구분한다. 커밋되지 않은 변경과 새 파일도 리뷰에 포함하며 커밋 범위만 확인하고 끝내지 않는다.
+3. 리뷰어는 파일을 수정하지 않고 요구사항 누락, 버그·회귀, 기존 API·데이터 계약 호환성, 레이어 규칙, 테스트 공백을 점검한다. 지적 사항마다 심각도, 파일·위치, 근거와 영향을 제시한다. 문서 변경은 내용의 사실 여부, 지침 간 충돌과 참조를 확인한다.
+4. `superpowers:receiving-code-review`에 따라 지적 사항을 실제 코드와 대조한다. 타당한 Critical/Important 문제는 완료 전에 수정하고 관련 검증을 다시 실행한 뒤 리뷰어에게 재검토를 요청한다. 반영하지 않는 지적은 기술적 근거를, 남은 경미한 문제는 이유와 함께 보고한다.
+5. 해결되지 않은 Critical/Important 문제나 실행하지 못한 필수 검증이 있으면 완료로 보고하지 않는다. 리뷰 이후 추가 변경이 있으면 영향에 맞게 재검증·재리뷰한다. 서브에이전트를 호출했다는 사실만으로 리뷰 완료로 간주하지 않고 결과를 받아 확인한다.
+6. 리뷰만 위임받은 서브에이전트는 이 절차를 재귀적으로 실행하지 않는다. 지정된 범위만 검토하고 상위 에이전트에게 결과를 반환한다.
+
 ## Build & Test
 
 ```bash
@@ -131,6 +163,7 @@ public enum BookingError implements ErrorCode {
 
 **Redis Lua Scripts** — 좌석 동시 선점 충돌 방지. 스크립트는 `raillo-api/src/main/resources/scripts/`:
 - `reservation_create.lua` — 예약 생성. 객차 점유 Hash 검사 + 점유 + 예약 저장을 원자적으로 처리 → [docs/reservation-cache-schema.md](./docs/reservation-cache-schema.md)
+- `reservation_delete.lua` — 예약 삭제. 값이 자기 `R:{reservationId}`인 점유 field만 HDEL + 예약 본문 DEL
 - Lua 스크립트 Bean은 `booking/infrastructure/config/RedisScriptConfig`가 등록
 - 좌석 충돌 방어 계층 → [docs/seat-conflict-validation.md](./docs/seat-conflict-validation.md)
 

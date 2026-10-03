@@ -1,9 +1,7 @@
 package com.sudo.raillo.payment.application;
 
-import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.payment.application.required.PaymentGateway.GatewayConfirmResult;
 import com.sudo.raillo.payment.application.result.PaymentConfirmResult;
-import java.util.List;
 
 /**
  * 승인 시작 단계의 결과. 세 흐름 중 하나로 이어진다.
@@ -17,26 +15,23 @@ import java.util.List;
 public record PaymentApprovalStart(
 	Long paymentId,
 	Long attemptDbId,
-	List<Reservation> reservations,
 	PaymentConfirmResult previousResult,
 	GatewayConfirmResult recoveredGatewayResult
 ) {
-
-	public static PaymentApprovalStart started(Long paymentId, Long attemptDbId, List<Reservation> reservations) {
-		return new PaymentApprovalStart(paymentId, attemptDbId, reservations, null, null);
+	public static PaymentApprovalStart started(Long paymentId, Long attemptDbId) {
+		return new PaymentApprovalStart(paymentId, attemptDbId, null, null);
 	}
 
 	public static PaymentApprovalStart alreadyConfirmed(PaymentConfirmResult previousResult) {
-		return new PaymentApprovalStart(null, null, null, previousResult, null);
+		return new PaymentApprovalStart(null, null, previousResult, null);
 	}
 
 	public static PaymentApprovalStart recovered(
 		Long paymentId,
 		Long attemptDbId,
-		List<Reservation> reservations,
 		GatewayConfirmResult recoveredGatewayResult
 	) {
-		return new PaymentApprovalStart(paymentId, attemptDbId, reservations, null, recoveredGatewayResult);
+		return new PaymentApprovalStart(paymentId, attemptDbId, null, recoveredGatewayResult);
 	}
 
 	public boolean isAlreadyConfirmed() {

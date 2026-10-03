@@ -1,22 +1,47 @@
 package com.sudo.raillo.payment.application.outbox;
 
+import java.time.LocalDate;
+
+import org.springframework.stereotype.Component;
+
+import com.sudo.raillo.global.exception.BusinessException;
+import com.sudo.raillo.payment.application.BookingConfirmedPayload;
+import com.sudo.raillo.payment.application.required.BookedSeatWriter;
+import com.sudo.raillo.payment.application.required.BookingReader;
 import com.sudo.raillo.payment.domain.PaymentOutboxType;
+import com.sudo.raillo.payment.domain.exception.PaymentError;
+import com.sudo.raillo.train.cache.TrainCacheKey;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
- * 예매 점유 확정의 후속 PR 구현 지점. 아직 Spring 처리기로 등록하지 않는다.
+ * 승인 확정 후 Redis 좌석 점유를 예매 점유(R→B)로 바꾼다.
  *
- * <p>결제 시작 전에 자기 R:{reservationId} field의 TTL을 제거하여 보호한다.
- * DB 승인/예매/Outbox 커밋 뒤에는 사용자가 아래 후처리를 기다리지 않는다.
+ * <p>운행일이 지난 항목과 예매가 더는 유효하지 않은 항목은 좌석을 건드리지 않고 예약 본문과 회원 인덱스만 지운다.
+ * 다른 예약이나 예매와 충돌한 항목이 있어도 나머지 항목은 모두 처리한 뒤 예외를 한 번만 던져 Outbox 재시도에 맡기지만,
+ * 데이터 오염({@code SEAT_OCCUPANCY_CORRUPTED})은 재시도로 낫지 않아 즉시 멈추고 알려야 하고 스크립트 실행 실패
+ * ({@code SEAT_OCCUPANCY_SCRIPT_ERROR})는 모든 항목에 똑같이 영향을 주므로
+ * 두 경우는 나머지 항목을 처리하지 않고 그 항목에서 바로 멈춘다.
+ * 이미 전환한 항목은 다시 처리해도 성공한다.
  *
- * <p>후속 구현: payload snapshot과 attempt 소유권 검증 → R을 B:{bookingId}로 원자 전환
- * → field TTL 없음 보장(운행 Hash 키 만료 유지) → 예약 본문/보호 marker 정리
- * → 별도 slot 회원 인덱스 정리. 같은 B는 멱등 성공, 다른 R/B는 변경 금지.
- * 빈 field는 취소된 예매일 수도 있으므로 무조건 복원하지 않는다.
- * Redis 반영 후 DONE 커밋 실패 및 여러 운행의 부분 성공도 안전하게 재처리해야 한다.
- *
- * <p>구현 전에는 worker의 지원 타입 조회에서 제외되어 PENDING으로 보존된다.
+ * <p>오염으로 던진 예외는 {@code ErrorCode.retryable()}이 {@code false}이므로 Outbox 워커가 백오프를 태우지 않고
+ * 바로 FAILED로 보내고 {@code payment.outbox.non_retryable} 카운터를 올린다. 충돌로 던진 예외는 재시도 대상이다.
+ * 그 카운터에 거는 알림 규칙 등록은 후속 작업이라, 지금은 FAILED에 도달하는 시점만 빨라진다.</p>
  */
+@Slf4j
+@Component
+@RequiredArgsConstructor
 public class BookingConfirmedProcessor implements OutboxEventProcessor {
+
+	private static final int SUPPORTED_SCHEMA_VERSION = 2;
+
+	private final ObjectMapper objectMapper;
+	private final BookingReader bookingReader;
+	private final BookedSeatWriter bookedSeatWriter;
+
 	@Override
 	public boolean supports(PaymentOutboxType type) {
 		return type == PaymentOutboxType.BOOKING_CONFIRMED;
@@ -24,6 +49,53 @@ public class BookingConfirmedProcessor implements OutboxEventProcessor {
 
 	@Override
 	public void process(String payload) {
-		throw new UnsupportedOperationException("Reservation의 R→B 확정은 후속 PR에서 구현합니다");
+		BookingConfirmedPayload event = parse(payload);
+		LocalDate today = LocalDate.now(TrainCacheKey.ZONE);
+		boolean anyConflicted = false;
+		for (BookingConfirmedPayload.Entry entry : event.bookings()) {
+			if (!processEntry(event.paymentId(), entry, today)) {
+				anyConflicted = true;
+			}
+		}
+		if (anyConflicted) {
+			throw new BusinessException(PaymentError.PAYMENT_OUTBOX_BOOKING_CONVERSION_CONFLICT);
+		}
+	}
+
+	/** @return 이 항목이 충돌 없이 처리됐으면 true, 다른 예약이나 예매와 충돌했으면 false */
+	private boolean processEntry(long paymentId, BookingConfirmedPayload.Entry entry, LocalDate today) {
+		if (entry.operationDate().isBefore(today)) {
+			log.info("[예매 점유 전환 생략 - 운행일 경과] paymentId={}, reservationId={}, operationDate={}",
+				paymentId, entry.reservationId(), entry.operationDate());
+			bookedSeatWriter.discardReservation(entry);
+			return true;
+		}
+		if (!bookingReader.isBooked(entry.bookingId())) {
+			log.warn("[예매 점유 전환 생략 - 유효하지 않은 예매] paymentId={}, reservationId={}, bookingId={}",
+				paymentId, entry.reservationId(), entry.bookingId());
+			bookedSeatWriter.discardReservation(entry);
+			return true;
+		}
+		if (!bookedSeatWriter.markBooked(entry)) {
+			log.warn("[예매 점유 전환 충돌 - 재시도 예정] paymentId={}, reservationId={}, bookingId={}",
+				paymentId, entry.reservationId(), entry.bookingId());
+			return false;
+		}
+		return true;
+	}
+
+	private BookingConfirmedPayload parse(String payload) {
+		BookingConfirmedPayload event;
+		try {
+			event = objectMapper.readValue(payload, BookingConfirmedPayload.class);
+		} catch (JacksonException e) {
+			log.error("[예매 점유 전환 - payload 역직렬화 실패] error={}", e.getMessage());
+			throw new BusinessException(PaymentError.PAYMENT_OUTBOX_PAYLOAD_DESERIALIZATION_FAILED);
+		}
+		if (event.schemaVersion() != SUPPORTED_SCHEMA_VERSION || event.bookings() == null) {
+			log.error("[예매 점유 전환 - 지원하지 않는 payload] schemaVersion={}", event.schemaVersion());
+			throw new BusinessException(PaymentError.PAYMENT_OUTBOX_PAYLOAD_DESERIALIZATION_FAILED);
+		}
+		return event;
 	}
 }
