@@ -136,6 +136,71 @@ flowchart TD
 
 관련 코멘트: https://github.com/penggu-dev/raillo-backend/issues/270#issuecomment-5753956325
 
+### 결제 중 좌석 보호 — 정하지 못한 것
+
+`#270`에서 스크립트와 저장소 메서드까지 구현했으나(`reservation_payment_hold.lua`·`reservation_payment_release.lua`,
+`SeatOccupancyRepository.hold`·`releaseHold`) **프로덕션 호출자는 아직 없습니다.** 아래가 배선 전에 정해야 할 항목입니다.
+설계 문서 쪽 요약은 [payment-consistency.md](./payment-consistency.md)의 `결제 중 좌석 보호` 절에 있습니다.
+
+문서 세 개가 서로 다른 말을 하고 있어 정리가 필요하다.
+
+| 문서 | 서술 |
+|---|---|
+| `payment-reservation-revised-plan.md` 5줄 | "결제 중 좌석 보호 전제를 폐기하고, 예약 TTL만 신뢰하는 방향으로 재작업한다" |
+| `reservation-cache-schema.md` 46줄 | "#270 후속 작업의 결제 중 좌석 보호로 자기 field가 먼저 사라지지 않게 한다" |
+| `payment-reservation-work-roadmap.md` §8 | 방향 A(HPERSIST로 attempt 완료까지 만료 방지)를 #270 착수 시 결정할 후보로 남겨둠 |
+
+브랜치 이름도 `feature/270-seat-protection-worker`라 폐기 이후 다시 검토한 흔적이 있다.
+
+#### 왜 정해야 하나
+
+예약 TTL이 10분인데, 확정을 늦게 하는 경로들이 그 시간을 넘긴다.
+
+- Recovery Worker는 정의상 오래 남은 `IN_PROGRESS`를 처리한다. 그 기준이 10분을 넘으면 좌석은 이미 풀려 있다.
+- Webhook은 사용자가 결제창을 닫은 뒤 도착하므로 시간이 지나 있을 수 있다.
+- Outbox 재시도 창은 약 7.5분으로 TTL보다 짧지만, Worker가 지연되면 걸친다.
+
+즉 Recovery Worker를 도입하면 `REVIEW_SEAT_LOST`가 구조적으로 발생한다. 드문 예외가 아니라 늦게 확정하는 경로를 만들면 따라오는 결과다.
+
+#### 카드 거절 후 재결제와 TTL
+
+늦게 확정하는 경로 말고 재결제도 TTL을 소비한다. 잔액 부족이나 한도 초과로 승인이 거절되면 사용자는 다른 카드로 다시 결제해야 하고, 그동안 좌석이 유지되어야 한다. 흐름 자체는 [케이스 2](./payment-cases.md)와 `payment-reservation-revised-plan.md` 31~36줄에 이미 있으므로 여기서는 TTL 논점만 다룬다.
+
+재결제가 새 결제창 경로가 되는 근거는 우리 코드 안에 있다. 같은 `paymentKey`로 다시 들어오면 `attemptId`가 같으므로 `PaymentApprovalStarter.handleExistingAttempt`의 `case FAILED`가 `PAYMENT_ATTEMPT_ALREADY_FAILED`를 던진다. 게이트웨이 동작과 무관하게 새 `paymentKey`를 받아야 통과한다.
+
+| 단계 | 결과 |
+|---|---|
+| 결제창 → `paymentKey` A → confirm 4xx | `PaymentConfirmService`가 attempt A를 `FAILED`로 기록. `Payment`는 `PENDING` 유지 |
+| 같은 `paymentKey`로 재요청 | `attemptId`가 같아 `PAYMENT_ATTEMPT_ALREADY_FAILED`로 거절 |
+| 결제창 재오픈 → 새 `paymentKey` B | 새 `attemptId`(`SHA-256("apv:" + paymentKey)`) |
+| TX A의 직전 attempt 검사 | `case FAILED -> { /* 재시도 허용 (다른 카드) */ }`로 통과 |
+
+정상 경로에는 추가 구현이 없고 제약은 남은 예약 TTL뿐이다. 사용자가 카드를 바꿔 다시 결제하는 시간이 거기 들어가야 하므로, TTL 연장 여부를 정할 때 Recovery Worker나 Webhook뿐 아니라 이 경로도 함께 본다.
+
+다만 예외가 하나 있다. 4xx 뒤 `markFailedInNewTransaction`이 Payment 잠금 대기 등으로 실패하면 로그만 남고 attempt는 `IN_PROGRESS`로 남는다(`PaymentConfirmService` 50~61줄). 이 상태에서 다른 카드로 재시도하면 `case IN_PROGRESS -> PAYMENT_ATTEMPT_IN_PROGRESS`에 막힌다. 코드 주석은 Recovery Worker가 대사하는 것으로 넘기지만 그 Worker가 이 섹션이 다루는 후속 작업이라, 현재는 회복 주체가 없다. 재결제 가능 조건이 TTL 하나만은 아니라는 뜻이다.
+
+`payment-reservation-revised-plan.md` 16줄과 18줄은 **같은 재결제 시나리오를 근거로** "예약 TTL 하나로 충분하고 결제 시점 별도 보호는 UX 저하만 만든다"고 결론 낸다. 이 섹션은 같은 시나리오를 TTL 연장 검토 근거로 쓰므로, 입장 차이를 인지한 상태에서 정해야 한다.
+
+#### 선택지
+
+| 안 | 내용 | 비용 |
+|---|---|---|
+| TTL만 신뢰 (현재 방침) | 만료되면 `REVIEW_REQUIRED`로 분리 | 운영자 확인 건수가 쌓인다. 규모는 Worker 폴링 주기에 달렸다 |
+| 결제 시작 시 TTL 연장 (폐기된 방향 A) | attempt가 끝날 때까지 좌석 보호 | 예약 정리 책임이 attempt 상태 전이에 붙어 코드 경로가 늘어난다 |
+| 정해진 만큼만 연장 | 결제 시작 시 TTL을 한 번 연장하고 무한 보호는 하지 않는다 | 연장 폭과 만료 후 처리를 따로 정해야 한다 |
+
+#### 먼저 할 것
+
+어느 안을 고르든 `REVIEW_REQUIRED` 건수 지표와 알림이 먼저 필요하다. 얼마나 쌓이는지 보지 않으면 TTL 연장이 필요한지 판단할 근거가 없다. 지표를 붙이고 실제 발생량을 확인한 뒤에 정한다.
+
+함께 확인할 것:
+
+- 카드 거절이 항상 4xx로 오는지, 2xx에 `DONE`이 아닌 `status`로 오는 경로는 없는지. 후자라면 [결제 수단별 확정 시점](#결제-수단별-확정-시점--확인-필요) 문제와 같은 뿌리다
+- 승인 거절 시 게이트웨이 결제 상태가 `ABORTED`로 확정되는지. 우리 코드는 조회에서 `ABORTED`를 보면 확정 실패로 다루지만, 4xx 거절이 `ABORTED`를 만든다는 근거는 저장소에 없다
+- 결제창 연동 방식(리다이렉트, 팝업)에 따라 거절 후 사용자가 어느 화면으로 돌아오는지
+- 재결제에 걸리는 실제 시간 분포. TTL 연장 폭을 정하려면 필요하다
+- `paymentKey`가 결제창 세션당 하나인지. 우리 문서에는 그렇게 적혀 있으나 게이트웨이가 보장한다는 외부 근거는 없다
+
 ## 9. 참고 문서
 
 - [`docs/payment-consistency.md`](./payment-consistency.md) — 결제 정합성 설계 상세.

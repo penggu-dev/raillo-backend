@@ -64,7 +64,7 @@ UPDATE payment_outbox SET status = 'PENDING', retry_count = 0, next_retry_at = N
        END;
 ```
 
-`payload LIKE '%"schemaVersion":2%'`를 쓰면 안 된다. `":21"`이 `":2"`에 부분 매칭되어 **지원하지 않는 버전의 행까지 재투입**하고, 깨진 JSON도 앞부분에 `":2"`가 남아 있으면 통과하며, 공백이 섞인 v2(`"schemaVersion" : 2`)는 조용히 빠진다. 쓰기 문장이라 오분류가 그대로 상태 변경으로 이어진다. `JSON_VALID` 가드 없이 `->>`를 쓰면 깨진 행에서 `ERROR 3141`로 문장 전체가 죽으므로 `CASE`로 감싼다. 판정 근거는 `docs/payment-consistency.md`의 "payload 스키마 변경 절차" 절에 있다.
+`payload LIKE '%"schemaVersion":2%'`를 쓰면 안 된다. `":21"`이 `":2"`에 부분 매칭되어 **지원하지 않는 버전의 행까지 재투입**하고, 깨진 JSON도 앞부분에 `":2"`가 남아 있으면 통과하며, 공백이 섞인 v2(`"schemaVersion" : 2`)는 조용히 빠진다. 쓰기 문장이라 오분류가 그대로 상태 변경으로 이어진다. `JSON_VALID` 가드 없이 `->>`를 쓰면 깨진 행에서 `ERROR 3141`로 문장 전체가 죽으므로 `CASE`로 감싼다. 실행으로 확인한 오분류 사례와 검증된 쿼리는 [payment-outbox-payload-runbook.md](./payment-outbox-payload-runbook.md)에 있다.
 
 ### 예매 점유 백필 (필요할 때)
 

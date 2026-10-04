@@ -182,129 +182,33 @@ Outbox는 **쓴 코드와 읽는 코드가 다른 배포본일 수 있다.** 행
 
 거절은 안전하지만 **구 버전 행을 처리할 방법은 아니다.** 그래서 비호환 변경을 할 때마다 테이블에 남아 있는 행을 어떻게 할지 먼저 정한다.
 
-#### 측정된 이력 — 이 저장소에서 실제로 무슨 일이 있었나
+#### 측정된 이력과 현재 상태 확인
 
-`develop` push가 테스트를 통과하면 OKE 프로덕션에 배포된다(`.github/workflows/deploy_raillo_with_k8s.yml`은 `workflow_run`으로 "Build and Test with Gradle"의 `branches: [develop]` 성공에 걸려 있고 `group: raillo-oke-production`이다). 승인 게이트는 없다. 배포 실행 이력으로 확인한 시점:
+구 모양 payload가 프로덕션에 쓰일 수 있었던 창은 약 19시간이었고(2026-09-21 08:52 ~ 09-22 03:31 UTC), 그 사이 `BookingConfirmedProcessor`에 `@Component`가 없어 소비자가 한 번도 돌지 않았다. 그래서 그 기간에 쓰인 행은 PENDING으로 남아 있을 수 있다. **DB를 직접 확인하지 않았으므로 단정하지 않는다.**
 
-| 배포 | 시각(UTC) | 생산자(#257) | payload v2(#266) |
-|---|---|---|---|
-| `f33d8a17` | 2026-09-21 08:52 | 있음 | **없음** |
-| `4a0663de` | 2026-09-21 15:39 | 있음 | **없음** |
-| `5c20daae` | 2026-09-22 03:31 | 있음 | 있음 |
-| 이후 전부 | | 있음 | 있음 |
-
-**프로덕션이 구 모양 payload를 쓸 수 있었던 창은 약 19시간이다**(09-21 08:52 ~ 09-22 03:31 UTC). #257의 develop 머지일(2026-09-13, 머지 커밋 `4166620f`)과 혼동하지 않는다 — 머지와 배포가 8일 떨어져 있었다. 커밋 날짜(2026-09-11)는 머지일이 아니다. 09-21 이전에는 `develop`을 배포하는 파이프라인 자체가 없었다(그때까지는 `main` push → AWS EKS였고, `bd452ca1`이 OKE·develop로 바꿨다).
-
-그리고 **배포된 모든 SHA에서 `BookingConfirmedProcessor`에 `@Component`가 없었다.** 소비자가 프로덕션에서 한 번도 돌지 않았으므로 그 사이 쓰인 행은 전부 PENDING으로 남아 있을 것이다. 이 브랜치가 `@Component`를 붙여 워커가 처음으로 그 행들을 집게 된다.
-
-운영에서 결제까지 테스트한 적이 없다는 것이 작업자 확인 사항이다. 그렇다면 행이 없을 가능성이 높다. **DB를 직접 확인하지 않았으므로 단정하지 않는다.**
-
-#### 지금 상태를 확인하는 쿼리
-
-MySQL 8.4이고 `payload`는 TEXT다. 아래 쿼리는 `mysql:8.4`(`ONLY_FULL_GROUP_BY` 기본값) 컨테이너에 7행 픽스처를 넣고 실행 확인했다.
-
-**`LIKE '%"schemaVersion":2%'`로는 안 된다.** 실행으로 확인한 결함 넷:
-
-| 행 | 실제 | `NOT LIKE` 판정 |
-|---|---|---|
-| `{ "schemaVersion" : 2 , ...}` | v2 | **구버전으로 오분류** — 콜론 뒤 공백 하나에 깨진다 |
-| `{"schemaVersion":21,...}` | v21 | **v2로 오분류** — `":2"`가 부분 문자열로 들어 있다. 2로 시작하는 모든 버전이 v2로 보인다 |
-| `{"schemaVersion":2,"paymentId":401` (깨짐) | 파싱 불가 | **v2로 오분류** — 깨진 앞부분에 `":2"`가 남아 있어 아예 안 보인다 |
-| `{"schemaVersion":2}` (`bookings` 없음) | 처리 불가 | **v2로 오분류** — 버전만 보는 조건으로는 원리상 못 잡는다 |
-
-두 번째가 가장 위험하다. 조용히 틀리고, 버전이 10을 넘기면 드러난다.
-
-**`JSON_VALID` 가드는 선택이 아니다.** 가드 없이 `payload ->> '$.schemaVersion'`을 쓰면 깨진 행에서 `ERROR 3141`로 쿼리 전체가 죽는다(NULL이 아니다). `CASE`는 지연 평가되므로 `NOT JSON_VALID(payload)`를 첫 `WHEN`에 두면 뒤 분기가 깨진 행을 보지 않는다. `WHERE`에서도 같은 `CASE`로 감싼다 — `OR`의 평가 순서는 보장되지 않는다.
-
-**분포 — 무엇이 몇 개 있나**
-
-```sql
-SELECT CASE
-         WHEN NOT JSON_VALID(payload)                     THEN 'invalid-json'
-         ELSE COALESCE(payload ->> '$.schemaVersion', 'no-schemaVersion-key')
-       END AS schema_version,
-       CASE
-         WHEN NOT JSON_VALID(payload)                     THEN '-'
-         WHEN JSON_EXTRACT(payload, '$.bookings') IS NULL THEN 'bookings-missing'
-         ELSE 'ok'
-       END AS bookings_check,
-       status,
-       count(*)        AS row_count,
-       min(created_at) AS first_seen,
-       max(created_at) AS last_seen
-  FROM payment_outbox
- WHERE type = 'BOOKING_CONFIRMED'
- GROUP BY schema_version, bookings_check, status
- ORDER BY CAST(NULLIF(schema_version, 'invalid-json') AS UNSIGNED),
-          schema_version, bookings_check, status;
-```
-
-`parse()`가 한 에러 코드로 덮는 세 조건이 결과표에서 분리돼 보인다 — 깨진 JSON은 `schema_version = 'invalid-json'`, 레거시 행은 `'no-schemaVersion-key'`, `bookings` 누락은 `bookings_check = 'bookings-missing'`이다. 적어도 조회 단계에서는 "에러 코드 하나가 세 사고를 덮는" 문제가 풀린다.
-
-고칠 때 걸리는 지점 넷. 전부 실행으로 확인했다.
-
-- `count(*) AS rows`는 **문법 오류**다. `ROWS`는 MySQL 8.0부터 윈도 함수 예약어다.
-- `bookings_check`를 `SELECT`에만 넣고 `GROUP BY`에서 빼면 `ONLY_FULL_GROUP_BY`가 `ERROR 1055`로 거절한다.
-- `->>`(`JSON_UNQUOTE(JSON_EXTRACT(...))`)로 문자열로 통일한다. `JSON_EXTRACT`는 JSON 타입을 돌려주므로 문자열 리터럴과 한 `CASE`에 섞이면 강제 변환되고 표기가 환경에 따라 달라진다.
-- `->>`가 문자열이므로 **정렬도 문자열이다.** `ORDER BY schema_version`만 쓰면 `21`이 `3` 앞에 온다. `CAST(... AS UNSIGNED)`로 숫자 정렬하고, 숫자가 아닌 `'invalid-json'`은 `NULLIF`로 빼서 `CAST` 경고를 피한다.
-
-**조치용 행 목록 — 무엇을 어떻게 할지 정하려면 ID가 필요하다**
-
-```sql
-SELECT payment_outbox_id, aggregate_id, status, retry_count, created_at,
-       CASE
-         WHEN NOT JSON_VALID(payload)                     THEN 'a:invalid-json'
-         WHEN payload ->> '$.schemaVersion' IS NULL       THEN 'b:no-schemaVersion-key'
-         WHEN payload ->> '$.schemaVersion' <> '2'        THEN 'b:unsupported-version'
-         WHEN JSON_EXTRACT(payload, '$.bookings') IS NULL THEN 'c:bookings-missing'
-       END AS reason
-  FROM payment_outbox
- WHERE type = 'BOOKING_CONFIRMED' AND status = 'PENDING'
-   AND CASE
-         WHEN NOT JSON_VALID(payload)                     THEN TRUE
-         WHEN payload ->> '$.schemaVersion' IS NULL       THEN TRUE
-         WHEN payload ->> '$.schemaVersion' <> '2'        THEN TRUE
-         WHEN JSON_EXTRACT(payload, '$.bookings') IS NULL THEN TRUE
-         ELSE FALSE
-       END
- ORDER BY created_at;
-```
-
-`CASE`의 `WHEN`은 위에서 처음 맞는 하나만 쓰이므로 사유가 하나로 확정된다 — 깨진 행은 뒤 조건을 아예 따지지 않는다. `WHERE`의 `CASE`는 `SELECT`의 것과 같은 순서·같은 조건이어야 한다. **어긋나면 `reason`이 `NULL`인 행이 나오고, 그게 두 곳이 안 맞는다는 신호다.**
-
-`schema_version`이 `2`가 아니거나 `bookings_check`가 `ok`가 아닌 행이 0이면 할 일이 없다. 0이 아니면 아래 절차를 적용한다.
+배포 이력 표, `LIKE`로 판정하면 안 되는 이유, 실행 검증된 확인 쿼리 → **[payment-outbox-payload-runbook.md](./payment-outbox-payload-runbook.md)**
 
 #### 앞으로 payload를 바꿀 때
 
 1. **호환 변경인지 먼저 판정한다.** 선택적 필드 추가처럼 구 JSON으로도 소비자가 정상 동작하면 버전을 올리지 않는다. 기존 필드의 의미·타입·필수 여부가 바뀌거나 필드가 사라지면 올린다.
 
-2. **비호환이면 구 행을 payload만으로 복원할 수 있는지 본다.** v1→v2가 복원 불가였던 예다 — v1 `Entry`에는 예매 ID(`bookingId`)·객차 ID·운행일이 없고 구간은 stop PK(`departureStopId`/`arrivalStopId`)로만 있어서, DB 조회 없이는 새 모양을 만들 수 없었다. 소비자가 키로 쓰는 `bookingId`가 없는 것이 결정적이다(v1의 `pendingBookingId`는 Redis ID다).
+2. **비호환이면 구 행을 payload만으로 복원할 수 있는지 본다.** v1→v2가 복원 불가였던 예다 — v1 `Entry`에는 소비자가 키로 쓰는 `bookingId`가 없어 DB 조회 없이는 새 모양을 만들 수 없었다.
 
-   복원 가능하면 소비자가 양쪽 버전을 읽게 만든다 — `parse()`의 `event.schemaVersion() != SUPPORTED_SCHEMA_VERSION` 단일 상수 비교를 집합 포함 검사로 바꾸는 일이다. 다만 **생산자와 소비자가 같은 배포 단위다**(`PaymentApprovalFinalizer`, `BookingConfirmedProcessor`, `PaymentOutboxScheduler`가 모두 `raillo-api`). 그래서 배포 순서가 아니라 **릴리스 순서**다 — 릴리스 N에서 소비자가 양쪽을 읽게 하고, 릴리스 N+1에서 생산자를 바꾼다. 배포 순서로 처리할 수 있게 되는 건 #277로 워커를 분리한 뒤다.
+   복원 가능하면 소비자가 양쪽 버전을 읽게 만든다(`parse()`의 단일 상수 비교를 집합 포함 검사로). 다만 생산자와 소비자가 같은 배포 단위(`raillo-api`)라 **배포 순서가 아니라 릴리스 순서**다 — 릴리스 N에서 소비자가 양쪽을 읽게 하고, 릴리스 N+1에서 생산자를 바꾼다. 배포 순서로 처리할 수 있게 되는 건 #277로 워커를 분리한 뒤다.
 
-3. **복원 불가면 배포 전에 적체를 비운다.** 소비자가 돌고 있으면 드레인을 기다린 뒤 생산자를 바꾼다. 소비자가 안 돌고 있으면(이 저장소는 이 브랜치 배포 전까지 그랬다) 위 쿼리로 세고 변환·폐기·FAILED 마킹 중 하나를 선택한다.
+3. **복원 불가면 배포 전에 적체를 비운다.** 소비자가 돌고 있으면 드레인을 기다린 뒤 생산자를 바꾼다. 안 돌고 있으면 런북의 쿼리로 세고 변환·폐기·FAILED 마킹 중 하나를 선택한다.
 
-   **엄격 거절은 테이블에 지원하지 않는 버전의 행이 없을 때만 안전하다.** 단일 버전만 받는 `parse()`로는 어느 순서로 배포해도 깔끔한 전환이 안 된다. 그리고 이 배포는 `replicas: 1` · `strategy: Recreate`라 **두 버전이 동시에 돌지 않는다** — 롤링 엇갈림이 재시도로 치유되는 시나리오 자체가 없고, 재시도 가능 분류는 FAILED 도달을 7.5분 늦추며 디스패치 5회와 `payment.cleanup.failure` 증가를 소비할 뿐이다. **그대로 두면 구 행은 7.5분 백오프를 전부 태우고 FAILED로 간다.** N개여도 전체가 약 7.5분 안에 끝난다 — `batch-size: 50`이라 한 번의 poll이 최대 50행을 잠그고 루프를 돌아 각 행의 백오프가 **동시에** 진행되며, `lockProcessable`이 `next_retry_at asc nulls first`로 정렬해 아직 시도되지 않은 행이 앞에 온다. N에 비례하는 것은 시간이 아니라 디스패치 시도 5N회와 ERROR 로그·`payment.outbox.failed` 증가분 N이다. 그리고 그 FAILED에는 원인이 남지 않는다(다음 절).
+   **엄격 거절은 테이블에 지원하지 않는 버전의 행이 없을 때만 안전하다.** `replicas: 1` · `strategy: Recreate`라 두 버전이 동시에 돌지 않으므로 롤링 엇갈림이 재시도로 치유되는 시나리오가 없다. 그대로 두면 구 행은 백오프를 전부 태우고 FAILED로 간다. 행이 N개여도 `batch-size: 50`으로 한 poll이 여러 행을 함께 잡아 백오프가 동시에 진행되므로 **전체가 약 7.5분 안에 끝난다** — N에 비례하는 것은 시간이 아니라 디스패치 시도와 ERROR 로그·`payment.outbox.failed` 증가분이다. 그리고 그 FAILED에는 원인이 남지 않는다(다음 절).
 
-4. **생산자만 배포된 상태를 길게 두지 않는다.** 소비자가 빈이 아닌 동안 쌓인 행은 그 기간의 계약으로 고정되고, 그 뒤 계약이 바뀌면 전부 3번의 대상이 된다. 이 저장소가 정확히 그 상태였다 — 생산자는 2026-09-21부터, 소비자는 이 브랜치까지 없었다.
+4. **생산자만 배포된 상태를 길게 두지 않는다.** 소비자가 빈이 아닌 동안 쌓인 행은 그 기간의 계약으로 고정되고, 그 뒤 계약이 바뀌면 전부 3번의 대상이 된다. 이 저장소가 정확히 그 상태였다.
 
 ### FAILED 행에 실패 원인이 남지 않는다 (#302)
 
-`payment_outbox`에는 **실패 원인을 담는 컬럼이 없다.** 엔티티가 매핑하는 컬럼은 PK `payment_outbox_id`와 `type`, `aggregate_id`, `deduplication_key`, `payload`, `status`, `retry_count`, `next_retry_at`, `created_at`, `processed_at`뿐이다(저장소에 DDL이 없고 prod는 `ddl-auto: validate`라, 매핑되지 않은 컬럼이 실제 스키마에 있는지는 확인하지 않았다). 그래서 FAILED 행을 보고 알 수 있는 것은 "실패했다"와 "몇 번 시도했다"까지이고, **왜 실패했는지는 알 수 없다.**
+`payment_outbox`에는 **실패 원인을 담는 컬럼이 없다.** FAILED 행을 보고 알 수 있는 것은 "실패했다"와 "몇 번 시도했다"까지다. 원인은 집계(`payment.outbox.non_retryable`)와 로그에만 남고, 로그는 보존 기간이 지나면 사라지는데 행은 남는다.
 
-원인은 **집계로만** 남는다. 총량은 `payment.outbox.non_retryable`로 오염과 재시도 소진이 갈리고, 행별 원인은 로그에만 있다(`[Outbox 처리 실패]`, `[Outbox 재시도 불가 - 즉시 FAILED]`, `[Outbox 최대 재시도 초과]`). 로그는 보존 기간이 지나면 사라지고, 행은 남는다.
+재시도를 소진한 FAILED 안에서 충돌·타임아웃·스크립트 오류·오염을 가려낼 수단이 없는 것이 실제 공백이다. 대응이 정반대인데(구 payload는 변환이나 폐기, 좌석 오염은 Redis 값 정리) 행에 남는 것은 "재시도를 다 썼다"까지다. 원인을 모르면 재투입이 같은 실패를 반복하므로 이 공백은 애플리케이션 재투입 경로보다 먼저 필요하다.
 
-재투입 전에 사람이 원인을 확인해야 한다는 점에서 이건 애플리케이션 재투입 경로보다 먼저 필요하다(수동 SQL 재투입은 `docs/reservation-cache-schema.md` 2장에 있다). 원인을 모르면 재투입이 같은 실패를 반복할 뿐이다.
-
-구분이 되는 부분과 안 되는 부분을 나눠 보면:
-
-| | 식별 수단 |
-|---|---|
-| 구 payload 행 | `payload`로 직접 식별된다 — 위 쿼리가 그 용도다 |
-| 즉시 FAILED된 오염 행 | `retry_count = 0`. 재시도를 소진한 FAILED는 `retry_count = 4`다(`markFailed()`는 증가시키지 않는다). `processed_at - created_at`도 ~0 대 ~7.5분으로 갈린다 |
-| **재시도를 소진한 FAILED 안에서** 충돌·타임아웃·스크립트 오류·오염 | **가려낼 수단이 없다.** 두 원인이 섞인 경우도 구분되지 않는다 |
-
-마지막 줄이 실제 공백이다. 대응이 정반대인데(구 payload는 변환이나 폐기, 좌석 오염은 Redis 값 정리) 행에 남는 것은 "재시도를 다 썼다"까지다.
+가려낼 수 있는 범위의 전체 표 → [payment-outbox-payload-runbook.md](./payment-outbox-payload-runbook.md)
 
 ### PaymentRecoveryWorker — 후속 브랜치·이슈
 
@@ -396,66 +300,14 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 | Toss 취소 후 DB 커밋 전 크래시 | Recovery Worker가 취소 attempt 확정 |
 | DB 취소 커밋 후 좌석 해제 실패 | outbox 재시도로 좌석 해제 최종 반영 |
 
-## 결제 중 좌석 보호 — 방침 미확정
+## 결제 중 좌석 보호
 
-문서 세 개가 서로 다른 말을 하고 있어 정리가 필요하다.
+예약 TTL이 10분인데 Recovery Worker와 Webhook은 그 시간을 넘겨 확정할 수 있다. 그래서 결제 중에는 자기 예약의 좌석 field 만료를 멈춰 두는 경로가 필요하다.
 
-| 문서 | 서술 |
-|---|---|
-| `payment-reservation-revised-plan.md` 5줄 | "결제 중 좌석 보호 전제를 폐기하고, 예약 TTL만 신뢰하는 방향으로 재작업한다" |
-| `reservation-cache-schema.md` 46줄 | "#270 후속 작업의 결제 중 좌석 보호로 자기 field가 먼저 사라지지 않게 한다" |
-| `payment-reservation-work-roadmap.md` §8 | 방향 A(HPERSIST로 attempt 완료까지 만료 방지)를 #270 착수 시 결정할 후보로 남겨둠 |
+**현재 상태:** `reservation_payment_hold.lua` / `reservation_payment_release.lua`와 `SeatOccupancyRepository.hold` / `releaseHold`가 이 브랜치에 구현돼 있고, **프로덕션 호출자는 아직 없다**(테스트만 호출한다). 후속 워커가 배선한다.
 
-브랜치 이름도 `feature/270-seat-protection-worker`라 폐기 이후 다시 검토한 흔적이 있다.
-
-### 왜 정해야 하나
-
-예약 TTL이 10분인데, 확정을 늦게 하는 경로들이 그 시간을 넘긴다.
-
-- Recovery Worker는 정의상 오래 남은 `IN_PROGRESS`를 처리한다. 그 기준이 10분을 넘으면 좌석은 이미 풀려 있다.
-- Webhook은 사용자가 결제창을 닫은 뒤 도착하므로 시간이 지나 있을 수 있다.
-- Outbox 재시도 창은 약 7.5분으로 TTL보다 짧지만, Worker가 지연되면 걸친다.
-
-즉 Recovery Worker를 도입하면 `REVIEW_SEAT_LOST`가 구조적으로 발생한다. 드문 예외가 아니라 늦게 확정하는 경로를 만들면 따라오는 결과다.
-
-### 카드 거절 후 재결제와 TTL
-
-늦게 확정하는 경로 말고 재결제도 TTL을 소비한다. 잔액 부족이나 한도 초과로 승인이 거절되면 사용자는 다른 카드로 다시 결제해야 하고, 그동안 좌석이 유지되어야 한다. 흐름 자체는 [케이스 2](./payment-cases.md)와 `payment-reservation-revised-plan.md` 31~36줄에 이미 있으므로 여기서는 TTL 논점만 다룬다.
-
-재결제가 새 결제창 경로가 되는 근거는 우리 코드 안에 있다. 같은 `paymentKey`로 다시 들어오면 `attemptId`가 같으므로 `PaymentApprovalStarter.handleExistingAttempt`의 `case FAILED`가 `PAYMENT_ATTEMPT_ALREADY_FAILED`를 던진다. 게이트웨이 동작과 무관하게 새 `paymentKey`를 받아야 통과한다.
-
-| 단계 | 결과 |
-|---|---|
-| 결제창 → `paymentKey` A → confirm 4xx | `PaymentConfirmService`가 attempt A를 `FAILED`로 기록. `Payment`는 `PENDING` 유지 |
-| 같은 `paymentKey`로 재요청 | `attemptId`가 같아 `PAYMENT_ATTEMPT_ALREADY_FAILED`로 거절 |
-| 결제창 재오픈 → 새 `paymentKey` B | 새 `attemptId`(`SHA-256("apv:" + paymentKey)`) |
-| TX A의 직전 attempt 검사 | `case FAILED -> { /* 재시도 허용 (다른 카드) */ }`로 통과 |
-
-정상 경로에는 추가 구현이 없고 제약은 남은 예약 TTL뿐이다. 사용자가 카드를 바꿔 다시 결제하는 시간이 거기 들어가야 하므로, TTL 연장 여부를 정할 때 Recovery Worker나 Webhook뿐 아니라 이 경로도 함께 본다.
-
-다만 예외가 하나 있다. 4xx 뒤 `markFailedInNewTransaction`이 Payment 잠금 대기 등으로 실패하면 로그만 남고 attempt는 `IN_PROGRESS`로 남는다(`PaymentConfirmService` 50~61줄). 이 상태에서 다른 카드로 재시도하면 `case IN_PROGRESS -> PAYMENT_ATTEMPT_IN_PROGRESS`에 막힌다. 코드 주석은 Recovery Worker가 대사하는 것으로 넘기지만 그 Worker가 이 섹션이 다루는 후속 작업이라, 현재는 회복 주체가 없다. 재결제 가능 조건이 TTL 하나만은 아니라는 뜻이다.
-
-`payment-reservation-revised-plan.md` 16줄과 18줄은 **같은 재결제 시나리오를 근거로** "예약 TTL 하나로 충분하고 결제 시점 별도 보호는 UX 저하만 만든다"고 결론 낸다. 이 섹션은 같은 시나리오를 TTL 연장 검토 근거로 쓰므로, 입장 차이를 인지한 상태에서 정해야 한다.
-
-### 선택지
-
-| 안 | 내용 | 비용 |
-|---|---|---|
-| TTL만 신뢰 (현재 방침) | 만료되면 `REVIEW_REQUIRED`로 분리 | 운영자 확인 건수가 쌓인다. 규모는 Worker 폴링 주기에 달렸다 |
-| 결제 시작 시 TTL 연장 (폐기된 방향 A) | attempt가 끝날 때까지 좌석 보호 | 예약 정리 책임이 attempt 상태 전이에 붙어 코드 경로가 늘어난다 |
-| 정해진 만큼만 연장 | 결제 시작 시 TTL을 한 번 연장하고 무한 보호는 하지 않는다 | 연장 폭과 만료 후 처리를 따로 정해야 한다 |
-
-### 먼저 할 것
-
-어느 안을 고르든 `REVIEW_REQUIRED` 건수 지표와 알림이 먼저 필요하다. 얼마나 쌓이는지 보지 않으면 TTL 연장이 필요한지 판단할 근거가 없다. 지표를 붙이고 실제 발생량을 확인한 뒤에 정한다.
-
-함께 확인할 것:
-
-- 카드 거절이 항상 4xx로 오는지, 2xx에 `DONE`이 아닌 `status`로 오는 경로는 없는지. 후자라면 [결제 수단별 확정 시점](#결제-수단별-확정-시점--확인-필요) 문제와 같은 뿌리다
-- 승인 거절 시 게이트웨이 결제 상태가 `ABORTED`로 확정되는지. 우리 코드는 조회에서 `ABORTED`를 보면 확정 실패로 다루지만, 4xx 거절이 `ABORTED`를 만든다는 근거는 저장소에 없다
-- 결제창 연동 방식(리다이렉트, 팝업)에 따라 거절 후 사용자가 어느 화면으로 돌아오는지
-- 재결제에 걸리는 실제 시간 분포. TTL 연장 폭을 정하려면 필요하다
-- `paymentKey`가 결제창 세션당 하나인지. 우리 문서에는 그렇게 적혀 있으나 게이트웨이가 보장한다는 외부 근거는 없다
+- 키·값 계약과 스크립트 동작 → [reservation-cache-schema.md](./reservation-cache-schema.md) §5
+- 보호 기간·재결제 TTL·방향(A/B) 등 **정책 결정** → [payment-reservation-work-roadmap.md](./payment-reservation-work-roadmap.md) §8
 
 ## 결제 수단별 확정 시점 — 확인 필요
 
@@ -497,7 +349,7 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 
 열린 문제는 하나다. **취소 단위를 승차권으로 잡으면 `cancellationSequence`를 무엇으로 채울지 정해야 한다.** 결제당 취소 횟수를 세는 값이면 동시 취소에서 같은 sequence가 나올 수 있고, 취소 대상 승차권 집합에서 파생하면 같은 승차권을 두 번 취소하는 요청이 같은 키가 되어 의도한 멱등성이 된다. 취소 API 설계와 함께 정한다.
 
-`confirmPayment`에는 `Idempotency-Key` 헤더가 없다. 같은 `paymentKey`로 두 번 승인되지 않는 것은 헤더가 아니라 `paymentKey`가 결제창 세션당 하나라는 성질과 우리 쪽 `attempt_id` unique 제약에서 온다. 앞의 성질은 우리 문서에만 있는 서술이라 [먼저 할 것](#먼저-할-것)의 확인 목록에 함께 올려 두었다.
+`confirmPayment`에는 `Idempotency-Key` 헤더가 없다. 같은 `paymentKey`로 두 번 승인되지 않는 것은 헤더가 아니라 `paymentKey`가 결제창 세션당 하나라는 성질과 우리 쪽 `attempt_id` unique 제약에서 온다. 앞의 성질은 우리 문서에만 있는 서술이라 [payment-reservation-work-roadmap.md](./payment-reservation-work-roadmap.md) §8의 `먼저 할 것` 확인 목록에 함께 올려 두었다.
 
 ## Metrics — 후속 이슈에서 도입
 
