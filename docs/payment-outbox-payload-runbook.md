@@ -106,3 +106,18 @@ SELECT payment_outbox_id, aggregate_id, status, retry_count, created_at,
 마지막 줄이 실제 공백이다. 대응이 정반대인데(구 payload는 변환이나 폐기, 좌석 오염은 Redis 값 정리) 행에 남는 것은 "재시도를 다 썼다"까지다. 행별 원인은 로그에만 있고(`[Outbox 처리 실패]`, `[Outbox 재시도 불가 - 즉시 FAILED]`, `[Outbox 최대 재시도 초과]`) 로그는 보존 기간이 지나면 사라진다.
 
 수동 SQL 재투입 절차는 [reservation-cache-schema.md](./reservation-cache-schema.md) 2장에 있다.
+
+## v1 payload가 들고 있던 것 — 복원 가능성 판정 근거
+
+v1 행을 실제로 만나면 payload만으로 v2를 만들 수 없다. 기록으로 남긴다.
+
+| v2가 쓰는 것 | v1에 있었나 |
+|---|---|
+| `bookingId`(소비자가 키로 쓴다) | **없음.** v1의 `pendingBookingId`는 Redis ID다 |
+| 객차 ID(`trainCarId`) | 없음 |
+| 운행일(`operationDate`) | 없음 |
+| 구간 | stop PK(`departureStopId`/`arrivalStopId`)로만 있었다. v2는 stopOrder를 쓴다 |
+
+그래서 v1→v2는 DB 조회 없이는 변환할 수 없고, 위 절차의 3번(적체 비우기) 대상이다.
+
+> `payment_outbox`의 컬럼 목록은 [payment-data-contracts.md](./payment-data-contracts.md)에 있다. 저장소에 DDL이 없고 prod는 `ddl-auto: validate`라, 엔티티가 매핑하지 않은 컬럼이 실제 스키마에 있는지는 확인하지 않았다.
