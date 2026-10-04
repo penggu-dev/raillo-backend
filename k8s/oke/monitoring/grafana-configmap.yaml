@@ -12,3 +12,21 @@ data:
         access: proxy
         url: http://prometheus-service.monitoring.svc.cluster.local:9090
         isDefault: true
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: monitoring
+data:
+  provider.yaml: |
+    apiVersion: 1
+    providers:
+      - name: raillo
+        folder: Raillo
+        type: file
+        disableDeletion: true
+        allowUiUpdates: true
+        options:
+          path: /etc/grafana/
