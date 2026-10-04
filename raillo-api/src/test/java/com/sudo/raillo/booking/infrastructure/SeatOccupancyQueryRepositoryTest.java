@@ -17,6 +17,7 @@ import com.sudo.raillo.booking.cache.ReservationCacheKey;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.support.annotation.RedisTest;
+import com.sudo.raillo.support.helper.SeatOccupancyTestHelper;
 
 @RedisTest
 @DisplayName("SeatOccupancyQueryRepository - 검색 구간 점유 좌석 읽기")
@@ -31,6 +32,10 @@ class SeatOccupancyQueryRepositoryTest {
 	@Autowired
 	private StringRedisTemplate stringRedisTemplate;
 
+	@Autowired
+	private SeatOccupancyTestHelper seatOccupancies;
+
+	/** 계약을 벗어난 field·값을 일부러 쓰는 오염 테스트 전용. 정상 점유는 {@code seatOccupancies}로 쓴다. */
 	private void put(String field, String value) {
 		stringRedisTemplate.opsForHash().put(ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_1), field, value);
 	}
@@ -43,10 +48,9 @@ class SeatOccupancyQueryRepositoryTest {
 	@DisplayName("구간이 겹치는 R과 B 좌석을 좌석마다 한 번만 센다")
 	void reads_occupied_seats() {
 		// given
-		put("7001:1", "R:RV1");
-		put("7001:2", "R:RV1");
-		put("7002:2", "B:55");
-		put("7003:5", "R:RV9");
+		seatOccupancies.markReserved(SCHEDULE_ID, CAR_1, 7001L, 1, 3, "RV1");
+		seatOccupancies.markBooked(SCHEDULE_ID, CAR_1, 7002L, 2, 3, "55");
+		seatOccupancies.markReserved(SCHEDULE_ID, CAR_1, 7003L, 5, 6, "RV9");
 
 		// when
 		Map<Long, Set<Long>> occupied = seatOccupancyQueryRepository.findOccupiedSeatIds(query());

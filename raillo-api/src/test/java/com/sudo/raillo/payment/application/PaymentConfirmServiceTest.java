@@ -429,10 +429,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -470,10 +467,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -517,10 +511,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -563,10 +554,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		PaymentAttempt inProgressAttempt = paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -621,10 +609,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -658,10 +643,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -697,10 +679,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -770,10 +749,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -1199,4 +1175,12 @@ class PaymentConfirmServiceTest {
 
 	// attemptId 필드는 API에서 제거되어 서버가 paymentKey에서 SHA-256으로 파생한다.
 	// 64자 초과 검증 테스트는 필드 삭제로 무효화되어 제거.
+
+	/** orderCode로 Payment를 찾는다. 포트에 findByOrderCode가 없어 테스트는 전체 조회 후 걸러낸다. */
+	private Payment findPayment(String orderCode) {
+		return paymentRepository.findAll().stream()
+			.filter(p -> p.getOrderCode().equals(orderCode))
+			.findFirst()
+			.orElseThrow();
+	}
 }

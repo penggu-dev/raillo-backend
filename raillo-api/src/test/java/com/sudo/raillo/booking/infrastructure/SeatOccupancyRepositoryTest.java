@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
 
 import com.sudo.raillo.booking.cache.ReservationCacheKey;
 import com.sudo.raillo.booking.cache.SeatOccupancyValue;
@@ -67,14 +66,12 @@ class SeatOccupancyRepositoryTest {
 		return new BookingOccupancyCommand(SCHEDULE_ID, reservationId, bookingId, keyExpireAt, dep, arr, List.of(seats));
 	}
 
-	/** HTTL 결과. -1은 만료 없음, -2는 field 없음. */
-	@SuppressWarnings({"rawtypes", "unchecked"})
-	private long fieldTtl(long trainCarId, String field) {
-		DefaultRedisScript<List> httl = new DefaultRedisScript<>(
-			"return redis.call('HTTL', KEYS[1], 'FIELDS', 1, ARGV[1])", List.class);
-		List<Object> result = stringRedisTemplate.execute(
-			httl, List.of(ReservationCacheKey.carSeats(SCHEDULE_ID, trainCarId)), field);
-		return (Long) result.get(0);
+	/** 점유 field에 만료가 걸려 있지 않은지 본다(HPERSIST 확인용). */
+	private boolean fieldIsPersistent(long trainCarId, String field) {
+		return stringRedisTemplate.opsForHash()
+			.getTimeToLive(carKey(trainCarId), TimeUnit.SECONDS, List.of(field))
+			.expirationOf(field)
+			.isPersistent();
 	}
 
 	private String carKey(long trainCarId) {
@@ -313,8 +310,8 @@ class SeatOccupancyRepositoryTest {
 			assertThat(carHash(CAR_1)).containsOnly(
 				Map.entry(field(SEAT_A, 0), "B:77"),
 				Map.entry(field(SEAT_A, 1), "B:77"));
-			assertThat(fieldTtl(CAR_1, field(SEAT_A, 0))).isEqualTo(-1L);
-			assertThat(fieldTtl(CAR_1, field(SEAT_A, 1))).isEqualTo(-1L);
+			assertThat(fieldIsPersistent(CAR_1, field(SEAT_A, 0))).isTrue();
+			assertThat(fieldIsPersistent(CAR_1, field(SEAT_A, 1))).isTrue();
 			assertThat(stringRedisTemplate.hasKey(reservationKey("RV1"))).isFalse();
 		}
 

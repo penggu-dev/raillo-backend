@@ -69,25 +69,47 @@ public class PaymentOutboxWorker {
 			dispatchInNewTransaction(row);
 			row.markDone();
 		} catch (Exception e) {
-			log.warn("[Outbox 처리 실패] id={}, retryCount={}, cause={}",
-				row.getId(), row.getRetryCount(), e.toString());
-			outboxMetrics.incrementCleanupFailure();
-			int nextRetryCount = row.getRetryCount() + 1;
-			if (!retryPolicy.isRetryable(e)) {
-				row.markFailed();
-				outboxMetrics.incrementOutboxFailed();
-				outboxMetrics.incrementOutboxNonRetryable();
-				log.error("[Outbox 재시도 불가 - 즉시 FAILED] id={}, type={}, retryCount={}, cause={}",
-					row.getId(), row.getType(), row.getRetryCount(), e.toString(), e);
-			} else if (retryPolicy.shouldGiveUp(nextRetryCount)) {
-				row.markFailed();
-				outboxMetrics.incrementOutboxFailed();
-				log.error("[Outbox 최대 재시도 초과] id={}, retryCount={}", row.getId(), nextRetryCount);
-			} else {
-				row.markRetry(retryPolicy.nextRetryAt(now, row.getRetryCount()));
-			}
+			recordFailure(row, now, e);
 		}
 		outboxRepository.save(row);
+	}
+
+	/** 재시도 불가는 즉시 FAILED, 최대 재시도 초과도 FAILED, 그 외는 백오프 후 재시도. */
+	private void recordFailure(PaymentOutbox row, LocalDateTime now, Exception e) {
+		log.warn("[Outbox 처리 실패] id={}, retryCount={}, cause={}",
+			row.getId(), row.getRetryCount(), e.toString());
+		outboxMetrics.incrementCleanupFailure();
+
+		if (!retryPolicy.isRetryable(e)) {
+			giveUp(row, true);
+			log.error("[Outbox 재시도 불가 - 즉시 FAILED] id={}, type={}, retryCount={}, cause={}",
+				row.getId(), row.getType(), row.getRetryCount(), e.toString(), e);
+			return;
+		}
+
+		int nextRetryCount = row.getRetryCount() + 1;
+		if (retryPolicy.shouldGiveUp(nextRetryCount)) {
+			giveUp(row, false);
+			log.error("[Outbox 최대 재시도 초과] id={}, retryCount={}", row.getId(), nextRetryCount);
+			return;
+		}
+
+		row.markRetry(retryPolicy.nextRetryAt(now, row.getRetryCount()));
+	}
+
+	/**
+	 * FAILED 전이와 그에 딸린 카운터를 한곳에서 올린다.
+	 *
+	 * <p>FAILED로 보내는 경로가 둘이라 각자 카운터를 올리면 한쪽에만 새 카운터가 추가되는 드리프트가 생긴다.
+	 *
+	 * @param nonRetryable 에러 코드가 재시도 불가를 선언해 백오프를 태우지 않고 FAILED로 보낸 경우
+	 */
+	private void giveUp(PaymentOutbox row, boolean nonRetryable) {
+		row.markFailed();
+		outboxMetrics.incrementOutboxFailed();
+		if (nonRetryable) {
+			outboxMetrics.incrementOutboxNonRetryable();
+		}
 	}
 
 	private void dispatchInNewTransaction(PaymentOutbox row) {

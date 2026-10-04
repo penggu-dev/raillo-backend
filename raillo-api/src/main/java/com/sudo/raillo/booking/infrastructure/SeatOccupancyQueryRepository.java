@@ -7,6 +7,7 @@ import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.BusinessException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -29,31 +30,42 @@ public class SeatOccupancyQueryRepository {
 
 	public Map<Long, Set<Long>> findOccupiedSeatIds(SeatOccupancyQuery query) {
 		if (query.carIds().isEmpty()) return Map.of();
-		var results = redis.executePipelined((RedisCallback<Object>) connection -> {
+
+		var results = readCarSeatHashes(query);
+
+		Map<Long, Set<Long>> occupied = new HashMap<>();
+		for (int i = 0; i < query.carIds().size(); i++) {
+			occupied.put(query.carIds().get(i), occupiedSeatsInRange((Map<?, ?>) results.get(i), query));
+		}
+		return occupied;
+	}
+
+	/** 객차별 점유 Hash를 파이프라인으로 한 번에 읽는다. 반환 순서는 {@code query.carIds()} 순서와 같다. */
+	private List<Object> readCarSeatHashes(SeatOccupancyQuery query) {
+		return redis.executePipelined((RedisCallback<Object>) connection -> {
 			for (long carId : query.carIds()) {
 				connection.hashCommands().hGetAll(redis.getStringSerializer()
 					.serialize(ReservationCacheKey.carSeats(query.scheduleId(), carId)));
 			}
 			return null;
 		});
-		Map<Long, Set<Long>> occupied = new HashMap<>();
-		for (int i = 0; i < query.carIds().size(); i++) {
-			Map<?, ?> fields = (Map<?, ?>) results.get(i);
-			Set<Long> seats = new HashSet<>();
-			for (var entry : fields.entrySet()) {
-				String[] field = entry.getKey().toString().split(":");
-				if (field.length != 2) {
-					throw corrupted("좌석 field 형식이 아닙니다: " + entry.getKey(), null);
-				}
-				int section = parseSection(field[1], entry.getKey());
-				if (section >= query.departureStopOrder() && section < query.arrivalStopOrder()) {
-					validateValue(entry.getKey(), entry.getValue());
-					seats.add(parseSeatId(field[0], entry.getKey()));
-				}
+	}
+
+	/** 한 객차의 점유 Hash에서 검색 구간과 겹치는 좌석 ID를 모은다. 같은 좌석의 여러 구간은 Set이 한 번만 센다. */
+	private static Set<Long> occupiedSeatsInRange(Map<?, ?> fields, SeatOccupancyQuery query) {
+		Set<Long> seats = new HashSet<>();
+		for (var entry : fields.entrySet()) {
+			String[] field = entry.getKey().toString().split(":");
+			if (field.length != 2) {
+				throw corrupted("좌석 field 형식이 아닙니다: " + entry.getKey(), null);
 			}
-			occupied.put(query.carIds().get(i), Set.copyOf(seats));
+			int section = parseSection(field[1], entry.getKey());
+			if (section >= query.departureStopOrder() && section < query.arrivalStopOrder()) {
+				validateValue(entry.getKey(), entry.getValue());
+				seats.add(parseSeatId(field[0], entry.getKey()));
+			}
 		}
-		return occupied;
+		return seats;
 	}
 
 	private static int parseSection(String value, Object field) {

@@ -19,11 +19,7 @@ public class RedisScriptConfig {
 	 */
 	@Bean
 	public DefaultRedisScript<List> reservationCreateScript() {
-		DefaultRedisScript<List> script = new DefaultRedisScript<>();
-		script.setScriptSource(new ResourceScriptSource(
-			new ClassPathResource("scripts/reservation_create.lua")));
-		script.setResultType(List.class);
-		return script;
+		return listScript("scripts/reservation_create.lua");
 	}
 
 	/**
@@ -33,11 +29,7 @@ public class RedisScriptConfig {
 	 */
 	@Bean
 	public DefaultRedisScript<List> reservationDeleteScript() {
-		DefaultRedisScript<List> script = new DefaultRedisScript<>();
-		script.setScriptSource(new ResourceScriptSource(
-			new ClassPathResource("scripts/reservation_delete.lua")));
-		script.setResultType(List.class);
-		return script;
+		return listScript("scripts/reservation_delete.lua");
 	}
 
 	/**
@@ -47,9 +39,13 @@ public class RedisScriptConfig {
 	 */
 	@Bean
 	public DefaultRedisScript<List> reservationBookingConfirmScript() {
+		return listScript("scripts/reservation_booking_confirm.lua");
+	}
+
+	/** 모든 좌석 점유 스크립트는 List를 반환하므로 등록 방식이 같다. 빈마다 다른 것은 경로와 반환 계약뿐이다. */
+	private static DefaultRedisScript<List> listScript(String classpath) {
 		DefaultRedisScript<List> script = new DefaultRedisScript<>();
-		script.setScriptSource(new ResourceScriptSource(
-			new ClassPathResource("scripts/reservation_booking_confirm.lua")));
+		script.setScriptSource(new ResourceScriptSource(new ClassPathResource(classpath)));
 		script.setResultType(List.class);
 		return script;
 	}
