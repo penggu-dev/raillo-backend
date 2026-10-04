@@ -1,6 +1,5 @@
 package com.sudo.raillo.payment.application;
 
-import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.exception.PaymentGatewayException;
 import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
@@ -27,7 +26,7 @@ public class PaymentConfirmService implements PaymentConfirmer {
 
 	private final PaymentApprovalStarter paymentApprovalStarter;
 	private final PaymentApprovalFinalizer paymentApprovalFinalizer;
-	private final PaymentAttemptManager paymentAttemptManager;
+	private final AttemptFailureMarker attemptFailureMarker;
 	private final PaymentGateway paymentGateway;
 
 	@Override
@@ -48,17 +47,9 @@ public class PaymentConfirmService implements PaymentConfirmer {
 			} catch (PaymentGatewayException failure) {
 				if (failure.isDefinitiveFailure()) {
 					// Toss 4xx는 확정 실패이므로 attempt만 FAILED로 마킹한다(Payment는 PENDING 유지).
-					// 마킹이 Payment 잠금 대기 등으로 실패해도 원래 실패 사유(failure)를 가리면 안 된다.
-					// attempt는 IN_PROGRESS로 남고 Recovery Worker가 이어서 대사한다.
-					try {
-						paymentAttemptManager.markFailedInNewTransaction(
-							start.paymentId(), start.attemptDbId(),
-							new AttemptError(failure.getErrorCode(), failure.getMessage())
-						);
-					} catch (RuntimeException markingError) {
-						log.error("[결제 승인 - attempt 실패 마킹 중 오류] paymentId={}, attemptDbId={}, markingErrorCode={}",
-							start.paymentId(), start.attemptDbId(), markingErrorCode(markingError), markingError);
-					}
+					// 마킹이 실패해도 원래 실패 사유(failure)를 가리지 않는 것은 marker가 보장한다.
+					attemptFailureMarker.markFailedQuietly(start.paymentId(), start.attemptDbId(),
+						new AttemptError(failure.getErrorCode(), failure.getMessage()));
 				}
 				// 5xx/timeout은 결과 불명이라 IN_PROGRESS로 남기고 회복 경로(사용자 재시도·Recovery Worker)에 위임한다.
 				throw failure;
@@ -73,10 +64,4 @@ public class PaymentConfirmService implements PaymentConfirmer {
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", start.paymentId(), command.orderId());
 		return result;
 	}
-
-	/** 마킹 실패 로그용 코드. BusinessException이면 ErrorCode를, 그 외에는 예외 클래스명을 쓴다. */
-	private static String markingErrorCode(RuntimeException e) {
-		return e instanceof BusinessException be ? String.valueOf(be.getErrorCode()) : e.getClass().getSimpleName();
-	}
-
 }

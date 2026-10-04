@@ -40,6 +40,7 @@ import org.springframework.stereotype.Component;
 public class PaymentApprovalStarter {
 
 	private final PaymentAttemptManager paymentAttemptManager;
+	private final AttemptFailureMarker attemptFailureMarker;
 	private final PaymentAttemptRepository paymentAttemptRepository;
 	private final PaymentReader paymentReader;
 	private final PaymentValidator paymentValidator;
@@ -132,51 +133,60 @@ public class PaymentApprovalStarter {
 		log.info("[결제 재요청 - 게이트웨이 상태 조회] paymentKey={}, status={}", paymentKey, status);
 
 		return switch (status) {
-			case DONE -> {
-				// Toss 상 이미 승인 완료 - 로컬 DB를 TX B에서 정정한다.
-				paymentValidator.validateGatewayResponseMatchesRequest(query.confirmResult(), ctx.command());
-				try {
-					validateReservationsAlive(ctx.order(), ctx.memberNo());
-				} catch (BusinessException reservationCheckFailed) {
-					// 이 조회와 검증 사이 원 요청이 TX B를 커밋하고 Outbox Worker가 R→B(예약→예매 점유 전환)까지
-					// 끝냈다면 예약이 이미 정리된 것이 정상이다. attempt를 다시 읽어 상태에 따라 분기한다.
-					PaymentAttempt refreshed = paymentAttemptRepository.findById(existing.getId())
-						.orElseThrow(() -> reservationCheckFailed);
-					if (refreshed.getStatus() == PaymentAttemptStatus.SUCCEEDED) {
-						log.info("[결제 재요청 - 조회 중 원 요청이 먼저 확정] attemptId={}, paymentId={}",
-							existing.getAttemptId(), payment.getId());
-						yield PaymentApprovalStart.alreadyConfirmed(paymentReader.getConfirmResult(payment.getId()));
-					}
-					if (refreshed.getStatus() == PaymentAttemptStatus.REVIEW_REQUIRED) {
-						// 조회 사이 다른 절차가 attempt를 수동 확인 대상으로 바꿨다면 예약 만료가 아니라 확인 필요로 안내한다.
-						// 이미 카드가 승인된 상태이므로 재예약을 안내하는 reservationCheckFailed를 그대로 던지면 안 된다.
-						throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
-					}
-					// 그 외(IN_PROGRESS와 FAILED)는 원래 예외(예약 만료 등)를 그대로 던진다.
-					throw reservationCheckFailed;
-				}
-				yield PaymentApprovalStart.recovered(payment.getId(), existing.getId(), query.confirmResult());
-			}
+			case DONE -> resolveGatewayDone(existing, payment, ctx, query);
 			case ABORTED, EXPIRED, CANCELED, PARTIAL_CANCELED -> {
 				// Toss 상 확정 실패 - attempt를 FAILED로 마킹하고 사용자에게 안내한다.
 				log.warn("[결제 재요청 - 게이트웨이가 확정 실패로 응답] status={}, paymentKey={}", status, paymentKey);
-				// 마킹이 실패해도 아래에서 던지는 PAYMENT_ATTEMPT_ALREADY_FAILED를 가리면 안 된다.
-				try {
-					paymentAttemptManager.markFailedInNewTransaction(
-						payment.getId(), existing.getId(),
-						new AttemptError("GATEWAY_" + status.name(), "게이트웨이가 확정 실패로 응답했습니다.")
-					);
-				} catch (RuntimeException markingError) {
-					log.error("[결제 재요청 - attempt 실패 마킹 중 오류] paymentId={}, attemptDbId={}, markingErrorCode={}",
-						payment.getId(), existing.getId(), markingErrorCode(markingError), markingError);
-				}
-				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
+				throw failAndReject(existing, payment,
+					"GATEWAY_" + status.name(), "게이트웨이가 확정 실패로 응답했습니다.");
 			}
 			case READY, IN_PROGRESS, WAITING_FOR_DEPOSIT, UNKNOWN -> {
 				// 아직 처리 중이거나 상태 불명 - 로컬 IN_PROGRESS를 유지하고 사용자에게 재시도를 안내한다.
 				log.info("[결제 재요청 - 게이트웨이가 아직 처리 중] status={}, paymentKey={}", status, paymentKey);
 				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 			}
+		};
+	}
+
+	/** 게이트웨이가 이미 승인 완료로 응답한 경우. 로컬 DB는 TX B에서 정정한다. */
+	private PaymentApprovalStart resolveGatewayDone(
+		PaymentAttempt existing, Payment payment, ApprovalContext ctx, GatewayQueryResult query
+	) {
+		paymentValidator.validateGatewayResponseMatchesRequest(query.confirmResult(), ctx.command());
+		try {
+			validateReservationsAlive(ctx.order(), ctx.memberNo());
+		} catch (BusinessException reservationCheckFailed) {
+			return resolveWhenReservationsGone(existing, payment, reservationCheckFailed);
+		}
+		return PaymentApprovalStart.recovered(payment.getId(), existing.getId(), query.confirmResult());
+	}
+
+	/**
+	 * 게이트웨이는 승인 완료인데 예약이 남아 있지 않은 경우를 attempt 상태로 다시 판단한다.
+	 *
+	 * <p>이 조회와 검증 사이 원 요청이 TX B를 커밋하고 Outbox Worker가 R→B(예약→예매 점유 전환)까지 끝냈다면
+	 * 예약이 이미 정리된 것이 정상이다. 그래서 예약 검증 실패를 곧바로 사용자에게 돌려주지 않고 attempt를 다시 읽는다.
+	 *
+	 * <p>분기를 exhaustive switch로 둔다. 새 {@link PaymentAttemptStatus}가 생기면 컴파일이 멈춰 여기서
+	 * 무엇을 할지 정하게 만든다. if 사슬이면 새 상태가 조용히 "원래 예외를 그대로" 경로로 떨어진다.</p>
+	 */
+	private PaymentApprovalStart resolveWhenReservationsGone(
+		PaymentAttempt existing, Payment payment, BusinessException reservationCheckFailed
+	) {
+		PaymentAttempt refreshed = paymentAttemptRepository.findById(existing.getId())
+			.orElseThrow(() -> reservationCheckFailed);
+
+		return switch (refreshed.getStatus()) {
+			case SUCCEEDED -> {
+				log.info("[결제 재요청 - 조회 중 원 요청이 먼저 확정] attemptId={}, paymentId={}",
+					existing.getAttemptId(), payment.getId());
+				yield PaymentApprovalStart.alreadyConfirmed(paymentReader.getConfirmResult(payment.getId()));
+			}
+			// 조회 사이 다른 절차가 attempt를 수동 확인 대상으로 바꿨다면 예약 만료가 아니라 확인 필요로 안내한다.
+			// 이미 카드가 승인된 상태이므로 재예약을 안내하는 reservationCheckFailed를 그대로 던지면 안 된다.
+			case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
+			// 원래 예외(예약 만료 등)를 그대로 던진다.
+			case IN_PROGRESS, FAILED -> throw reservationCheckFailed;
 		};
 	}
 
@@ -188,26 +198,22 @@ public class PaymentApprovalStarter {
 		if (failure.isResourceNotFound()) {
 			log.warn("[결제 재요청 - 게이트웨이가 paymentKey를 찾지 못함] httpStatus={}, errorCode={}, message={}",
 				failure.getHttpStatus(), failure.getErrorCode(), failure.getMessage());
-			// 마킹이 실패해도 아래에서 던지는 PAYMENT_ATTEMPT_ALREADY_FAILED를 가리면 안 된다.
-			try {
-				paymentAttemptManager.markFailedInNewTransaction(
-					payment.getId(), existing.getId(),
-					new AttemptError("GATEWAY_" + failure.getErrorCode(), failure.getMessage())
-				);
-			} catch (RuntimeException markingError) {
-				log.error("[결제 재요청 - attempt 실패 마킹 중 오류] paymentId={}, attemptDbId={}, markingErrorCode={}",
-					payment.getId(), existing.getId(), markingErrorCode(markingError), markingError);
-			}
-			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
+			throw failAndReject(existing, payment,
+				"GATEWAY_" + failure.getErrorCode(), failure.getMessage());
 		}
 		log.warn("[결제 재요청 - 게이트웨이 조회 실패, IN_PROGRESS 유지 후 Recovery 대기] httpStatus={}, errorCode={}",
 			failure.getHttpStatus(), failure.getErrorCode());
 		throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 	}
 
-	/** 마킹 실패 로그용 코드. BusinessException이면 ErrorCode를, 그 외에는 예외 클래스명을 쓴다. */
-	private static String markingErrorCode(RuntimeException e) {
-		return e instanceof BusinessException be ? String.valueOf(be.getErrorCode()) : e.getClass().getSimpleName();
+	/**
+	 * attempt를 FAILED로 마킹하고 사용자에게 돌려줄 예외를 만든다.
+	 *
+	 * <p>마킹이 실패해도 여기서 만든 {@code PAYMENT_ATTEMPT_ALREADY_FAILED}를 가리면 안 되므로 삼키는 경로로 부른다.</p>
+	 */
+	private BusinessException failAndReject(PaymentAttempt existing, Payment payment, String code, String message) {
+		attemptFailureMarker.markFailedQuietly(payment.getId(), existing.getId(), new AttemptError(code, message));
+		return new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 	}
 
 	private void validateReservationsAlive(Order order, String memberNo) {

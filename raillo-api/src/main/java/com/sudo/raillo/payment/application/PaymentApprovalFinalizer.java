@@ -21,7 +21,6 @@ import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
 import com.sudo.raillo.payment.application.required.PaymentRepository;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
-import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.PaymentOutbox;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 
@@ -63,29 +62,33 @@ public class PaymentApprovalFinalizer {
 
 		paymentValidator.validateApprovalAttempt(attempt, paymentId, command.paymentKey());
 
-		// 최초 confirm과 사용자 재시도의 상태 재조회가 같은 attempt에 대해 동시에 TX B에 진입한 경우,
-		// 먼저 잠금을 얻은 쪽이 이미 SUCCEEDED로 확정했다면 실패로 응답하지 않고 이전 결과를 그대로 돌려준다.
-		if (attempt.getStatus() == PaymentAttemptStatus.SUCCEEDED) {
-			log.info("[결제 확정 - 동시 요청이 먼저 확정] attemptId={}, paymentId={}", attempt.getAttemptId(), paymentId);
-			return PaymentConfirmResult.from(payment);
-		}
-
-		// Worker가 먼저 수동 확인 대상으로 바꾼 attempt는 자동으로 확정하지 않는다.
-		if (attempt.getStatus() == PaymentAttemptStatus.REVIEW_REQUIRED) {
-			log.warn("[결제 확정 거절 - 수동 확인 대상] attemptId={}, paymentId={}, errorCode={}",
-				attempt.getAttemptId(), paymentId, attempt.getErrorCode());
-			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
-		}
-
-		// attempt가 이미 FAILED인데 여기까지 왔다면 Toss는 승인했고 카드는 청구됐는데 우리 기록만 FAILED로
-		// 남아 예매가 만들어지지 않은 상태다. Recovery Worker는 IN_PROGRESS만 다시 집기 때문에 이 레코드는
-		// 아무도 다시 보지 않는다. FAILED → REVIEW_REQUIRED 전이는 도메인이 막고 있으므로(markReviewRequired는
-		// IN_PROGRESS에서만 허용) 여기서는 탐지와 알림만 하고 해결은 후속 계획으로 넘긴다.
-		if (attempt.getStatus() == PaymentAttemptStatus.FAILED) {
-			log.error("[결제 확정 위험 - 이미 FAILED인 attempt에 승인 확정 진입] paymentKey={}, attemptId={}, paymentId={}, "
-					+ "돈이 이미 빠져나갔을 수 있으나 attempt는 FAILED이고 예매는 생성되지 않았습니다.",
-				command.paymentKey(), attempt.getAttemptId(), paymentId);
-			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
+		// 상태별 조기 종료. exhaustive switch로 둬서 새 PaymentAttemptStatus가 생기면 컴파일이 멈추고
+		// 여기서 무엇을 할지 정하게 만든다. if 사슬이면 새 상태가 조용히 정상 확정 경로로 떨어진다.
+		switch (attempt.getStatus()) {
+			// 최초 confirm과 사용자 재시도의 상태 재조회가 같은 attempt에 대해 동시에 TX B에 진입한 경우,
+			// 먼저 잠금을 얻은 쪽이 이미 SUCCEEDED로 확정했다면 실패로 응답하지 않고 이전 결과를 그대로 돌려준다.
+			case SUCCEEDED -> {
+				log.info("[결제 확정 - 동시 요청이 먼저 확정] attemptId={}, paymentId={}", attempt.getAttemptId(), paymentId);
+				return PaymentConfirmResult.from(payment);
+			}
+			// Worker가 먼저 수동 확인 대상으로 바꾼 attempt는 자동으로 확정하지 않는다.
+			case REVIEW_REQUIRED -> {
+				log.warn("[결제 확정 거절 - 수동 확인 대상] attemptId={}, paymentId={}, errorCode={}",
+					attempt.getAttemptId(), paymentId, attempt.getErrorCode());
+				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
+			}
+			// 여기까지 왔다면 Toss는 승인했고 카드는 청구됐는데 우리 기록만 FAILED로 남아 예매가 만들어지지 않은
+			// 상태다. Recovery Worker는 IN_PROGRESS만 다시 집기 때문에 이 레코드는 아무도 다시 보지 않는다.
+			// FAILED → REVIEW_REQUIRED 전이는 도메인이 막고 있으므로(markReviewRequired는 IN_PROGRESS에서만 허용)
+			// 여기서는 탐지와 알림만 하고 해결은 후속 계획으로 넘긴다.
+			case FAILED -> {
+				log.error("[결제 확정 위험 - 이미 FAILED인 attempt에 승인 확정 진입] paymentKey={}, attemptId={}, paymentId={}, "
+						+ "돈이 이미 빠져나갔을 수 있으나 attempt는 FAILED이고 예매는 생성되지 않았습니다.",
+					command.paymentKey(), attempt.getAttemptId(), paymentId);
+				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
+			}
+			// 정상 확정 경로
+			case IN_PROGRESS -> { }
 		}
 
 		paymentValidator.validateApprovable(payment);
