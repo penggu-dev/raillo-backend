@@ -175,6 +175,8 @@ OrderResult result = orderTestHelper.builder(member)
 
 > **Note**: `addSeatsByCarType()`은 이미 예매된 좌석을 자동으로 제외한다.
 
+> 전체 Fixture·Helper API와 레시피는 `.agents/skills/test/reference.md`를 단일 원본으로 둔다.
+
 ## Redis Helpers (예약 생성 경로)
 
 예약 생성은 DB 대신 Redis 기준정보 캐시를 읽는다. `RedisCleanupExtension`이 테스트마다 Redis를 비우므로 `@BeforeEach`에서 다시 적재한다.
@@ -192,9 +194,7 @@ seatOccupancyTestHelper.valueOf(scheduleId, trainCarId, seatId, 1);   // "R:RV..
 Reservation reservation = reservationTestHelper.save(
     ReservationFixture.builder()
         .withMemberNo(memberNo)
-        .withTrainSchedule(scheduleResult.trainSchedule())
-        .withDepartureStop(scheduleResult.scheduleStops().get(0))
-        .withArrivalStop(scheduleResult.scheduleStops().get(1))
-        .withSeats(List.of(ReservationFixture.seat(seatId, PassengerType.ADULT)))
+        .withTrainScheduleId(scheduleResult.trainSchedule().getId())
+        .withSeatIds(trainCarId, seatId)
         .build());
 ```
