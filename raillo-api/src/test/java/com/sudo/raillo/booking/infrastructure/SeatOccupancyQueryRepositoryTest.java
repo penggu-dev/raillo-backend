@@ -60,6 +60,20 @@ class SeatOccupancyQueryRepositoryTest {
 	}
 
 	@Test
+	@DisplayName("반환한 좌석 Set은 호출자가 고칠 수 없다")
+	void returns_immutable_sets() {
+		// given
+		seatOccupancies.markReserved(SCHEDULE_ID, CAR_1, 7001L, 1, 3, "RV1");
+
+		// when
+		Map<Long, Set<Long>> occupied = seatOccupancyQueryRepository.findOccupiedSeatIds(query());
+
+		// then 값 비교만 하는 테스트로는 가변 Set이 드러나지 않아 여기서 못박는다
+		assertThatThrownBy(() -> occupied.get(CAR_1).add(9999L))
+			.isInstanceOf(UnsupportedOperationException.class);
+	}
+
+	@Test
 	@DisplayName("좌석 점유 값이 아닌 값을 만나면 SEAT_OCCUPANCY_CORRUPTED 예외가 발생한다")
 	void throws_corrupted_for_unknown_value() {
 		// given

@@ -1,12 +1,14 @@
 package com.sudo.raillo.booking.infrastructure.config;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.scripting.support.ResourceScriptSource;
 
 /** 예약 생성·삭제와 좌석 점유 Lua 스크립트. */
 @Configuration
@@ -42,11 +44,25 @@ public class RedisScriptConfig {
 		return listScript("scripts/reservation_booking_confirm.lua");
 	}
 
-	/** 모든 좌석 점유 스크립트는 List를 반환하므로 등록 방식이 같다. 빈마다 다른 것은 경로와 반환 계약뿐이다. */
+	/**
+	 * Lua 스크립트를 등록한다. 모든 스크립트가 List를 반환하므로 등록 방식이 같고, 빈마다 다른 것은
+	 * 경로와 반환 계약뿐이다.
+	 *
+	 * <p>스크립트 본문을 기동 시점에 읽어 읽기 실패를 즉시 드러낸다. 읽은 텍스트는 Bean에 그대로
+	 * 담기므로 런타임에 파일을 다시 열지 않는다.</p>
+	 */
 	private static DefaultRedisScript<List> listScript(String classpath) {
 		DefaultRedisScript<List> script = new DefaultRedisScript<>();
-		script.setScriptSource(new ResourceScriptSource(new ClassPathResource(classpath)));
+		script.setScriptText(read(classpath));
 		script.setResultType(List.class);
 		return script;
+	}
+
+	private static String read(String classpath) {
+		try (InputStream in = new ClassPathResource(classpath).getInputStream()) {
+			return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			throw new IllegalStateException("Lua 스크립트를 읽을 수 없습니다: " + classpath, e);
+		}
 	}
 }

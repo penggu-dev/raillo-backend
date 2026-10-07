@@ -51,7 +51,12 @@ public class SeatOccupancyQueryRepository {
 		});
 	}
 
-	/** 한 객차의 점유 Hash에서 검색 구간과 겹치는 좌석 ID를 모은다. 같은 좌석의 여러 구간은 Set이 한 번만 센다. */
+	/**
+	 * 한 객차의 점유 Hash에서 검색 구간과 겹치는 좌석 ID를 모은다. 같은 좌석의 여러 구간은 Set이 한 번만 센다.
+	 *
+	 * <p>{@code Set.copyOf}로 불변 Set을 돌려준다. 호출자가 결과를 고칠 수 있으면 캐시 성격의 반환값이
+	 * 조용히 바뀐다. 값 비교만 하는 테스트로는 드러나지 않으므로 여기서 지킨다.</p>
+	 */
 	private static Set<Long> occupiedSeatsInRange(Map<?, ?> fields, SeatOccupancyQuery query) {
 		Set<Long> seats = new HashSet<>();
 		for (var entry : fields.entrySet()) {
@@ -65,7 +70,7 @@ public class SeatOccupancyQueryRepository {
 				seats.add(parseSeatId(field[0], entry.getKey()));
 			}
 		}
-		return seats;
+		return Set.copyOf(seats);
 	}
 
 	private static int parseSection(String value, Object field) {
