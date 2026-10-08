@@ -117,7 +117,7 @@ public class PaymentAttemptManager {
 	 */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void reopenInNewTransaction(Long paymentId, Long attemptDbId) {
-		paymentRepository.findByIdForUpdate(paymentId)
+		Payment payment = paymentRepository.findByIdForUpdate(paymentId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
 		PaymentAttempt attempt = paymentAttemptRepository.findById(attemptDbId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_ATTEMPT_NOT_FOUND));
@@ -132,6 +132,27 @@ public class PaymentAttemptManager {
 				attempt.getAttemptId(), attempt.getStatus());
 			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 		}
+
+		// 아래 둘은 TX A가 잠금 아래에서 거는 가드와 같다. 재개도 Toss를 새로 부르는 경로라 대칭이어야 한다.
+		// 호출부가 트랜잭션 밖에서 미리 검증하지만 그 사이 상태가 바뀔 수 있어, 잠금 안에서 다시 본다.
+		paymentValidator.validateApprovable(payment);
+		// 다른 attemptId의 시도가 진행 중이거나 확정됐으면 재개하지 않는다. 막지 않으면 서로 다른
+		// paymentKey로 Toss에 승인이 두 건 나가 이중 청구가 된다.
+		paymentAttemptRepository.findLatestApprovalByPaymentId(paymentId)
+			.filter(latest -> !Objects.equals(latest.getId(), attemptDbId))
+			.ifPresent(latest -> {
+				switch (latest.getStatus()) {
+					case IN_PROGRESS -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+					case SUCCEEDED -> throw new BusinessException(PaymentError.PAYMENT_ALREADY_COMPLETED);
+					case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
+					// 카드 미청구라 재개를 막을 이유 없음
+					case FAILED, NOT_SENT -> { }
+					// enum switch 문은 exhaustive 강제 없음. 새 상태의 조용한 통과를 직접 차단
+					default -> throw new IllegalStateException(
+						"처리 규칙이 정해지지 않은 PaymentAttemptStatus: " + latest.getStatus());
+				}
+			});
+
 		attempt.reopen();
 	}
 

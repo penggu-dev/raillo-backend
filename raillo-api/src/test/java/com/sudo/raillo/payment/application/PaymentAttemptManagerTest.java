@@ -31,6 +31,7 @@ import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
 import com.sudo.raillo.payment.application.result.PaymentAttemptStartResult;
 import com.sudo.raillo.payment.application.required.PaymentRepository;
 import com.sudo.raillo.payment.domain.Payment;
+import com.sudo.raillo.payment.domain.PaymentMethod;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
 import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
@@ -361,6 +362,62 @@ class PaymentAttemptManagerTest {
 		assertThat(succeeded.get()).isEqualTo(1);
 		assertThat(loserError.get()).isEqualTo(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 		assertThat(paymentAttemptRepository.findById(attemptDbId).orElseThrow().getStatus())
+			.isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+	}
+	@Test
+	@DisplayName("Payment가 이미 PAID면 NOT_SENT attempt를 재개할 수 없다")
+	void reopenInNewTransaction_rejectedWhenPaymentAlreadyPaid() {
+		// given
+		Long attemptDbId = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "attempt-paid", "toss-key")
+			.attemptDbId();
+		paymentAttemptManager.markNotSentInNewTransaction(
+			payment.getId(), attemptDbId, new AttemptError("CONFIRM_NOT_SENT", "전송되지 않음"));
+		Payment paid = paymentRepository.findById(payment.getId()).orElseThrow();
+		paid.approve(PaymentMethod.CREDIT_CARD, "toss-key");
+		paymentRepository.save(paid);
+
+		// when & then
+		assertThatThrownBy(() -> paymentAttemptManager.reopenInNewTransaction(payment.getId(), attemptDbId))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ALREADY_COMPLETED);
+	}
+
+	@Test
+	@DisplayName("다른 attempt가 진행 중이면 NOT_SENT attempt를 재개할 수 없다")
+	void reopenInNewTransaction_rejectedWhenAnotherAttemptInProgress() {
+		// given
+		Long notSentId = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "attempt-old", "toss-key-1")
+			.attemptDbId();
+		paymentAttemptManager.markNotSentInNewTransaction(
+			payment.getId(), notSentId, new AttemptError("CONFIRM_NOT_SENT", "전송되지 않음"));
+		// 사용자가 새 결제창에서 다른 paymentKey로 다시 시작한 상황
+		paymentAttemptManager.startApprovalInNewTransaction(payment.getId(), "attempt-new", "toss-key-2");
+
+		// when & then
+		assertThatThrownBy(() -> paymentAttemptManager.reopenInNewTransaction(payment.getId(), notSentId))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+	}
+
+	@Test
+	@DisplayName("최근 attempt가 NOT_SENT면 다른 attemptId의 새 시도를 허용한다")
+	void startApprovalInNewTransaction_allowedWhenLatestIsNotSent() {
+		// given
+		Long notSentId = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "attempt-old", "toss-key-1")
+			.attemptDbId();
+		paymentAttemptManager.markNotSentInNewTransaction(
+			payment.getId(), notSentId, new AttemptError("CONFIRM_NOT_SENT", "전송되지 않음"));
+
+		// when
+		PaymentAttemptStartResult result = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "attempt-new", "toss-key-2");
+
+		// then
+		assertThat(result.created()).isTrue();
+		assertThat(paymentAttemptRepository.findById(result.attemptDbId()).orElseThrow().getStatus())
 			.isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
 	}
 }

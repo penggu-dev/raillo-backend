@@ -1386,14 +1386,21 @@ class PaymentConfirmServiceTest {
 		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
 			.isInstanceOf(TossPaymentException.class);
 
+		assertThat(paymentAttemptRepository.findByAttemptId(forApproval(paymentKey)).orElseThrow().getStatus())
+			.isEqualTo(PaymentAttemptStatus.NOT_SENT);
+
 		// 예약 Hold가 TTL로 사라진 상황을 만든다
 		bookingRedisRepository.delete(reservation);
 		clearInvocations(tossPaymentClient);
 
-		// when & then: 승인 호출 없이 거절되어야 한다
+		// when & then: 예약 만료로 거절되고 승인 호출은 나가지 않는다
 		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
-			.isInstanceOf(BusinessException.class);
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_EXPIRED);
 		verify(tossPaymentClient, never()).confirmPayment(any());
+		assertThat(paymentAttemptRepository.findByAttemptId(forApproval(paymentKey)).orElseThrow().getStatus())
+			.as("거절돼도 attempt는 NOT_SENT로 남아 새 결제창 재시도가 열려 있다")
+			.isEqualTo(PaymentAttemptStatus.NOT_SENT);
 	}
 
 	@Test

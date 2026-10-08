@@ -82,7 +82,7 @@ MySQL ENUM이 아니라 VARCHAR로 매핑한다(`@Enumerated(EnumType.STRING)`, 
 
 **값 추가가 DB 작업 없이 끝나는 범위는 ALTER로 전환한 컬럼뿐이다.** 개발·운영 DB는 여기 해당한다. 엔티티 매핑으로 스키마를 새로 만드는 환경(테스트 컨테이너 등)은 Hibernate가 `status varchar(20) not null check (status in (...))` 형태의 CHECK 제약을 함께 만들고 `ddl-auto: update`는 기존 CHECK를 갱신하지 않는다. 그래서 새 상태 값은 그런 환경에서만 거부될 수 있다.
 
-`NOT_SENT`는 요청이 게이트웨이에 도달하지 않은 것이 확정인 attempt다. 비종결 상태이며, 사용자가 같은 결제창에서 다시 요청하면 신규 승인과 같은 검증(승인 가능 상태, 예약 생존, 중복 결제)을 모두 거친 뒤 `IN_PROGRESS`로 되돌아간다. 시스템이 거는 자동 재시도는 없다. 카드가 긁히지 않았으므로 같은 Payment에 다른 attemptId의 새 시도도 허용한다. 승인 호출이 미도달로 실패한 그 요청 자체에는 `PAYMENT_GATEWAY_NOT_SENT`(`PAYMENT_118`, 503)를 응답한다. 값 추가에 DB 작업은 필요 없었다. 이미 VARCHAR로 전환한 컬럼이다.
+`NOT_SENT`는 요청이 게이트웨이에 도달하지 않은 것이 확정인 attempt다. 비종결 상태이며, 사용자가 같은 결제창에서 다시 요청하면 신규 승인과 같은 검증(승인 가능 상태, 예약 생존, 중복 결제)을 거치고, Payment를 잠근 뒤 승인 가능 상태와 다른 attempt의 진행 여부를 한 번 더 확인한 뒤 `IN_PROGRESS`로 되돌아간다. 시스템이 거는 자동 재시도는 없다. 카드가 긁히지 않았으므로 같은 Payment에 다른 attemptId의 새 시도도 허용한다. 승인 호출이 미도달로 실패한 그 요청 자체에는 `PAYMENT_GATEWAY_NOT_SENT`(`PAYMENT_118`, 503)를 응답한다. 값 추가에 DB 작업은 필요 없었다. 이미 VARCHAR로 전환한 컬럼이다.
 
 `REVIEW_REQUIRED`는 Toss에서 승인됐지만 자동으로 확정하지 않는 attempt다. 같은 결제의 새 attempt 요청에는 `PAYMENT_ATTEMPT_REVIEW_REQUIRED`(`PAYMENT_117`)를 응답한다.
 
