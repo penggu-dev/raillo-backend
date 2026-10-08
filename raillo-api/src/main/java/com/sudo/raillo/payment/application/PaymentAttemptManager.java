@@ -64,6 +64,11 @@ public class PaymentAttemptManager {
 				// 이미 돈이 나간 결제를 사람이 확인하기 전에 다른 카드로 다시 청구하지 않는다.
 				case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 				case FAILED -> { /* 재시도 허용 (다른 카드) */ }
+				// 승인 호출이 나가지 않아 카드가 긁히지 않았다. 새 시도를 막을 이유가 없다.
+				case NOT_SENT -> { /* 재시도 허용 */ }
+				// enum switch 문은 exhaustive가 강제되지 않는다. 새 상태가 조용히 통과하지 않도록 직접 막는다.
+				default -> throw new IllegalStateException(
+					"처리 규칙이 정해지지 않은 PaymentAttemptStatus: " + previous.getStatus());
 			}
 		});
 
@@ -120,6 +125,12 @@ public class PaymentAttemptManager {
 			log.error("[reopen - attempt가 요청한 paymentId 소유가 아님] attemptId={}, attemptPaymentId={}, requestedPaymentId={}",
 				attempt.getAttemptId(), attempt.getPaymentId(), paymentId);
 			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REQUEST_MISMATCH);
+		}
+		if (attempt.getStatus() != PaymentAttemptStatus.NOT_SENT) {
+			// 동시 재진입에서 진 쪽이다. 다른 요청이 이미 같은 attempt로 승인을 진행 중이다.
+			log.info("[reopen - 이미 다른 요청이 재개함] attemptId={}, status={}",
+				attempt.getAttemptId(), attempt.getStatus());
+			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 		}
 		attempt.reopen();
 	}

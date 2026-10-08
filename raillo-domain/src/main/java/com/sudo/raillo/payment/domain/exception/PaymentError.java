@@ -27,7 +27,7 @@ public enum PaymentError implements ErrorCode {
 	PAYMENT_ATTEMPT_IN_PROGRESS("결제 처리 중입니다. 잠시 후 다시 확인해주세요.", HttpStatus.CONFLICT, "PAYMENT_113"),
 	PAYMENT_ATTEMPT_REQUEST_MISMATCH("결제 시도 정보가 요청과 일치하지 않습니다.", HttpStatus.CONFLICT, "PAYMENT_114"),
 	INVALID_PAYMENT_ATTEMPT_ID("결제 시도 ID는 64자 이하여야 합니다.", HttpStatus.BAD_REQUEST, "PAYMENT_115"),
-	PAYMENT_GATEWAY_NOT_SENT("결제 요청이 전송되지 않았습니다. 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_116"),
+	PAYMENT_GATEWAY_NOT_SENT("결제 요청이 전송되지 않았습니다. 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_118"),
 	PAYMENT_ATTEMPT_REVIEW_REQUIRED("결제 결과 확인이 필요합니다. 고객센터로 문의해주세요.", HttpStatus.CONFLICT, "PAYMENT_117"),
 
 	// 금액과 수단, 키 (2xx)

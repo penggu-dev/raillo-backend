@@ -114,7 +114,7 @@ public class PaymentApprovalStarter {
 			case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 			case IN_PROGRESS -> recoverInProgressAttempt(existing, payment, ctx);
 			// 호출이 나가지 않은 것이 확정이라 중복 승인 위험이 없다. 같은 attempt를 다시 열어 처음부터 시도한다.
-			case NOT_SENT -> reopenNotSentAttempt(existing, payment);
+			case NOT_SENT -> reopenNotSentAttempt(existing, payment, ctx);
 		};
 	}
 
@@ -124,7 +124,14 @@ public class PaymentApprovalStarter {
 	 * <p>게이트웨이에 요청이 도달하지 않은 것이 확정이므로 조회로 대조할 것이 없다. 같은 attemptId를 그대로
 	 * 쓰면 되므로 새 행을 만들지 않는다.</p>
 	 */
-	private PaymentApprovalStart reopenNotSentAttempt(PaymentAttempt existing, Payment payment) {
+	private PaymentApprovalStart reopenNotSentAttempt(PaymentAttempt existing, Payment payment, ApprovalContext ctx) {
+		// 승인 호출을 새로 보내는 경로이므로 신규 승인과 같은 검증을 모두 거친다. 재개는 "처음부터 다시"와
+		// 같아야 한다. 특히 예약 생존 검증을 빠뜨리면, 예약 TTL이 지난 뒤의 재시도가 카드를 청구하고도
+		// 좌석을 가져올 수 없어 이중 예매와 미아 결제를 만든다.
+		paymentValidator.validateApprovable(payment);
+		validateReservationsAlive(ctx.order(), ctx.memberNo());
+		paymentValidator.validateDuplicatePayment(ctx.order());
+
 		log.info("[결제 재요청 - NOT_SENT attempt 재개] attemptId={}, paymentId={}",
 			existing.getAttemptId(), payment.getId());
 		paymentAttemptManager.reopenInNewTransaction(payment.getId(), existing.getId());

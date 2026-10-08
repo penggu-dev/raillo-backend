@@ -62,8 +62,8 @@ public class PaymentApprovalFinalizer {
 
 		paymentValidator.validateApprovalAttempt(attempt, paymentId, command.paymentKey());
 
-		// 상태별 조기 종료. exhaustive switch로 둬서 새 PaymentAttemptStatus가 생기면 컴파일이 멈추고
-		// 여기서 무엇을 할지 정하게 만든다. if 사슬이면 새 상태가 조용히 정상 확정 경로로 떨어진다.
+		// 상태별 조기 종료. enum switch 문은 exhaustive가 강제되지 않으므로 모든 상태를 직접 열거하고
+		// default로 막는다. 빠진 상태가 있으면 조용히 정상 확정 경로로 떨어지는 것이 가장 위험하다.
 		switch (attempt.getStatus()) {
 			// 최초 confirm과 사용자 재시도의 상태 재조회가 같은 attempt에 대해 동시에 TX B에 진입한 경우,
 			// 먼저 잠금을 얻은 쪽이 이미 SUCCEEDED로 확정했다면 실패로 응답하지 않고 이전 결과를 그대로 돌려준다.
@@ -89,6 +89,15 @@ public class PaymentApprovalFinalizer {
 			}
 			// 정상 확정 경로
 			case IN_PROGRESS -> { }
+			// 승인 호출이 나가지 않은 attempt는 확정 대상이 아니다. 여기까지 왔다는 것은 호출 결과와
+			// attempt 상태가 어긋났다는 뜻이라, 정상 확정 경로로 흘려보내지 않고 즉시 막는다.
+			case NOT_SENT -> {
+				log.error("[결제 확정 거절 - 전송되지 않은 attempt] attemptId={}, paymentId={}",
+					attempt.getAttemptId(), paymentId);
+				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
+			}
+			default -> throw new IllegalStateException(
+				"처리 규칙이 정해지지 않은 PaymentAttemptStatus: " + attempt.getStatus());
 		}
 
 		paymentValidator.validateApprovable(payment);

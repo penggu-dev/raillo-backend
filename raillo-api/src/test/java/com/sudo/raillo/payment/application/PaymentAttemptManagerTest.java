@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,6 +34,7 @@ import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
 import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
+import com.sudo.raillo.global.exception.ErrorCode;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.OrderFixture;
@@ -329,6 +331,8 @@ class PaymentAttemptManagerTest {
 		CountDownLatch start = new CountDownLatch(1);
 		CountDownLatch done = new CountDownLatch(threads);
 		AtomicInteger succeeded = new AtomicInteger();
+		AtomicReference<ErrorCode> loserError = new AtomicReference<>();
+		AtomicReference<Exception> unexpectedError = new AtomicReference<>();
 		ExecutorService pool = Executors.newFixedThreadPool(threads);
 
 		// when
@@ -338,8 +342,11 @@ class PaymentAttemptManagerTest {
 					start.await();
 					paymentAttemptManager.reopenInNewTransaction(payment.getId(), attemptDbId);
 					succeeded.incrementAndGet();
-				} catch (Exception expectedForLoser) {
-					// 둘 중 하나는 상태 가드에 걸려 거절된다
+				} catch (BusinessException expectedForLoser) {
+					// 진 쪽은 다른 요청이 이미 진행 중이라는 뜻의 409를 받아야 한다
+					loserError.set(expectedForLoser.getErrorCode());
+				} catch (Exception unexpected) {
+					unexpectedError.set(unexpected);
 				} finally {
 					done.countDown();
 				}
@@ -350,7 +357,9 @@ class PaymentAttemptManagerTest {
 		pool.shutdown();
 
 		// then
+		assertThat(unexpectedError.get()).as("진 쪽이 예상 밖 예외를 받으면 안 된다").isNull();
 		assertThat(succeeded.get()).isEqualTo(1);
+		assertThat(loserError.get()).isEqualTo(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 		assertThat(paymentAttemptRepository.findById(attemptDbId).orElseThrow().getStatus())
 			.isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
 	}
