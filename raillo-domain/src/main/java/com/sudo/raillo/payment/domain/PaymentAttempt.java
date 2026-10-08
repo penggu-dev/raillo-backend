@@ -117,7 +117,7 @@ public class PaymentAttempt {
 	 *
 	 * <p>{@code FAILED}를 쓰지 않는 이유는 attemptId가 paymentKey에서 결정적으로 파생되기 때문이다.
 	 * {@code FAILED}로 두면 승인 재요청이 {@code PAYMENT_ATTEMPT_ALREADY_FAILED}로 거절되어 그 paymentKey로는
-	 * 다시 승인할 수 없다. 호출이 나가지 않았으므로 재시도에 중복 처리 위험이 없다.</p>
+	 * 다시 승인할 수 없다. 호출이 나가지 않았으므로 사용자가 다시 요청해도 중복 처리 위험이 없다.</p>
 	 */
 	public void markNotSent(String errorCode, String errorMessage) {
 		if (this.status != PaymentAttemptStatus.IN_PROGRESS) {

@@ -62,8 +62,8 @@ public class PaymentApprovalFinalizer {
 
 		paymentValidator.validateApprovalAttempt(attempt, paymentId, command.paymentKey());
 
-		// 상태별 조기 종료. enum switch 문은 exhaustive가 강제되지 않으므로 모든 상태를 직접 열거하고
-		// default로 막는다. 빠진 상태가 있으면 조용히 정상 확정 경로로 떨어지는 것이 가장 위험하다.
+		// 확정은 아래 TX B가 Order와 Payment와 Booking과 Attempt와 Outbox를 한 트랜잭션으로 커밋하는 것. 이 switch는 그 전의 상태별 조기 종료다.
+		// enum switch 문은 exhaustive 강제가 없어 모든 상태를 직접 열거하고 default로 막는다. 빠진 상태가 조용히 확정 경로로 떨어지는 것이 가장 위험하다.
 		switch (attempt.getStatus()) {
 			// 최초 confirm과 사용자 재시도의 상태 재조회가 같은 attempt에 대해 동시에 TX B에 진입한 경우,
 			// 먼저 잠금을 얻은 쪽이 이미 SUCCEEDED로 확정했다면 실패로 응답하지 않고 이전 결과를 그대로 돌려준다.
@@ -77,20 +77,17 @@ public class PaymentApprovalFinalizer {
 					attempt.getAttemptId(), paymentId, attempt.getErrorCode());
 				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 			}
-			// 여기까지 왔다면 Toss는 승인했고 카드는 청구됐는데 우리 기록만 FAILED로 남아 예매가 만들어지지 않은
-			// 상태다. Recovery Worker는 IN_PROGRESS만 다시 집기 때문에 이 레코드는 아무도 다시 보지 않는다.
-			// FAILED → REVIEW_REQUIRED 전이는 도메인이 막고 있으므로(markReviewRequired는 IN_PROGRESS에서만 허용)
-			// 여기서는 탐지와 알림만 하고 해결은 후속 계획으로 넘긴다.
+			// Toss는 승인해 카드가 청구됐는데 기록만 FAILED라 예매가 없는 상태. Recovery Worker는 IN_PROGRESS만 집어 아무도 다시 보지 않음
+			// TODO(#270): 탐지와 알림만 수행. markReviewRequired가 IN_PROGRESS에서만 허용돼 이 레코드를 되살릴 경로 없음
 			case FAILED -> {
 				log.error("[결제 확정 위험 - 이미 FAILED인 attempt에 승인 확정 진입] paymentKey={}, attemptId={}, paymentId={}, "
 						+ "돈이 이미 빠져나갔을 수 있으나 attempt는 FAILED이고 예매는 생성되지 않았습니다.",
 					command.paymentKey(), attempt.getAttemptId(), paymentId);
 				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 			}
-			// 정상 확정 경로
+			// 정상 경로. 조기 종료 없이 switch 아래 확정 로직으로 진행
 			case IN_PROGRESS -> { }
-			// 승인 호출이 나가지 않은 attempt는 확정 대상이 아니다. 여기까지 왔다는 것은 호출 결과와
-			// attempt 상태가 어긋났다는 뜻이라, 정상 확정 경로로 흘려보내지 않고 즉시 막는다.
+			// 승인 호출 미발송이라 확정할 승인이 없음. 호출 결과와 attempt 상태의 불일치이므로 즉시 차단
 			case NOT_SENT -> {
 				log.error("[결제 확정 거절 - 전송되지 않은 attempt] attemptId={}, paymentId={}",
 					attempt.getAttemptId(), paymentId);
@@ -101,7 +98,6 @@ public class PaymentApprovalFinalizer {
 		}
 
 		paymentValidator.validateApprovable(payment);
-		paymentValidator.validateAmounts(command.amount(), order.getTotalAmount(), payment.getAmount());
 		paymentValidator.validateDuplicatePayment(order);
 		paymentValidator.validateGatewayResponseMatchesRequest(gatewayResult, command);
 

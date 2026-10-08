@@ -13,8 +13,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum DeliveryPhase {
 
-	NOT_REACHED("게이트웨이 미도달 확정, 재시도해도 중복 처리 위험 없음"),
-	NO_RESPONSE("요청 전송 후 결과 미확인, 재시도 시 중복 처리 위험"),
+	NOT_REACHED("게이트웨이 미도달 확정, 같은 요청을 다시 보내도 중복 처리 위험 없음"),
+	NO_RESPONSE("요청 전송 후 결과 미확인, 같은 요청을 다시 보내면 중복 처리 위험"),
 	ANSWERED("게이트웨이 HTTP 응답 수신, 상태 코드로 확정 여부 판정");
 
 	private final String description;

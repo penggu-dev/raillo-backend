@@ -113,21 +113,24 @@ public class PaymentApprovalStarter {
 			case FAILED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 			case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 			case IN_PROGRESS -> recoverInProgressAttempt(existing, payment, ctx);
-			// 호출이 나가지 않은 것이 확정이라 중복 승인 위험이 없다. 같은 attempt를 다시 열어 처음부터 시도한다.
+			// 호출 미발송 확정으로 중복 승인 위험 없음. 사용자가 다시 보낸 요청을 같은 attempt로 수용
 			case NOT_SENT -> reopenNotSentAttempt(existing, payment, ctx);
 		};
 	}
 
 	/**
-	 * 전송되지 않은 attempt를 다시 열어 승인 시도를 이어가게 한다.
+	 * 전송되지 않은 attempt를 받아 사용자가 다시 보낸 승인 요청을 처리한다.
 	 *
-	 * <p>게이트웨이에 요청이 도달하지 않은 것이 확정이므로 조회로 대조할 것이 없다. 같은 attemptId를 그대로
-	 * 쓰면 되므로 새 행을 만들지 않는다.</p>
+	 * <p>시스템이 거는 자동 재시도가 아니다. 앞선 요청은 미전송으로 끝나 사용자에게 503을 돌려줬고, 이
+	 * 메서드는 사용자가 결제창에서 다시 눌러 들어온 별개의 HTTP 요청을 받는 자리다.</p>
+	 *
+	 * <p>게이트웨이에 요청이 도달하지 않은 것이 확정이므로 조회로 대조할 것이 없다. attemptId가 paymentKey에서
+	 * 결정적으로 파생되어 같은 값이 나오므로 새 행을 만들지 않고 기존 행을 다시 진행 중으로 되돌린다.</p>
 	 */
 	private PaymentApprovalStart reopenNotSentAttempt(PaymentAttempt existing, Payment payment, ApprovalContext ctx) {
-		// 승인 호출을 새로 보내는 경로이므로 신규 승인과 같은 검증을 모두 거친다. 재개는 "처음부터 다시"와
-		// 같아야 한다. 특히 예약 생존 검증을 빠뜨리면, 예약 TTL이 지난 뒤의 재시도가 카드를 청구하고도
-		// 좌석을 가져올 수 없어 이중 예매와 미아 결제를 만든다.
+		// 승인 호출을 새로 보내는 경로라 신규 승인과 같은 검증이 필요하다.
+		// 예약 생존 검증이 빠지면 예약 TTL(10분)이 지난 뒤 들어온 요청이 카드를 청구하고도 좌석을 못 가져온다.
+		// TODO(#280): seat_booking에 unique 제약이 없고 createBookingFromOrder도 좌석 충돌을 보지 않아 DB에서도 안 걸림. 근본 방어는 #280
 		paymentValidator.validateApprovable(payment);
 		validateReservationsAlive(ctx.order(), ctx.memberNo());
 		paymentValidator.validateDuplicatePayment(ctx.order());
@@ -208,7 +211,7 @@ public class PaymentApprovalStarter {
 			// 이미 카드가 승인된 상태이므로 재예약을 안내하는 reservationCheckFailed를 그대로 던지면 안 된다.
 			case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 			// 원래 예외(예약 만료 등)를 그대로 던진다.
-			// NOT_SENT는 승인 호출이 나가지 않은 것이라 카드가 승인되지 않았다. 원래 예외를 그대로 던진다.
+			// NOT_SENT는 승인 호출 미발송이라 카드 미승인. 원래 예외를 그대로 전파
 			case IN_PROGRESS, FAILED, NOT_SENT -> throw reservationCheckFailed;
 		};
 	}

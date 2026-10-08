@@ -127,7 +127,7 @@ Toss 호출 직전에 `IN_PROGRESS`로 INSERT. 후속 `PaymentRecoveryWorker`는
 
   판정이 애매하면 `NO_RESPONSE`로 둔다. 두 방향의 오류가 대칭이 아니기 때문이다. 나간 요청을 `NOT_REACHED`로 잘못 보면 사용자가 재시도해 이중 청구가 되고, 나가지 않은 요청을 `NO_RESPONSE`로 보면 불필요한 조회 한 번으로 끝난다.
 - Toss의 4xx 응답은 확정 실패로 분류해 attempt만 FAILED로 마킹한다. Payment는 PENDING을 유지해 같은 Order에 대한 새 결제 시도를 열어 둔다. 5xx, 타임아웃, 응답 유실처럼 승인 여부를 단정할 수 없는 오류는 attempt를 IN_PROGRESS로 유지하고 유저 재시도 시 게이트웨이 조회로 회복한다.
-- 요청이 게이트웨이에 도달하지 않은 것이 확정이면 attempt를 비종결 상태 `NOT_SENT`로 남긴다. 같은 paymentKey로 다시 승인하면 그 attempt를 `IN_PROGRESS`로 되돌려 같은 행으로 재시도한다. `FAILED`를 쓰지 않는 이유는 attemptId가 paymentKey에서 결정적으로 파생되어, `FAILED`로 두면 `PAYMENT_ATTEMPT_ALREADY_FAILED`에 걸려 그 paymentKey로 영원히 승인할 수 없기 때문이다. 재개는 승인 호출을 새로 보내는 경로이므로 신규 승인과 같은 검증을 모두 거친다. 예약 생존 검증을 빠뜨리면 예약 TTL이 지난 뒤의 재시도가 카드를 청구하고도 좌석을 가져오지 못해 이중 예매와 미아 결제를 만든다. Recovery Worker의 대사 대상은 `IN_PROGRESS`뿐이고 `NOT_SENT`는 제외한다. 이 실패는 장애 중 대량으로 발생하므로, 대사 대상에 넣으면 복구 중인 게이트웨이에 조회 부하를 더하게 된다.
+- 요청이 게이트웨이에 도달하지 않은 것이 확정이면 attempt를 비종결 상태 `NOT_SENT`로 남기고 사용자에게 503을 돌려준다. **시스템이 자동으로 다시 보내지 않는다.** 사용자가 같은 결제창에서 다시 요청하면 attemptId가 paymentKey에서 결정적으로 파생되어 같은 값이 나오므로, 새 행을 만들지 않고 그 attempt를 `IN_PROGRESS`로 되돌려 이어간다. `FAILED`를 쓰지 않는 이유는 attemptId가 paymentKey에서 결정적으로 파생되어, `FAILED`로 두면 `PAYMENT_ATTEMPT_ALREADY_FAILED`에 걸려 그 paymentKey로 영원히 승인할 수 없기 때문이다. 이 경로는 승인 호출을 새로 보내므로 신규 승인과 같은 검증을 모두 거친다. 예약 생존 검증을 빠뜨리면 예약 TTL이 지난 뒤의 재시도가 카드를 청구하고도 좌석을 가져오지 못해 이중 예매와 미아 결제를 만든다. Recovery Worker의 대사 대상은 `IN_PROGRESS`뿐이고 `NOT_SENT`는 제외한다. 이 실패는 장애 중 대량으로 발생하므로, 대사 대상에 넣으면 복구 중인 게이트웨이에 조회 부하를 더하게 된다.
 - Toss 성공 후 `PaymentApprovalFinalizer`가 새 트랜잭션에서 Payment를 다시 잠그고 승인 확정 시점에 `payment.payment_key`를 세팅하며 Order/Booking/Payment/Attempt/Outbox를 원자적으로 확정한다. 외부 호출 전에 읽은 엔티티는 확정에 재사용하지 않는다.
 
 #### 사용자가 결제창에서 재시도했을 때 IN_PROGRESS attempt 정정
