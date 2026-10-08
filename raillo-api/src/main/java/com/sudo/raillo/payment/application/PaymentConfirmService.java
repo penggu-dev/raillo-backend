@@ -26,7 +26,7 @@ public class PaymentConfirmService implements PaymentConfirmer {
 
 	private final PaymentApprovalStarter paymentApprovalStarter;
 	private final PaymentApprovalFinalizer paymentApprovalFinalizer;
-	private final PaymentAttemptManager paymentAttemptManager;
+	private final AttemptFailureMarker attemptFailureMarker;
 	private final PaymentGateway paymentGateway;
 
 	@Override
@@ -47,9 +47,9 @@ public class PaymentConfirmService implements PaymentConfirmer {
 			} catch (PaymentGatewayException failure) {
 				if (failure.isDefinitiveFailure()) {
 					// Toss 4xx는 확정 실패이므로 attempt만 FAILED로 마킹한다(Payment는 PENDING 유지).
-					paymentAttemptManager.markFailedInNewTransaction(
-						start.attemptDbId(), failure.getErrorCode(), failure.getMessage()
-					);
+					// 마킹이 실패해도 원래 실패 사유(failure)를 가리지 않는 것은 marker가 보장한다.
+					attemptFailureMarker.markFailedQuietly(start.paymentId(), start.attemptDbId(),
+						new AttemptError(failure.getErrorCode(), failure.getMessage()));
 				}
 				// 5xx/timeout은 결과 불명이라 IN_PROGRESS로 남기고 회복 경로(사용자 재시도·Recovery Worker)에 위임한다.
 				throw failure;
@@ -64,5 +64,4 @@ public class PaymentConfirmService implements PaymentConfirmer {
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", start.paymentId(), command.orderId());
 		return result;
 	}
-
 }

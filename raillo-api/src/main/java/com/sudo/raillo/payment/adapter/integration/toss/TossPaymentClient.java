@@ -2,9 +2,11 @@ package com.sudo.raillo.payment.adapter.integration.toss;
 
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -14,7 +16,6 @@ import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
-import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,10 @@ import lombok.extern.slf4j.Slf4j;
 public class TossPaymentClient {
 
 	private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+
+	/** 응답 본문 읽기에 실패했을 때 결제 조회를 다시 하는 최대 횟수(스펙 9장). */
+	private static final int QUERY_BODY_MAX_RETRIES = 2;
+	private static final long QUERY_BODY_RETRY_INTERVAL_MILLIS = 200L;
 
 	private final RestClient tossPaymentRestClient;
 	private final ObjectMapper objectMapper;
@@ -72,35 +77,85 @@ public class TossPaymentClient {
 	}
 
 	/**
-	 * 토스페이먼츠 결제 조회 API 호출 (GET /v1/payments/{paymentKey}). Toss 응답 유실로 PaymentAttempt가 IN_PROGRESS로 남은 상태에서 사용자가 재시도할 때 실제 상태를 확인해 로컬을 정정하는 데 사용한다.
+	 * 토스페이먼츠 결제 조회 API 호출 (GET /v1/payments/{paymentKey}). Toss 응답 유실로 PaymentAttempt가 IN_PROGRESS로 남은 상태에서 실제 상태를 확인해 로컬을 정정하는 데 사용한다.
+	 *
+	 * <p>Toss 오류 응답은 그 상태와 코드의 {@link TossPaymentException}으로 던진다. 응답 헤더는 받았지만 본문을 읽거나
+	 * 해석하지 못하면 최대 {@value #QUERY_BODY_MAX_RETRIES}회 다시 조회한다. 헤더 수신 전 실패는 Apache 재시도가 이미 다뤘으므로
+	 * 다시 조회하지 않는다. 끝내 결과를 알 수 없으면 {@code QUERY_UNCERTAIN_{원인}} 코드의 예외를 던진다.
 	 */
 	public TossPaymentQueryResponse queryPayment(String paymentKey) {
 		log.info("[TOSS] 결제 조회 요청: paymentKey={}", paymentKey);
 
+		for (int retry = 0; ; retry++) {
+			try {
+				TossPaymentQueryResponse response = tossPaymentRestClient.get()
+					.uri("/v1/payments/{paymentKey}", paymentKey)
+					.exchange((req, res) -> {
+						if (res.getStatusCode().isError()) {
+							handleErrorResponse(res, "query");
+						}
+						try {
+							return res.bodyTo(TossPaymentQueryResponse.class);
+						} catch (RuntimeException e) {
+							throw new QueryBodyReadException(e);
+						}
+					});
+
+				log.info("[TOSS] 결제 조회 성공: paymentKey={}, status={}, method={}",
+					response.paymentKey(), response.status(), response.method());
+				return response;
+
+			} catch (TossPaymentException e) {
+				throw e;
+			} catch (QueryBodyReadException e) {
+				if (retry < QUERY_BODY_MAX_RETRIES && sleepBeforeQueryRetry()) {
+					log.warn("[TOSS] 결제 조회 응답 본문 읽기 실패, 다시 조회: paymentKey={}, retry={}",
+						paymentKey, retry + 1, e.getCause());
+					continue;
+				}
+				throw queryUncertain("BODY", HttpStatus.BAD_GATEWAY, e.getCause());
+			} catch (Exception e) {
+				if (isTimeout(e)) {
+					throw queryUncertain("TIMEOUT", HttpStatus.GATEWAY_TIMEOUT, e);
+				}
+				throw queryUncertain("IO", HttpStatus.BAD_GATEWAY, e);
+			}
+		}
+	}
+
+	private TossPaymentException queryUncertain(String cause, HttpStatus status, Throwable e) {
+		String errorCode = "QUERY_UNCERTAIN_" + cause;
+		log.error("[TOSS] 결제 조회 결과 불명: errorCode={}", errorCode, e);
+		tossApiMetrics.incrementFailure("query", 0, errorCode);
+		return new TossPaymentException(status.value(), errorCode, "결제 조회 결과를 확인하지 못했습니다.");
+	}
+
+	/** @return 기다린 뒤 다시 조회해도 되면 true, 인터럽트되면 false */
+	private boolean sleepBeforeQueryRetry() {
 		try {
-			TossPaymentQueryResponse response = tossPaymentRestClient.get()
-				.uri("/v1/payments/{paymentKey}", paymentKey)
-				.exchange((req, res) -> {
-					if (res.getStatusCode().isError()) {
-						handleErrorResponse(res, "query");
-					}
-					return res.bodyTo(TossPaymentQueryResponse.class);
-				});
+			Thread.sleep(QUERY_BODY_RETRY_INTERVAL_MILLIS);
+			return true;
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return false;
+		}
+	}
 
-			log.info("[TOSS] 결제 조회 성공: paymentKey={}, status={}, method={}",
-				response.paymentKey(), response.status(), response.method());
+	/** 연결, 커넥션 획득, 읽기 timeout은 모두 InterruptedIOException 계열이다. */
+	private static boolean isTimeout(Throwable e) {
+		for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+			if (cause instanceof InterruptedIOException) {
+				return true;
+			}
+		}
+		return false;
+	}
 
-			return response;
+	/** 결제 조회 응답의 헤더는 받았지만 본문을 읽거나 해석하지 못했음을 표시한다. 조회 재시도 판단에만 쓴다. */
+	private static final class QueryBodyReadException extends RuntimeException {
 
-		} catch (TossPaymentException e) {
-			throw e;
-		} catch (Exception e) {
-			log.error("[TOSS] 결제 조회 중 알 수 없는 예외 발생", e);
-			tossApiMetrics.incrementFailure("query", 0, "CLIENT_ERROR");
-			throw new BusinessException(
-				PaymentError.PAYMENT_SYSTEM_ERROR,
-				"결제 조회 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
-			);
+		private QueryBodyReadException(Throwable cause) {
+			super(cause);
 		}
 	}
 
@@ -111,18 +166,11 @@ public class TossPaymentClient {
 	 * @param request 취소 요청 (cancelReason 필수, cancelAmount는 부분 취소 시에만)
 	 * @return Payment 객체 -> TossPaymentCancelResponse 변환
 	 *
-	 * <h4>멱등키(Idempotency-Key) 적용 방법</h4>
-	 * <p>현재는 사용하지 않지만, 재시도 로직이나 배치 실패 복구가 필요할 경우 적용 가능</p>
-	 * <pre>{@code
-	 * // 요청 시 헤더 추가
-	 * .header("Idempotency-Key", UUID.randomUUID().toString())
-	 *
-	 * // 같은 멱등키로 재시도하면 토스가 캐시된 응답 반환 (중복 취소 방지)
-	 * // 멱등키는 15일간 유효
-	 * }</pre>
+	 * <p>요청마다 새 {@code Idempotency-Key}를 보낸다. 같은 키로 재시도하면 토스가 캐시된 응답을 돌려줘
+	 * 중복 취소를 막는다(키는 15일간 유효).</p>
 	 */
 	public TossPaymentCancelResponse cancelPayment(String paymentKey, TossPaymentCancelRequest request) {
-		String idempotencyKey = generateIdempotencyKey();
+		String idempotencyKey = UUID.randomUUID().toString();
 
 		log.info("[TOSS] 결제 취소 요청: paymentKey={}, cancelReason={}, cancelAmount={}, idempotencyKey={}",
 			paymentKey, request.cancelReason(), request.cancelAmount(), idempotencyKey);
@@ -157,10 +205,6 @@ public class TossPaymentClient {
 		}
 	}
 
-	private String generateIdempotencyKey() {
-		return UUID.randomUUID().toString();
-	}
-
 	private void handleErrorResponse(ClientHttpResponse res, String operation) throws IOException {
 		int statusCode = res.getStatusCode().value();
 
@@ -173,15 +217,12 @@ public class TossPaymentClient {
 			rawBytes.length,
 			res.getHeaders().getFirst("x-tosspayments-trace-id"));
 
+		boolean serverError = res.getStatusCode().is5xxServerError();
+
 		if (rawBytes.length == 0) {
 			String message = "토스 에러 응답 본문이 비어 있습니다. (httpStatus=" + statusCode + ")";
-			if (res.getStatusCode().is5xxServerError()) {
-				log.error("[TOSS] {} 실패 ({}): {}", operation, statusCode, message);
-			} else {
-				log.warn("[TOSS] {} 실패 ({}): {}", operation, statusCode, message);
-			}
-			tossApiMetrics.incrementFailure(operation, statusCode, "EMPTY_ERROR_BODY");
-			throw new TossPaymentException(statusCode, "EMPTY_ERROR_BODY", message);
+			logByStatus(serverError, "[TOSS] {} 실패 ({}): {}", operation, statusCode, message);
+			throw fail(operation, statusCode, "EMPTY_ERROR_BODY", message);
 		}
 
 		TossErrorResponseV1 error;
@@ -191,20 +232,32 @@ public class TossPaymentClient {
 			String bodySnippet = truncateForLog(raw);
 			String message = "토스 에러 응답 파싱 실패 (httpStatus=" + statusCode + ")";
 			log.error("[TOSS] {} 실패 ({}): {} bodySnippet={}", operation, statusCode, message, bodySnippet, e);
-			tossApiMetrics.incrementFailure(operation, statusCode, "UNPARSABLE_ERROR_BODY");
-			throw new TossPaymentException(statusCode, "UNPARSABLE_ERROR_BODY", message + ", body=" + bodySnippet);
+			throw fail(operation, statusCode, "UNPARSABLE_ERROR_BODY", message + ", body=" + bodySnippet);
 		}
 
-		if (res.getStatusCode().is5xxServerError()) {
-			log.error("[TOSS] {} 실패 (5xx): httpStatus={}, code={}, message={}",
-				operation, statusCode, error.code(), error.message());
+		logByStatus(serverError, "[TOSS] {} 실패 ({}): httpStatus={}, code={}, message={}",
+			operation, serverError ? "5xx" : "4xx", statusCode, error.code(), error.message());
+		throw fail(operation, statusCode, error.code(), error.message());
+	}
+
+	/**
+	 * 실패를 지표에 올리고 던질 예외를 만든다.
+	 *
+	 * <p>지표의 {@code (operation, httpStatus, code)}와 예외가 든 값이 어긋나면 대시보드와 로그가 서로 다른
+	 * 말을 한다. 실패 경로가 셋이라 각자 올리면 한쪽만 바뀌기 쉬워 한 곳에서 같은 값으로 둘을 만든다.</p>
+	 */
+	private TossPaymentException fail(String operation, int statusCode, String code, String message) {
+		tossApiMetrics.incrementFailure(operation, statusCode, code);
+		return new TossPaymentException(statusCode, code, message);
+	}
+
+	/** 5xx는 토스 쪽 장애라 error, 4xx는 요청이 거절된 것이라 warn으로 남긴다. */
+	private static void logByStatus(boolean serverError, String format, Object... args) {
+		if (serverError) {
+			log.error(format, args);
 		} else {
-			log.warn("[TOSS] {} 실패 (4xx): httpStatus={}, code={}, message={}",
-				operation, statusCode, error.code(), error.message());
+			log.warn(format, args);
 		}
-
-		tossApiMetrics.incrementFailure(operation, statusCode, error.code());
-		throw new TossPaymentException(statusCode, error.code(), error.message());
 	}
 
 	private String truncateForLog(String raw) {

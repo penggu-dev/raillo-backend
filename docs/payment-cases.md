@@ -24,6 +24,7 @@
 | 14 | pre-check와 잠금 사이 SUCCEEDED race | pre-check 통과 후 TX A 잠금 획득 전에 다른 요청이 확정 커밋 | `PAYMENT_ALREADY_COMPLETED` — TX A가 SUCCEEDED 발견 | [retry-defense · case-14](./diagrams/payment-flow/retry-defense.html) |
 | 15 | 동시 TX B 진입 경합 | 원본 confirm 대기 중 유저가 재시도, 둘 다 DONE 확인 → 둘 다 TX B 진입 | TX B 락 직렬화 후 늦게 진입한 쪽이 `attempt.status == SUCCEEDED` 조기 리턴. 유저 관점 성공 응답 | [tx-b-race · case-15](./diagrams/payment-flow/tx-b-race.html) |
 | 16 | markFailed idempotency 경합 | 원본 4xx 실패 대기 중 재시도가 먼저 ABORTED로 markFailed 커밋 | 원본의 뒤늦은 markFailed는 `attempt.status != IN_PROGRESS`라 no-op 종료. 원본에는 원래 4xx 예외 그대로 전파 | [markfail-race · case-16](./diagrams/payment-flow/markfail-race.html) |
+| 17 | 가상계좌 승인 (입금 대기) | 승인 응답 status가 `WAITING_FOR_DEPOSIT` | **미구현** — 현재는 DONE과 구분하지 않고 확정한다. 상세는 [payment-consistency.md 결제 수단별 확정 시점](./payment-consistency.md#결제-수단별-확정-시점--확인-필요) | — |
 
 ## 케이스별 상태 전이 표
 

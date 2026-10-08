@@ -6,7 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import jakarta.persistence.EntityManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
@@ -38,6 +44,8 @@ class PaymentAttemptManagerTest {
 	@Autowired private MemberRepository memberRepository;
 	@Autowired private OrderRepository orderRepository;
 	@Autowired private JdbcTemplate jdbcTemplate;
+	@Autowired private PlatformTransactionManager transactionManager;
+	@Autowired private EntityManager entityManager;
 
 	private Payment payment;
 
@@ -164,13 +172,133 @@ class PaymentAttemptManagerTest {
 			PaymentAttempt.startApproval(payment.getId(), "attempt-abc", "toss-key"));
 
 		// when
-		paymentAttemptManager.markFailedInNewTransaction(inProgress.getId(), "REJECT", "카드 거절");
+		paymentAttemptManager.markFailedInNewTransaction(
+			payment.getId(), inProgress.getId(), new AttemptError("REJECT", "카드 거절"));
 
 		// then
 		PaymentAttempt updated = paymentAttemptRepository.findById(inProgress.getId()).orElseThrow();
 		assertThat(updated.getStatus()).isEqualTo(PaymentAttemptStatus.FAILED);
 		assertThat(updated.getErrorCode()).isEqualTo("REJECT");
 		assertThat(updated.getErrorMessage()).isEqualTo("카드 거절");
+	}
+
+	@Test
+	@DisplayName("승인 확정이 Payment를 잠근 채 attempt를 SUCCEEDED로 바꾸는 중에 실패 처리가 들어오면 확정 커밋을 기다린 뒤 SUCCEEDED를 덮어쓰지 않는다")
+	void markFailed_waits_for_finalizer_and_keeps_succeeded() throws Exception {
+		// given
+		PaymentAttempt attempt = paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), "attempt-race", "toss-key"));
+		CountDownLatch finalizerFlushed = new CountDownLatch(1);
+		CountDownLatch releaseFinalizer = new CountDownLatch(1);
+		TransactionTemplate tx = new TransactionTemplate(transactionManager);
+
+		try (var executor = Executors.newFixedThreadPool(2)) {
+			Future<?> finalizer = executor.submit(() -> tx.executeWithoutResult(status -> {
+				paymentRepository.findByIdForUpdate(payment.getId()).orElseThrow();
+				PaymentAttempt inTx = paymentAttemptRepository.findById(attempt.getId()).orElseThrow();
+				inTx.markSucceeded();
+				entityManager.flush();
+				finalizerFlushed.countDown();
+				awaitOrFail(releaseFinalizer);
+			}));
+			assertThat(finalizerFlushed.await(5, TimeUnit.SECONDS)).isTrue();
+
+			Future<?> failer = executor.submit(() -> paymentAttemptManager.markFailedInNewTransaction(
+				payment.getId(), attempt.getId(), new AttemptError("REJECT", "카드 거절")));
+			assertThatThrownBy(() -> failer.get(500, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+
+			// when
+			releaseFinalizer.countDown();
+			finalizer.get(10, TimeUnit.SECONDS);
+			failer.get(10, TimeUnit.SECONDS);
+		}
+
+		// then
+		PaymentAttempt result = paymentAttemptRepository.findById(attempt.getId()).orElseThrow();
+		assertThat(result.getStatus()).isEqualTo(PaymentAttemptStatus.SUCCEEDED);
+		assertThat(result.getErrorCode()).isNull();
+	}
+
+	@Test
+	@DisplayName("attempt가 요청한 paymentId 소유가 아니면 실패 처리를 거절하고 attempt 상태를 바꾸지 않는다")
+	void markFailed_rejects_attempt_owned_by_different_payment() {
+		// given: 다른 Payment 소유의 IN_PROGRESS attempt
+		var otherMember = memberRepository.save(MemberFixture.createOther());
+		var otherOrder = orderRepository.save(OrderFixture.create(otherMember));
+		Payment otherPayment = paymentRepository.save(Payment.create(otherMember, otherOrder));
+		PaymentAttempt otherAttempt = paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(otherPayment.getId(), "attempt-other", "toss-key"));
+
+		// when / then: 이번 payment의 잠금으로 다른 payment 소유 attempt를 실패 처리하려 하면 거절된다
+		assertThatThrownBy(() -> paymentAttemptManager.markFailedInNewTransaction(
+			payment.getId(), otherAttempt.getId(), new AttemptError("REJECT", "카드 거절")))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(PaymentError.PAYMENT_ATTEMPT_REQUEST_MISMATCH.getMessage());
+
+		PaymentAttempt unchanged = paymentAttemptRepository.findById(otherAttempt.getId()).orElseThrow();
+		assertThat(unchanged.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+	}
+
+	@Test
+	@DisplayName("markReviewRequiredInNewTransaction으로 IN_PROGRESS attempt를 REVIEW_REQUIRED로 바꾸고 사유를 기록한다")
+	void markReviewRequiredInNewTransaction_transitions() {
+		// given
+		PaymentAttempt inProgress = paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), "attempt-review", "toss-key"));
+
+		// when
+		paymentAttemptManager.markReviewRequiredInNewTransaction(
+			payment.getId(), inProgress.getId(), new AttemptError("REVIEW_DEPARTED", "출발 후 승인"));
+
+		// then
+		PaymentAttempt updated = paymentAttemptRepository.findById(inProgress.getId()).orElseThrow();
+		assertThat(updated.getStatus()).isEqualTo(PaymentAttemptStatus.REVIEW_REQUIRED);
+		assertThat(updated.getErrorCode()).isEqualTo("REVIEW_DEPARTED");
+		assertThat(updated.getErrorMessage()).isEqualTo("출발 후 승인");
+	}
+
+	@Test
+	@DisplayName("이미 SUCCEEDED인 attempt에 수동 확인 전이를 요청하면 아무것도 바꾸지 않는다")
+	void markReviewRequiredInNewTransaction_is_noop_for_succeeded() {
+		// given
+		PaymentAttempt succeeded = PaymentAttempt.startApproval(payment.getId(), "attempt-done", "toss-key");
+		succeeded.markSucceeded();
+		PaymentAttempt saved = paymentAttemptRepository.save(succeeded);
+
+		// when
+		paymentAttemptManager.markReviewRequiredInNewTransaction(
+			payment.getId(), saved.getId(), new AttemptError("REVIEW_SEAT_LOST", "좌석 충돌"));
+
+		// then
+		PaymentAttempt result = paymentAttemptRepository.findById(saved.getId()).orElseThrow();
+		assertThat(result.getStatus()).isEqualTo(PaymentAttemptStatus.SUCCEEDED);
+		assertThat(result.getErrorCode()).isNull();
+	}
+
+	private static void awaitOrFail(CountDownLatch latch) {
+		try {
+			if (!latch.await(10, TimeUnit.SECONDS)) {
+				throw new AssertionError("승인 확정 스레드 대기 시간 초과");
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new AssertionError(e);
+		}
+	}
+
+	@Test
+	@DisplayName("최근 승인 시도가 수동 확인 대상이면 다른 카드로 시작한 새 승인은 PAYMENT_ATTEMPT_REVIEW_REQUIRED 예외로 거절된다")
+	void rejects_new_attempt_when_latest_is_review_required() {
+		// given
+		PaymentAttempt reviewed = PaymentAttempt.startApproval(payment.getId(), "first", "first-key");
+		reviewed.markReviewRequired("REVIEW_SEAT_LOST", "좌석 충돌");
+		paymentAttemptRepository.save(reviewed);
+
+		// when & then
+		assertThatThrownBy(() -> paymentAttemptManager.startApprovalInNewTransaction(payment.getId(), "second", "second-key"))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED.getMessage());
+		assertThat(paymentAttemptRepository.findByAttemptId("second")).isEmpty();
 	}
 
 	private String startTogether(String attemptId, CountDownLatch ready, CountDownLatch start) throws InterruptedException {

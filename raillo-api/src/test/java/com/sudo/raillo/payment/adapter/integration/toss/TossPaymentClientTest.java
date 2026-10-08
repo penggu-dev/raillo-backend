@@ -5,7 +5,10 @@ import static org.springframework.http.HttpMethod.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -18,8 +21,12 @@ import org.springframework.boot.restclient.test.autoconfigure.RestClientTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.mock.http.client.MockClientHttpResponse;
+import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.test.web.client.ResponseCreator;
 import org.springframework.web.client.RestClient;
 
 import tools.jackson.databind.ObjectMapper;
@@ -372,6 +379,128 @@ class TossPaymentClientTest {
 				.hasMessageContaining("결제 취소 처리 중 알 수 없는 오류가 발생했습니다");
 
 			server.verify();
+		}
+	}
+
+	@Nested
+	@DisplayName("queryPayment")
+	class QueryPayment {
+
+		private static final String QUERY_URL = "https://api.tosspayments.com/v1/payments/toss_pk_123";
+		private static final String DONE_BODY = """
+			{"paymentKey":"toss_pk_123","orderId":"ORDER_001","method":"카드","totalAmount":50000,"status":"DONE"}
+			""";
+
+		@Test
+		@DisplayName("200 응답이면 조회 결과를 그대로 돌려준다")
+		void success() {
+			// given
+			server.expect(requestTo(QUERY_URL)).andExpect(method(GET))
+				.andRespond(withSuccess(DONE_BODY, MediaType.APPLICATION_JSON));
+
+			// when
+			TossPaymentQueryResponse response = tossPaymentClient.queryPayment("toss_pk_123");
+
+			// then
+			assertThat(response.status()).isEqualTo("DONE");
+			assertThat(response.orderId()).isEqualTo("ORDER_001");
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("응답 본문 읽기가 한 번 실패하면 다시 조회해 성공 응답을 돌려준다")
+		void retries_when_body_read_fails_once() {
+			// given
+			server.expect(ExpectedCount.once(), requestTo(QUERY_URL)).andExpect(method(GET))
+				.andRespond(brokenBody());
+			server.expect(ExpectedCount.once(), requestTo(QUERY_URL)).andExpect(method(GET))
+				.andRespond(withSuccess(DONE_BODY, MediaType.APPLICATION_JSON));
+
+			// when
+			TossPaymentQueryResponse response = tossPaymentClient.queryPayment("toss_pk_123");
+
+			// then
+			assertThat(response.status()).isEqualTo("DONE");
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("응답 본문 읽기가 세 번 모두 실패하면 QUERY_UNCERTAIN_BODY 코드와 502 상태의 TossPaymentException이 발생한다")
+		void throws_uncertain_after_body_retries_exhausted() {
+			// given
+			server.expect(ExpectedCount.times(3), requestTo(QUERY_URL)).andExpect(method(GET))
+				.andRespond(brokenBody());
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.queryPayment("toss_pk_123"))
+				.isInstanceOf(TossPaymentException.class)
+				.hasFieldOrPropertyWithValue("errorCode", "QUERY_UNCERTAIN_BODY")
+				.hasFieldOrPropertyWithValue("httpStatus", 502);
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("응답 헤더를 받기 전에 timeout이 나면 다시 조회하지 않고 QUERY_UNCERTAIN_TIMEOUT 코드와 504 상태의 TossPaymentException이 발생한다")
+		void does_not_retry_on_timeout() {
+			// given
+			server.expect(ExpectedCount.once(), requestTo(QUERY_URL)).andExpect(method(GET))
+				.andRespond(withException(new SocketTimeoutException("read timed out")));
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.queryPayment("toss_pk_123"))
+				.isInstanceOf(TossPaymentException.class)
+				.hasFieldOrPropertyWithValue("errorCode", "QUERY_UNCERTAIN_TIMEOUT")
+				.hasFieldOrPropertyWithValue("httpStatus", 504);
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("응답 헤더를 받기 전에 timeout이 아닌 IO 오류가 나면 다시 조회하지 않고 QUERY_UNCERTAIN_IO 코드와 502 상태의 TossPaymentException이 발생한다")
+		void does_not_retry_on_non_timeout_io_failure() {
+			// given
+			server.expect(ExpectedCount.once(), requestTo(QUERY_URL)).andExpect(method(GET))
+				.andRespond(withException(new SocketException("Connection reset")));
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.queryPayment("toss_pk_123"))
+				.isInstanceOf(TossPaymentException.class)
+				.hasFieldOrPropertyWithValue("errorCode", "QUERY_UNCERTAIN_IO")
+				.hasFieldOrPropertyWithValue("httpStatus", 502);
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("Toss가 404 오류 본문을 돌려주면 다시 조회하지 않고 그 코드의 TossPaymentException을 그대로 던진다")
+		void passes_through_not_found() {
+			// given
+			server.expect(ExpectedCount.once(), requestTo(QUERY_URL)).andExpect(method(GET))
+				.andRespond(withStatus(HttpStatus.NOT_FOUND)
+					.contentType(MediaType.APPLICATION_JSON)
+					.body("""
+						{"code":"NOT_FOUND_PAYMENT","message":"존재하지 않는 결제 정보 입니다."}
+						"""));
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.queryPayment("toss_pk_123"))
+				.isInstanceOf(TossPaymentException.class)
+				.hasFieldOrPropertyWithValue("errorCode", "NOT_FOUND_PAYMENT")
+				.hasFieldOrPropertyWithValue("httpStatus", 404);
+			server.verify();
+		}
+
+		/** 헤더(200, JSON)는 정상이지만 본문을 읽는 순간 연결이 끊기는 응답. */
+		private ResponseCreator brokenBody() {
+			return request -> {
+				InputStream body = new InputStream() {
+					@Override
+					public int read() throws IOException {
+						throw new IOException("Connection reset");
+					}
+				};
+				MockClientHttpResponse response = new MockClientHttpResponse(body, HttpStatus.OK);
+				response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+				return response;
+			};
 		}
 	}
 

@@ -105,16 +105,16 @@ Toss 호출 직전에 `IN_PROGRESS`로 INSERT. 후속 `PaymentRecoveryWorker`는
 - **클라이언트 Idempotency-Key와의 연결.** 이슈 #260에서 클라이언트가 보내는 `Idempotency-Key` 헤더를 그대로 `attempt_id`에 저장하면 API 계층의 중복 방지와 도메인 계층의 시도 관리가 하나의 키로 이어진다.
 - **관심사 분리.** `payment_key`는 Toss가 발급하는 외부 시스템 키, `attempt_id`는 우리 도메인의 시도 참조 키다. 하나로 뭉치면 PG 교체나 시도 이력 확장 시 스키마 변경 범위가 커진다.
 
-현재 승인 API는 요청 body의 `attemptId`를 사용하며, 생략 시 `SHA-256("apv:" + paymentKey)`의
-64자리 16진수 문자열을 사용한다. Idempotency-Key 헤더 연동은 #260 범위다.
+현재 승인 API 요청 body에는 `attemptId` 필드가 없고, 서버가 항상 `SHA-256("apv:" + paymentKey)`의
+64자리 16진수 문자열을 파생해 쓴다(`PaymentAttemptIds`, `PaymentConfirmCommand.attemptId()`). Idempotency-Key 헤더 연동은 #260 범위다.
 
 #### 승인 재요청과 동시 실행 방어
 
 - 같은 attemptId는 `paymentId`, `paymentKey`, `APPROVAL` 타입까지 일치해야 재사용할 수 있다. 불일치하면 `PAYMENT_114`, 64자를 초과한 입력은 API 검증 또는 애플리케이션의 `PAYMENT_115`로 거절한다.
 - 성공한 시도는 DB에서 승인 결과 DTO를 직접 조회한다. 이미 로딩한 Payment 엔티티를 그대로 반환하지 않으므로, 다른 트랜잭션이 방금 승인한 결과도 반영한다. 최초 응답을 저장·재생하는 방식은 아니며 환불 등 이후 상태 변경도 반영한다.
 - `PaymentAttemptManager.startApprovalInNewTransaction`은 짧은 `REQUIRES_NEW` 트랜잭션에서 Payment 행을 잠그고, 기존 승인 시도와 승인 가능 상태를 확인한 뒤 attempt를 `IN_PROGRESS`로 INSERT한다. `payment.payment_key`는 이 시점에 세팅하지 않는다. 잠금과 DB 트랜잭션은 Toss 호출 전에 해제한다.
-- 반환값 `PaymentAttemptStartResult.created`가 true인 호출만 승인 API를 실행한다. 동일 시도의 재사용은 false로 반환하며, 다른 attemptId를 보내도 진행 중이거나 실패한 기존 승인을 우회할 수 없다.
-- 실패한 결제를 재시도하려면 새 주문·결제를 준비한다. 기존 Payment가 FAILED/CANCELLED/REFUNDED이면 외부 호출 전에 거절한다.
+- 반환값 `PaymentAttemptStartResult.created`가 true인 호출만 승인 API를 실행한다. 동일 시도의 재사용은 false로 반환한다. 다른 attemptId를 보내도 진행 중(`IN_PROGRESS`)이거나 확인 필요(`REVIEW_REQUIRED`)인 기존 승인은 우회할 수 없다. 실패(`FAILED`)한 승인 뒤에는 새 attemptId로 다시 시도할 수 있다(다른 카드 재결제).
+- Payment 자체가 FAILED/CANCELLED/REFUNDED로 끝났다면 새 주문과 결제를 준비한다. 그 Payment로 들어온 승인 요청은 외부 호출 전에 거절한다.
 - INSERT/커밋 무결성 오류 뒤에는 실제 동일 attempt의 존재와 요청 일치를 확인한다. 다른 제약 위반은 원래 오류로 전파한다. `payment.payment_key`는 승인 확정 시에만 저장하므로 TX A 실패로 롤백할 필드가 남지 않는다.
 - Toss의 4xx 응답은 확정 실패로 분류해 attempt만 FAILED로 마킹한다. Payment는 PENDING을 유지해 같은 Order에 대한 새 결제 시도를 열어 둔다. 5xx, 타임아웃, 응답 유실처럼 승인 여부를 단정할 수 없는 오류는 attempt를 IN_PROGRESS로 유지하고 유저 재시도 시 게이트웨이 조회로 회복한다.
 - Toss 성공 후 `PaymentApprovalFinalizer`가 새 트랜잭션에서 Payment를 다시 잠그고 승인 확정 시점에 `payment.payment_key`를 세팅하며 Order/Booking/Payment/Attempt/Outbox를 원자적으로 확정한다. 외부 호출 전에 읽은 엔티티는 확정에 재사용하지 않는다.
@@ -182,129 +182,33 @@ Outbox는 **쓴 코드와 읽는 코드가 다른 배포본일 수 있다.** 행
 
 거절은 안전하지만 **구 버전 행을 처리할 방법은 아니다.** 그래서 비호환 변경을 할 때마다 테이블에 남아 있는 행을 어떻게 할지 먼저 정한다.
 
-#### 측정된 이력 — 이 저장소에서 실제로 무슨 일이 있었나
+#### 측정된 이력과 현재 상태 확인
 
-`develop` push가 테스트를 통과하면 OKE 프로덕션에 배포된다(`.github/workflows/deploy_raillo_with_k8s.yml`은 `workflow_run`으로 "Build and Test with Gradle"의 `branches: [develop]` 성공에 걸려 있고 `group: raillo-oke-production`이다). 승인 게이트는 없다. 배포 실행 이력으로 확인한 시점:
+구 모양 payload가 프로덕션에 쓰일 수 있었던 창은 약 19시간이었고(2026-09-21 08:52 ~ 09-22 03:31 UTC), 그 사이 `BookingConfirmedProcessor`에 `@Component`가 없어 소비자가 한 번도 돌지 않았다. 그래서 그 기간에 쓰인 행은 PENDING으로 남아 있을 수 있다. **DB를 직접 확인하지 않았으므로 단정하지 않는다.**
 
-| 배포 | 시각(UTC) | 생산자(#257) | payload v2(#266) |
-|---|---|---|---|
-| `f33d8a17` | 2026-09-21 08:52 | 있음 | **없음** |
-| `4a0663de` | 2026-09-21 15:39 | 있음 | **없음** |
-| `5c20daae` | 2026-09-22 03:31 | 있음 | 있음 |
-| 이후 전부 | | 있음 | 있음 |
-
-**프로덕션이 구 모양 payload를 쓸 수 있었던 창은 약 19시간이다**(09-21 08:52 ~ 09-22 03:31 UTC). #257의 develop 머지일(2026-09-13, 머지 커밋 `4166620f`)과 혼동하지 않는다 — 머지와 배포가 8일 떨어져 있었다. 커밋 날짜(2026-09-11)는 머지일이 아니다. 09-21 이전에는 `develop`을 배포하는 파이프라인 자체가 없었다(그때까지는 `main` push → AWS EKS였고, `bd452ca1`이 OKE·develop로 바꿨다).
-
-그리고 **배포된 모든 SHA에서 `BookingConfirmedProcessor`에 `@Component`가 없었다.** 소비자가 프로덕션에서 한 번도 돌지 않았으므로 그 사이 쓰인 행은 전부 PENDING으로 남아 있을 것이다. 이 브랜치가 `@Component`를 붙여 워커가 처음으로 그 행들을 집게 된다.
-
-운영에서 결제까지 테스트한 적이 없다는 것이 작업자 확인 사항이다. 그렇다면 행이 없을 가능성이 높다. **DB를 직접 확인하지 않았으므로 단정하지 않는다.**
-
-#### 지금 상태를 확인하는 쿼리
-
-MySQL 8.4이고 `payload`는 TEXT다. 아래 쿼리는 `mysql:8.4`(`ONLY_FULL_GROUP_BY` 기본값) 컨테이너에 7행 픽스처를 넣고 실행 확인했다.
-
-**`LIKE '%"schemaVersion":2%'`로는 안 된다.** 실행으로 확인한 결함 넷:
-
-| 행 | 실제 | `NOT LIKE` 판정 |
-|---|---|---|
-| `{ "schemaVersion" : 2 , ...}` | v2 | **구버전으로 오분류** — 콜론 뒤 공백 하나에 깨진다 |
-| `{"schemaVersion":21,...}` | v21 | **v2로 오분류** — `":2"`가 부분 문자열로 들어 있다. 2로 시작하는 모든 버전이 v2로 보인다 |
-| `{"schemaVersion":2,"paymentId":401` (깨짐) | 파싱 불가 | **v2로 오분류** — 깨진 앞부분에 `":2"`가 남아 있어 아예 안 보인다 |
-| `{"schemaVersion":2}` (`bookings` 없음) | 처리 불가 | **v2로 오분류** — 버전만 보는 조건으로는 원리상 못 잡는다 |
-
-두 번째가 가장 위험하다. 조용히 틀리고, 버전이 10을 넘기면 드러난다.
-
-**`JSON_VALID` 가드는 선택이 아니다.** 가드 없이 `payload ->> '$.schemaVersion'`을 쓰면 깨진 행에서 `ERROR 3141`로 쿼리 전체가 죽는다(NULL이 아니다). `CASE`는 지연 평가되므로 `NOT JSON_VALID(payload)`를 첫 `WHEN`에 두면 뒤 분기가 깨진 행을 보지 않는다. `WHERE`에서도 같은 `CASE`로 감싼다 — `OR`의 평가 순서는 보장되지 않는다.
-
-**분포 — 무엇이 몇 개 있나**
-
-```sql
-SELECT CASE
-         WHEN NOT JSON_VALID(payload)                     THEN 'invalid-json'
-         ELSE COALESCE(payload ->> '$.schemaVersion', 'no-schemaVersion-key')
-       END AS schema_version,
-       CASE
-         WHEN NOT JSON_VALID(payload)                     THEN '-'
-         WHEN JSON_EXTRACT(payload, '$.bookings') IS NULL THEN 'bookings-missing'
-         ELSE 'ok'
-       END AS bookings_check,
-       status,
-       count(*)        AS row_count,
-       min(created_at) AS first_seen,
-       max(created_at) AS last_seen
-  FROM payment_outbox
- WHERE type = 'BOOKING_CONFIRMED'
- GROUP BY schema_version, bookings_check, status
- ORDER BY CAST(NULLIF(schema_version, 'invalid-json') AS UNSIGNED),
-          schema_version, bookings_check, status;
-```
-
-`parse()`가 한 에러 코드로 덮는 세 조건이 결과표에서 분리돼 보인다 — 깨진 JSON은 `schema_version = 'invalid-json'`, 레거시 행은 `'no-schemaVersion-key'`, `bookings` 누락은 `bookings_check = 'bookings-missing'`이다. 적어도 조회 단계에서는 "에러 코드 하나가 세 사고를 덮는" 문제가 풀린다.
-
-고칠 때 걸리는 지점 넷. 전부 실행으로 확인했다.
-
-- `count(*) AS rows`는 **문법 오류**다. `ROWS`는 MySQL 8.0부터 윈도 함수 예약어다.
-- `bookings_check`를 `SELECT`에만 넣고 `GROUP BY`에서 빼면 `ONLY_FULL_GROUP_BY`가 `ERROR 1055`로 거절한다.
-- `->>`(`JSON_UNQUOTE(JSON_EXTRACT(...))`)로 문자열로 통일한다. `JSON_EXTRACT`는 JSON 타입을 돌려주므로 문자열 리터럴과 한 `CASE`에 섞이면 강제 변환되고 표기가 환경에 따라 달라진다.
-- `->>`가 문자열이므로 **정렬도 문자열이다.** `ORDER BY schema_version`만 쓰면 `21`이 `3` 앞에 온다. `CAST(... AS UNSIGNED)`로 숫자 정렬하고, 숫자가 아닌 `'invalid-json'`은 `NULLIF`로 빼서 `CAST` 경고를 피한다.
-
-**조치용 행 목록 — 무엇을 어떻게 할지 정하려면 ID가 필요하다**
-
-```sql
-SELECT payment_outbox_id, aggregate_id, status, retry_count, created_at,
-       CASE
-         WHEN NOT JSON_VALID(payload)                     THEN 'a:invalid-json'
-         WHEN payload ->> '$.schemaVersion' IS NULL       THEN 'b:no-schemaVersion-key'
-         WHEN payload ->> '$.schemaVersion' <> '2'        THEN 'b:unsupported-version'
-         WHEN JSON_EXTRACT(payload, '$.bookings') IS NULL THEN 'c:bookings-missing'
-       END AS reason
-  FROM payment_outbox
- WHERE type = 'BOOKING_CONFIRMED' AND status = 'PENDING'
-   AND CASE
-         WHEN NOT JSON_VALID(payload)                     THEN TRUE
-         WHEN payload ->> '$.schemaVersion' IS NULL       THEN TRUE
-         WHEN payload ->> '$.schemaVersion' <> '2'        THEN TRUE
-         WHEN JSON_EXTRACT(payload, '$.bookings') IS NULL THEN TRUE
-         ELSE FALSE
-       END
- ORDER BY created_at;
-```
-
-`CASE`의 `WHEN`은 위에서 처음 맞는 하나만 쓰이므로 사유가 하나로 확정된다 — 깨진 행은 뒤 조건을 아예 따지지 않는다. `WHERE`의 `CASE`는 `SELECT`의 것과 같은 순서·같은 조건이어야 한다. **어긋나면 `reason`이 `NULL`인 행이 나오고, 그게 두 곳이 안 맞는다는 신호다.**
-
-`schema_version`이 `2`가 아니거나 `bookings_check`가 `ok`가 아닌 행이 0이면 할 일이 없다. 0이 아니면 아래 절차를 적용한다.
+배포 이력 표, `LIKE`로 판정하면 안 되는 이유, 실행 검증된 확인 쿼리 → **[payment-outbox-payload-runbook.md](./payment-outbox-payload-runbook.md)**
 
 #### 앞으로 payload를 바꿀 때
 
 1. **호환 변경인지 먼저 판정한다.** 선택적 필드 추가처럼 구 JSON으로도 소비자가 정상 동작하면 버전을 올리지 않는다. 기존 필드의 의미·타입·필수 여부가 바뀌거나 필드가 사라지면 올린다.
 
-2. **비호환이면 구 행을 payload만으로 복원할 수 있는지 본다.** v1→v2가 복원 불가였던 예다 — v1 `Entry`에는 예매 ID(`bookingId`)·객차 ID·운행일이 없고 구간은 stop PK(`departureStopId`/`arrivalStopId`)로만 있어서, DB 조회 없이는 새 모양을 만들 수 없었다. 소비자가 키로 쓰는 `bookingId`가 없는 것이 결정적이다(v1의 `pendingBookingId`는 Redis ID다).
+2. **비호환이면 구 행을 payload만으로 복원할 수 있는지 본다.** v1→v2가 복원 불가였던 예다 — v1 `Entry`에는 소비자가 키로 쓰는 `bookingId`가 없어 DB 조회 없이는 새 모양을 만들 수 없었다.
 
-   복원 가능하면 소비자가 양쪽 버전을 읽게 만든다 — `parse()`의 `event.schemaVersion() != SUPPORTED_SCHEMA_VERSION` 단일 상수 비교를 집합 포함 검사로 바꾸는 일이다. 다만 **생산자와 소비자가 같은 배포 단위다**(`PaymentApprovalFinalizer`, `BookingConfirmedProcessor`, `PaymentOutboxScheduler`가 모두 `raillo-api`). 그래서 배포 순서가 아니라 **릴리스 순서**다 — 릴리스 N에서 소비자가 양쪽을 읽게 하고, 릴리스 N+1에서 생산자를 바꾼다. 배포 순서로 처리할 수 있게 되는 건 #277로 워커를 분리한 뒤다.
+   복원 가능하면 소비자가 양쪽 버전을 읽게 만든다(`parse()`의 단일 상수 비교를 집합 포함 검사로). 다만 생산자와 소비자가 같은 배포 단위(`raillo-api`)라 **배포 순서가 아니라 릴리스 순서**다 — 릴리스 N에서 소비자가 양쪽을 읽게 하고, 릴리스 N+1에서 생산자를 바꾼다. 배포 순서로 처리할 수 있게 되는 건 #277로 워커를 분리한 뒤다.
 
-3. **복원 불가면 배포 전에 적체를 비운다.** 소비자가 돌고 있으면 드레인을 기다린 뒤 생산자를 바꾼다. 소비자가 안 돌고 있으면(이 저장소는 이 브랜치 배포 전까지 그랬다) 위 쿼리로 세고 변환·폐기·FAILED 마킹 중 하나를 선택한다.
+3. **복원 불가면 배포 전에 적체를 비운다.** 소비자가 돌고 있으면 드레인을 기다린 뒤 생산자를 바꾼다. 안 돌고 있으면 런북의 쿼리로 세고 변환·폐기·FAILED 마킹 중 하나를 선택한다.
 
-   **엄격 거절은 테이블에 지원하지 않는 버전의 행이 없을 때만 안전하다.** 단일 버전만 받는 `parse()`로는 어느 순서로 배포해도 깔끔한 전환이 안 된다. 그리고 이 배포는 `replicas: 1` · `strategy: Recreate`라 **두 버전이 동시에 돌지 않는다** — 롤링 엇갈림이 재시도로 치유되는 시나리오 자체가 없고, 재시도 가능 분류는 FAILED 도달을 7.5분 늦추며 디스패치 5회와 `payment.cleanup.failure` 증가를 소비할 뿐이다. **그대로 두면 구 행은 7.5분 백오프를 전부 태우고 FAILED로 간다.** N개여도 전체가 약 7.5분 안에 끝난다 — `batch-size: 50`이라 한 번의 poll이 최대 50행을 잠그고 루프를 돌아 각 행의 백오프가 **동시에** 진행되며, `lockProcessable`이 `next_retry_at asc nulls first`로 정렬해 아직 시도되지 않은 행이 앞에 온다. N에 비례하는 것은 시간이 아니라 디스패치 시도 5N회와 ERROR 로그·`payment.outbox.failed` 증가분 N이다. 그리고 그 FAILED에는 원인이 남지 않는다(다음 절).
+   **엄격 거절은 테이블에 지원하지 않는 버전의 행이 없을 때만 안전하다.** `replicas: 1` · `strategy: Recreate`라 두 버전이 동시에 돌지 않으므로 롤링 엇갈림이 재시도로 치유되는 시나리오가 없다. 그대로 두면 구 행은 백오프를 전부 태우고 FAILED로 간다. 행이 N개여도 `batch-size: 50`으로 한 poll이 여러 행을 함께 잡아 백오프가 동시에 진행되므로 **전체가 약 7.5분 안에 끝난다** — N에 비례하는 것은 시간이 아니라 디스패치 시도와 ERROR 로그·`payment.outbox.failed` 증가분이다. 그리고 그 FAILED에는 원인이 남지 않는다(다음 절).
 
-4. **생산자만 배포된 상태를 길게 두지 않는다.** 소비자가 빈이 아닌 동안 쌓인 행은 그 기간의 계약으로 고정되고, 그 뒤 계약이 바뀌면 전부 3번의 대상이 된다. 이 저장소가 정확히 그 상태였다 — 생산자는 2026-09-21부터, 소비자는 이 브랜치까지 없었다.
+4. **생산자만 배포된 상태를 길게 두지 않는다.** 소비자가 빈이 아닌 동안 쌓인 행은 그 기간의 계약으로 고정되고, 그 뒤 계약이 바뀌면 전부 3번의 대상이 된다. 이 저장소가 정확히 그 상태였다.
 
 ### FAILED 행에 실패 원인이 남지 않는다 (#302)
 
-`payment_outbox`에는 **실패 원인을 담는 컬럼이 없다.** 엔티티가 매핑하는 컬럼은 PK `payment_outbox_id`와 `type`, `aggregate_id`, `deduplication_key`, `payload`, `status`, `retry_count`, `next_retry_at`, `created_at`, `processed_at`뿐이다(저장소에 DDL이 없고 prod는 `ddl-auto: validate`라, 매핑되지 않은 컬럼이 실제 스키마에 있는지는 확인하지 않았다). 그래서 FAILED 행을 보고 알 수 있는 것은 "실패했다"와 "몇 번 시도했다"까지이고, **왜 실패했는지는 알 수 없다.**
+`payment_outbox`에는 **실패 원인을 담는 컬럼이 없다.** FAILED 행을 보고 알 수 있는 것은 "실패했다"와 "몇 번 시도했다"까지다. 원인은 집계(`payment.outbox.non_retryable`)와 로그에만 남고, 로그는 보존 기간이 지나면 사라지는데 행은 남는다.
 
-원인은 **집계로만** 남는다. 총량은 `payment.outbox.non_retryable`로 오염과 재시도 소진이 갈리고, 행별 원인은 로그에만 있다(`[Outbox 처리 실패]`, `[Outbox 재시도 불가 - 즉시 FAILED]`, `[Outbox 최대 재시도 초과]`). 로그는 보존 기간이 지나면 사라지고, 행은 남는다.
+재시도를 소진한 FAILED 안에서 충돌·타임아웃·스크립트 오류·오염을 가려낼 수단이 없는 것이 실제 공백이다. 대응이 정반대인데(구 payload는 변환이나 폐기, 좌석 오염은 Redis 값 정리) 행에 남는 것은 "재시도를 다 썼다"까지다. 원인을 모르면 재투입이 같은 실패를 반복하므로 이 공백은 애플리케이션 재투입 경로보다 먼저 필요하다.
 
-재투입 전에 사람이 원인을 확인해야 한다는 점에서 이건 애플리케이션 재투입 경로보다 먼저 필요하다(수동 SQL 재투입은 `docs/reservation-cache-schema.md` 2장에 있다). 원인을 모르면 재투입이 같은 실패를 반복할 뿐이다.
-
-구분이 되는 부분과 안 되는 부분을 나눠 보면:
-
-| | 식별 수단 |
-|---|---|
-| 구 payload 행 | `payload`로 직접 식별된다 — 위 쿼리가 그 용도다 |
-| 즉시 FAILED된 오염 행 | `retry_count = 0`. 재시도를 소진한 FAILED는 `retry_count = 4`다(`markFailed()`는 증가시키지 않는다). `processed_at - created_at`도 ~0 대 ~7.5분으로 갈린다 |
-| **재시도를 소진한 FAILED 안에서** 충돌·타임아웃·스크립트 오류·오염 | **가려낼 수단이 없다.** 두 원인이 섞인 경우도 구분되지 않는다 |
-
-마지막 줄이 실제 공백이다. 대응이 정반대인데(구 payload는 변환이나 폐기, 좌석 오염은 Redis 값 정리) 행에 남는 것은 "재시도를 다 썼다"까지다.
+가려낼 수 있는 범위의 전체 표 → [payment-outbox-payload-runbook.md](./payment-outbox-payload-runbook.md)
 
 ### PaymentRecoveryWorker — 후속 브랜치·이슈
 
@@ -376,8 +280,8 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 |---|---|---|
 | TX B 락 직렬화 | `PaymentApprovalFinalizer.finalizeApproval` | `paymentRepository.findByIdForUpdate(paymentId)`로 Payment에 pessimistic lock을 잡는다. 같은 Payment에 대한 두 TX B 진입은 DB가 순차 처리한다. |
 | Finalizer 이중 진입 조기 리턴 | `PaymentApprovalFinalizer.finalizeApproval` | 락 획득 후 `attempt.status == SUCCEEDED`이면 이전 결과를 그대로 반환한다. 원본과 재시도가 둘 다 DONE 경로로 갔을 때 뒤늦게 락을 얻은 쪽이 커밋하지 않는다. |
-| markFailed idempotency | `PaymentAttemptManager.markFailedInNewTransaction` | attempt가 이미 종결(SUCCEEDED/FAILED)이면 no-op으로 종료한다. 원본과 재시도가 둘 다 markFailed로 갈 때 뒤늦은 호출을 무해하게 종결한다. |
-| 도메인 상태 전이 검증 | `PaymentAttempt.markSucceeded` · `markFailed` | status가 IN_PROGRESS가 아니면 `DomainException(PAYMENT_ATTEMPT_NOT_TRANSITIONABLE)`. 위 방어를 모두 우회하는 경로에서 최후 방어선이다. |
+| markFailed 잠금과 idempotency | `PaymentAttemptManager.markFailedInNewTransaction`, `markReviewRequiredInNewTransaction` | TX B와 같은 Payment pessimistic lock을 먼저 잡은 뒤 attempt를 처음 읽는다. 잠금 전에 읽으면 그 시점 스냅샷으로 판단해 먼저 커밋된 SUCCEEDED를 FAILED로 덮어쓸 수 있다(#292). attempt가 이미 종결(SUCCEEDED, FAILED, REVIEW_REQUIRED)이면 no-op으로 종료한다. |
+| 도메인 상태 전이 검증 | `PaymentAttempt.markSucceeded`, `markFailed`, `markReviewRequired` | status가 IN_PROGRESS가 아니면 `DomainException(PAYMENT_ATTEMPT_NOT_TRANSITIONABLE)`. 위 방어를 모두 우회하는 경로에서 최후 방어선이다. |
 
 이 매커니즘이 겹쳐 있어 다음 시나리오가 데이터 오염 없이 종결된다.
 
@@ -395,6 +299,57 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 | Redis 정리 중 일시 오류 | outbox 재시도, `retry_count` 초과 시 알람 |
 | Toss 취소 후 DB 커밋 전 크래시 | Recovery Worker가 취소 attempt 확정 |
 | DB 취소 커밋 후 좌석 해제 실패 | outbox 재시도로 좌석 해제 최종 반영 |
+
+## 결제 중 좌석 보호
+
+예약 TTL이 10분인데 Recovery Worker와 Webhook은 그 시간을 넘겨 확정할 수 있다. 그래서 결제 중에는 자기 예약의 좌석 field 만료를 멈춰 두는 경로가 필요하다.
+
+**현재 상태:** `reservation_payment_hold.lua` / `reservation_payment_release.lua`와 `SeatOccupancyRepository.hold` / `releaseHold`가 이 브랜치에 구현돼 있고, **프로덕션 호출자는 아직 없다**(테스트만 호출한다). 후속 워커가 배선한다.
+
+- 키·값 계약과 스크립트 동작 → [reservation-cache-schema.md](./reservation-cache-schema.md) §5
+- 보호 기간·재결제 TTL·방향(A/B) 등 **정책 결정** → [payment-reservation-work-roadmap.md](./payment-reservation-work-roadmap.md) §8
+
+## 결제 수단별 확정 시점 — 확인 필요
+
+`TossPaymentGateway.confirm()`이 승인 응답의 `status`를 읽지 않고, 2xx면 곧바로 승인 성공으로 다룬다. `query()`는 `status`로 분기하지만 `confirm()`에는 그 분기가 없다. `TossPaymentConfirmResponse`에는 `status` 필드가 이미 있으므로 읽기만 하면 된다.
+
+카드와 간편결제는 승인 응답이 `DONE`이라 문제가 없다. 가상계좌는 승인 응답이 `WAITING_FOR_DEPOSIT`이고 **입금 전에도 2xx가 돌아온다.** 지금 코드는 이것을 `SUCCEEDED`로 확정하고 예매까지 발행하므로, 입금하지 않은 승차권이 나간다.
+
+`PaymentMethod`에 `VIRTUAL_ACCOUNT`와 `TRANSFER`가 있고 `TossPaymentGateway.mapMethod`도 두 값을 매핑한다. 다만 결제 위젯에서 실제로 노출되는 수단은 Toss 대시보드 설정이라 저장소에서 확인할 수 없다.
+
+### 먼저 확인할 것
+
+- Toss 대시보드에서 가상계좌와 계좌이체가 켜져 있는지
+- 꺼져 있다면 앞으로 켤 계획이 있는지
+
+둘 다 아니라면 `PaymentMethod`에서 해당 값을 지우거나, 승인 응답이 `DONE`이 아닐 때 거절하는 방어만 두고 끝낸다.
+
+### 켤 경우 결정할 것
+
+| 항목 | 내용 |
+|---|---|
+| 확정 조건 | 승인 응답 `status == DONE`일 때만 `SUCCEEDED`로 확정한다. `WAITING_FOR_DEPOSIT`은 별도 처리 |
+| 입금 대기 표현 | 승인은 성공했으나 입금 전인 상태를 어떻게 남길지. 기존 `IN_PROGRESS`를 재사용하면 Recovery Worker가 결과 불명으로 오인하므로 구분이 필요하다 |
+| 좌석 확보 | 입금 기한이 보통 며칠이라 예약 TTL 10분과 맞지 않는다. 입금 전까지 좌석을 어떻게 잡아둘지 정해야 한다 |
+| 입금 통지 | 입금 완료는 Webhook(`DEPOSIT_CALLBACK`)으로만 알 수 있다. 가상계좌를 켜면 Webhook(#291)이 선택이 아니라 필수가 된다 |
+| 입금 오류 | Toss v1.4 이후 입금 오류 시 `DONE`에서 `WAITING_FOR_DEPOSIT`으로 되돌아간다. 확정 후 되돌아오는 유일한 경로이므로 발권 이후라면 `REVIEW_REQUIRED`로 분리한다 |
+| 기한 만료 | 입금 기한이 지나면 좌석을 해제하고 주문을 정리하는 경로가 필요하다 |
+
+### 범위 판단
+
+가상계좌를 지원하려면 확정 시점과 좌석 확보 정책이 카드와 완전히 달라진다. 결제 수단 하나를 늘리는 작업이 아니라 **별도 흐름을 하나 더 만드는 작업**에 가깝다. 승인 응답 `status` 검사만 먼저 넣어 입금 전 발권을 막고, 가상계좌 지원 여부는 별도 이슈에서 판단한다.
+
+## 취소 멱등키 — 파생 규칙을 쓰지 않는다
+
+`TossPaymentClient.cancelPayment`는 `Idempotency-Key` 헤더를 보내지만 값이 `UUID.randomUUID()`다. 호출할 때마다 새 키라서 같은 취소를 재시도하면 게이트웨이가 별개 요청으로 받는다.
+
+규칙이 없어서가 아니다. `PaymentAttemptIds.forCancellation(paymentKey, cancellationSequence)`가 `sha256Hex("cnl:" + paymentKey + ":" + sequence)`로 이미 구현돼 있고 단위 테스트도 있다. 승인의 `apv:` 규칙과 나란히 있으며 부분 취소를 sequence로 구분하는 의도까지 javadoc에 적혀 있다. `cancelPayment`가 그 규칙을 쓰지 않는 것이 실제 갭이다.
+
+`forCancellation`은 프로덕션 호출자가 없고 `cancelPayment`도 호출자가 타이머 aspect뿐이라 취소 경로 전체가 아직 배선 전이다. 지금 바꿔도 회귀 위험이 없다.
+
+열린 문제는 하나다. **취소 단위를 승차권으로 잡으면 `cancellationSequence`를 무엇으로 채울지 정해야 한다.** 결제당 취소 횟수를 세는 값이면 동시 취소에서 같은 sequence가 나올 수 있고, 취소 대상 승차권 집합에서 파생하면 같은 승차권을 두 번 취소하는 요청이 같은 키가 되어 의도한 멱등성이 된다. 취소 API 설계와 함께 정한다.
+
+`confirmPayment`에는 `Idempotency-Key` 헤더가 없다. 같은 `paymentKey`로 두 번 승인되지 않는 것은 헤더가 아니라 `paymentKey`가 결제창 세션당 하나라는 성질과 우리 쪽 `attempt_id` unique 제약에서 온다. 앞의 성질은 우리 문서에만 있는 서술이라 [payment-reservation-work-roadmap.md](./payment-reservation-work-roadmap.md) §8의 `먼저 할 것` 확인 목록에 함께 올려 두었다.
 
 ## Metrics — 후속 이슈에서 도입
 

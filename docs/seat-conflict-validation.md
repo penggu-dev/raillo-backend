@@ -7,7 +7,7 @@
 | **Layer 1** | `createReservation` | 요청·운행 규칙 | `ReservationValidator` — 기준정보 캐시 값만 검사 |
 | **Layer 2** | `createReservation` | 예약 점유 vs 예매 점유 | `reservation_create.lua` — 객차 Hash의 `R:`/`B:` field를 원자적으로 검사하고 점유 |
 | **Layer 3** | `preparePayment` | 예약 vs 확정 예매(DB) | `BookingValidator.validateSeatConflicts` — SQL 구간 중첩 재검증 |
-| **Layer 4** | 만료 | 예약 TTL | 예약 키 EX, 예약 field HEXPIRE, 회원 인덱스 field HEXPIRE가 같은 TTL로 함께 사라진다 |
+| **Layer 4** | 만료 | 예약 TTL | 예약 키 EX, 예약 field HEXPIRE, 회원 인덱스 field HEXPIRE가 같은 TTL로 함께 사라진다. 결제 중 보호는 예외다 |
 
 ## Layer 2 — 예약 점유와 예매 점유를 한 번에 검사한다
 
@@ -27,3 +27,5 @@ sb.departureStopOrder < :arrivalStopOrder AND sb.arrivalStopOrder > :departureSt
 ## Layer 4 — TTL
 
 예약 본문, 예약 field, 회원 인덱스 field가 같은 TTL을 가지므로 예약이 만료되면 세 곳이 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다.
+
+결제가 진행 중일 때는 예약 field만 이 규칙에서 빠진다. 결과를 모르는 동안 `reservation_payment_hold.lua`가 field의 만료를 없애고, 결과가 실패로 확정되면 `reservation_payment_release.lua`가 본문의 남은 TTL로 되돌린다. 보호 중에는 본문과 회원 인덱스가 먼저 사라지고 field만 남을 수 있다. 해제를 놓치면 그 field는 객차 키의 운행일 만료까지 남는다. 규칙은 [reservation-cache-schema.md 5장](./reservation-cache-schema.md#5-결제-중-좌석-보호와-해제)에 있다.

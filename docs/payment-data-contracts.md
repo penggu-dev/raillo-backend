@@ -6,57 +6,9 @@
 
 ## Redis — 예약과 좌석 점유
 
-키 계약은 `raillo-domain/booking/cache/ReservationCacheKey`가 단일 원본. 자세한 흐름은 [`docs/reservation-cache-schema.md`](./reservation-cache-schema.md).
+키·값 계약(예약 본문 JSON, 좌석 점유 Hash field, 회원 인덱스, 각 TTL)은 `raillo-domain/booking/cache/ReservationCacheKey`가 단일 원본이고, 문서 쪽 단일 원본은 **[reservation-cache-schema.md](./reservation-cache-schema.md) §1~§3·§5**다.
 
-### 예약 본문
-
-- **키**: `{schedule:{trainScheduleId}}:reservation:{reservationId}` — String
-- **값**: `Reservation` record JSON
-
-```json
-{
-  "reservationId": "RV20260918143000A1B2C3",
-  "memberNo": "202601010001",
-  "trainScheduleId": 1001,
-  "trainNumber": 101,
-  "trainName": "KTX 산천",
-  "operationDate": "2026-10-20",
-  "departure": { "stopId": 42, "stopOrder": 0, "stationId": 5, "stationName": "서울" },
-  "arrival":   { "stopId": 45, "stopOrder": 3, "stationId": 12, "stationName": "부산" },
-  "departureAt": "2026-10-20T08:00:00",
-  "carType": "STANDARD",
-  "seats": [
-    { "seatId": 46456, "trainCarId": 231, "passengerType": "ADULT", "fare": 43210 }
-  ],
-  "totalFare": 43210,
-  "createdAt": "2026-10-19T09:00:00",
-  "expiresAt": "2026-10-19T09:10:00"
-}
-```
-
-- **TTL**: 생성 시점 `expiresAt`까지 (기본 10분)
-- **소유권**: `memberNo` 필드. 조회 시 요청 회원과 일치 검증
-- **잠금 기한**: 출발 시각 5분 전(`Reservation.BOOKING_CLOSE_BEFORE_DEPARTURE`) 이후에는 새 예약 생성 불가, TTL도 여기서 끊김
-
-### 좌석·구간 점유 Hash
-
-- **키**: `{schedule:{trainScheduleId}}:car:{trainCarId}:seats` — Hash
-- **field**: `{seatId}:{sectionIndex}` — 좌석 하나의 구간 하나
-- **값**: `R:{reservationId}` 또는 `B:{bookingId}`
-  - `R:` — 예약(임시). field에 예약 TTL 걸림 (`HEXPIRE`)
-  - `B:` — 예매(확정). field TTL 없음, 운행 Hash 키 TTL로만 만료
-- **Hash 키 TTL**: 운행일 + 2일의 한국 시간 자정(`TrainCacheKey.expireAtEpochSecond`)에 절대 만료(`EXPIREAT`). 상대 TTL 금지.
-- **구간 index 규약**: 출발 stopOrder `d`, 도착 stopOrder `a`인 요청은 `[d, a-1]` 범위의 구간을 점유
-
-### 회원 예약 인덱스
-
-- **키**: `member:{memberNo}:reservations` — Hash
-- **field**: `{reservationId}`, **값**: `{trainScheduleId}` (숫자 문자열)
-- 회원별 예약 조회에 사용. field TTL은 예약 본문보다 20초 짧게 설정한다. 인덱스는 살아 있는데 본문이 이미 만료된 상태를 피하기 위해서다.
-
-### 재검토로 이번 브랜치에서 제거된 항목
-
-- `{schedule:X}:reservation-payment:{reservationId}` marker와 관련 Lua 스크립트 두 개(`reservation_payment_claim.lua`, `reservation_payment_release.lua`)를 함께 제거했다. 동시 결제 방지는 `PaymentAttempt.attempt_id`의 DB unique 제약과 `PaymentValidator.validateApprovable(payment)`로 커버된다.
+여기서 같은 내용을 다시 적지 않는다. 두 곳에 두는 동안 실제로 어긋났다 — 회원 인덱스 field TTL을 "본문보다 20초 짧게"로 적어 뒀지만 코드는 본문과 같은 `ttl`을 쓴다(`ReservationService.reserve` → `indexForMember`).
 
 ## MySQL — 주문·결제·시도
 
@@ -119,13 +71,23 @@
 | `payment_id` | FK | 인덱스 있음 |
 | `attempt_id` | String(64), unique | `SHA256(apv:paymentKey)` 파생. **paymentKey당 유일** |
 | `attempt_type` | Enum | `APPROVAL`, `CANCELLATION` |
-| `status` | Enum | `IN_PROGRESS`, `SUCCEEDED`, `FAILED`. 인덱스 있음 |
+| `status` | String(20) | `IN_PROGRESS`, `SUCCEEDED`, `FAILED`, `REVIEW_REQUIRED`. 인덱스 있음. ENUM이 아니라 VARCHAR 매핑 — 아래 `status 컬럼` 참고 |
 | `payment_key` | String | TX A에서 사전 저장 → recovery용 durable key |
-| `error_code`, `error_message` | String | 실패 시 |
+| `error_code`, `error_message` | String | 실패 시(예: Toss 오류 코드, `GATEWAY_{상태}`), 수동 확인 시(`REVIEW_SEAT_LOST`, `REVIEW_DEPARTED`, `REVIEW_RESULT_MISMATCH`) |
 | `processing_owner`, `processing_lease_until` | Recovery Worker 리스 관리용 |
+
+#### `status` 컬럼
+
+MySQL ENUM이 아니라 VARCHAR로 매핑한다(`@Enumerated(EnumType.STRING)`, `@JdbcTypeCode(SqlTypes.VARCHAR)`). 전환 SQL은 `docs/db-migrations/2026-09-26-payment-attempt-status-varchar.sql`.
+
+**값 추가가 DB 작업 없이 끝나는 범위는 ALTER로 전환한 컬럼뿐이다.** 개발·운영 DB는 여기 해당한다. 엔티티 매핑으로 스키마를 새로 만드는 환경(테스트 컨테이너 등)은 Hibernate가 `status varchar(20) not null check (status in (...))` 형태의 CHECK 제약을 함께 만들고 `ddl-auto: update`는 기존 CHECK를 갱신하지 않는다. 그래서 새 상태 값은 그런 환경에서만 거부될 수 있다.
+
+`REVIEW_REQUIRED`는 Toss에서 승인됐지만 자동으로 확정하지 않는 attempt다. 같은 결제의 새 attempt 요청에는 `PAYMENT_ATTEMPT_REVIEW_REQUIRED`(`PAYMENT_117`)를 응답한다.
+
 
 - **인덱스**: `idx_payment_attempt_payment_id`, `idx_payment_attempt_status_type`, `uk_payment_attempt_attempt_id`(unique)
 - **dedup 계약**: `attemptId` unique 제약이 서버 측 idempotency 역할. 같은 attemptId 두 번째 insert는 DB에서 거부됨
+- **조회 결과 불명**: 결제 조회가 timeout이나 응답 본문 끊김으로 끝나면 `TossPaymentClient.queryPayment`가 `QUERY_UNCERTAIN_{TIMEOUT|BODY|IO}` 코드(504 또는 502)로 알린다. 본문 읽기 실패는 최대 2회 다시 조회한다. 4xx가 아니므로 사용자 재시도는 attempt를 IN_PROGRESS로 남기고 재시도를 안내한다.
 
 ### PaymentOutbox
 
