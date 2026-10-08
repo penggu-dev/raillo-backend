@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.sudo.raillo.payment.application.exception.DeliveryPhase;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
 import io.micrometer.core.instrument.Gauge;
@@ -24,21 +25,23 @@ class TossApiMetricsTest {
 	@DisplayName("실패 시 toss_api_failure_total 카운터가 태그별로 증가한다")
 	void incrementFailure_incrementsCounterWithTags() {
 		// when
-		tossApiMetrics.incrementFailure("confirm", 400, "INVALID_REQUEST");
-		tossApiMetrics.incrementFailure("confirm", 400, "INVALID_REQUEST");
-		tossApiMetrics.incrementFailure("confirm", 500, "INTERNAL_ERROR");
+		tossApiMetrics.incrementFailure("confirm", 400, "INVALID_REQUEST", DeliveryPhase.ANSWERED);
+		tossApiMetrics.incrementFailure("confirm", 400, "INVALID_REQUEST", DeliveryPhase.ANSWERED);
+		tossApiMetrics.incrementFailure("confirm", 500, "INTERNAL_ERROR", DeliveryPhase.ANSWERED);
 
 		// then
 		double invalidRequestCount = meterRegistry.counter("toss.api.failure",
 			"operation", "confirm",
 			"http_status", "400",
-			"toss_code", "INVALID_REQUEST").count();
+			"toss_code", "INVALID_REQUEST",
+			"phase", "ANSWERED").count();
 		assertThat(invalidRequestCount).isEqualTo(2);
 
 		double internalErrorCount = meterRegistry.counter("toss.api.failure",
 			"operation", "confirm",
 			"http_status", "500",
-			"toss_code", "INTERNAL_ERROR").count();
+			"toss_code", "INTERNAL_ERROR",
+			"phase", "ANSWERED").count();
 		assertThat(internalErrorCount).isEqualTo(1);
 	}
 
@@ -46,18 +49,20 @@ class TossApiMetricsTest {
 	@DisplayName("cancel operation 실패 시 카운터가 별도로 증가한다")
 	void incrementFailure_cancelOperation_incrementsSeparately() {
 		// when
-		tossApiMetrics.incrementFailure("confirm", 400, "INVALID_REQUEST");
-		tossApiMetrics.incrementFailure("cancel", 400, "INVALID_REQUEST");
+		tossApiMetrics.incrementFailure("confirm", 400, "INVALID_REQUEST", DeliveryPhase.ANSWERED);
+		tossApiMetrics.incrementFailure("cancel", 400, "INVALID_REQUEST", DeliveryPhase.ANSWERED);
 
 		// then
 		double confirmCount = meterRegistry.counter("toss.api.failure",
 			"operation", "confirm",
 			"http_status", "400",
-			"toss_code", "INVALID_REQUEST").count();
+			"toss_code", "INVALID_REQUEST",
+			"phase", "ANSWERED").count();
 		double cancelCount = meterRegistry.counter("toss.api.failure",
 			"operation", "cancel",
 			"http_status", "400",
-			"toss_code", "INVALID_REQUEST").count();
+			"toss_code", "INVALID_REQUEST",
+			"phase", "ANSWERED").count();
 		assertThat(confirmCount).isEqualTo(1);
 		assertThat(cancelCount).isEqualTo(1);
 	}
@@ -66,13 +71,14 @@ class TossApiMetricsTest {
 	@DisplayName("tossCode가 null이면 UNKNOWN으로 정규화된다")
 	void incrementFailure_nullTossCode_normalizedToUnknown() {
 		// when
-		tossApiMetrics.incrementFailure("confirm", 500, null);
+		tossApiMetrics.incrementFailure("confirm", 500, null, DeliveryPhase.ANSWERED);
 
 		// then
 		double count = meterRegistry.counter("toss.api.failure",
 			"operation", "confirm",
 			"http_status", "500",
-			"toss_code", "UNKNOWN").count();
+			"toss_code", "UNKNOWN",
+			"phase", "ANSWERED").count();
 		assertThat(count).isEqualTo(1);
 	}
 
@@ -92,4 +98,20 @@ class TossApiMetricsTest {
 		assertThat(idle.value()).as("초기 available").isZero();
 		assertThat(pending.value()).as("초기 pending").isZero();
 	}
+
+	@Test
+	@DisplayName("실패 지표에 전송 단계 태그가 붙는다")
+	void incrementFailure_carriesPhaseTag() {
+		// when
+		tossApiMetrics.incrementFailure("confirm", 0, "CONFIRM_NOT_SENT", DeliveryPhase.NOT_REACHED);
+
+		// then
+		double count = meterRegistry.counter("toss.api.failure",
+			"operation", "confirm",
+			"http_status", "0",
+			"toss_code", "CONFIRM_NOT_SENT",
+			"phase", "NOT_REACHED").count();
+		assertThat(count).isEqualTo(1);
+	}
+
 }

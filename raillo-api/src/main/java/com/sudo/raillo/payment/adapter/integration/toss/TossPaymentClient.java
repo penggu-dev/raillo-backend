@@ -15,6 +15,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
+import com.sudo.raillo.payment.application.exception.DeliveryPhase;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 
 import lombok.RequiredArgsConstructor;
@@ -71,7 +72,7 @@ public class TossPaymentClient {
 			log.error("[TOSS] 결제 승인 중 알 수 없는 예외 발생", e);
 			// http_status=0: HTTP 응답을 정상적으로 수신하지 못한 경우 (타임아웃, 네트워크 오류, 응답 파싱 실패 등).
 			// 결과 불명이므로 PaymentAttempt는 IN_PROGRESS로 남기고 Recovery Worker(#270)에 위임한다.
-			tossApiMetrics.incrementFailure("confirm", 0, "CLIENT_ERROR");
+			tossApiMetrics.incrementFailure("confirm", 0, "CLIENT_ERROR", DeliveryPhase.NO_RESPONSE);
 			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS, e);
 		}
 	}
@@ -126,7 +127,7 @@ public class TossPaymentClient {
 	private TossPaymentException queryUncertain(String cause, HttpStatus status, Throwable e) {
 		String errorCode = "QUERY_UNCERTAIN_" + cause;
 		log.error("[TOSS] 결제 조회 결과 불명: errorCode={}", errorCode, e);
-		tossApiMetrics.incrementFailure("query", 0, errorCode);
+		tossApiMetrics.incrementFailure("query", 0, errorCode, DeliveryPhase.NO_RESPONSE);
 		return new TossPaymentException(status.value(), errorCode, "결제 조회 결과를 확인하지 못했습니다.");
 	}
 
@@ -197,7 +198,7 @@ public class TossPaymentClient {
 		} catch (Exception e) {
 			log.error("[TOSS] 결제 취소 중 알 수 없는 예외 발생", e);
 			// http_status=0: HTTP 응답을 정상적으로 수신하지 못한 경우 (타임아웃, 네트워크 오류, 응답 파싱 실패 등)
-			tossApiMetrics.incrementFailure("cancel", 0, "CLIENT_ERROR");
+			tossApiMetrics.incrementFailure("cancel", 0, "CLIENT_ERROR", DeliveryPhase.NO_RESPONSE);
 			throw new BusinessException(
 				PaymentError.PAYMENT_SYSTEM_ERROR,
 				"결제 취소 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
@@ -247,7 +248,7 @@ public class TossPaymentClient {
 	 * 말을 한다. 실패 경로가 셋이라 각자 올리면 한쪽만 바뀌기 쉬워 한 곳에서 같은 값으로 둘을 만든다.</p>
 	 */
 	private TossPaymentException fail(String operation, int statusCode, String code, String message) {
-		tossApiMetrics.incrementFailure(operation, statusCode, code);
+		tossApiMetrics.incrementFailure(operation, statusCode, code, DeliveryPhase.ANSWERED);
 		return new TossPaymentException(statusCode, code, message);
 	}
 

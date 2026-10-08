@@ -3,6 +3,7 @@ package com.sudo.raillo.payment.adapter.observability;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.springframework.stereotype.Component;
 
+import com.sudo.raillo.payment.application.exception.DeliveryPhase;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -11,7 +12,7 @@ import io.micrometer.core.instrument.MeterRegistry;
  * Toss API 호출 관측 지표. 미터 이름은 Micrometer 관례(dot notation)를 따르며, Prometheus 레지스트리가 다음과 같이 노출한다.
  *
  * <ul>
- *   <li>{@code toss.api.failure} → {@code toss_api_failure_total} (counter): 호출 실패 건수 (operation, http_status, toss_code 태그)</li>
+ *   <li>{@code toss.api.failure} → {@code toss_api_failure_total} (counter): 호출 실패 건수 (operation, http_status, toss_code, phase 태그)</li>
  *   <li>{@code toss.pool.connections.active} → {@code toss_pool_connections_active} (gauge): 커넥션 풀에서 사용 중(leased) 커넥션 수</li>
  *   <li>{@code toss.pool.connections.idle} → {@code toss_pool_connections_idle} (gauge): 커넥션 풀 유휴(available) 커넥션 수</li>
  *   <li>{@code toss.pool.connections.pending} → {@code toss_pool_connections_pending} (gauge): 커넥션 획득 대기(pending) 요청 수. 값이 지속적으로 잡히면 풀 크기 상향 신호</li>
@@ -42,12 +43,13 @@ public class TossApiMetrics {
 			.register(meterRegistry);
 	}
 
-	public void incrementFailure(String operation, int httpStatus, String tossCode) {
+	public void incrementFailure(String operation, int httpStatus, String tossCode, DeliveryPhase phase) {
 		Counter.builder("toss.api.failure")
 			.description("Toss API 호출 실패 건수")
 			.tag("operation", operation)
 			.tag("http_status", String.valueOf(httpStatus))
 			.tag("toss_code", tossCode != null ? tossCode : "UNKNOWN")
+			.tag("phase", phase != null ? phase.name() : "UNKNOWN")
 			.register(meterRegistry)
 			.increment();
 	}
