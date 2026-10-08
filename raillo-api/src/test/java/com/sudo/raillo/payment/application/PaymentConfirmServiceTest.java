@@ -61,6 +61,7 @@ import com.sudo.raillo.payment.domain.PaymentAttemptType;
 import com.sudo.raillo.payment.domain.PaymentOutbox;
 import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
 import com.sudo.raillo.payment.domain.PaymentOutboxType;
+import com.sudo.raillo.payment.application.exception.DeliveryPhase;
 import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.domain.PaymentMethod;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
@@ -1301,5 +1302,134 @@ class PaymentConfirmServiceTest {
 			.filter(p -> p.getOrderCode().equals(orderCode))
 			.findFirst()
 			.orElseThrow();
+	}
+	@Test
+	@DisplayName("승인 요청이 전송되지 않으면 attempt는 NOT_SENT로, Payment는 PENDING으로 남는다")
+	void confirmPayment_notReached_marksAttemptNotSent() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_not_sent";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willThrow(new TossPaymentException(0, "CONFIRM_NOT_SENT",
+				"결제 요청이 전송되지 않았습니다.", DeliveryPhase.NOT_REACHED));
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount);
+
+		// when
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(TossPaymentException.class);
+
+		// then
+		PaymentAttempt attempt = paymentAttemptRepository
+			.findByAttemptId(forApproval(paymentKey)).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.NOT_SENT);
+		assertThat(attempt.getErrorCode()).isEqualTo("CONFIRM_NOT_SENT");
+		assertThat(paymentRepository.findById(attempt.getPaymentId()).orElseThrow().getPaymentStatus())
+			.isEqualTo(PaymentStatus.PENDING);
+	}
+
+	@Test
+	@DisplayName("NOT_SENT attempt로 다시 승인하면 같은 attempt로 재시도되고 새 행이 생기지 않는다")
+	void confirmPayment_reentryAfterNotSent_retriesSameAttempt() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_reentry";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willThrow(new TossPaymentException(0, "CONFIRM_NOT_SENT",
+				"결제 요청이 전송되지 않았습니다.", DeliveryPhase.NOT_REACHED))
+			.willReturn(new TossPaymentConfirmResponse(
+				paymentKey, prepared.orderCode(), "카드", amount.longValue(), "DONE"));
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount);
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(TossPaymentException.class);
+		Long attemptDbIdBeforeRetry = paymentAttemptRepository
+			.findByAttemptId(forApproval(paymentKey)).orElseThrow().getId();
+
+		// when
+		PaymentConfirmResult result = paymentConfirmer.confirm(request, memberNo);
+
+		// then
+		assertThat(result).isNotNull();
+		PaymentAttempt attempt = paymentAttemptRepository
+			.findByAttemptId(forApproval(paymentKey)).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.SUCCEEDED);
+		assertThat(attempt.getErrorCode()).isNull();
+
+		assertThat(attempt.getId())
+			.as("새 attempt 행을 만들지 않고 같은 행을 다시 썼다")
+			.isEqualTo(attemptDbIdBeforeRetry);
+	}
+	@Test
+	@DisplayName("예약이 만료된 뒤 NOT_SENT attempt로 재진입하면 Toss를 호출하지 않고 거절한다")
+	void confirmPayment_reentryAfterNotSent_rejectedWhenReservationGone() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_reentry_expired";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willThrow(new TossPaymentException(0, "CONFIRM_NOT_SENT",
+				"결제 요청이 전송되지 않았습니다.", DeliveryPhase.NOT_REACHED));
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount);
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(TossPaymentException.class);
+
+		assertThat(paymentAttemptRepository.findByAttemptId(forApproval(paymentKey)).orElseThrow().getStatus())
+			.isEqualTo(PaymentAttemptStatus.NOT_SENT);
+
+		// 예약 Hold가 TTL로 사라진 상황을 만든다
+		bookingRedisRepository.delete(reservation);
+		clearInvocations(tossPaymentClient);
+
+		// when & then: 예약 만료로 거절되고 승인 호출은 나가지 않는다
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_EXPIRED);
+		verify(tossPaymentClient, never()).confirmPayment(any());
+		assertThat(paymentAttemptRepository.findByAttemptId(forApproval(paymentKey)).orElseThrow().getStatus())
+			.as("거절돼도 attempt는 NOT_SENT로 남아 새 결제창 재시도가 열려 있다")
+			.isEqualTo(PaymentAttemptStatus.NOT_SENT);
+	}
+
+	@Test
+	@DisplayName("NOT_SENT attempt는 TX B에서 확정 대상이 아니라 전이 불가로 거절된다")
+	void finalizeApproval_rejectsNotSentAttempt() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_finalize_not_sent";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willThrow(new TossPaymentException(0, "CONFIRM_NOT_SENT",
+				"결제 요청이 전송되지 않았습니다.", DeliveryPhase.NOT_REACHED));
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount);
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(TossPaymentException.class);
+
+		PaymentAttempt notSent = paymentAttemptRepository
+			.findByAttemptId(forApproval(paymentKey)).orElseThrow();
+		GatewayConfirmResult approval = new GatewayConfirmResult(
+			paymentKey, prepared.orderCode(), amount, PaymentMethod.CREDIT_CARD);
+
+		// when & then
+		assertThatThrownBy(() -> paymentApprovalFinalizer.finalizeApproval(
+			notSent.getPaymentId(), notSent.getId(), request, approval))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
 	}
 }

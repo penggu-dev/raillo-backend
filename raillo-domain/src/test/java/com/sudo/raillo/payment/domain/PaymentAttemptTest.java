@@ -103,4 +103,49 @@ class PaymentAttemptTest {
             .isInstanceOf(DomainException.class)
             .hasMessage(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE.getMessage());
     }
+    @Test
+    @DisplayName("IN_PROGRESS attempt를 NOT_SENT로 전환한다")
+    void markNotSent_fromInProgress() {
+        PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-abc", "toss-key");
+
+        attempt.markNotSent("CONFIRM_NOT_SENT", "결제 요청이 전송되지 않았습니다.");
+
+        assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.NOT_SENT);
+        assertThat(attempt.getErrorCode()).isEqualTo("CONFIRM_NOT_SENT");
+        assertThat(attempt.getErrorMessage()).isEqualTo("결제 요청이 전송되지 않았습니다.");
+    }
+
+    @Test
+    @DisplayName("이미 종결된 attempt는 NOT_SENT로 전환할 수 없다")
+    void markNotSent_rejectedWhenTerminal() {
+        PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-abc", "toss-key");
+        attempt.markSucceeded();
+
+        assertThatThrownBy(() -> attempt.markNotSent("CONFIRM_NOT_SENT", "전송되지 않음"))
+            .isInstanceOf(DomainException.class)
+            .hasMessage(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE.getMessage());
+    }
+
+    @Test
+    @DisplayName("NOT_SENT attempt를 다시 열면 IN_PROGRESS가 되고 오류 정보가 지워진다")
+    void reopen_fromNotSent() {
+        PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-abc", "toss-key");
+        attempt.markNotSent("CONFIRM_NOT_SENT", "결제 요청이 전송되지 않았습니다.");
+
+        attempt.reopen();
+
+        assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+        assertThat(attempt.getErrorCode()).isNull();
+        assertThat(attempt.getErrorMessage()).isNull();
+    }
+
+    @Test
+    @DisplayName("NOT_SENT가 아닌 attempt는 다시 열 수 없다")
+    void reopen_rejectedWhenNotNotSent() {
+        PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-abc", "toss-key");
+
+        assertThatThrownBy(attempt::reopen)
+            .isInstanceOf(DomainException.class)
+            .hasMessage(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE.getMessage());
+    }
 }

@@ -14,6 +14,9 @@ import jakarta.persistence.EntityManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -28,9 +31,11 @@ import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
 import com.sudo.raillo.payment.application.result.PaymentAttemptStartResult;
 import com.sudo.raillo.payment.application.required.PaymentRepository;
 import com.sudo.raillo.payment.domain.Payment;
+import com.sudo.raillo.payment.domain.PaymentMethod;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
 import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
+import com.sudo.raillo.global.exception.ErrorCode;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.OrderFixture;
@@ -312,5 +317,107 @@ class PaymentAttemptManagerTest {
 		} catch (BusinessException e) {
 			return ((PaymentError) e.getErrorCode()).name();
 		}
+	}
+	@Test
+	@DisplayName("같은 NOT_SENT attempt에 동시에 재진입하면 하나만 성공한다")
+	void reopenInNewTransaction_concurrent_onlyOneSucceeds() throws Exception {
+		// given
+		Long attemptDbId = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "attempt-reopen", "toss-key")
+			.attemptDbId();
+		paymentAttemptManager.markNotSentInNewTransaction(
+			payment.getId(), attemptDbId, new AttemptError("CONFIRM_NOT_SENT", "전송되지 않음"));
+
+		int threads = 2;
+		CountDownLatch start = new CountDownLatch(1);
+		CountDownLatch done = new CountDownLatch(threads);
+		AtomicInteger succeeded = new AtomicInteger();
+		AtomicReference<ErrorCode> loserError = new AtomicReference<>();
+		AtomicReference<Exception> unexpectedError = new AtomicReference<>();
+		ExecutorService pool = Executors.newFixedThreadPool(threads);
+
+		// when
+		for (int i = 0; i < threads; i++) {
+			pool.submit(() -> {
+				try {
+					start.await();
+					paymentAttemptManager.reopenInNewTransaction(payment.getId(), attemptDbId);
+					succeeded.incrementAndGet();
+				} catch (BusinessException expectedForLoser) {
+					// 진 쪽은 다른 요청이 이미 진행 중이라는 뜻의 409를 받아야 한다
+					loserError.set(expectedForLoser.getErrorCode());
+				} catch (Exception unexpected) {
+					unexpectedError.set(unexpected);
+				} finally {
+					done.countDown();
+				}
+			});
+		}
+		start.countDown();
+		done.await();
+		pool.shutdown();
+
+		// then
+		assertThat(unexpectedError.get()).as("진 쪽이 예상 밖 예외를 받으면 안 된다").isNull();
+		assertThat(succeeded.get()).isEqualTo(1);
+		assertThat(loserError.get()).isEqualTo(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+		assertThat(paymentAttemptRepository.findById(attemptDbId).orElseThrow().getStatus())
+			.isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+	}
+	@Test
+	@DisplayName("Payment가 이미 PAID면 NOT_SENT attempt를 재개할 수 없다")
+	void reopenInNewTransaction_rejectedWhenPaymentAlreadyPaid() {
+		// given
+		Long attemptDbId = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "attempt-paid", "toss-key")
+			.attemptDbId();
+		paymentAttemptManager.markNotSentInNewTransaction(
+			payment.getId(), attemptDbId, new AttemptError("CONFIRM_NOT_SENT", "전송되지 않음"));
+		Payment paid = paymentRepository.findById(payment.getId()).orElseThrow();
+		paid.approve(PaymentMethod.CREDIT_CARD, "toss-key");
+		paymentRepository.save(paid);
+
+		// when & then
+		assertThatThrownBy(() -> paymentAttemptManager.reopenInNewTransaction(payment.getId(), attemptDbId))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ALREADY_COMPLETED);
+	}
+
+	@Test
+	@DisplayName("다른 attempt가 진행 중이면 NOT_SENT attempt를 재개할 수 없다")
+	void reopenInNewTransaction_rejectedWhenAnotherAttemptInProgress() {
+		// given
+		Long notSentId = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "attempt-old", "toss-key-1")
+			.attemptDbId();
+		paymentAttemptManager.markNotSentInNewTransaction(
+			payment.getId(), notSentId, new AttemptError("CONFIRM_NOT_SENT", "전송되지 않음"));
+		// 사용자가 새 결제창에서 다른 paymentKey로 다시 시작한 상황
+		paymentAttemptManager.startApprovalInNewTransaction(payment.getId(), "attempt-new", "toss-key-2");
+
+		// when & then
+		assertThatThrownBy(() -> paymentAttemptManager.reopenInNewTransaction(payment.getId(), notSentId))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+	}
+
+	@Test
+	@DisplayName("최근 attempt가 NOT_SENT면 다른 attemptId의 새 시도를 허용한다")
+	void startApprovalInNewTransaction_allowedWhenLatestIsNotSent() {
+		// given
+		Long notSentId = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "attempt-old", "toss-key-1")
+			.attemptDbId();
+		paymentAttemptManager.markNotSentInNewTransaction(
+			payment.getId(), notSentId, new AttemptError("CONFIRM_NOT_SENT", "전송되지 않음"));
+
+		// when
+		PaymentAttemptStartResult result = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "attempt-new", "toss-key-2");
+
+		// then
+		assertThat(result.created()).isTrue();
+		assertThat(paymentAttemptRepository.findById(result.attemptDbId()).orElseThrow().getStatus())
+			.isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
 	}
 }

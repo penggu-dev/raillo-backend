@@ -116,7 +116,18 @@ Toss 호출 직전에 `IN_PROGRESS`로 INSERT. 후속 `PaymentRecoveryWorker`는
 - 반환값 `PaymentAttemptStartResult.created`가 true인 호출만 승인 API를 실행한다. 동일 시도의 재사용은 false로 반환한다. 다른 attemptId를 보내도 진행 중(`IN_PROGRESS`)이거나 확인 필요(`REVIEW_REQUIRED`)인 기존 승인은 우회할 수 없다. 실패(`FAILED`)한 승인 뒤에는 새 attemptId로 다시 시도할 수 있다(다른 카드 재결제).
 - Payment 자체가 FAILED/CANCELLED/REFUNDED로 끝났다면 새 주문과 결제를 준비한다. 그 Payment로 들어온 승인 요청은 외부 호출 전에 거절한다.
 - INSERT/커밋 무결성 오류 뒤에는 실제 동일 attempt의 존재와 요청 일치를 확인한다. 다른 제약 위반은 원래 오류로 전파한다. `payment.payment_key`는 승인 확정 시에만 저장하므로 TX A 실패로 롤백할 필드가 남지 않는다.
+- Toss 호출 실패는 전송 단계로 먼저 가른다. 어댑터가 원인 체인을 거슬러 올라가 `DeliveryPhase`를 정하고, 애플리케이션은 `PaymentGatewayException`의 `isNotReached()`, `isOutcomeUnknown()`, `isDefinitiveFailure()` 세 판정으로만 분기한다. `DeliveryPhase`는 호출 한 번의 도달 여부를 나타내는 값이고 저장되지 않는다. attempt 상태와는 다른 축이다.
+
+  | 전송 단계 | 원인 | attempt |
+  |---|---|---|
+  | `NOT_REACHED` | 커넥션 획득 타임아웃(풀 고갈), TCP 연결 실패, 호스트 해석 실패 | `NOT_SENT` |
+  | `NO_RESPONSE` | 응답 대기 초과, 그 밖의 I/O 오류, 응답 본문 파싱 실패 | `IN_PROGRESS` 유지 |
+  | `ANSWERED` 4xx | 게이트웨이가 요청을 확정 거절 | `FAILED` |
+  | `ANSWERED` 5xx | 게이트웨이 내부 오류 | `IN_PROGRESS` 유지 |
+
+  판정이 애매하면 `NO_RESPONSE`로 둔다. 두 방향의 오류가 대칭이 아니기 때문이다. 나간 요청을 `NOT_REACHED`로 잘못 보면 사용자가 재시도해 이중 청구가 되고, 나가지 않은 요청을 `NO_RESPONSE`로 보면 불필요한 조회 한 번으로 끝난다.
 - Toss의 4xx 응답은 확정 실패로 분류해 attempt만 FAILED로 마킹한다. Payment는 PENDING을 유지해 같은 Order에 대한 새 결제 시도를 열어 둔다. 5xx, 타임아웃, 응답 유실처럼 승인 여부를 단정할 수 없는 오류는 attempt를 IN_PROGRESS로 유지하고 유저 재시도 시 게이트웨이 조회로 회복한다.
+- 요청이 게이트웨이에 도달하지 않은 것이 확정이면 attempt를 비종결 상태 `NOT_SENT`로 남기고 사용자에게 503을 돌려준다. **시스템이 자동으로 다시 보내지 않는다.** 사용자가 같은 결제창에서 다시 요청하면 attemptId가 paymentKey에서 결정적으로 파생되어 같은 값이 나오므로, 새 행을 만들지 않고 그 attempt를 `IN_PROGRESS`로 되돌려 이어간다. `FAILED`를 쓰지 않는 이유는 attemptId가 paymentKey에서 결정적으로 파생되어, `FAILED`로 두면 `PAYMENT_ATTEMPT_ALREADY_FAILED`에 걸려 그 paymentKey로 영원히 승인할 수 없기 때문이다. 이 경로는 승인 호출을 새로 보내므로 신규 승인과 같은 검증을 거친다. 호출 전 pre-check 층과, Payment를 잠근 뒤 다시 확인하는 TX A 층(`validateApprovable`과 최근 attempt 상태 확인) 둘 다 거친다. 잠금 밖 검증만 하면 그 사이에 다른 attempt가 승인을 확정하거나 진행을 시작한 경우를 놓쳐 이중 청구가 생긴다. 예약 생존 검증을 빠뜨리면 예약 TTL이 지난 뒤의 재시도가 카드를 청구하고도 좌석을 가져오지 못해 이중 예매와 미아 결제를 만든다. Recovery Worker의 대사 대상은 `IN_PROGRESS`뿐이고 `NOT_SENT`는 제외한다. 이 실패는 장애 중 대량으로 발생하므로, 대사 대상에 넣으면 복구 중인 게이트웨이에 조회 부하를 더하게 된다.
 - Toss 성공 후 `PaymentApprovalFinalizer`가 새 트랜잭션에서 Payment를 다시 잠그고 승인 확정 시점에 `payment.payment_key`를 세팅하며 Order/Booking/Payment/Attempt/Outbox를 원자적으로 확정한다. 외부 호출 전에 읽은 엔티티는 확정에 재사용하지 않는다.
 
 #### 사용자가 결제창에서 재시도했을 때 IN_PROGRESS attempt 정정
@@ -262,7 +273,9 @@ dev·prod·test 모두 `spring.jpa.open-in-view=false`로 설정한다. HTTP 요
 
 ### 3층 재검증 구조
 
-같은 검증(`validateApprovable`·`validateDuplicatePayment`·`validateApprovalAttempt`·`validateAmounts`)이 세 지점에서 반복 실행된다. 낭비가 아니라 각 층이 다른 시점의 상태를 다시 확인해 동시성·응답 대기 사이 상태 변화를 잡는 방어층이다.
+같은 검증(`validateApprovable`·`validateDuplicatePayment`·`validateApprovalAttempt`)이 세 지점에서 반복 실행된다. 낭비가 아니라 각 층이 다른 시점의 상태를 다시 확인해 동시성·응답 대기 사이 상태 변화를 잡는 방어층이다.
+
+`validateAmounts`는 pre-check 한 곳에서만 실행한다. `Payment.amount`와 `Order.totalAmount`가 생성 후 바뀌지 않고 요청도 같은 커맨드 인스턴스라, 뒤 층에서 다시 봐도 결과가 달라질 수 없다. TX B는 대신 `validateGatewayResponseMatchesRequest`로 게이트웨이가 돌려준 금액을 요청과 대조한다.
 
 | 층 | 위치 | 시점 | 목적 |
 |---|---|---|---|

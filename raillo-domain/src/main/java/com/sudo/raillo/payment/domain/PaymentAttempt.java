@@ -113,6 +113,32 @@ public class PaymentAttempt {
 	}
 
 	/**
+	 * 요청이 게이트웨이에 도달하지 않은 것이 확정인 실패로 표시한다.
+	 *
+	 * <p>{@code FAILED}를 쓰지 않는 이유는 attemptId가 paymentKey에서 결정적으로 파생되기 때문이다.
+	 * {@code FAILED}로 두면 승인 재요청이 {@code PAYMENT_ATTEMPT_ALREADY_FAILED}로 거절되어 그 paymentKey로는
+	 * 다시 승인할 수 없다. 호출이 나가지 않았으므로 사용자가 다시 요청해도 중복 처리 위험이 없다.</p>
+	 */
+	public void markNotSent(String errorCode, String errorMessage) {
+		if (this.status != PaymentAttemptStatus.IN_PROGRESS) {
+			throw new DomainException(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
+		}
+		this.status = PaymentAttemptStatus.NOT_SENT;
+		this.errorCode = errorCode;
+		this.errorMessage = errorMessage;
+	}
+
+	/** 전송되지 않은 attempt를 다시 진행 중으로 되돌린다. 이전 실패 정보는 지운다. */
+	public void reopen() {
+		if (this.status != PaymentAttemptStatus.NOT_SENT) {
+			throw new DomainException(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
+		}
+		this.status = PaymentAttemptStatus.IN_PROGRESS;
+		this.errorCode = null;
+		this.errorMessage = null;
+	}
+
+	/**
 	 * Toss에서 승인돼 돈이 나갔지만 자동으로 예매를 확정하면 안 되는 attempt로 표시한다.
 	 * errorCode는 {@code REVIEW_SEAT_LOST}, {@code REVIEW_DEPARTED}, {@code REVIEW_RESULT_MISMATCH} 중 하나다.
 	 */
