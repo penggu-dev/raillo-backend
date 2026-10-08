@@ -38,6 +38,8 @@ import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.apache.hc.client5.http.ConnectTimeoutException;
+import org.apache.hc.core5.http.ConnectionRequestTimeoutException;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 
@@ -205,41 +207,99 @@ class TossPaymentClientTest {
 		}
 
 		@Test
-		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_ATTEMPT_IN_PROGRESS BusinessException으로 래핑된다")
-		void fail_unexpectedException() {
-			// given
+		@DisplayName("응답 본문 파싱 실패는 NO_RESPONSE로 분류되어 결과 불명으로 남는다")
+		void fail_unparsableBody_noResponse() {
 			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
-			// 응답 body 없이 연결 실패 시뮬레이션 - 잘못된 JSON으로 파싱 실패 유도
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
 				.andExpect(method(POST))
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
-			// when & then: 결과 불명이므로 IN_PROGRESS로 래핑되어 Recovery Worker에 위임된다
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
-				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+				.isInstanceOf(TossPaymentException.class)
+				.satisfies(e -> {
+					TossPaymentException ex = (TossPaymentException)e;
+					assertThat(ex.isNotReached()).isFalse();
+					assertThat(ex.isOutcomeUnknown()).isTrue();
+				});
 
 			server.verify();
 		}
 
 		@Test
-		@DisplayName("SocketTimeoutException(read timeout)이 발생하면 PAYMENT_ATTEMPT_IN_PROGRESS로 래핑된다")
-		void fail_socketTimeout_wrappedAsInProgress() {
-			// given
+		@DisplayName("커넥션 획득 타임아웃은 NOT_REACHED로 분류된다")
+		void fail_connectionRequestTimeout_notReached() {
 			PaymentConfirmCommand request = new PaymentConfirmCommand(
 				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
 
-			// Toss 응답 대기 중 read timeout 재현
+			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
+				.andExpect(method(POST))
+				.andRespond(withException(new ConnectionRequestTimeoutException("pool exhausted")));
+
+			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
+				.isInstanceOf(TossPaymentException.class)
+				.satisfies(e -> {
+					TossPaymentException ex = (TossPaymentException)e;
+					assertThat(ex.isNotReached()).isTrue();
+					assertThat(ex.isOutcomeUnknown()).isFalse();
+				});
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("연결 타임아웃은 SocketTimeoutException 하위지만 NOT_REACHED로 분류된다")
+		void fail_connectTimeout_notReached() {
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
+				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
+
+			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
+				.andExpect(method(POST))
+				.andRespond(withException(new ConnectTimeoutException("connect timed out")));
+
+			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
+				.isInstanceOf(TossPaymentException.class)
+				.satisfies(e -> assertThat(((TossPaymentException)e).isNotReached()).isTrue());
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("응답 대기 초과는 NO_RESPONSE로 분류된다")
+		void fail_socketTimeout_noResponse() {
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
+				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
+
 			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
 				.andExpect(method(POST))
 				.andRespond(withException(new SocketTimeoutException("read timed out")));
 
-			// when & then: 결과 불명이므로 상위에는 IN_PROGRESS로 노출된다 (TossPaymentException은 새지 않는다)
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
-				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+				.isInstanceOf(TossPaymentException.class)
+				.satisfies(e -> {
+					TossPaymentException ex = (TossPaymentException)e;
+					assertThat(ex.isNotReached()).isFalse();
+					assertThat(ex.isOutcomeUnknown()).isTrue();
+				});
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("감싸진 원인 체인에서도 전송 단계를 찾아낸다")
+		void fail_wrappedCause_notReached() {
+			PaymentConfirmCommand request = new PaymentConfirmCommand(
+				"toss_pk_123", "ORDER_001", BigDecimal.valueOf(50000));
+
+			server.expect(requestTo("https://api.tosspayments.com/v1/payments/confirm"))
+				.andExpect(method(POST))
+				.andRespond(withException(
+					new IOException("wrapper", new ConnectionRequestTimeoutException("pool exhausted"))));
+
+			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request))
+				.isInstanceOf(TossPaymentException.class)
+				.satisfies(e -> assertThat(((TossPaymentException)e).isNotReached()).isTrue());
 
 			server.verify();
 		}
@@ -362,8 +422,8 @@ class TossPaymentClientTest {
 		}
 
 		@Test
-		@DisplayName("예상치 못한 예외 발생 시 PAYMENT_SYSTEM_ERROR BusinessException으로 래핑된다")
-		void fail_unexpectedException() {
+		@DisplayName("응답 본문 파싱 실패는 NO_RESPONSE로 분류되어 결과 불명으로 남는다")
+		void fail_unparsableBody_noResponse() {
 			// given
 			String paymentKey = "toss_pk_cancel_123";
 			TossPaymentCancelRequest request = new TossPaymentCancelRequest("고객 변심", null);
@@ -374,9 +434,36 @@ class TossPaymentClientTest {
 
 			// when & then
 			assertThatThrownBy(() -> tossPaymentClient.cancelPayment(paymentKey, request))
-				.isInstanceOf(BusinessException.class)
-				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_SYSTEM_ERROR)
-				.hasMessageContaining("결제 취소 처리 중 알 수 없는 오류가 발생했습니다");
+				.isInstanceOf(TossPaymentException.class)
+				.satisfies(e -> {
+					TossPaymentException ex = (TossPaymentException)e;
+					assertThat(ex.getErrorCode()).isEqualTo("CANCEL_OUTCOME_UNKNOWN");
+					assertThat(ex.isNotReached()).isFalse();
+					assertThat(ex.isOutcomeUnknown()).isTrue();
+				});
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("취소 요청의 커넥션 획득 타임아웃은 NOT_REACHED로 분류된다")
+		void fail_connectionRequestTimeout_notReached() {
+			// given
+			String paymentKey = "toss_pk_cancel_123";
+			TossPaymentCancelRequest request = new TossPaymentCancelRequest("고객 변심", null);
+
+			server.expect(requestTo("https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel"))
+				.andExpect(method(POST))
+				.andRespond(withException(new ConnectionRequestTimeoutException("pool exhausted")));
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.cancelPayment(paymentKey, request))
+				.isInstanceOf(TossPaymentException.class)
+				.satisfies(e -> {
+					TossPaymentException ex = (TossPaymentException)e;
+					assertThat(ex.getErrorCode()).isEqualTo("CANCEL_NOT_SENT");
+					assertThat(ex.isNotReached()).isTrue();
+				});
 
 			server.verify();
 		}
@@ -390,6 +477,41 @@ class TossPaymentClientTest {
 		private static final String DONE_BODY = """
 			{"paymentKey":"toss_pk_123","orderId":"ORDER_001","method":"카드","totalAmount":50000,"status":"DONE"}
 			""";
+
+		@Test
+		@DisplayName("조회의 결과 불명 경로는 전송 단계가 붙어도 결과 불명으로 남는다")
+		void queryUncertain_staysOutcomeUnknown() {
+			// given
+			server.expect(requestTo(QUERY_URL)).andExpect(method(GET))
+				.andRespond(withException(new SocketTimeoutException("read timed out")));
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.queryPayment("toss_pk_123"))
+				.isInstanceOf(TossPaymentException.class)
+				.satisfies(e -> {
+					TossPaymentException ex = (TossPaymentException)e;
+					assertThat(ex.getErrorCode()).isEqualTo("QUERY_UNCERTAIN_TIMEOUT");
+					assertThat(ex.isOutcomeUnknown()).isTrue();
+					assertThat(ex.isDefinitiveFailure()).isFalse();
+				});
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("조회가 커넥션 획득 타임아웃이면 NOT_REACHED로 분류된다")
+		void query_connectionRequestTimeout_notReached() {
+			// given
+			server.expect(requestTo(QUERY_URL)).andExpect(method(GET))
+				.andRespond(withException(new ConnectionRequestTimeoutException("pool exhausted")));
+
+			// when & then
+			assertThatThrownBy(() -> tossPaymentClient.queryPayment("toss_pk_123"))
+				.isInstanceOf(TossPaymentException.class)
+				.satisfies(e -> assertThat(((TossPaymentException)e).isNotReached()).isTrue());
+
+			server.verify();
+		}
 
 		@Test
 		@DisplayName("200 응답이면 조회 결과를 그대로 돌려준다")

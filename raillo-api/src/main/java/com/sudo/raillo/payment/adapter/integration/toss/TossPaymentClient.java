@@ -3,6 +3,12 @@ package com.sudo.raillo.payment.adapter.integration.toss;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.UnknownHostException;
+
+import org.apache.hc.client5.http.ConnectTimeoutException;
+import org.apache.hc.core5.http.ConnectionRequestTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
@@ -69,11 +75,7 @@ public class TossPaymentClient {
 		} catch (TossPaymentException e) {
 			throw e;
 		} catch (Exception e) {
-			log.error("[TOSS] 결제 승인 중 알 수 없는 예외 발생", e);
-			// http_status=0: HTTP 응답을 정상적으로 수신하지 못한 경우 (타임아웃, 네트워크 오류, 응답 파싱 실패 등).
-			// 결과 불명이므로 PaymentAttempt는 IN_PROGRESS로 남기고 Recovery Worker(#270)에 위임한다.
-			tossApiMetrics.incrementFailure("confirm", 0, "CLIENT_ERROR", DeliveryPhase.NO_RESPONSE);
-			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS, e);
+			throw deliveryFailure("confirm", e);
 		}
 	}
 
@@ -114,21 +116,23 @@ public class TossPaymentClient {
 						paymentKey, retry + 1, e.getCause());
 					continue;
 				}
-				throw queryUncertain("BODY", HttpStatus.BAD_GATEWAY, e.getCause());
+				// 헤더를 이미 받은 뒤의 실패이므로 요청은 분명히 나갔다.
+				throw queryUncertain("BODY", HttpStatus.BAD_GATEWAY, e.getCause(), DeliveryPhase.NO_RESPONSE);
 			} catch (Exception e) {
+				DeliveryPhase phase = phaseOf(e);
 				if (isTimeout(e)) {
-					throw queryUncertain("TIMEOUT", HttpStatus.GATEWAY_TIMEOUT, e);
+					throw queryUncertain("TIMEOUT", HttpStatus.GATEWAY_TIMEOUT, e, phase);
 				}
-				throw queryUncertain("IO", HttpStatus.BAD_GATEWAY, e);
+				throw queryUncertain("IO", HttpStatus.BAD_GATEWAY, e, phase);
 			}
 		}
 	}
 
-	private TossPaymentException queryUncertain(String cause, HttpStatus status, Throwable e) {
+	private TossPaymentException queryUncertain(String cause, HttpStatus status, Throwable e, DeliveryPhase phase) {
 		String errorCode = "QUERY_UNCERTAIN_" + cause;
-		log.error("[TOSS] 결제 조회 결과 불명: errorCode={}", errorCode, e);
-		tossApiMetrics.incrementFailure("query", 0, errorCode, DeliveryPhase.NO_RESPONSE);
-		return new TossPaymentException(status.value(), errorCode, "결제 조회 결과를 확인하지 못했습니다.");
+		log.error("[TOSS] 결제 조회 결과 불명: errorCode={}, phase={}", errorCode, phase, e);
+		tossApiMetrics.incrementFailure("query", 0, errorCode, phase);
+		return new TossPaymentException(status.value(), errorCode, "결제 조회 결과를 확인하지 못했습니다.", phase);
 	}
 
 	/** @return 기다린 뒤 다시 조회해도 되면 true, 인터럽트되면 false */
@@ -140,6 +144,49 @@ public class TossPaymentClient {
 			Thread.currentThread().interrupt();
 			return false;
 		}
+	}
+
+	/**
+	 * HTTP 응답을 받지 못한 실패를 전송 단계로 가른 예외로 만든다. 지표도 같은 값으로 함께 올린다.
+	 *
+	 * <p>http_status는 0이다. 응답을 받지 못했다는 뜻이며 기존 지표 관례와 같다. 확정 여부 판정은
+	 * 상태 코드가 아니라 전송 단계로 하므로 0이 확정 실패로 읽히지 않는다.</p>
+	 */
+	private TossPaymentException deliveryFailure(String operation, Throwable e) {
+		DeliveryPhase phase = phaseOf(e);
+		boolean notReached = phase == DeliveryPhase.NOT_REACHED;
+		String errorCode = operation.toUpperCase() + (notReached ? "_NOT_SENT" : "_OUTCOME_UNKNOWN");
+		String message = notReached
+			? "결제 요청이 전송되지 않았습니다."
+			: "결제 결과를 확인하지 못했습니다.";
+
+		log.error("[TOSS] {} 실패: phase={}, errorCode={}", operation, phase, errorCode, e);
+		tossApiMetrics.incrementFailure(operation, 0, errorCode, phase);
+		return new TossPaymentException(0, errorCode, message, phase);
+	}
+
+	/**
+	 * 요청이 게이트웨이에 도달했는지를 원인 체인에서 판정한다.
+	 *
+	 * <p>도달하지 않은 것이 확정인 타입만 열거하고 나머지는 {@code NO_RESPONSE}로 둔다. 잘못 분류했을 때의
+	 * 비용이 대칭이 아니기 때문이다. 나간 요청을 {@code NOT_REACHED}로 보면 사용자가 재시도해 이중 청구가
+	 * 되고, 나가지 않은 요청을 {@code NO_RESPONSE}로 보면 불필요한 조회 한 번으로 끝난다.</p>
+	 *
+	 * <p>{@link ConnectTimeoutException}은 {@link java.net.SocketTimeoutException}의 하위 타입이다.
+	 * 조건에 {@code SocketTimeoutException}을 넣으면 검사 순서에 따라 연결 타임아웃이 응답 대기 초과로
+	 * 분류되므로 넣지 않는다.</p>
+	 */
+	private static DeliveryPhase phaseOf(Throwable e) {
+		for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+			if (cause instanceof ConnectionRequestTimeoutException
+				|| cause instanceof ConnectTimeoutException
+				|| cause instanceof ConnectException
+				|| cause instanceof UnknownHostException
+				|| cause instanceof NoRouteToHostException) {
+				return DeliveryPhase.NOT_REACHED;
+			}
+		}
+		return DeliveryPhase.NO_RESPONSE;
 	}
 
 	/** 연결, 커넥션 획득, 읽기 timeout은 모두 InterruptedIOException 계열이다. */
@@ -196,13 +243,7 @@ public class TossPaymentClient {
 		} catch (TossPaymentException e) {
 			throw e;
 		} catch (Exception e) {
-			log.error("[TOSS] 결제 취소 중 알 수 없는 예외 발생", e);
-			// http_status=0: HTTP 응답을 정상적으로 수신하지 못한 경우 (타임아웃, 네트워크 오류, 응답 파싱 실패 등)
-			tossApiMetrics.incrementFailure("cancel", 0, "CLIENT_ERROR", DeliveryPhase.NO_RESPONSE);
-			throw new BusinessException(
-				PaymentError.PAYMENT_SYSTEM_ERROR,
-				"결제 취소 처리 중 알 수 없는 오류가 발생했습니다: " + e.getMessage()
-			);
+			throw deliveryFailure("cancel", e);
 		}
 	}
 

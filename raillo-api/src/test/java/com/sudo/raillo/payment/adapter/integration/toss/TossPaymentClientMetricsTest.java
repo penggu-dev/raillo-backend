@@ -97,14 +97,14 @@ class TossPaymentClientMetricsTest {
 				.andRespond(withBadRequest().body(errorBody).contentType(MediaType.APPLICATION_JSON));
 
 			double before = meterRegistry.counter("toss.api.failure",
-				"operation", "confirm", "http_status", "400", "toss_code", "REJECT_CARD_PAYMENT").count();
+				"operation", "confirm", "http_status", "400", "toss_code", "REJECT_CARD_PAYMENT", "phase", "ANSWERED").count();
 
 			// when
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request));
 
 			// then
 			double after = meterRegistry.counter("toss.api.failure",
-				"operation", "confirm", "http_status", "400", "toss_code", "REJECT_CARD_PAYMENT").count();
+				"operation", "confirm", "http_status", "400", "toss_code", "REJECT_CARD_PAYMENT", "phase", "ANSWERED").count();
 			assertThat(after).isEqualTo(before + 1);
 
 			server.verify();
@@ -129,14 +129,14 @@ class TossPaymentClientMetricsTest {
 				.andRespond(withServerError().body(errorBody).contentType(MediaType.APPLICATION_JSON));
 
 			double before = meterRegistry.counter("toss.api.failure",
-				"operation", "confirm", "http_status", "500", "toss_code", "PROVIDER_ERROR").count();
+				"operation", "confirm", "http_status", "500", "toss_code", "PROVIDER_ERROR", "phase", "ANSWERED").count();
 
 			// when
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request));
 
 			// then
 			double after = meterRegistry.counter("toss.api.failure",
-				"operation", "confirm", "http_status", "500", "toss_code", "PROVIDER_ERROR").count();
+				"operation", "confirm", "http_status", "500", "toss_code", "PROVIDER_ERROR", "phase", "ANSWERED").count();
 			assertThat(after).isEqualTo(before + 1);
 
 			server.verify();
@@ -154,21 +154,21 @@ class TossPaymentClientMetricsTest {
 				.andRespond(withServerError());
 
 			double before = meterRegistry.counter("toss.api.failure",
-				"operation", "confirm", "http_status", "500", "toss_code", "EMPTY_ERROR_BODY").count();
+				"operation", "confirm", "http_status", "500", "toss_code", "EMPTY_ERROR_BODY", "phase", "ANSWERED").count();
 
 			// when
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request));
 
 			// then
 			double after = meterRegistry.counter("toss.api.failure",
-				"operation", "confirm", "http_status", "500", "toss_code", "EMPTY_ERROR_BODY").count();
+				"operation", "confirm", "http_status", "500", "toss_code", "EMPTY_ERROR_BODY", "phase", "ANSWERED").count();
 			assertThat(after).isEqualTo(before + 1);
 
 			server.verify();
 		}
 
 		@Test
-		@DisplayName("예상치 못한 예외 발생 시 CLIENT_ERROR toss_api_failure_total 카운터가 증가한다")
+		@DisplayName("응답을 받지 못하면 OUTCOME_UNKNOWN toss_api_failure_total 카운터가 증가한다")
 		void fail_unexpectedException_incrementsFailureCounter() {
 			// given
 			PaymentConfirmCommand request = new PaymentConfirmCommand(
@@ -179,14 +179,16 @@ class TossPaymentClientMetricsTest {
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
 			double before = meterRegistry.counter("toss.api.failure",
-				"operation", "confirm", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
+				"operation", "confirm", "http_status", "0", "toss_code", "CONFIRM_OUTCOME_UNKNOWN",
+				"phase", "NO_RESPONSE").count();
 
 			// when
 			assertThatThrownBy(() -> tossPaymentClient.confirmPayment(request));
 
 			// then
 			double after = meterRegistry.counter("toss.api.failure",
-				"operation", "confirm", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
+				"operation", "confirm", "http_status", "0", "toss_code", "CONFIRM_OUTCOME_UNKNOWN",
+				"phase", "NO_RESPONSE").count();
 			assertThat(after).isEqualTo(before + 1);
 
 			server.verify();
@@ -198,7 +200,7 @@ class TossPaymentClientMetricsTest {
 	class CancelPaymentMetrics {
 
 		@Test
-		@DisplayName("예상치 못한 예외 발생 시 CLIENT_ERROR toss_api_failure_total 카운터가 증가한다")
+		@DisplayName("응답을 받지 못하면 OUTCOME_UNKNOWN toss_api_failure_total 카운터가 증가한다")
 		void fail_unexpectedException_incrementsFailureCounter() {
 			// given
 			String paymentKey = "toss_pk_cancel_123";
@@ -209,14 +211,16 @@ class TossPaymentClientMetricsTest {
 				.andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON));
 
 			double before = meterRegistry.counter("toss.api.failure",
-				"operation", "cancel", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
+				"operation", "cancel", "http_status", "0", "toss_code", "CANCEL_OUTCOME_UNKNOWN",
+				"phase", "NO_RESPONSE").count();
 
 			// when
 			assertThatThrownBy(() -> tossPaymentClient.cancelPayment(paymentKey, request));
 
 			// then
 			double after = meterRegistry.counter("toss.api.failure",
-				"operation", "cancel", "http_status", "0", "toss_code", "CLIENT_ERROR").count();
+				"operation", "cancel", "http_status", "0", "toss_code", "CANCEL_OUTCOME_UNKNOWN",
+				"phase", "NO_RESPONSE").count();
 			assertThat(after).isEqualTo(before + 1);
 
 			server.verify();
