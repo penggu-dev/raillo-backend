@@ -50,6 +50,10 @@ public class PaymentConfirmService implements PaymentConfirmer {
 					// 마킹이 실패해도 원래 실패 사유(failure)를 가리지 않는 것은 marker가 보장한다.
 					attemptFailureMarker.markFailedQuietly(start.paymentId(), start.attemptDbId(),
 						new AttemptError(failure.getErrorCode(), failure.getMessage()));
+				} else if (failure.isNotReached()) {
+					// 호출이 나가지 않은 것이 확정이므로 같은 attemptId로 다시 시도할 수 있게 비종결 상태로 남긴다.
+					attemptFailureMarker.markNotSentQuietly(start.paymentId(), start.attemptDbId(),
+						new AttemptError(failure.getErrorCode(), failure.getMessage()));
 				}
 				// 5xx/timeout은 결과 불명이라 IN_PROGRESS로 남기고 회복 경로(사용자 재시도·Recovery Worker)에 위임한다.
 				throw failure;

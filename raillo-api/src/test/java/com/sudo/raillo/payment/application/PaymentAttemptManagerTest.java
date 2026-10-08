@@ -14,6 +14,8 @@ import jakarta.persistence.EntityManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -312,5 +314,44 @@ class PaymentAttemptManagerTest {
 		} catch (BusinessException e) {
 			return ((PaymentError) e.getErrorCode()).name();
 		}
+	}
+	@Test
+	@DisplayName("같은 NOT_SENT attempt에 동시에 재진입하면 하나만 성공한다")
+	void reopenInNewTransaction_concurrent_onlyOneSucceeds() throws Exception {
+		// given
+		Long attemptDbId = paymentAttemptManager
+			.startApprovalInNewTransaction(payment.getId(), "attempt-reopen", "toss-key")
+			.attemptDbId();
+		paymentAttemptManager.markNotSentInNewTransaction(
+			payment.getId(), attemptDbId, new AttemptError("CONFIRM_NOT_SENT", "전송되지 않음"));
+
+		int threads = 2;
+		CountDownLatch start = new CountDownLatch(1);
+		CountDownLatch done = new CountDownLatch(threads);
+		AtomicInteger succeeded = new AtomicInteger();
+		ExecutorService pool = Executors.newFixedThreadPool(threads);
+
+		// when
+		for (int i = 0; i < threads; i++) {
+			pool.submit(() -> {
+				try {
+					start.await();
+					paymentAttemptManager.reopenInNewTransaction(payment.getId(), attemptDbId);
+					succeeded.incrementAndGet();
+				} catch (Exception expectedForLoser) {
+					// 둘 중 하나는 상태 가드에 걸려 거절된다
+				} finally {
+					done.countDown();
+				}
+			});
+		}
+		start.countDown();
+		done.await();
+		pool.shutdown();
+
+		// then
+		assertThat(succeeded.get()).isEqualTo(1);
+		assertThat(paymentAttemptRepository.findById(attemptDbId).orElseThrow().getStatus())
+			.isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
 	}
 }

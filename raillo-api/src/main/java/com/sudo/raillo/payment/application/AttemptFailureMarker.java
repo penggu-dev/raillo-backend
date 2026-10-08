@@ -38,6 +38,16 @@ public class AttemptFailureMarker {
 		}
 	}
 
+	/** attempt를 NOT_SENT로 바꾸고, 마킹 자체가 실패하면 로그만 남기고 삼킨다. */
+	public void markNotSentQuietly(Long paymentId, Long attemptDbId, AttemptError error) {
+		try {
+			paymentAttemptManager.markNotSentInNewTransaction(paymentId, attemptDbId, error);
+		} catch (RuntimeException markingError) {
+			log.error("[attempt 미전송 마킹 중 오류] paymentId={}, attemptDbId={}, markingErrorCode={}",
+				paymentId, attemptDbId, errorCodeOf(markingError), markingError);
+		}
+	}
+
 	/**
 	 * 로그용 코드. 에러 코드를 싣는 예외면 그 코드를, 아니면 예외 클래스명을 쓴다.
 	 *

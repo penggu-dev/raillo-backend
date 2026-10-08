@@ -113,7 +113,22 @@ public class PaymentApprovalStarter {
 			case FAILED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 			case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 			case IN_PROGRESS -> recoverInProgressAttempt(existing, payment, ctx);
+			// 호출이 나가지 않은 것이 확정이라 중복 승인 위험이 없다. 같은 attempt를 다시 열어 처음부터 시도한다.
+			case NOT_SENT -> reopenNotSentAttempt(existing, payment);
 		};
+	}
+
+	/**
+	 * 전송되지 않은 attempt를 다시 열어 승인 시도를 이어가게 한다.
+	 *
+	 * <p>게이트웨이에 요청이 도달하지 않은 것이 확정이므로 조회로 대조할 것이 없다. 같은 attemptId를 그대로
+	 * 쓰면 되므로 새 행을 만들지 않는다.</p>
+	 */
+	private PaymentApprovalStart reopenNotSentAttempt(PaymentAttempt existing, Payment payment) {
+		log.info("[결제 재요청 - NOT_SENT attempt 재개] attemptId={}, paymentId={}",
+			existing.getAttemptId(), payment.getId());
+		paymentAttemptManager.reopenInNewTransaction(payment.getId(), existing.getId());
+		return PaymentApprovalStart.started(payment.getId(), existing.getId());
 	}
 
 	/** IN_PROGRESS attempt 발견 시(사용자 재시도 또는 동시 요청 경합) 게이트웨이 상태를 조회해 로컬을 정정한다. */
@@ -186,7 +201,8 @@ public class PaymentApprovalStarter {
 			// 이미 카드가 승인된 상태이므로 재예약을 안내하는 reservationCheckFailed를 그대로 던지면 안 된다.
 			case REVIEW_REQUIRED -> throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 			// 원래 예외(예약 만료 등)를 그대로 던진다.
-			case IN_PROGRESS, FAILED -> throw reservationCheckFailed;
+			// NOT_SENT는 승인 호출이 나가지 않은 것이라 카드가 승인되지 않았다. 원래 예외를 그대로 던진다.
+			case IN_PROGRESS, FAILED, NOT_SENT -> throw reservationCheckFailed;
 		};
 	}
 
