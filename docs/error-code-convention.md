@@ -48,5 +48,6 @@ enum 클래스명은 `{Domain}Error` 형식으로 통일한다.
 3. 그 밴드(또는 평면) 내에서 **다음 번호**를 부여한다.
 4. `("메시지", HttpStatus.XXX, "{DOMAIN}_{NNN}")` 형식으로 상수를 추가한다.
 5. 도메인 enum은 `ErrorCode` 인터페이스를 구현한다(`getMessage`/`getStatus`/`getCode`).
+6. 재시도가 결과를 바꿀 수 없는 코드(이미 깨진 데이터, 영구히 무효한 입력)는 `failedWorkRetryable()`을 `false`로 오버라이드한다. 기본값은 `true`이며, 재시도 큐(Outbox 등)가 이 값으로 백오프를 태울지 즉시 포기할지를 가른다.
 
 예) 승차권 관련 새 에러 → `BookingError`의 2xx 밴드 → 마지막이 `BOOKING_204`면 `BOOKING_205`.

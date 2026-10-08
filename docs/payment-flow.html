@@ -341,7 +341,7 @@
 
     <aside class="callout callout-b">
       <strong>후속 처리 R → B (예약 → 예매 좌석 field 전환)</strong>
-      <p>아웃박스의 <code>BOOKING_CONFIRMED</code> 이벤트는 Redis 좌석 field를 <code>R:reservationId</code>(예약)에서 <code>B:bookingId</code>(예매)로 전환하는 후속 처리에 사용된다. 이번 브랜치에서는 처리기가 미등록 상태로 이벤트는 <code>PENDING</code>으로 보존되고, 후속 PR에서 처리기를 활성화한다. 사용자 응답은 이 후속 처리를 기다리지 않는다.</p>
+      <p>아웃박스의 <code>BOOKING_CONFIRMED</code> 이벤트는 <code>PaymentOutboxWorker</code>가 <code>BookingConfirmedProcessor</code>에 넘기고, 처리기는 Redis 좌석 field를 <code>R:reservationId</code>(예약)에서 <code>B:bookingId</code>(예매)로 전환한다(<code>reservation_booking_confirm.lua</code>). 전환에 성공하면 예약 본문과 회원 인덱스를 지운다. 운행일이 지났거나 예매가 없거나 취소된 항목은 좌석을 건드리지 않고 예약 본문과 회원 인덱스만 지운다. 다른 예약이나 예매와 충돌하면 그 항목은 아무것도 바꾸지 않고, 나머지 항목을 처리한 뒤 Outbox 재시도에 맡긴다. 사용자 응답은 이 후속 처리를 기다리지 않는다.</p>
     </aside>
   </section>
 

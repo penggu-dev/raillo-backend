@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 import static com.sudo.raillo.payment.application.PaymentAttemptIds.forApproval;
 
+import com.sudo.raillo.booking.cache.ReservationCacheKey;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.command.PaymentPrepareCommand;
 import com.sudo.raillo.payment.application.result.PaymentPrepareResult;
@@ -23,17 +24,22 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import tools.jackson.databind.ObjectMapper;
+
 import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.booking.domain.ReservationSeat;
 import com.sudo.raillo.support.helper.PaymentReservationTestHelper.SeatPassenger;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.support.helper.PaymentReservationTestHelper;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.BusinessException;
+import com.sudo.raillo.global.redis.util.RedisJsonConverter;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.order.domain.Order;
@@ -65,6 +71,7 @@ import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.OrderFixture;
 import com.sudo.raillo.support.helper.PaymentReservationTestHelper;
+import com.sudo.raillo.support.helper.SeatOccupancyTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
 import com.sudo.raillo.support.helper.TrainTestHelper;
@@ -115,6 +122,21 @@ class PaymentConfirmServiceTest {
 
 	@Autowired
 	private com.sudo.raillo.payment.application.outbox.PaymentOutboxWorker paymentOutboxWorker;
+
+	@Autowired
+	private PaymentApprovalFinalizer paymentApprovalFinalizer;
+
+	@Autowired
+	private SeatOccupancyTestHelper seatOccupancyTestHelper;
+
+	@Autowired
+	private StringRedisTemplate stringRedisTemplate;
+
+	@Autowired
+	private RedisJsonConverter redisJsonConverter;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@MockitoSpyBean
 	private PaymentOutboxRepository paymentOutboxRepository;
@@ -407,10 +429,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -448,10 +467,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -485,6 +501,104 @@ class PaymentConfirmServiceTest {
 	}
 
 	@Test
+	@DisplayName("IN_PROGRESS 재요청 시 게이트웨이가 DONE이어도 예약이 만료됐고 attempt가 확정되지 않았으면 RESERVATION_EXPIRED 예외가 발생하고 attempt는 IN_PROGRESS로 남는다")
+	void confirmPayment_retryOnInProgressAttempt_gatewayReportsDoneButAttemptNotSucceeded_throwsReservationExpired() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_recovery_done_expired";
+		String attemptId = forApproval(paymentKey);
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = findPayment(preparedResult.orderCode());
+
+		paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
+
+		// 게이트웨이 재조회 응답은 DONE이지만, Reservation은 TTL 만료를 시뮬레이션해 삭제해둔다.
+		// finalize를 호출하지 않으므로 attempt는 SUCCEEDED로 정정되지 않는다.
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willReturn(new TossPaymentQueryResponse(
+				paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE"));
+		bookingRedisRepository.delete(reservation);
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(
+			paymentKey, preparedResult.orderCode(), amount);
+
+		// when + then: attempt가 SUCCEEDED가 아니므로 원래의 RESERVATION_EXPIRED 예외를 그대로 던진다
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", BookingError.RESERVATION_EXPIRED)
+			.hasMessage(BookingError.RESERVATION_EXPIRED.getMessage());
+
+		// attempt는 IN_PROGRESS로 남고, 예매는 생성되지 않으며, Payment는 PENDING을 유지한다
+		PaymentAttempt attempt = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+		assertThat(bookingRepository.count()).isZero();
+
+		Payment savedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
+		assertThat(savedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+
+		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+	}
+
+	@Test
+	@DisplayName("IN_PROGRESS 재요청 중 원 요청이 게이트웨이 조회 사이 먼저 확정돼 R→B가 끝나도 재요청은 확정 결과를 반환한다")
+	void confirmPayment_retryOnInProgressAttempt_originalCompletesDuringQuery_returnsConfirmedResult() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_race_r_to_b";
+		String attemptId = forApproval(paymentKey);
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = findPayment(preparedResult.orderCode());
+
+		PaymentAttempt inProgressAttempt = paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
+
+		PaymentConfirmCommand originalCommand = new PaymentConfirmCommand(
+			paymentKey, preparedResult.orderCode(), amount);
+		com.sudo.raillo.payment.application.required.PaymentGateway.GatewayConfirmResult gatewayResult =
+			new com.sudo.raillo.payment.application.required.PaymentGateway.GatewayConfirmResult(
+				paymentKey, preparedResult.orderCode(), amount, PaymentMethod.CREDIT_CARD);
+
+		// 재요청이 게이트웨이 상태를 조회하는 순간, 원 요청이 먼저 TX B를 커밋하고
+		// Outbox Worker가 R→B(예약→예매 점유 전환)까지 끝내도록 스텁으로 경합 순서를 고정한다.
+		given(tossPaymentClient.queryPayment(paymentKey)).willAnswer(invocation -> {
+			paymentApprovalFinalizer.finalizeApproval(
+				payment.getId(), inProgressAttempt.getId(), originalCommand, gatewayResult);
+			paymentOutboxWorker.poll();
+			return new TossPaymentQueryResponse(
+				paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE");
+		});
+
+		PaymentConfirmCommand retryRequest = new PaymentConfirmCommand(
+			paymentKey, preparedResult.orderCode(), amount);
+
+		// when
+		PaymentConfirmResult result = paymentConfirmer.confirm(retryRequest, memberNo);
+
+		// then: 예외 없이 확정 결과를 반환하고, 예매는 하나만 생성된다
+		assertThat(result.paymentStatus()).isEqualTo(PaymentStatus.PAID);
+		assertThat(result.paymentKey()).isEqualTo(paymentKey);
+		assertThat(bookingRepository.count()).isEqualTo(1);
+
+		PaymentAttempt attempt = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.SUCCEEDED);
+
+		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+
+		// R→B 처리기가 이미 끝났다는 증거: 예약 본문이 Redis에서 지워졌고 BOOKING_CONFIRMED Outbox는 DONE이다
+		assertThat(bookingRedisRepository.find(reservation)).isEmpty();
+		PaymentOutbox outbox = paymentOutboxRepository.findByDeduplicationKey(
+			"payment:%d:booking-confirmed".formatted(payment.getId())).orElseThrow();
+		assertThat(outbox.getStatus()).isEqualTo(PaymentOutboxStatus.DONE);
+	}
+
+	@Test
 	@DisplayName("IN_PROGRESS 재요청 시 게이트웨이 조회가 NOT_FOUND_PAYMENT로 실패하면 attempt를 FAILED로 마킹한다")
 	void confirmPayment_retryOnInProgressAttempt_gatewayNotFound_marksFailed() {
 		// given
@@ -495,10 +609,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -532,10 +643,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -571,10 +679,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -644,10 +749,7 @@ class PaymentConfirmServiceTest {
 		Reservation reservation = createReservationWithHold(amount);
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-		Payment payment = paymentRepository.findAll().stream()
-			.filter(p -> p.getOrderCode().equals(preparedResult.orderCode()))
-			.findFirst()
-			.orElseThrow();
+		Payment payment = findPayment(preparedResult.orderCode());
 
 		paymentAttemptRepository.save(
 			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
@@ -709,6 +811,42 @@ class PaymentConfirmServiceTest {
 		assertThat(outbox.getStatus()).isEqualTo(PaymentOutboxStatus.PENDING);
 		assertThat(outbox.getAggregateId()).isEqualTo(confirmedResult.paymentId());
 		assertThat(outbox.getPayload()).contains(reservation.reservationId());
+	}
+
+	@Test
+	@DisplayName("승인 확정 Outbox payload는 Redis 예약이 아니라 주문의 예약 스냅샷으로 만든다")
+	void confirmPayment_buildsOutboxPayloadFromOrderSnapshot() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_snapshot_payload";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		Reservation tampered = new Reservation(
+			reservation.reservationId(), reservation.memberNo(), reservation.trainScheduleId(),
+			reservation.trainNumber(), reservation.trainName(), reservation.operationDate().plusDays(30),
+			reservation.departure(), reservation.arrival(), reservation.departureAt(), reservation.carType(),
+			reservation.seats(), reservation.totalFare(), reservation.createdAt(), reservation.expiresAt());
+		stringRedisTemplate.opsForValue().set(
+			ReservationCacheKey.reservation(reservation.trainScheduleId(), reservation.reservationId()),
+			redisJsonConverter.toJson(tampered), Duration.ofMinutes(10));
+
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willReturn(new TossPaymentConfirmResponse(
+				paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE"));
+
+		// when
+		PaymentConfirmResult confirmed = paymentConfirmer.confirm(
+			new PaymentConfirmCommand(paymentKey, preparedResult.orderCode(), amount), memberNo);
+
+		// then
+		PaymentOutbox outbox = paymentOutboxRepository.findByDeduplicationKey(
+			"payment:%d:booking-confirmed".formatted(confirmed.paymentId())).orElseThrow();
+		BookingConfirmedPayload payload = objectMapper.readValue(outbox.getPayload(), BookingConfirmedPayload.class);
+		assertThat(payload.bookings()).hasSize(1);
+		assertThat(payload.bookings().get(0).reservationId()).isEqualTo(reservation.reservationId());
+		assertThat(payload.bookings().get(0).operationDate()).isEqualTo(reservation.operationDate());
 	}
 
 	@Test
@@ -786,39 +924,42 @@ class PaymentConfirmServiceTest {
 	}
 
 	@Test
-	@DisplayName("결제 승인 후 worker가 실행되어도 R 점유를 유지한다")
-	void confirmPayment_reservation_protected_after_worker_tick() {
+	@DisplayName("결제 승인 후 Outbox Worker가 실행되면 좌석이 예매 점유로 바뀌고 다른 예약은 거절된다")
+	void confirmPayment_workerConvertsReservationToBooking() {
 		// given
 		BigDecimal amount = BigDecimal.valueOf(50000);
-		String paymentKey = "toss_pk_hold_release_test";
+		String paymentKey = "toss_pk_worker_converts";
 
 		Reservation reservation = createReservationWithHold(amount);
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
-		Long seatId = reservation.seats().get(0).seatId();
+		ReservationSeat reservedSeat = reservation.seats().get(0);
 
 		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
 			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
-
-		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
-			paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE");
 		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
-			.willReturn(tossResponse);
-
-		PaymentConfirmCommand confirmRequest = new PaymentConfirmCommand(
-			paymentKey, preparedResult.orderCode(), amount);
+			.willReturn(new TossPaymentConfirmResponse(
+				paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE"));
+		PaymentConfirmResult confirmed = paymentConfirmer.confirm(
+			new PaymentConfirmCommand(paymentKey, preparedResult.orderCode(), amount), memberNo);
 
 		// when
-		paymentConfirmer.confirm(confirmRequest, memberNo);
 		paymentOutboxWorker.poll();
 
-		// then - R→B 처리기는 후속 PR에서 붙이며 그 전에는 다른 예약을 허용하지 않는다.
+		// then
+		long bookingId = bookingRepository.findAll().get(0).getId();
+		assertThat(seatOccupancyTestHelper.valueOf(reservation.trainScheduleId(), reservedSeat.trainCarId(),
+			reservedSeat.seatId(), departureStop.getStopOrder())).isEqualTo("B:" + bookingId);
+
+		PaymentOutbox outbox = paymentOutboxRepository.findByDeduplicationKey(
+			"payment:%d:booking-confirmed".formatted(confirmed.paymentId())).orElseThrow();
+		assertThat(outbox.getStatus()).isEqualTo(PaymentOutboxStatus.DONE);
+
 		Reservation another = paymentReservations.builder()
 			.withMemberNo(memberNo).withTrainScheduleId(reservation.trainScheduleId())
 			.withDepartureStopId(departureStop.getId()).withArrivalStopId(arrivalStop.getId())
-			.withSeats(List.of(new SeatPassenger(seatId, PassengerType.ADULT))).build();
+			.withSeats(List.of(new SeatPassenger(reservedSeat.seatId(), PassengerType.ADULT))).build();
 		assertThatThrownBy(() -> bookingRedisRepository.save(another)).isInstanceOf(BusinessException.class);
-
 	}
 
 	// ========== 실패 시나리오 테스트 ==========
@@ -1034,4 +1175,12 @@ class PaymentConfirmServiceTest {
 
 	// attemptId 필드는 API에서 제거되어 서버가 paymentKey에서 SHA-256으로 파생한다.
 	// 64자 초과 검증 테스트는 필드 삭제로 무효화되어 제거.
+
+	/** orderCode로 Payment를 찾는다. 포트에 findByOrderCode가 없어 테스트는 전체 조회 후 걸러낸다. */
+	private Payment findPayment(String orderCode) {
+		return paymentRepository.findAll().stream()
+			.filter(p -> p.getOrderCode().equals(orderCode))
+			.findFirst()
+			.orElseThrow();
+	}
 }

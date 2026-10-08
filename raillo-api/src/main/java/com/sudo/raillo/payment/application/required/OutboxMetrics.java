@@ -8,4 +8,7 @@ public interface OutboxMetrics {
 	void incrementCleanupFailure();
 
 	void incrementOutboxFailed();
+
+	/** 재시도로 낫지 않는 원인이라 백오프 없이 FAILED로 보낸 건수. 알림은 이 지표에 건다. */
+	void incrementOutboxNonRetryable();
 }

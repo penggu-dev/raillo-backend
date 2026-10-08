@@ -1,8 +1,10 @@
 package com.sudo.raillo.booking.application.service;
 
+import com.sudo.raillo.booking.application.dto.BookingConversionRequest;
 import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.booking.infrastructure.BookingOccupancyCommand;
 import com.sudo.raillo.booking.infrastructure.ReservationRedisRepository;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand.SeatCar;
@@ -70,8 +72,9 @@ public class ReservationService {
 		try {
 			result = seatOccupancyRepository.occupy(toOccupyCommand(reservation, ttl));
 		} catch (RuntimeException e) {
-			// 응답 타임아웃처럼 스크립트가 이미 저장했을 수 있으니, 저장됐으면 성공으로 보고 인덱스를 남긴다
-			if (!isStored(reservation)) {
+			// 응답 타임아웃처럼 스크립트가 이미 저장했을 수 있으니, 저장됐으면 성공으로 보고 인덱스를 남긴다.
+			// 데이터 오염은 스크립트가 아무것도 쓰지 않았다는 확정 신호이므로 이 구제 대상이 아니다
+			if (isCorrupted(e) || !isStored(reservation)) {
 				rollbackMemberIndex(memberNo, reservationId);
 				throw e;
 			}
@@ -134,6 +137,35 @@ public class ReservationService {
 		log.info("[예약 삭제] reservationId={}, memberNo={}", reservationId, memberNo);
 	}
 
+	/**
+	 * 결제가 확정된 예약의 좌석을 예매 점유로 바꾸고 회원 인덱스를 지운다. 예약 본문은 스크립트가 지운다.
+	 *
+	 * @return 전환했으면 true, 다른 예약이나 예매와 충돌해 아무것도 쓰지 않았으면 false
+	 */
+	public boolean convertToBooking(BookingConversionRequest request) {
+		SeatOccupancyResult result = seatOccupancyRepository.confirmBooking(new BookingOccupancyCommand(
+			request.trainScheduleId(),
+			request.reservationId(),
+			request.bookingId(),
+			TrainCacheKey.expireAtEpochSecond(request.operationDate()),
+			request.departureStopOrder(),
+			request.arrivalStopOrder(),
+			request.seats().stream()
+				.map(seat -> new SeatOccupancyCommand.SeatCar(seat.seatId(), seat.trainCarId()))
+				.toList()
+		));
+		if (result.success()) {
+			reservationRedisRepository.removeMemberIndex(request.memberNo(), request.reservationId());
+		}
+		return result.success();
+	}
+
+	/** 좌석은 그대로 두고 예약 본문과 회원 인덱스만 지운다. */
+	public void discardReservation(long trainScheduleId, String reservationId, String memberNo) {
+		reservationRedisRepository.delete(trainScheduleId, reservationId);
+		reservationRedisRepository.removeMemberIndex(memberNo, reservationId);
+	}
+
 	private SeatOccupancyCommand toOccupyCommand(Reservation reservation, Duration ttl) {
 		return new SeatOccupancyCommand(
 			reservation.trainScheduleId(),
@@ -164,6 +196,11 @@ public class ReservationService {
 	private static long toTtlSeconds(Duration ttl) {
 		long seconds = (ttl.toMillis() + 999) / 1000;
 		return Math.max(1L, seconds);
+	}
+
+	private static boolean isCorrupted(RuntimeException e) {
+		return e instanceof BusinessException business
+			&& business.getErrorCode() == BookingError.SEAT_OCCUPANCY_CORRUPTED;
 	}
 
 	private boolean isStored(Reservation reservation) {

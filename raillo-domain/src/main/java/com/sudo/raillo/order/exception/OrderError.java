@@ -16,7 +16,8 @@ public enum OrderError implements ErrorCode {
 	EMPTY_RESERVATIONS("주문할 예약 정보가 없습니다.", HttpStatus.BAD_REQUEST, "ORDER_006"),
 	ORDER_BOOKING_NOT_FOUND("주문 예약 정보를 찾을 수 없습니다.", HttpStatus.BAD_REQUEST, "ORDER_007"),
 	ORDER_SEAT_BOOKING_NOT_FOUND("주문 좌석 예약 정보를 찾을 수 없습니다.", HttpStatus.BAD_REQUEST, "ORDER_008"),
-	ORDER_IS_EXPIRED("만료된 주문입니다.", HttpStatus.GONE, "ORDER_009");
+	ORDER_IS_EXPIRED("만료된 주문입니다.", HttpStatus.GONE, "ORDER_009"),
+	ORDER_RESERVATION_SNAPSHOT_MISSING("주문의 예약 스냅샷이 없습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "ORDER_010");
 
 	private final String message;
 	private final HttpStatus status;

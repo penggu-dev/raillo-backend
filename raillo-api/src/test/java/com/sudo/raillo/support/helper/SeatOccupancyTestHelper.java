@@ -11,9 +11,7 @@ import com.sudo.raillo.booking.cache.SeatOccupancyValue;
 
 import lombok.RequiredArgsConstructor;
 
-/**
- * 객차 좌석 점유 Hash에 값을 직접 기록한다. 예매 점유(B:)는 결제 확정 PR 전까지 이 헬퍼로만 만들 수 있다.
- */
+/** 객차 좌석 점유 Hash에 값을 직접 기록한다. */
 @Component
 @RequiredArgsConstructor
 public class SeatOccupancyTestHelper {

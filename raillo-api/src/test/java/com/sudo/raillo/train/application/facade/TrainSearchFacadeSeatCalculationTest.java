@@ -8,6 +8,7 @@ import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.helper.BookingResult;
 import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
 import com.sudo.raillo.support.helper.TrainScheduleTestHelper;
@@ -336,6 +337,48 @@ class TrainSearchFacadeSeatCalculationTest {
 
 		// 만료된 1석은 Hash 조회에서 제외, 유효한 4석만 차감: 80 - 4 = 76
 		assertThat(result.standardSeat().remainingSeats()).isEqualTo(76);
+	}
+
+	@Test
+	@DisplayName("같은 좌석이 DB 예매와 Redis 예매 점유에 모두 있으면 잔여석에서 한 번만 뺀다")
+	void searchTrains_counts_seat_once_when_booked_in_db_and_redis() {
+		// given
+		LocalDate searchDate = LocalDate.now().plusDays(1);
+		trainScheduleTestHelper.createOrUpdateStationFare("서울", "부산", 50000, 80000);
+		Station seoul = trainScheduleTestHelper.getOrCreateStation("서울");
+		Station busan = trainScheduleTestHelper.getOrCreateStation("부산");
+		Member member = memberRepository.save(MemberFixture.create());
+
+		// 일반실 80석 (2객차 × 10행 × 4석), 특실 24석 (1객차 × 8행 × 3석)
+		Train train = trainTestHelper.createRealisticTrain(2, 1, 10, 8);
+		TrainScheduleResult scheduleResult = trainScheduleTestHelper.builder()
+			.scheduleName("KTX TEST")
+			.operationDate(searchDate)
+			.train(train)
+			.addStop("서울", null, LocalTime.of(10, 0))
+			.addStop("부산", LocalTime.of(13, 0), null)
+			.build();
+		ScheduleStop departureStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleResult, "서울");
+		ScheduleStop arrivalStop = trainScheduleTestHelper.getScheduleStopByStationName(scheduleResult, "부산");
+		Long trainScheduleId = scheduleResult.trainSchedule().getId();
+
+		List<Seat> bookedSeats = trainTestHelper.getSeats(train, CarType.STANDARD, 10);
+		BookingResult booked = bookingTestHelper.builder(member, scheduleResult)
+			.setDepartureScheduleStop(departureStop)
+			.setArrivalScheduleStop(arrivalStop)
+			.addSeats(bookedSeats, PassengerType.ADULT)
+			.build();
+		String bookingId = String.valueOf(booked.booking().getId());
+		bookedSeats.forEach(seat -> seatOccupancy.markBooked(trainScheduleId, seat.getTrainCar().getId(), seat.getId(),
+			departureStop.getStopOrder(), arrivalStop.getStopOrder(), bookingId));
+
+		// when
+		TrainSearchRequest request = new TrainSearchRequest(seoul.getId(), busan.getId(), searchDate, 1, "00");
+		TrainSearchSlicePageResponse response = trainSearchFacade.searchTrains(request, PageRequest.of(0, 20));
+
+		// then - 같은 10석이 DB와 Redis에 모두 있어도 80 - 10 = 70
+		assertThat(response.content()).hasSize(1);
+		assertThat(response.content().get(0).standardSeat().remainingSeats()).isEqualTo(70);
 	}
 
 	private void holdSeats(

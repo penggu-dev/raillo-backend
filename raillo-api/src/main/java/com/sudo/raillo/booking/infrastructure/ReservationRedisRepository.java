@@ -51,6 +51,10 @@ public class ReservationRedisRepository {
 		return Optional.ofNullable(value).map(v -> Long.parseLong((String)v));
 	}
 
+	public void delete(long trainScheduleId, String reservationId) {
+		stringRedisTemplate.delete(ReservationCacheKey.reservation(trainScheduleId, reservationId));
+	}
+
 	/**
 	 * 회원 인덱스에서 예약 ID별 운행 ID를 찾는다. 인덱스에 없는 예약은 결과에서 빠진다.
 	 */
