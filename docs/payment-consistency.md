@@ -118,12 +118,16 @@ Toss 호출 직전에 `IN_PROGRESS`로 INSERT. 후속 `PaymentRecoveryWorker`는
 - INSERT/커밋 무결성 오류 뒤에는 실제 동일 attempt의 존재와 요청 일치를 확인한다. 다른 제약 위반은 원래 오류로 전파한다. `payment.payment_key`는 승인 확정 시에만 저장하므로 TX A 실패로 롤백할 필드가 남지 않는다.
 - Toss 호출 실패는 전송 단계로 먼저 가른다. 어댑터가 원인 체인을 거슬러 올라가 `DeliveryPhase`를 정하고, 애플리케이션은 `PaymentGatewayException`의 `isNotReached()`, `isOutcomeUnknown()`, `isDefinitiveFailure()` 세 판정으로만 분기한다. `DeliveryPhase`는 호출 한 번의 도달 여부를 나타내는 값이고 저장되지 않는다. attempt 상태와는 다른 축이다.
 
-  | 전송 단계 | 원인 | attempt |
-  |---|---|---|
-  | `NOT_REACHED` | 커넥션 획득 타임아웃(풀 고갈), TCP 연결 실패, 호스트 해석 실패 | `NOT_SENT` |
-  | `NO_RESPONSE` | 응답 대기 초과, 그 밖의 I/O 오류, 응답 본문 파싱 실패 | `IN_PROGRESS` 유지 |
-  | `ANSWERED` 4xx | 게이트웨이가 요청을 확정 거절 | `FAILED` |
-  | `ANSWERED` 5xx | 게이트웨이 내부 오류 | `IN_PROGRESS` 유지 |
+  | 전송 단계 | 원인 | attempt | 사용자 응답(승인 경로) |
+  |---|---|---|---|
+  | `NOT_REACHED` | 커넥션 획득 타임아웃(풀 고갈), TCP 연결 실패, 호스트 해석 실패 | `NOT_SENT` | `PAYMENT_118` 503 |
+  | `NO_RESPONSE` | 응답 대기 초과, 그 밖의 I/O 오류, 응답 본문 파싱 실패 | `IN_PROGRESS` 유지 | `PAYMENT_113` 409 |
+  | `ANSWERED` 4xx | 게이트웨이가 요청을 확정 거절 | `FAILED` | 게이트웨이 상태 코드 그대로 |
+  | `ANSWERED` 5xx | 게이트웨이 내부 오류 | `IN_PROGRESS` 유지 | `PAYMENT_113` 409 |
+
+  사용자 응답 열은 승인(confirm) 경로 기준이다. 조회 실패의 사용자 응답은 `PaymentApprovalStarter`가 따로 정하므로 아래 조회 API 실패 표를 따르며, 조회의 미도달 확정도 503이 아니라 `PAYMENT_113` 409다.
+
+  승인 경로의 응답은 재시도 안전성으로 가른다. 미도달이 확정인 실패만 바로 다시 보낼 수 있어 503이고, 승인 여부를 모르는 실패는 응답을 받았는지와 무관하게 409로 내려 재시도를 막는다. 게이트웨이의 5xx를 그대로 내리지 않는 이유는 5xx에 자동 재시도를 걸어둔 호출자가 멱등하지 않은 승인 요청을 다시 보내기 때문이다. 조회 경로는 미도달 확정에도 504/502를 실어 보내므로, 가르는 기준은 상태 코드가 아니라 전송 단계다. 409로 내리는 실패에서는 게이트웨이가 돌려준 상태 코드와 에러 코드가 사용자 응답에서 빠져 지표와 로그로만 남고, 확정 거절(4xx)은 그대로 전달한다.
 
   판정이 애매하면 `NO_RESPONSE`로 둔다. 두 방향의 오류가 대칭이 아니기 때문이다. 나간 요청을 `NOT_REACHED`로 잘못 보면 사용자가 재시도해 이중 청구가 되고, 나가지 않은 요청을 `NO_RESPONSE`로 보면 불필요한 조회 한 번으로 끝난다.
 - Toss의 4xx 응답은 확정 실패로 분류해 attempt만 FAILED로 마킹한다. Payment는 PENDING을 유지해 같은 Order에 대한 새 결제 시도를 열어 둔다. 5xx, 타임아웃, 응답 유실처럼 승인 여부를 단정할 수 없는 오류는 attempt를 IN_PROGRESS로 유지하고 유저 재시도 시 게이트웨이 조회로 회복한다.
@@ -147,7 +151,7 @@ Toss 호출 직전에 `IN_PROGRESS`로 INSERT. 후속 `PaymentRecoveryWorker`는
 | `404 NOT_FOUND_PAYMENT` · `404 NOT_FOUND` | 해당 paymentKey에 대한 결제가 게이트웨이에 없음이 확정 → attempt를 FAILED로 마킹(`GATEWAY_NOT_FOUND_PAYMENT`/`GATEWAY_NOT_FOUND`) |
 | `401 UNAUTHORIZED_KEY` · `403 INCORRECT_BASIC_AUTH_FORMAT` · `403 FORBIDDEN_CONSECUTIVE_REQUEST` · `500 FAILED_PAYMENT_INTERNAL_SYSTEM_PROCESSING` · 기타 | 승인 여부 판단 불가 → 로컬 IN_PROGRESS 유지, `PAYMENT_ATTEMPT_IN_PROGRESS`로 응답 |
 
-사용자가 재시도하지 않아도 오래 남은 IN_PROGRESS는 `PaymentRecoveryWorker`(#270)가 같은 조회 API로 대사한다. 사용자 재시도 정정 경로가 있어도 이 Worker는 사용자가 창을 닫아 재시도가 오지 않는 케이스와 크래시 회복을 커버한다.
+사용자가 재시도하지 않아도 오래 남은 IN_PROGRESS는 `PaymentRecoveryWorker`(#270)가 같은 조회 API로 대사한다. 사용자 재시도 정정 경로가 있어도 이 Worker는 사용자가 창을 닫아 재시도가 오지 않는 케이스와 크래시 회복을 커버한다. **Worker 본체는 아직 구현되지 않았다.** 현재 구현된 회복 경로는 사용자 재시도뿐이다.
 
 ### payment_outbox
 
