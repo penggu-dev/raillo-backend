@@ -9,8 +9,8 @@
 #   1. .env 존재 확인 (JWT_KEY 등 시크릿이 있어야 앱이 부팅됨)
 #   2. jar 빌드 (raillo-api, raillo-batch)
 #   3. docker compose -f compose-test.yaml up (MySQL, Redis, WireMock, Prometheus, Grafana, raillo-server)
-#   4. MySQL healthy 대기
-#   5. raillo-server /actuator/health UP 대기
+#   4. MySQL, Valkey 도달 대기
+#   5. raillo-server readiness 대기 (관리 포트 8091)
 #   6. batch trainInitialize 실행 (역·열차·좌석·스케줄 적재)
 #   7. 회원 100명 생성 (generate_members.py)
 #   8. k6용 schedule-config.json 생성 (generate_k6_schedule_config.py)
@@ -67,26 +67,35 @@ log "2/8 docker compose 기동"
 docker compose -f compose-test.yaml up -d
 
 # ------------------------------------------------------------------------------
-# 4. MySQL healthy 대기
+# 4. MySQL, Valkey 도달 대기
 # ------------------------------------------------------------------------------
-log "3/8 MySQL healthy 대기"
+log "3/8 MySQL, Valkey 도달 대기"
 until docker exec raillo-test-mysql mysqladmin ping -uroot -proot-local --silent 2>/dev/null; do
   sleep 2
 done
 log "    MySQL ready"
 
+# readiness 게이트는 의존성을 보지 않으므로 Valkey도 여기서 확인한다.
+# compose에 container_name이 없어 서비스 이름으로 exec 한다.
+until [ "$(docker compose -f compose-test.yaml exec -T redis valkey-cli ping 2>/dev/null | tr -d '\r')" = "PONG" ]; do
+  sleep 2
+done
+log "    Valkey ready"
+
 # ------------------------------------------------------------------------------
-# 5. raillo-server /actuator/health UP 대기
+# 5. raillo-server readiness 대기
+#    actuator는 관리 포트(컨테이너 8081 → 호스트 8091)에 있다. 종합 health는 메일 같은 부수
+#    의존성이 DOWN이면 503이라 게이트로 쓰지 않는다.
 # ------------------------------------------------------------------------------
 log "4/8 raillo-server 기동 대기"
 for i in $(seq 1 60); do
-  if curl -s -f http://localhost:8080/actuator/health >/dev/null 2>&1; then
+  if curl -s -f http://localhost:8091/actuator/health/readiness >/dev/null 2>&1; then
     log "    raillo-server UP"
     break
   fi
   sleep 3
 done
-if ! curl -s -f http://localhost:8080/actuator/health >/dev/null 2>&1; then
+if ! curl -s -f http://localhost:8091/actuator/health/readiness >/dev/null 2>&1; then
   echo "ERROR: raillo-server 3분 안에 기동 실패. docker logs raillo-server 확인" >&2
   exit 1
 fi
@@ -143,6 +152,7 @@ echo " 대시보드:"
 echo "   Grafana:    http://localhost:3000/d/payment-metrics/payment-metrics"
 echo "   Prometheus: http://localhost:9090"
 echo "   WireMock:   http://localhost:8081/__admin"
+echo "   actuator:   http://localhost:8091/actuator/health"
 echo ""
 echo " 정리:"
 echo "   docker compose -f compose-test.yaml down      # 컨테이너만"

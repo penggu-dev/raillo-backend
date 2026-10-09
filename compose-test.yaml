@@ -4,6 +4,8 @@ services:
     container_name: raillo-server
     ports:
       - "8080:8080"
+      # 관리 포트. 호스트 8081은 WireMock이 쓰므로 8091로 내보낸다.
+      - "8091:8081"
     working_dir: /app
     volumes:
       - ./raillo-api/build/libs:/app/libs
@@ -132,7 +134,8 @@ services:
           - job_name: 'raillo-server'
             metrics_path: '/actuator/prometheus'
             static_configs:
-              - targets: ['raillo-server:8080']
+              # actuator는 관리 포트에 있다. 컨테이너 간 통신이라 8081 그대로 쓴다.
+              - targets: ['raillo-server:8081']
 
           - job_name: 'redis-exporter'
             static_configs:
