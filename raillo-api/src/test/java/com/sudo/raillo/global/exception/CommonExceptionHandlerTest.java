@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.*;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.sudo.raillo.global.response.ErrorResponse;
 import com.sudo.raillo.order.exception.OrderError;
@@ -42,5 +44,15 @@ class CommonExceptionHandlerTest {
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GONE);
 		assertThat(response.getBody().getErrorCode()).isEqualTo(OrderError.ORDER_IS_EXPIRED.getCode());
+	}
+	@Test
+	@DisplayName("매핑되지 않은 URL은 500이 아니라 404로 응답한다")
+	void unmappedUrl_respondsNotFound() {
+		NoResourceFoundException ex = new NoResourceFoundException(HttpMethod.GET, "/no/such/path", "/no/such/path");
+
+		ResponseEntity<ErrorResponse> response = handler.handleNoResourceFound(ex);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+		assertThat(response.getBody().getErrorCode()).isEqualTo(GlobalError.RESOURCE_NOT_FOUND.getCode());
 	}
 }

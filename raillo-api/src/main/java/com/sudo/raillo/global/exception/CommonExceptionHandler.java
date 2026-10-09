@@ -16,6 +16,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.sudo.raillo.global.response.ErrorResponse;
 
@@ -124,6 +125,17 @@ public class CommonExceptionHandler {
 
 		logExternalApiException(ex);
 		return ResponseEntity.status(ex.getHttpStatus()).body(response);
+	}
+
+	/**
+	 * 매핑되지 않은 URL. 전용 핸들러가 없으면 포괄 핸들러로 떨어져 404가 500으로 나가고, 클라이언트가
+	 * 고칠 수 있는 문제가 서버 장애로 읽혀 자동 재시도를 부른다.
+	 */
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException ex) {
+		ErrorResponse errorResponse = ErrorResponse.of(GlobalError.RESOURCE_NOT_FOUND);
+		log.warn("No handler for {} {}", ex.getHttpMethod(), ex.getResourcePath());
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)
