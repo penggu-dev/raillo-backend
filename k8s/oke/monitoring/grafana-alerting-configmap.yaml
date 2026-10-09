@@ -1,0 +1,337 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-alerting
+  namespace: monitoring
+data:
+  # Discord webhook URL은 grafana-secret의 DISCORD_WEBHOOK_URL에서 읽는다. 저장소에 두지 않는다.
+  contactpoints.yaml: |
+    apiVersion: 1
+    contactPoints:
+      - orgId: 1
+        name: discord
+        receivers:
+          - uid: discord-webhook
+            type: discord
+            settings:
+              url: $__env{DISCORD_WEBHOOK_URL}
+
+  policies.yaml: |
+    apiVersion: 1
+    policies:
+      - orgId: 1
+        receiver: discord
+        group_by:
+          - alertname
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 4h
+
+  rules.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: raillo-dependencies
+        folder: raillo
+        interval: 1m
+        # 규칙 설계와 noDataState 정책은 docs/deployment.md 알림 절에 있다. 여기 주석은 규칙별
+        # 단서만 적는다. 수집 불가 세 규칙만 noDataState 기본값이고 나머지는 OK다.
+        rules:
+          - uid: raillo-api-scrape-down
+            title: raillo-api 수집 불가
+            condition: C
+            execErrState: Error
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: raillo-api를 2분 넘게 수집하지 못하고 있습니다
+              description: 앱이 내려갔거나 actuator 포트가 Prometheus 설정과 어긋났을 수 있습니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 300
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: up{job="raillo-api"}
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: lt
+                        params:
+                          - 1
+
+          - uid: raillo-valkey-down
+            title: Valkey 수집 불가
+            condition: C
+            execErrState: Error
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: Valkey를 2분 넘게 수집하지 못하고 있습니다
+              description: 예약 생성과 좌석 점유가 막힙니다. 파드 재시작으로는 해결되지 않습니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 300
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: up{job="valkey"}
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: lt
+                        params:
+                          - 1
+
+          - uid: raillo-mysql-down
+            title: MySQL 수집 불가
+            condition: C
+            execErrState: Error
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: MySQL을 2분 넘게 수집하지 못하고 있습니다
+              description: 결제 확정과 예매 생성이 막힙니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 300
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: up{job="mysql"}
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: lt
+                        params:
+                          - 1
+
+          - uid: raillo-api-restarting
+            title: raillo-api 파드 재시작
+            condition: C
+            execErrState: Error
+            noDataState: OK
+            for: 0m
+            labels:
+              severity: warning
+            annotations:
+              summary: raillo-api 파드가 최근 10분 안에 재시작했습니다
+              description: 진행 중이던 결제 승인이 끊겨 결과를 알 수 없는 시도가 남았을 수 있습니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: increase(kube_pod_container_status_restarts_total{namespace="api-server", pod=~"raillo-api-.*"}[10m])
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params:
+                          - 0
+
+          # 지표는 server.tomcat.mbeanregistry.enabled에 달려 있고 메인 커넥터만 보고한다.
+          # spring.threads.virtual을 켜면 config_max가 0이 되어 이 규칙이 영구 발화한다.
+          - uid: raillo-api-thread-saturation
+            title: raillo-api 요청 스레드 포화
+            condition: C
+            execErrState: Error
+            noDataState: OK
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: 요청 스레드가 2분 넘게 80% 이상 사용 중입니다
+              description: 외부 호출 지연으로 스레드가 묶여 있을 수 있습니다. 파드는 재시작되지 않으므로 외부 의존성 지연을 먼저 확인합니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 300
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: max by (pod) (tomcat_threads_busy_threads{job="raillo-api"} / tomcat_threads_config_max_threads{job="raillo-api"})
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params:
+                          - 0.8
+
+          # 위 포화 규칙이 noDataState: OK라 지표가 사라지면 조용히 무력화된다. 그것만 따로 본다.
+          - uid: raillo-api-thread-metric-absent
+            title: raillo-api 스레드 지표 유실
+            condition: C
+            execErrState: Error
+            noDataState: OK
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: 수집은 되는데 스레드 지표가 10분 넘게 들어오지 않습니다
+              description: server.tomcat.mbeanregistry.enabled가 꺼졌거나 가상 스레드로 바뀌었을 수 있습니다. 스레드 포화 규칙이 무효 상태입니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 900
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: absent(tomcat_threads_busy_threads{job="raillo-api"}) and on() (up{job="raillo-api"} == 1)
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params:
+                          - 0
+
+          # up{job="mysql"}은 exporter 생존만 본다. 앱이 실제로 커넥션을 못 얻는 것은 이쪽이 본다.
+          - uid: raillo-api-db-connection-timeout
+            title: raillo-api DB 커넥션 획득 실패
+            condition: C
+            execErrState: Error
+            noDataState: OK
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: 앱이 DB 커넥션을 얻지 못하고 있습니다
+              description: MySQL 미도달이거나 풀 고갈입니다. 결제 확정과 예매 생성이 막힙니다. exporter가 살아 있어도 울립니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: max by (pod) (increase(hikaricp_connections_timeout_total{job="raillo-api"}[10m]))
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params:
+                          - 0
+
+          # 아래 미전송 규칙의 increase()가 놓치는 첫 실패를 원인 쪽 게이지로 덮는다.
+          - uid: raillo-toss-pool-exhausted
+            title: Toss 커넥션 풀 대기 발생
+            condition: C
+            execErrState: Error
+            noDataState: OK
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: Toss 커넥션 풀에서 2분 넘게 대기가 발생하고 있습니다
+              description: 풀이 고갈되면 커넥션 획득 타임아웃으로 승인 요청이 미전송 처리됩니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 300
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: max by (pod) (toss_pool_connections_pending{job="raillo-api"})
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params:
+                          - 0
+
+          - uid: raillo-toss-not-reached
+            title: Toss 승인 요청 미전송 발생
+            condition: C
+            execErrState: Error
+            noDataState: OK
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: 승인 요청이 Toss에 도달하지 못하고 있습니다
+              description: 커넥션 풀 고갈이나 연결 실패입니다. attempt는 NOT_SENT로 남아 사용자 재시도가 가능합니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: sum(increase(toss_api_failure_total{phase="NOT_REACHED"}[10m]))
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params:
+                          - 0

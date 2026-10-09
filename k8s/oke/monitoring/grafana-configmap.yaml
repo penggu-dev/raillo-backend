@@ -8,6 +8,8 @@ data:
     apiVersion: 1
     datasources:
       - name: Prometheus
+        # 알림 규칙이 datasourceUid로 참조하므로 생성되는 값에 맡기지 않고 고정한다.
+        uid: prometheus
         type: prometheus
         access: proxy
         url: http://prometheus-service.monitoring.svc.cluster.local:9090
