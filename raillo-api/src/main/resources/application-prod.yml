@@ -1,5 +1,8 @@
 server:
   tomcat:
+    # 이것이 false면 tomcat_threads_* 지표가 등록되지 않아 스레드 포화 알림이 무효가 된다.
+    mbeanregistry:
+      enabled: true
     threads:
       max: ${TOMCAT_THREADS_MAX:200}
 
@@ -92,6 +95,9 @@ raillo:
 
 # Prometheus
 management:
+  # 관리 엔드포인트 전용 포트. 포트와 프로브 설계는 docs/deployment.md 참고.
+  server:
+    port: ${MANAGEMENT_PORT:8081}
   endpoints:
     web:
       exposure:
@@ -103,6 +109,10 @@ management:
     tags:
       application: raillo-api
   endpoint:
+    health:
+      # liveness, readiness 그룹을 노출한다. 프로브가 종합 health를 보지 않게 하려는 것이다.
+      probes:
+        enabled: true
     prometheus:
       access: unrestricted
 

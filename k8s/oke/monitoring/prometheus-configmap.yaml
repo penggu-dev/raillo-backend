@@ -55,13 +55,17 @@ data:
           - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
             regex: raillo-api
+          # 관리 포트. actuator 엔드포인트는 메인 커넥터가 아니라 management.server.port에서 노출.
           - source_labels: [__meta_kubernetes_pod_container_port_number]
             action: keep
-            regex: "8080"
+            regex: "8081"
           - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: app
           - source_labels: [__meta_kubernetes_pod_node_name]
             target_label: node
+          # 알림 본문에 어느 파드인지 남기려면 이 라벨이 필요하다. instance는 파드 IP라 읽기 어렵다.
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
 
       - job_name: valkey
         static_configs:
