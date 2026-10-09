@@ -10,7 +10,7 @@
 |---|---|---|---|---|
 | 1 | 정상 결제 | Toss 승인 성공 | 200 결제 완료 | [normal-flow · case-1](./diagrams/payment-flow/normal-flow.html) |
 | 2 | 카드 승인 거절 후 재시도 | Toss 4xx | 402 실패 → 새 카드 재시도 | [retry-defense · case-2](./diagrams/payment-flow/retry-defense.html) |
-| 3 | 결과 불명 · 인라인 자동 재조회 | Toss 5xx/타임아웃 (confirm 안에서) | Toss GET 재조회 후 200/402/503 | [unclear-result · case-3](./diagrams/payment-flow/unclear-result.html) |
+| 3 | 결과 불명 | Toss 5xx, 응답 대기 초과, 응답 본문 유실 (연결 단계 실패는 case 18) | `PAYMENT_ATTEMPT_IN_PROGRESS`(`PAYMENT_113`, 409) — attempt는 `IN_PROGRESS` 유지, 회복은 case 4와 case 12. 인라인 자동 재조회는 **미구현**이고 링크된 다이어그램은 그 미구현 설계를 그린 것이다 | [unclear-result · case-3](./diagrams/payment-flow/unclear-result.html) |
 | 4 | 결과 불명 · 유저 재시도 | 유저가 같은 결제창에서 재시도 | attempt dedup + Toss GET → 정정 결과 | [unclear-result · case-4](./diagrams/payment-flow/unclear-result.html) |
 | 5 | 같은 attemptId 재요청 (SUCCEEDED) | 클라이언트 double-click / 자동 재전송 | 이전 결과 재사용 (Toss 호출 없음) | [normal-flow · case-5](./diagrams/payment-flow/normal-flow.html) |
 | 6 | 같은 attemptId 재요청 (FAILED) | 실패 attempt에 재요청 | `PAYMENT_ATTEMPT_ALREADY_FAILED` 예외 | [retry-defense · case-6](./diagrams/payment-flow/retry-defense.html) |
@@ -19,7 +19,7 @@
 | 9 | 금액 불일치 | request vs Order vs Payment 금액 다름 | `PAYMENT_AMOUNT_MISMATCH` | [validation-failure · case-9](./diagrams/payment-flow/validation-failure.html) |
 | 10 | Toss 응답 paymentKey 미스매치 | Toss 응답 vs 요청 paymentKey 다름 | `PAYMENT_KEY_MISMATCH` | [validation-failure · case-10](./diagrams/payment-flow/validation-failure.html) |
 | 11 | 유저 명시 예약 취소 (#259) | 유저가 예약 취소 API 호출 | 좌석/예약/Order/Payment 정리 | (#259 후속) |
-| 12 | Recovery Worker 대사 | 오래된 IN_PROGRESS attempt (#270) | 배치 정정 (유저 응답 아님) | [unclear-result · case-12](./diagrams/payment-flow/unclear-result.html) |
+| 12 | Recovery Worker 대사 | 오래된 IN_PROGRESS attempt (#270) | 배치 정정 (유저 응답 아님) — Worker 본체 **미구현** | [unclear-result · case-12](./diagrams/payment-flow/unclear-result.html) |
 | 13 | 새 세션 재시도 (이전 IN_PROGRESS) | 다른 attemptId, 같은 Payment의 이전 attempt가 IN_PROGRESS | `PAYMENT_ATTEMPT_IN_PROGRESS` — TX A `findLatestApprovalByPaymentId`가 차단 | [retry-defense · case-13](./diagrams/payment-flow/retry-defense.html) |
 | 14 | pre-check와 잠금 사이 SUCCEEDED race | pre-check 통과 후 TX A 잠금 획득 전에 다른 요청이 확정 커밋 | `PAYMENT_ALREADY_COMPLETED` — TX A가 SUCCEEDED 발견 | [retry-defense · case-14](./diagrams/payment-flow/retry-defense.html) |
 | 15 | 동시 TX B 진입 경합 | 원본 confirm 대기 중 유저가 재시도, 둘 다 DONE 확인 → 둘 다 TX B 진입 | TX B 락 직렬화 후 늦게 진입한 쪽이 `attempt.status == SUCCEEDED` 조기 리턴. 유저 관점 성공 응답 | [tx-b-race · case-15](./diagrams/payment-flow/tx-b-race.html) |
