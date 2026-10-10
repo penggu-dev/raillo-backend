@@ -20,6 +20,7 @@ public enum BookingError implements ErrorCode {
 	INVALID_BOOKING_TIME_FILTER("유효하지 않은 조회 필터입니다. 허용 값: upcoming, history, all", HttpStatus.BAD_REQUEST, "BOOKING_106"),
 	SEAT_BOOKING_NOT_FOUND("좌석 예매 상태를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "BOOKING_107"),
 	DUPLICATE_SEAT_IDS("같은 좌석을 중복 선택할 수 없습니다.", HttpStatus.BAD_REQUEST, "BOOKING_108"),
+	BOOKING_ACCESS_DENIED("해당 예매에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN, "BOOKING_109"),
 
 	// 승차권 (2xx)
 	TICKET_NOT_FOUND("티켓을 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "BOOKING_201"),

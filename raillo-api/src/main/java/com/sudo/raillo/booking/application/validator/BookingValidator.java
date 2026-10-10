@@ -1,5 +1,6 @@
 package com.sudo.raillo.booking.application.validator;
 
+import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.SeatBooking;
 import com.sudo.raillo.booking.domain.Ticket;
@@ -19,6 +20,15 @@ import org.springframework.stereotype.Component;
 public class BookingValidator {
 
 	private final SeatBookingRepository seatBookingRepository;
+
+	/**
+	 * `Booking` 소유자 검증
+	 */
+	public void validateBookingOwner(Booking booking, Member member) {
+		if (!booking.getMember().getId().equals(member.getId())) {
+			throw new BusinessException(BookingError.BOOKING_ACCESS_DENIED);
+		}
+	}
 
 	/**
 	 * 승차권 소유자 검증

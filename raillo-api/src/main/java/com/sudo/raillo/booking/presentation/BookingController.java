@@ -2,6 +2,8 @@ package com.sudo.raillo.booking.presentation;
 
 import java.util.List;
 
+import jakarta.validation.Valid;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,13 +32,17 @@ public class BookingController implements BookingControllerDoc {
 	private final BookingService bookingService;
 
 	/***
-	 * 예매를 삭제하는 메서드
-	 * @param request 예매 삭제 요청 DTO
-	 * @return 예매 삭제 성공 응답
+	 * 본인 `Booking`을 삭제한다.
+	 * @param request 삭제 요청 DTO
+	 * @param userDetails 로그인한 회원
+	 * @return 삭제 성공 응답
 	 */
 	@DeleteMapping
-	public SuccessResponse<?> deleteBooking(@RequestBody BookingDeleteRequest request) {
-		bookingService.deleteBooking(request.bookingId());
+	public SuccessResponse<?> deleteBooking(
+		@Valid @RequestBody BookingDeleteRequest request,
+		@AuthenticationPrincipal UserDetails userDetails
+	) {
+		bookingService.deleteBooking(userDetails.getUsername(), request.bookingId());
 		return SuccessResponse.of(BookingSuccess.BOOKING_DELETE_SUCCESS);
 	}
 

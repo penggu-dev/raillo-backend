@@ -26,6 +26,11 @@ import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.order.exception.OrderError;
 import com.sudo.raillo.order.infrastructure.OrderBookingRepository;
 import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
+import com.sudo.raillo.payment.application.BookingSeatReleasePayload;
+import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
+import com.sudo.raillo.payment.domain.PaymentOutbox;
+import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
+import com.sudo.raillo.payment.domain.PaymentOutboxType;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
 import com.sudo.raillo.support.fixture.OrderFixture;
@@ -46,6 +51,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import tools.jackson.databind.ObjectMapper;
 
 @ServiceTest
 @Slf4j
@@ -83,6 +91,15 @@ class BookingServiceTest {
 
 	@Autowired
 	private OrderTestHelper orderTestHelper;
+
+	@Autowired
+	private PaymentOutboxRepository paymentOutboxRepository;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@Test
 	@DisplayName("유효한 주문으로 예매, 좌석예매, 승차권이 생성된다")
@@ -369,8 +386,8 @@ class BookingServiceTest {
 	}
 
 	@Test
-	@DisplayName("올바른 예매 삭제 요청 DTO로 예매 삭제에 성공한다")
-	void validRequestDto_deleteBooking_success() {
+	@DisplayName("본인 예매를 삭제하면 예매가 지워진다")
+	void ownBooking_deleteBooking_success() {
 		// given
 		Member member = memberRepository.save(MemberFixture.create());
 		Train train = trainTestHelper.createKTX();
@@ -379,11 +396,148 @@ class BookingServiceTest {
 		BookingDeleteRequest request = new BookingDeleteRequest(booking.getId());
 
 		// when
-		bookingService.deleteBooking(request.bookingId());
+		bookingService.deleteBooking(member.getMemberDetail().getMemberNo(), request.bookingId());
 
 		// then
 		List<Booking> result = bookingRepository.findAll();
 		assertThat(result.size()).isEqualTo(0);
+	}
+
+	@Test
+	@DisplayName("본인 예매를 삭제하면 좌석 해제 Outbox 행이 함께 생긴다")
+	void ownBooking_deleteBooking_enqueuesSeatRelease() {
+		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createCustomKTX(1, 2);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		List<Seat> seats = trainTestHelper.getSeats(train, CarType.STANDARD, 2);
+		Booking booking = bookingTestHelper.builder(member, trainScheduleResult)
+			.addSeat(seats.get(0), PassengerType.ADULT)
+			.addSeat(seats.get(1), PassengerType.ADULT)
+			.build()
+			.booking();
+
+		// when
+		bookingService.deleteBooking(member.getMemberDetail().getMemberNo(), booking.getId());
+
+		// then
+		PaymentOutbox outbox = paymentOutboxRepository
+			.findByDeduplicationKey(PaymentOutboxType.BOOKING_SEAT_RELEASE_REQUIRED.deduplicationKey(booking.getId()))
+			.orElseThrow();
+		assertThat(outbox.getType()).isEqualTo(PaymentOutboxType.BOOKING_SEAT_RELEASE_REQUIRED);
+		assertThat(outbox.getStatus()).isEqualTo(PaymentOutboxStatus.PENDING);
+		assertThat(outbox.getAggregateId()).isEqualTo(booking.getId());
+
+		BookingSeatReleasePayload payload =
+			objectMapper.readValue(outbox.getPayload(), BookingSeatReleasePayload.class);
+		assertThat(payload.bookingId()).isEqualTo(booking.getId());
+		assertThat(payload.trainScheduleId()).isEqualTo(trainScheduleResult.trainSchedule().getId());
+		assertThat(payload.departureStopOrder()).isEqualTo(booking.getDepartureStop().getStopOrder());
+		assertThat(payload.arrivalStopOrder()).isEqualTo(booking.getArrivalStop().getStopOrder());
+		assertThat(payload.seats()).containsExactlyInAnyOrder(
+			new BookingSeatReleasePayload.SeatEntry(seats.get(0).getId(), seats.get(0).getTrainCar().getId()),
+			new BookingSeatReleasePayload.SeatEntry(seats.get(1).getId(), seats.get(1).getTrainCar().getId()));
+	}
+
+	@Test
+	@DisplayName("좌석이 서로 다른 객차에 있으면 좌석마다 자기 객차 ID가 담긴다")
+	void deleteBooking_mapsEachSeatToItsOwnCar() {
+		// given - 좌석별 매핑은 객차가 다를 때만 검증된다. 예약 경로가 MULTIPLE_TRAIN_CARS로 금지하는
+		// 상태이고, payload 빌더의 계약만 고정하려고 인위적으로 만든다
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createCustomKTX(1, 1);
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		Seat standardSeat = trainTestHelper.getSeats(train, CarType.STANDARD, 1).get(0);
+		Seat firstClassSeat = trainTestHelper.getSeats(train, CarType.FIRST_CLASS, 1).get(0);
+		assertThat(standardSeat.getTrainCar().getId()).isNotEqualTo(firstClassSeat.getTrainCar().getId());
+
+		Booking booking = bookingTestHelper.builder(member, trainScheduleResult)
+			.addSeat(standardSeat, PassengerType.ADULT)
+			.addSeat(firstClassSeat, PassengerType.ADULT)
+			.build()
+			.booking();
+
+		// when
+		bookingService.deleteBooking(member.getMemberDetail().getMemberNo(), booking.getId());
+
+		// then
+		PaymentOutbox outbox = paymentOutboxRepository
+			.findByDeduplicationKey(PaymentOutboxType.BOOKING_SEAT_RELEASE_REQUIRED.deduplicationKey(booking.getId()))
+			.orElseThrow();
+		BookingSeatReleasePayload payload =
+			objectMapper.readValue(outbox.getPayload(), BookingSeatReleasePayload.class);
+		assertThat(payload.seats()).containsExactlyInAnyOrder(
+			new BookingSeatReleasePayload.SeatEntry(standardSeat.getId(), standardSeat.getTrainCar().getId()),
+			new BookingSeatReleasePayload.SeatEntry(firstClassSeat.getId(), firstClassSeat.getTrainCar().getId()));
+	}
+
+	@Test
+	@DisplayName("좌석 예매가 없는 예매도 삭제되고 좌석 해제 Outbox 행은 생기지 않는다")
+	void deleteBooking_withoutSeatBookings_skipsSeatRelease() {
+		// given - 데이터 이상으로 `SeatBooking`이 비어 있는 `Booking`
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		Booking booking = bookingTestHelper.createDefault(member, trainScheduleResult).booking();
+		// 테스트 메서드에 @Transactional을 쓸 수 없어 JPA 대신 직접 지운다
+		jdbcTemplate.update("delete from ticket where booking_id = ?", booking.getId());
+		jdbcTemplate.update("delete from seat_booking where booking_id = ?", booking.getId());
+
+		// when
+		bookingService.deleteBooking(member.getMemberDetail().getMemberNo(), booking.getId());
+
+		// then
+		assertThat(bookingRepository.findById(booking.getId())).isEmpty();
+		assertThat(paymentOutboxRepository.findByDeduplicationKey(PaymentOutboxType.BOOKING_SEAT_RELEASE_REQUIRED.deduplicationKey(booking.getId())))
+			.isEmpty();
+	}
+
+	@Test
+	@DisplayName("다른 회원의 예매를 삭제하면 접근 권한 예외가 발생하고 예매가 남는다")
+	void otherMembersBooking_deleteBooking_fail() {
+		// given
+		Member owner = memberRepository.save(MemberFixture.create());
+		Member other = memberRepository.save(MemberFixture.createOther());
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		Booking booking = bookingTestHelper.createDefault(owner, trainScheduleResult).booking();
+
+		// when & then
+		assertThatThrownBy(() -> bookingService.deleteBooking(other.getMemberDetail().getMemberNo(), booking.getId()))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(BookingError.BOOKING_ACCESS_DENIED.getMessage());
+
+		assertThat(bookingRepository.findById(booking.getId())).isPresent();
+		assertThat(paymentOutboxRepository.findByDeduplicationKey(PaymentOutboxType.BOOKING_SEAT_RELEASE_REQUIRED.deduplicationKey(booking.getId())))
+			.isEmpty();
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 예매 ID로 삭제하면 예매 조회 예외가 발생한다")
+	void unknownBookingId_deleteBooking_fail() {
+		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		long unknownBookingId = 999_999L;
+
+		// when & then
+		assertThatThrownBy(() -> bookingService.deleteBooking(member.getMemberDetail().getMemberNo(), unknownBookingId))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(BookingError.BOOKING_NOT_FOUND.getMessage());
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 회원번호로 삭제하면 회원 조회 예외가 발생한다")
+	void unknownMemberNo_deleteBooking_fail() {
+		// given
+		Member member = memberRepository.save(MemberFixture.create());
+		Train train = trainTestHelper.createKTX();
+		TrainScheduleResult trainScheduleResult = trainScheduleTestHelper.createDefault(train);
+		Booking booking = bookingTestHelper.createDefault(member, trainScheduleResult).booking();
+
+		// when & then
+		assertThatThrownBy(() -> bookingService.deleteBooking("wrongMemberNo", booking.getId()))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage(MemberError.USER_NOT_FOUND.getMessage());
 	}
 
 	@Test
