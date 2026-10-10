@@ -15,8 +15,7 @@ class PaymentOutboxTest {
 	@Test
 	@DisplayName("BookingConfirmed outbox row를 PENDING으로 생성한다")
 	void forBookingConfirmed_isPending() {
-		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(
-			100L, "payment:100:booking-confirmed", "{\"reservationIds\":[\"RV-1\"]}"
+		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(100L, "{\"reservationIds\":[\"RV-1\"]}"
 		);
 
 		assertThat(outbox.getType()).isEqualTo(PaymentOutboxType.BOOKING_CONFIRMED);
@@ -29,7 +28,7 @@ class PaymentOutboxTest {
 	@Test
 	@DisplayName("PENDING outbox를 DONE으로 전환한다")
 	void markDone_fromPending() {
-		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(1L, "k", "{}");
+		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(1L, "{}");
 
 		outbox.markDone();
 
@@ -40,7 +39,7 @@ class PaymentOutboxTest {
 	@Test
 	@DisplayName("실패 시 retry_count를 증가시키고 next_retry_at을 설정한다")
 	void markRetry_incrementsCount() {
-		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(1L, "k", "{}");
+		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(1L, "{}");
 		LocalDateTime nextRetry = LocalDateTime.now().plusMinutes(1);
 
 		outbox.markRetry(nextRetry);
@@ -53,7 +52,7 @@ class PaymentOutboxTest {
 	@Test
 	@DisplayName("최대 재시도 초과 시 FAILED로 전환한다")
 	void markFailed_setsStatusAndProcessedAt() {
-		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(1L, "k", "{}");
+		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(1L, "{}");
 
 		outbox.markFailed();
 
@@ -64,7 +63,7 @@ class PaymentOutboxTest {
 	@Test
 	@DisplayName("DONE 상태에서 markDone 재호출은 도메인 예외")
 	void markDone_fromDone_throws() {
-		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(1L, "k", "{}");
+		PaymentOutbox outbox = PaymentOutbox.forBookingConfirmed(1L, "{}");
 		outbox.markDone();
 
 		assertThatThrownBy(outbox::markDone).isInstanceOf(DomainException.class);
