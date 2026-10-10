@@ -68,7 +68,7 @@ raillo-batch/.../{domain}/    job/  application/  infrastructure/  config/
 스킬은 `.agents/skills/`에 있다.
 
 ```
-/issue → /branch → /implement [ 구현 → /test → /commit ] × n → /review → /docs → /pr
+/issue → /branch → /implement [ 구현 → /test → /commit ] × n → /review → /docs → /tidy-commits → /pr
 ```
 
 | 스킬 | 하는 일 |
@@ -80,6 +80,7 @@ raillo-batch/.../{domain}/    job/  application/  infrastructure/  config/
 | `/commit` | `type: 설명 (#N)` 형식으로 커밋한다 |
 | `/review` | 대화 맥락이 없는 서브에이전트들이 변경을 리뷰한다 |
 | `/docs` | 길어진 문서에서 세션 맥락, 중복을 걷어낸다 |
+| `/tidy-commits` | PR 전에 수정 커밋을 합치고 메시지를 정리한다. 코드는 바꾸지 않는다 |
 | `/pr` | 이슈 기준으로 PR을 쓰고 승인 후 만든다 |
 | `/db-reset` | `.env`의 DB에서 열차, 회원 데이터만 남기고 테이블을 지운다 |
 
