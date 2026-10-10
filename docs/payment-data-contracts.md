@@ -96,13 +96,17 @@ MySQL ENUM이 아니라 VARCHAR로 매핑한다(`@Enumerated(EnumType.STRING)`, 
 | 컬럼 | 타입 | 설명 |
 |---|---|---|
 | `payment_outbox_id` | PK | |
-| `aggregate_id` | Long | Payment ID |
-| `deduplication_key` | String, unique | 예: `payment:{paymentId}:booking-confirmed` |
-| `type` | Enum | `BOOKING_CONFIRMED` (⚠️ 재설계 후 `RESERVATION_RELEASE` 삭제) |
+| `aggregate_id` | Long | 타입별로 의미가 다르다. `BOOKING_CONFIRMED`는 Payment ID, `BOOKING_SEAT_RELEASE_REQUIRED`는 **Booking ID**다. `payment`에 조인할 때 타입으로 먼저 걸러야 한다 |
+| `deduplication_key` | String, unique | `{집합체}:{id}:{이벤트}` 형식. `payment:{paymentId}:booking-confirmed`, `booking:{bookingId}:seat-release` |
+| `type` | VARCHAR(30) | `BOOKING_CONFIRMED`, `BOOKING_SEAT_RELEASE_REQUIRED` (⚠️ 재설계 후 `RESERVATION_RELEASE` 삭제) |
 | `payload` | TEXT (JSON) | 아래 참고 |
-| `status` | Enum | `PENDING`, `DONE`, `FAILED` |
+| `status` | VARCHAR(20) | `PENDING`, `DONE`, `FAILED` |
 | `retry_count` | int | |
 | `next_retry_at` | Timestamp | 지수 backoff |
+
+`type`과 `status`는 MySQL 네이티브 ENUM이었다가 #298에서 VARCHAR로 바꿨다. ENUM은 값 목록이 DDL에 박혀 `ddl-auto: update`로 값을 늘릴 수 없다. 엔티티에 `@JdbcTypeCode(SqlTypes.VARCHAR)`를 붙였고 기존 스키마는 `docs/db-migrations/2026-10-10-payment-outbox-type-varchar.sql`로 맞춘다.
+
+`payment_attempt.status`와 같은 한계를 물려받는다(위 `status 컬럼` 참고). 엔티티 매핑으로 스키마를 새로 만드는 환경은 Hibernate가 `type varchar(30) not null check (type in (...))` 형태의 CHECK 제약을 함께 만들고, `ddl-auto: update`는 기존 CHECK를 갱신하지 않는다. 따라서 **다음에 `PaymentOutboxType`에 값을 추가하면 ALTER를 적용한 개발 DB와 운영 DB는 통과하고 신규 생성 스키마에서만 거부될 수 있다.** 마이그레이션 파일의 "새로 만든 스키마는 ALTER가 필요 없다"는 이번 값에만 해당한다. CHECK가 실제로 생성되는 것은 `PaymentOutboxTypeColumnTest`가 단정한다. 그 환경을 고칠 때 `MODIFY`로는 안 된다 — MySQL 8의 `ALTER TABLE ... MODIFY COLUMN`은 CHECK 제약을 그대로 두므로(2026-10-10 MySQL 8.4 실측: MODIFY 뒤에도 새 값 INSERT가 `ERROR 3819`로 거부됨) `DROP CHECK <제약명>`이 필요하다. `docs/db-migrations/`의 ALTER가 고치는 대상은 ENUM 스키마이고 거기에는 CHECK가 없어 `MODIFY`만으로 충분하다.
 
 - **Worker**: `PaymentOutboxWorker.poll()`이 `FOR UPDATE SKIP LOCKED`로 배치 선점, dispatcher가 REQUIRES_NEW로 처리기 격리
 

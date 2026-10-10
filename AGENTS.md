@@ -202,6 +202,9 @@ public enum BookingError implements ErrorCode {
 
 예약 = Reservation, 예매 = Booking, 승차권 = Ticket, 객차 = TrainCar, 정차역 = ScheduleStop
 
+**어느 엔티티인지 헷갈릴 수 있으면 코드 주석에서는 클래스명을 쓴다.** "예매"와 "좌석 예매"가 그렇다.
+API 문서와 로그 메시지는 한국어를 유지한다. 예시 → [docs/domain-model.md](./docs/domain-model.md)
+
 ## Testing
 
 테스트 작성/수정은 **`/test` skill**을 사용한다. 컨벤션과 워크플로우 전체가 skill에 포함되어 있다.

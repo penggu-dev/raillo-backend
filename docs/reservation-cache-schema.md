@@ -31,7 +31,7 @@
 - field는 `{seatId}:{sectionIndex}`. 구간 index는 정차 순서 i에서 i+1로 가는 한 칸이며 값은 i다. 출발 stopOrder d, 도착 stopOrder a인 요청은 d..a-1 구간 field를 점유한다.
 - 값은 `R:{reservationId}`(예약) 또는 `B:{bookingId}`(예매)다. 그 외 형식은 데이터 오염이다. 오염은 재시도로 낫지 않으므로 스크립트 실행 자체가 실패한 경우(`SEAT_OCCUPANCY_SCRIPT_ERROR`)와 다른 코드로 구분한다.
   - 점유를 **쓰거나 전환하는** 스크립트(`reservation_create`, `reservation_booking_confirm`, `reservation_payment_hold`)는 검사 단계에서 오염을 만나면 `"X"`를 돌려주고 호출자가 `SEAT_OCCUPANCY_CORRUPTED`(500)를 낸다. 아무것도 쓰지 않는다.
-  - **해제** 스크립트(`reservation_delete`, `reservation_payment_release`)는 자기 값이 아닌 field를 건드리지 않으므로 오염을 보고하지 않고 건너뛴다. 결과 수(`released`, `restored`/`deleted`)만 줄어든다. 보호 해제의 경우 건너뛴 field가 좌석을 묶을 수 있다(§5).
+  - **해제** 스크립트(`reservation_delete`, `reservation_payment_release`, `booking_seat_release`)는 자기 값이 아닌 field를 건드리지 않으므로 오염을 보고하지 않고 건너뛴다. 결과 수(`released`, `restored`/`deleted`)만 줄어든다. 보호 해제의 경우 건너뛴 field가 좌석을 묶을 수 있다(§5).
   - **읽기** 경로(`SeatOccupancyQueryRepository`)는 field 이름이나 값이 계약과 다르면 `SEAT_OCCUPANCY_CORRUPTED`를 낸다. 좌석 하나가 아니라 그 호출 전체가 실패한다.
   - field **이름**(`{seatId}:{sectionIndex}`)의 오염은 쓰기·전환 스크립트가 구분하지 못한다. Lua가 숫자 변환에 실패한 자리는 응답에서 빠지고 Java는 형식 불일치로 읽어 `SEAT_OCCUPANCY_SCRIPT_ERROR`가 된다. 현재 의도된 한계다.
 - 키는 점유가 처음 생길 때 만들어지고, TTL이 없을 때만 `TrainCacheKey.expireAtEpochSecond(운행일)`로 EXPIREAT을 건다. 빈 열차는 키가 없다.
@@ -41,6 +41,7 @@
   - 다른 R이나 B가 하나라도 있으면 아무것도 바꾸지 않고, 처리기가 예외를 던져 Outbox 재시도에 맡긴다.
   - 전환하면 예약 본문을 지우고, 별도 slot인 회원 인덱스 field는 Lua 밖에서 HDEL한다. 객차 키에 만료가 없으면 운행일 기준 EXPIREAT을 건다.
   - 운행일이 지났거나 예매가 없거나 취소된 항목은 좌석을 건드리지 않고 예약 본문과 회원 인덱스만 지운다.
+  - `B:`는 만료가 없으므로 예매가 사라지면 반드시 지워 줘야 한다. 예매 삭제 경로가 §6-2다.
 
 ### R→B 충돌이 생기는 경우
 
@@ -196,6 +197,40 @@ ARGV       reservationId, depOrder, arrOrder, "seatId:carKeyIndex"...
 ```
 
 값이 정확히 `R:{reservationId}`인 field만 HDEL한다. 다른 예약의 `R:`과 예매 `B:`는 건드리지 않는다. 스크립트 실행이 실패하면 `SEAT_OCCUPANCY_RELEASE_FAILED`(500)다. 결제 진행 중인 예약의 삭제 보호는 이 범위 밖이며 결제 소유권 작업(#280, #259)에서 다룬다.
+
+## 6-2. 예매 삭제
+
+`DELETE /api/v1/bookings`는 본인 예매만 지우고, 그 예매가 점유한 `B:` field를 해제한다. `B:`에는 만료가 없어서 지워 주지 않으면 객차 키가 만료되는 운행일+2일까지 좌석이 남는다. 그동안 예약 생성은 `SEAT_CONFLICT_WITH_BOOKING`으로 거절되고 검색 잔여석에서도 팔린 좌석으로 계산된다.
+
+해제는 **DB 삭제가 커밋된 뒤에** 일어나야 한다. 커밋 전에 지우면 삭제가 롤백됐을 때 예매는 살아 있는데 좌석이 비어, 다른 사용자가 같은 좌석을 예약할 수 있다. 그래서 Redis를 요청 안에서 건드리지 않고 Outbox에 맡긴다.
+
+1. 한 트랜잭션에서 소유자를 검증하고, 좌석 예매 행에서 해제에 필요한 좌석과 객차를 읽어 `BOOKING_SEAT_RELEASE_REQUIRED` outbox 행을 쓰고, 예매를 삭제한다. 세 작업이 같은 커밋이라 해제 요청이 유실되지 않는다.
+2. API는 바로 성공으로 응답한다. 사용자가 원한 삭제는 끝났고 내 예매 목록은 DB만 보므로 즉시 사라진다.
+3. `PaymentOutboxWorker`가 그 행을 집어 `BookingSeatReleaseProcessor`에 넘기고 `booking_seat_release.lua`를 실행한다. 폴링 주기는 5초다.
+
+Redis가 죽어 있으면 Outbox의 지수 백오프 재시도를 타고, 최대 재시도를 넘기면 `FAILED`와 `payment.outbox.failed` 카운터로 올라간다.
+
+```text
+KEYS[1..]  객차 Hash (중복 없이, 처음 등장 순서)
+ARGV       bookingId, depOrder, arrOrder, "seatId:carKeyIndex"...
+
+반환  {해제한 field 수}
+```
+
+값이 정확히 `B:{bookingId}`인 field만 HDEL한다. 다른 예매의 `B:`와 예약 `R:`은 건드리지 않는다. 예약 본문은 예매로 전환될 때 이미 사라졌으므로 지울 것이 없다. 해제 수가 0이어도 실패가 아니다 — 이미 해제됐거나, 예매 전환이 아직 일어나지 않은 예매를 지운 경우다. 다만 후자는 좌석이 풀렸다는 뜻이 아니다. 아래 경합 2를 함께 읽어야 한다. 스크립트 실행이 실패하면 `SEAT_OCCUPANCY_RELEASE_FAILED`(500)이고 Outbox가 재시도한다.
+
+좌석 예매와 승차권은 DB의 ON DELETE CASCADE로 함께 지워지지만 결제는 `PAID`로 남는다. 예매 삭제를 취소 흐름으로 대체할지는 #259에서 정한다.
+
+**남은 경합 둘.** `BOOKING_CONFIRMED`가 아직 처리되지 않은 예매를 지우면 두 가지가 남을 수 있다. 둘 다 현재 막지 않는다.
+
+1. **`B:`가 해제 뒤에 쓰인다.** `BookingConfirmedProcessor`의 `isBooked` 가드는 예매 행이 없으면 `B:`를 쓰지 않고 넘어가지만, 그 가드를 통과한 직후에 삭제가 커밋되면 해제는 0건으로 끝나고 그 뒤에 `B:`가 쓰인다. 창이 좁다.
+2. **예약 `R:` field가 남는다.** `isBooked` 가드가 걸린 항목은 `discardReservation`으로 가고, 그 경로는 예약 본문과 회원 인덱스만 지우고 **좌석 field는 손대지 않는다**. 가드가 `B:` 쓰기만 막고 좌석을 풀어 주지는 않는다. 그래서 예약 본문도 회원 인덱스도 예매도 없는데 좌석 field만 `R:{reservationId}`로 남는다. 가리키는 대상이 없는 고아 점유다. 새 해제 스크립트는 `B:{bookingId}` 비교 삭제라 이 field를 지울 수 없다.
+
+**두 번째의 심각도는 `reservation_payment_hold.lua`의 배선 여부로 갈린다.** 지금은 그 스크립트를 호출하는 운영 코드가 없다(`hold`와 `releaseHold`의 호출처는 `SeatOccupancyRepositoryTest`뿐이며, #270의 Recovery Worker 본체가 아직 없다). 그래서 남은 `R:` field에는 예약 TTL이 그대로 있고 10분 안에 저절로 사라진다. 좌석이 스스로 돌아오므로 현재 영향은 작다.
+
+**#270이 `hold`를 배선하면 달라진다.** 보호가 걸렸던 예약의 field는 HPERSIST로 만료가 제거되므로(§5), 주인도 만료도 없는 `R:`가 객차 키의 운행일 만료까지 남아 좌석이 묶인다. 자가 회복 경로가 없다 — TTL이 없고, 예약 본문과 회원 인덱스가 사라져 예약 삭제 API로도 지울 수 없다. #298이 고치려던 증상이 다른 값으로 재현된다.
+
+**대응은 #270에서 한다.** 위험을 만드는 작업이 #270이고, 고칠 자리도 그쪽이다. `BookingConfirmedPayload.Entry`가 `reservationId`와 좌석, 구간을 이미 들고 있으므로, `discardReservation` 분기에서 기존 `reservation_delete.lua`로 자기 `R:`를 함께 해제하면 된다. 스키마 변경이 필요 없다.
 
 ## 7. 구현 규칙
 

@@ -58,6 +58,16 @@ Member → Order (1:N)
 - **좌석** = Seat
 - **정차역** = ScheduleStop
 
+**어느 엔티티인지 헷갈릴 수 있으면 코드 주석에서는 클래스명을 쓴다.** "예매"와 "좌석 예매"는 거의 같아 보여
+`Booking` 1행에 `SeatBooking` N행이라는 사실이 문장에서 사라진다. 예약과 예매처럼 구분이 또렷한 쌍은 한국어로 쓴다.
+
+```
+나쁨   좌석 예매 행은 예매와 함께 사라진다
+좋음   `SeatBooking` 행은 `Booking`과 함께 사라진다
+```
+
+API 문서(Swagger `description`)와 로그 메시지는 개발자가 아닌 사람이 읽으므로 한국어를 유지한다.
+
 ## Related Documents
 
 - 좌석 충돌 검증 4계층 방어: [seat-conflict-validation.md](./seat-conflict-validation.md)
