@@ -26,6 +26,10 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+            # 관리 포트. Service에 노출하지 않는다. kubelet 프로브와 Prometheus 모두 파드 IP로
+            # 직접 붙는다. 포트를 분리한 이유는 docs/deployment.md 참고.
+            - name: management
+              containerPort: 8081
           envFrom:
             - configMapRef:
                 name: raillo-config
@@ -45,16 +49,25 @@ spec:
             preStop:
               sleep:
                 seconds: 5
+          # 기동 완료 판정. 이것이 없으면 liveness가 기동 중부터 찔러 40초에 재시작한다. 상한 180초.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: management
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 36
           readinessProbe:
             httpGet:
-              path: /health
-              port: http
+              path: /actuator/health/readiness
+              port: management
             periodSeconds: 10
-            timeoutSeconds: 60
+            timeoutSeconds: 3
           livenessProbe:
+            # livenessState만 본다. 종합 health를 쓰면 의존성 장애마다 재시작된다.
             httpGet:
-              path: /health
-              port: http
+              path: /actuator/health/liveness
+              port: management
             periodSeconds: 20
-            timeoutSeconds: 60
+            timeoutSeconds: 5
             failureThreshold: 3
