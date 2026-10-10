@@ -1,6 +1,6 @@
 # Outbox payload 런북
 
-`payment_outbox`의 `BOOKING_CONFIRMED` payload가 지원 버전과 다르거나 깨져 있을 때 **무엇이 몇 개 있는지 세고 어떻게 조치할지 정하는** 절차다. 설계 근거와 계약은 [payment-consistency.md](./payment-consistency.md)의 `payload 스키마 변경 절차`에 있다.
+`payment_outbox`의 `BOOKING_CONFIRMED` payload가 지원 버전과 다르거나 깨져 있을 때 **무엇이 몇 개 있는지 세고 어떻게 조치할지 정하는** 절차다. 아래 쿼리는 모두 `type = 'BOOKING_CONFIRMED'`로 범위를 좁혀 둔다. 설계 근거와 계약은 [payment-consistency.md](./payment-consistency.md)의 `payload 스키마 변경 절차`에 있다.
 
 #### 측정된 이력 — 이 저장소에서 실제로 무슨 일이 있었나
 
@@ -121,3 +121,23 @@ v1 행을 실제로 만나면 payload만으로 v2를 만들 수 없다. 기록�
 그래서 v1→v2는 DB 조회 없이는 변환할 수 없고, 위 절차의 3번(적체 비우기) 대상이다.
 
 > `payment_outbox`의 컬럼 목록은 [payment-data-contracts.md](./payment-data-contracts.md)에 있다. 저장소에 DDL이 없고 prod는 `ddl-auto: validate`라, 엔티티가 매핑하지 않은 컬럼이 실제 스키마에 있는지는 확인하지 않았다.
+
+## BOOKING_SEAT_RELEASE_REQUIRED에 같은 쿼리를 쓸 때
+
+위 쿼리를 그대로 쓸 수 있지만 바꿀 곳이 넷이다.
+
+1. `type` 조건
+2. 버전 비교 값 (지원 버전 1)
+3. **배열 판정** — `bookings` 대신 `seats`를 요구하고, 처리기가 `null`과 빈 배열을 모두 거부한다. `JSON_EXTRACT(payload, '$.seats') IS NULL`만 보면 `[]`인 행이 `'ok'`로 집계되므로 `OR JSON_LENGTH(payload, '$.seats') = 0`을 함께 둔다.
+4. **구간 역전 판정** — 처리기는 `departureStopOrder >= arrivalStopOrder`도 거부한다. 해제할 좌석이 있다고 적힌 payload가 조용히 0건으로 끝나기 때문이다. 이 조건은 위 세 판정 어디에도 걸리지 않아 `schema_version = 1`, 배열 판정 `'ok'`로 집계되므로 컬럼을 따로 둬야 보인다.
+
+`->>`가 문자열을 돌려주니 숫자 비교에 CAST가 필요하다.
+
+```sql
+CASE
+  WHEN NOT JSON_VALID(payload) THEN '-'
+  WHEN CAST(payload ->> '$.departureStopOrder' AS SIGNED)
+         >= CAST(payload ->> '$.arrivalStopOrder' AS SIGNED) THEN 'range-reversed'
+  ELSE 'ok'
+END AS range_check
+```

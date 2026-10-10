@@ -66,6 +66,10 @@ class SeatOccupancyRepositoryTest {
 		return new BookingOccupancyCommand(SCHEDULE_ID, reservationId, bookingId, keyExpireAt, dep, arr, List.of(seats));
 	}
 
+	private static BookingSeatReleaseCommand bookingReleaseCommand(long bookingId, int dep, int arr, SeatCar... seats) {
+		return new BookingSeatReleaseCommand(SCHEDULE_ID, bookingId, dep, arr, List.of(seats));
+	}
+
 	private static SeatHoldCommand holdCommand(String reservationId, int dep, int arr, SeatCar... seats) {
 		long expireAt = Instant.now().plusSeconds(3600).getEpochSecond();
 		return new SeatHoldCommand(SCHEDULE_ID, reservationId, expireAt, dep, arr, List.of(seats));
@@ -788,6 +792,114 @@ class SeatOccupancyRepositoryTest {
 				confirmCommand("RV1", 77L, 0, 1, new SeatCar(SEAT_A, CAR_1))))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_CORRUPTED);
+		}
+	}
+
+	@Nested
+	@DisplayName("예매 점유 해제")
+	class ReleaseBooking {
+
+		@Test
+		@DisplayName("자기 예매가 점유한 field는 요청 구간 전체에서 사라진다")
+		void releases_own_booking_fields() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(confirmCommand("RV1", 77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			seatOccupancyRepository.releaseBooking(bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(carHash(CAR_1)).isEmpty();
+		}
+
+		@Test
+		@DisplayName("두 객차에 걸친 예매는 두 객차 모두에서 해제된다")
+		void releases_seats_across_two_cars() {
+			// given
+			seatOccupancyRepository.occupy(
+				command("RV1", 0, 1, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2)));
+			seatOccupancyRepository.confirmBooking(
+				confirmCommand("RV1", 77L, 0, 1, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2)));
+
+			// when
+			seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 1, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_2)));
+
+			// then
+			assertThat(carHash(CAR_1)).isEmpty();
+			assertThat(carHash(CAR_2)).isEmpty();
+		}
+
+		@Test
+		@DisplayName("다른 예매가 점유한 field는 건드리지 않는다")
+		void keeps_other_bookings_fields() {
+			// given
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_A, 0), "B:77");
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_B, 0), "B:88");
+
+			// when
+			seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 1, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_1)));
+
+			// then
+			assertThat(carHash(CAR_1)).containsOnly(Map.entry(field(SEAT_B, 0), "B:88"));
+		}
+
+		@Test
+		@DisplayName("예약이 점유한 field는 건드리지 않는다")
+		void keeps_reservation_fields() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 0, 1, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			seatOccupancyRepository.releaseBooking(bookingReleaseCommand(77L, 0, 1, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(carHash(CAR_1)).containsOnly(
+				Map.entry(field(SEAT_A, 0), SeatOccupancyValue.reserved("RV1").serialize()));
+		}
+
+		@Test
+		@DisplayName("요청 구간 밖의 자기 예매 field는 남는다")
+		void keeps_fields_outside_requested_sections() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 0, 3, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(confirmCommand("RV1", 77L, 0, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			seatOccupancyRepository.releaseBooking(bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(carHash(CAR_1)).containsOnly(Map.entry(field(SEAT_A, 2), "B:77"));
+		}
+
+		@Test
+		@DisplayName("이미 해제된 예매를 다시 해제해도 성공한다")
+		void is_idempotent() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(confirmCommand("RV1", 77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.releaseBooking(bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			seatOccupancyRepository.releaseBooking(bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(carHash(CAR_1)).isEmpty();
+		}
+
+		@Test
+		@DisplayName("객차 키가 Hash가 아니면 SEAT_OCCUPANCY_RELEASE_FAILED 예외가 발생한다")
+		void throws_when_car_key_is_not_hash() {
+			// given
+			stringRedisTemplate.opsForValue().set(carKey(CAR_1), "not-a-hash");
+
+			// when & then
+			assertThatThrownBy(() -> seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 1, new SeatCar(SEAT_A, CAR_1))))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_RELEASE_FAILED);
 		}
 	}
 }

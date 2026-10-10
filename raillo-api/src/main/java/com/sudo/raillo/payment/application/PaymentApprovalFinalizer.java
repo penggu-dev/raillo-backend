@@ -112,10 +112,9 @@ public class PaymentApprovalFinalizer {
 	}
 
 	private PaymentOutbox buildBookingConfirmedOutbox(BookingConfirmedPayload payload) {
-		String dedupKey = "payment:%d:booking-confirmed".formatted(payload.paymentId());
 		try {
 			String payloadJson = objectMapper.writeValueAsString(payload);
-			return PaymentOutbox.forBookingConfirmed(payload.paymentId(), dedupKey, payloadJson);
+			return PaymentOutbox.forBookingConfirmed(payload.paymentId(), payloadJson);
 		} catch (JacksonException e) {
 			throw new BusinessException(PaymentError.PAYMENT_OUTBOX_PAYLOAD_SERIALIZATION_FAILED);
 		}

@@ -54,7 +54,7 @@ class PaymentOutboxWorkerIntegrationTest {
 	void poll_processesPending_andMarksDone() {
 		// given
 		PaymentOutbox saved = outboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(1L, "k-done", "{}")
+			PaymentOutbox.forBookingConfirmed(1L, "{}")
 		);
 		doNothing().when(dispatcher).dispatch(any(), any());
 
@@ -73,7 +73,7 @@ class PaymentOutboxWorkerIntegrationTest {
 	void poll_transientFailure_marksRetryWithBackoff() {
 		// given
 		PaymentOutbox saved = outboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(2L, "k-retry", "{}")
+			PaymentOutbox.forBookingConfirmed(2L, "{}")
 		);
 		doThrow(new RuntimeException("transient"))
 			.when(dispatcher).dispatch(eq(PaymentOutboxType.BOOKING_CONFIRMED), any());
@@ -95,7 +95,7 @@ class PaymentOutboxWorkerIntegrationTest {
 	@DisplayName("최대 재시도 초과 시 FAILED로 전이한다")
 	void poll_exhaustedRetries_marksFailed() {
 		// given: retryCount를 max - 1까지 올린 뒤 한 번 더 실패시킨다
-		PaymentOutbox row = PaymentOutbox.forBookingConfirmed(3L, "k-fail", "{}");
+		PaymentOutbox row = PaymentOutbox.forBookingConfirmed(3L, "{}");
 		row = outboxRepository.save(row);
 		for (int i = 0; i < properties.maxRetries() - 1; i++) {
 			row.markRetry(LocalDateTime.now().minusSeconds(1));
@@ -118,7 +118,7 @@ class PaymentOutboxWorkerIntegrationTest {
 	void poll_nonRetryableFailure_marksFailedImmediately() {
 		// given - retryCount 0, 즉 재시도 여유가 maxRetries만큼 남은 상태
 		PaymentOutbox saved = outboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(10L, "k-non-retryable", "{}")
+			PaymentOutbox.forBookingConfirmed(10L, "{}")
 		);
 		doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED))
 			.when(dispatcher).dispatch(any(), any());
@@ -139,7 +139,7 @@ class PaymentOutboxWorkerIntegrationTest {
 	void poll_nonRetryableFailure_incrementsNonRetryableCounter() {
 		double beforeNonRetryable = meterRegistry.counter("payment.outbox.non_retryable").count();
 		double beforeFailed = meterRegistry.counter("payment.outbox.failed").count();
-		outboxRepository.save(PaymentOutbox.forBookingConfirmed(11L, "k-non-retryable-metric", "{}"));
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(11L, "{}"));
 		doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED))
 			.when(dispatcher).dispatch(any(), any());
 
@@ -156,7 +156,7 @@ class PaymentOutboxWorkerIntegrationTest {
 	void failedRow_isVisibleInGauge() {
 		// 게이지가 등록돼 있지 않으면 get()이 던진다 — 등록 여부도 함께 검증한다
 		double before = meterRegistry.get("payment.outbox.failed_rows").gauge().value();
-		outboxRepository.save(PaymentOutbox.forBookingConfirmed(12L, "k-gauge", "{}"));
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(12L, "{}"));
 		doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED))
 			.when(dispatcher).dispatch(any(), any());
 
@@ -169,7 +169,7 @@ class PaymentOutboxWorkerIntegrationTest {
 	@DisplayName("일시 실패 시 payment.cleanup.failure 카운터가 증가한다")
 	void poll_transientFailure_incrementsCleanupFailureCounter() {
 		double before = meterRegistry.counter("payment.cleanup.failure").count();
-		outboxRepository.save(PaymentOutbox.forBookingConfirmed(5L, "k-metric-retry", "{}"));
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(5L, "{}"));
 		doThrow(new RuntimeException("boom"))
 			.when(dispatcher).dispatch(any(), any());
 
@@ -182,7 +182,7 @@ class PaymentOutboxWorkerIntegrationTest {
 	@DisplayName("최대 재시도 초과 시 payment.outbox.failed 카운터가 증가한다")
 	void poll_exhaustedRetries_incrementsOutboxFailedCounter() {
 		double before = meterRegistry.counter("payment.outbox.failed").count();
-		PaymentOutbox row = outboxRepository.save(PaymentOutbox.forBookingConfirmed(6L, "k-metric-fail", "{}"));
+		PaymentOutbox row = outboxRepository.save(PaymentOutbox.forBookingConfirmed(6L, "{}"));
 		for (int i = 0; i < properties.maxRetries() - 1; i++) {
 			row.markRetry(LocalDateTime.now().minusSeconds(1));
 			row = outboxRepository.save(row);
@@ -200,10 +200,10 @@ class PaymentOutboxWorkerIntegrationTest {
 	void poll_innerTransactionalFailure_doesNotRollbackBatch() {
 		// given: 두 건 PENDING — payload의 마커로 실패/성공을 구분
 		PaymentOutbox failingRow = outboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(10L, "k-tx-fail", "{\"marker\":\"fail\"}")
+			PaymentOutbox.forBookingConfirmed(10L, "{\"marker\":\"fail\"}")
 		);
 		PaymentOutbox successRow = outboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(11L, "k-tx-success", "{\"marker\":\"ok\"}")
+			PaymentOutbox.forBookingConfirmed(11L, "{\"marker\":\"ok\"}")
 		);
 
 		// dispatcher가 실제 @Transactional 서비스 예외를 던지도록 스텁 — outer tx 오염 시나리오 재현
@@ -233,7 +233,7 @@ class PaymentOutboxWorkerIntegrationTest {
 	void poll_skipsRowsWithFutureNextRetryAt() {
 		// given
 		PaymentOutbox row = outboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(4L, "k-future", "{}")
+			PaymentOutbox.forBookingConfirmed(4L, "{}")
 		);
 		row.markRetry(LocalDateTime.now().plusHours(1));
 		outboxRepository.save(row);

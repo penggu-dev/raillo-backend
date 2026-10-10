@@ -23,13 +23,30 @@ public interface BookingControllerDoc {
 
 	@Operation(
 		method = "DELETE",
-		summary = "예매 취소",
-		description = "예매 ID를 받아 해당 예매를 취소합니다."
+		summary = "예매 삭제",
+		description = """
+			예매 ID를 받아 본인 예매를 삭제합니다. 다른 사용자의 예매는 삭제할 수 없습니다.
+
+			좌석 점유 해제는 삭제가 커밋된 뒤 비동기로 처리되므로, 삭제한 좌석이 재예약 가능해지기까지
+			잠시 걸릴 수 있습니다. 예매 목록에서는 즉시 사라집니다.
+			""",
+		security = {@SecurityRequirement(name = "bearerAuth")}
 	)
 	@ApiResponses(value = {
-		@ApiResponse(responseCode = "204", description = "예매가 성공적으로 취소되었습니다.")
+		@ApiResponse(responseCode = "204", description = "예매가 성공적으로 삭제되었습니다."),
+		@ApiResponse(responseCode = "400",
+			description = "예매 ID가 없습니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "403",
+			description = "다른 사용자의 예매입니다.",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+		@ApiResponse(responseCode = "404",
+			description = "예매 삭제에 실패하였습니다:\n"
+				+ "- 사용자를 찾을 수 없음\n"
+				+ "- 예매 정보를 찾을 수 없음\n",
+			content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
 	})
-	SuccessResponse<?> deleteBooking(BookingDeleteRequest request);
+	SuccessResponse<?> deleteBooking(BookingDeleteRequest request, UserDetails userDetails);
 
 	@Operation(
 		method = "GET", summary = "예매와 승차권 상세 조회",

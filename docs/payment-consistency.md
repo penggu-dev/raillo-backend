@@ -160,8 +160,8 @@ DB 커밋 이후 Redis에 반영해야 할 작업을 기록한다. 결제 확정
 | Column | Purpose |
 |--------|---------|
 | `id` | DB PK |
-| `type` | `BOOKING_CONFIRMED` / `BOOKING_CANCELLED` |
-| `aggregate_id` | 소비자 컨텍스트 (payment_id 등) |
+| `type` | `BOOKING_CONFIRMED` / `BOOKING_SEAT_RELEASE_REQUIRED` |
+| `aggregate_id` | 소비자 컨텍스트. 타입별로 다르다 (확정은 payment_id, 좌석 해제는 booking_id) |
 | `deduplication_key` | 재발행 시 중복 처리 방지 (unique) |
 | `payload` | Redis 정리에 필요한 최소 정보 (JSON) |
 | `status` | `PENDING` / `DONE` / `FAILED` |

@@ -3,6 +3,7 @@ package com.sudo.raillo.payment.adapter.integration;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.application.dto.BookingConversionRequest;
+import com.sudo.raillo.booking.application.service.BookedSeatService;
 import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.payment.application.BookingConfirmedPayload;
 import com.sudo.raillo.payment.application.required.BookedSeatWriter;
@@ -13,11 +14,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class BookedSeatWriterAdapter implements BookedSeatWriter {
 
+	private final BookedSeatService bookedSeatService;
 	private final ReservationService reservationService;
 
 	@Override
 	public boolean markBooked(BookingConfirmedPayload.Entry entry) {
-		return reservationService.convertToBooking(new BookingConversionRequest(
+		return bookedSeatService.convertToBooking(new BookingConversionRequest(
 			entry.reservationId(),
 			entry.memberNo(),
 			entry.trainScheduleId(),

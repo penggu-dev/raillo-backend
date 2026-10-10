@@ -45,6 +45,16 @@ public class RedisScriptConfig {
 	}
 
 	/**
+	 * `Booking` 점유 해제 스크립트. 자기 `Booking`의 점유 field만 지운다.
+	 *
+	 * <p>반환값: {@code {released}}</p>
+	 */
+	@Bean
+	public DefaultRedisScript<List> bookingSeatReleaseScript() {
+		return listScript("scripts/booking_seat_release.lua");
+	}
+
+	/**
 	 * 결제 중 좌석 보호 스크립트. 자기 예약 점유의 만료를 없애고 사라진 field를 다시 점유한다.
 	 *
 	 * <p>반환값: {@code {1}} 또는 {@code {0, seatId, sectionIndex, "R"|"B"|"X"}}</p>

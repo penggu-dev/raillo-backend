@@ -132,3 +132,4 @@ develop push/PR
 |---|---|---|
 | 2026-09-26 | `payment_attempt.status`를 ENUM에서 VARCHAR로 (#270) | 배포 전 아무 때나 |
 | 2026-10-10 | `order_booking.pending_booking_id`를 `reservation_id`로 rename (#310) | 중단 창 필요 |
+| 2026-10-10 | `payment_outbox`의 `type`과 `status`를 ENUM에서 VARCHAR로 (#298) | 배포 전 아무 때나 |

@@ -15,6 +15,8 @@
 
 예매 점유 기록은 결제 확정 뒤 Outbox 처리기(`BookingConfirmedProcessor`)가 `R:` → `B:`로 전환해 붙인다. 별도의 Batch 복구 Step은 없다. 이 처리기 도입 전에 생긴 예매는 Redis에 `B:`가 없어 예약 생성 검사(Layer 2)는 통과하고 결제 준비의 DB 재검증(Layer 3)에서야 막힌다. 백필이 필요해지는 경우와 방법은 [reservation-cache-schema.md 2장](./reservation-cache-schema.md#예매-점유-백필-필요할-때)에 있다.
 
+예매가 삭제되면 `BookingSeatReleaseProcessor`가 그 `B:`를 떼어낸다. `B:`에는 만료가 없어서 떼어내지 않으면 객차 키의 운행일 만료까지 좌석이 묶인다. 삭제 경로는 [reservation-cache-schema.md 6-2장](./reservation-cache-schema.md#6-2-예매-삭제)에 있다.
+
 ## Layer 3 — 결제 직전 DB 재검증을 유지하는 이유
 
 Redis는 예매의 진실 공급원이 아니다. 캐시가 유실된 직후 복구 전까지 `B:` 값이 비어 있을 수 있으므로, 결제 직전에 DB로 한 번 더 확인한다. 예약 생성 경로에는 없고 결제 경로에서 쿼리 한 번이라 비용이 작다.
@@ -27,5 +29,7 @@ sb.departureStopOrder < :arrivalStopOrder AND sb.arrivalStopOrder > :departureSt
 ## Layer 4 — TTL
 
 예약 본문, 예약 field, 회원 인덱스 field가 같은 TTL을 가지므로 예약이 만료되면 세 곳이 함께 사라진다. 별도 정리 작업이나 인덱스가 필요 없다.
+
+예매 점유(`B:`)는 이 규칙 밖이다. 만료가 없고 객차 키의 운행일 만료로만 사라지므로, 예매가 사라질 때 함께 지워 주는 경로가 반드시 있어야 한다(6-2장).
 
 결제가 진행 중일 때는 예약 field만 이 규칙에서 빠진다. 결과를 모르는 동안 `reservation_payment_hold.lua`가 field의 만료를 없애고, 결과가 실패로 확정되면 `reservation_payment_release.lua`가 본문의 남은 TTL로 되돌린다. 보호 중에는 본문과 회원 인덱스가 먼저 사라지고 field만 남을 수 있다. 해제를 놓치면 그 field는 객차 키의 운행일 만료까지 남는다. 규칙은 [reservation-cache-schema.md 5장](./reservation-cache-schema.md#5-결제-중-좌석-보호와-해제)에 있다.

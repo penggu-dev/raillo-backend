@@ -26,6 +26,10 @@ import com.sudo.raillo.order.domain.OrderSeatBooking;
 import com.sudo.raillo.order.exception.OrderError;
 import com.sudo.raillo.order.infrastructure.OrderBookingRepository;
 import com.sudo.raillo.order.infrastructure.OrderSeatBookingRepository;
+import com.sudo.raillo.payment.application.BookingSeatReleasePayload;
+import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
+import com.sudo.raillo.payment.domain.PaymentOutbox;
+import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.exception.TrainError;
 import com.sudo.raillo.train.infrastructure.SeatRepository;
@@ -35,6 +39,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +62,8 @@ public class BookingService {
 	private final BookingMapper bookingMapper;
 	private final BookingValidator bookingValidator;
 	private final TicketNumberGenerator ticketNumberGenerator;
+	private final PaymentOutboxRepository paymentOutboxRepository;
+	private final ObjectMapper objectMapper;
 
 	/**
 	 * 주문으로부터 예매를 생성
@@ -143,11 +151,45 @@ public class BookingService {
 	}
 
 	/**
-	 * 특정 예매를 삭제하는 메서드
+	 * 본인 `Booking`을 삭제한다.
+	 *
+	 * @param memberNo 요청한 회원의 회원 번호
 	 * @param bookingId 삭제할 예매의 ID
+	 * @throws BusinessException 없는 `Booking`이거나({@code BOOKING_NOT_FOUND}) 다른 회원의 것일 때({@code BOOKING_ACCESS_DENIED})
 	 */
-	public void deleteBooking(Long bookingId) {
-		bookingRepository.deleteById(bookingId);
+	public void deleteBooking(String memberNo, Long bookingId) {
+		Member member = getMember(memberNo);
+		Booking booking = bookingRepository.findById(bookingId)
+			.orElseThrow(() -> new BusinessException(BookingError.BOOKING_NOT_FOUND));
+		bookingValidator.validateBookingOwner(booking, member);
+
+		enqueueSeatRelease(booking);
+		bookingRepository.delete(booking);
+
+		log.info("[예매 삭제] bookingId={}, memberNo={}", bookingId, memberNo);
+	}
+
+	/**
+	 * 좌석 점유 해제를 Outbox에 올린다. `SeatBooking` 행은 `Booking`과 함께 사라지므로 삭제 전에 읽어 담는다.
+	 *
+	 * <p>Redis를 여기서 직접 건드리지 않는다. 해제는 삭제가 커밋된 뒤여야 하는데(R→B 전환 재처리와
+	 * 겹치지 않기 위해) 커밋 뒤 호출은 실패하면 되돌릴 데가 없다. 삭제와 같은 트랜잭션에서 커밋하면
+	 * 요청이 유실되지 않고 재시도는 워커가 맡는다.</p>
+	 */
+	private void enqueueSeatRelease(Booking booking) {
+		List<SeatBooking> seatBookings = seatBookingRepository.findByBookingId(booking.getId());
+		if (seatBookings.isEmpty()) {
+			// `SeatBooking`이 없으면 점유도 없다. 삭제를 막지 않는다.
+			log.warn("[예매 삭제 - 좌석 예매 없음, 점유 해제 생략] bookingId={}", booking.getId());
+			return;
+		}
+		BookingSeatReleasePayload payload = BookingSeatReleasePayload.from(booking, seatBookings);
+		try {
+			paymentOutboxRepository.save(PaymentOutbox.forBookingSeatRelease(
+				booking.getId(), objectMapper.writeValueAsString(payload)));
+		} catch (JacksonException e) {
+			throw new BusinessException(PaymentError.PAYMENT_OUTBOX_PAYLOAD_SERIALIZATION_FAILED);
+		}
 	}
 
 	/**

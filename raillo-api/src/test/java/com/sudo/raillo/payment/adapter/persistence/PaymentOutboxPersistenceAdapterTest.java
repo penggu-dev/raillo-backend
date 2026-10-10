@@ -33,7 +33,7 @@ class PaymentOutboxPersistenceAdapterTest {
 	@DisplayName("저장한 outbox를 deduplication key로 조회한다")
 	void save_and_findByDedup() {
 		PaymentOutbox saved = paymentOutboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(100L, "payment:100:booking-confirmed", "{}")
+			PaymentOutbox.forBookingConfirmed(100L, "{}")
 		);
 
 		var found = paymentOutboxRepository.findByDeduplicationKey("payment:100:booking-confirmed");
@@ -46,10 +46,10 @@ class PaymentOutboxPersistenceAdapterTest {
 	@DisplayName("next_retry_at이 null 또는 now 이하인 PENDING만 반환한다")
 	void findProcessable_filters() {
 		PaymentOutbox immediate = paymentOutboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(1L, "k-1", "{}")
+			PaymentOutbox.forBookingConfirmed(1L, "{}")
 		);
 		PaymentOutbox later = paymentOutboxRepository.save(
-			PaymentOutbox.forBookingConfirmed(2L, "k-2", "{}")
+			PaymentOutbox.forBookingConfirmed(2L, "{}")
 		);
 		later.markRetry(LocalDateTime.now().plusHours(1));
 		paymentOutboxRepository.save(later);
@@ -63,9 +63,9 @@ class PaymentOutboxPersistenceAdapterTest {
 	@DisplayName("두 트랜잭션이 동시에 lockProcessable을 호출하면 SKIP LOCKED로 서로 다른 행을 잡는다")
 	void lockProcessable_skipsRowsHeldByOtherTransaction() throws Exception {
 		// given: PENDING 3건 저장
-		PaymentOutbox row1 = paymentOutboxRepository.save(PaymentOutbox.forBookingConfirmed(1L, "k-1", "{}"));
-		PaymentOutbox row2 = paymentOutboxRepository.save(PaymentOutbox.forBookingConfirmed(2L, "k-2", "{}"));
-		PaymentOutbox row3 = paymentOutboxRepository.save(PaymentOutbox.forBookingConfirmed(3L, "k-3", "{}"));
+		PaymentOutbox row1 = paymentOutboxRepository.save(PaymentOutbox.forBookingConfirmed(1L, "{}"));
+		PaymentOutbox row2 = paymentOutboxRepository.save(PaymentOutbox.forBookingConfirmed(2L, "{}"));
+		PaymentOutbox row3 = paymentOutboxRepository.save(PaymentOutbox.forBookingConfirmed(3L, "{}"));
 
 		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 		CountDownLatch aLocked = new CountDownLatch(1);

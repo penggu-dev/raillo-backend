@@ -3,6 +3,8 @@ package com.sudo.raillo.payment.domain;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.Comment;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -40,6 +42,7 @@ public class PaymentOutbox {
 	private Long id;
 
 	@Enumerated(EnumType.STRING)
+	@JdbcTypeCode(SqlTypes.VARCHAR)
 	@Column(name = "type", nullable = false, length = 30)
 	private PaymentOutboxType type;
 
@@ -56,6 +59,7 @@ public class PaymentOutbox {
 	private String payload;
 
 	@Enumerated(EnumType.STRING)
+	@JdbcTypeCode(SqlTypes.VARCHAR)
 	@Column(name = "status", nullable = false, length = 20)
 	private PaymentOutboxStatus status;
 
@@ -72,11 +76,25 @@ public class PaymentOutbox {
 	@Column(name = "processed_at")
 	private LocalDateTime processedAt;
 
-	public static PaymentOutbox forBookingConfirmed(Long aggregateId, String deduplicationKey, String payload) {
+	public static PaymentOutbox forBookingConfirmed(Long aggregateId, String payload) {
+		return of(PaymentOutboxType.BOOKING_CONFIRMED, aggregateId, payload);
+	}
+
+	/**
+	 * `Booking` 삭제 후 Redis 좌석 점유를 해제하기 위한 항목. {@code aggregateId}는 삭제된 `Booking`의 ID다.
+	 */
+	public static PaymentOutbox forBookingSeatRelease(Long aggregateId, String payload) {
+		return of(PaymentOutboxType.BOOKING_SEAT_RELEASE_REQUIRED, aggregateId, payload);
+	}
+
+	/**
+	 * 항목 생성의 공통 골격. dedup 키는 {@code type}과 {@code aggregateId}에서 파생하므로 받지 않는다.
+	 */
+	private static PaymentOutbox of(PaymentOutboxType type, Long aggregateId, String payload) {
 		PaymentOutbox outbox = new PaymentOutbox();
-		outbox.type = PaymentOutboxType.BOOKING_CONFIRMED;
+		outbox.type = type;
 		outbox.aggregateId = aggregateId;
-		outbox.deduplicationKey = deduplicationKey;
+		outbox.deduplicationKey = type.deduplicationKey(aggregateId);
 		outbox.payload = payload;
 		outbox.status = PaymentOutboxStatus.PENDING;
 		outbox.retryCount = 0;
