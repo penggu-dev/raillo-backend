@@ -32,7 +32,7 @@
 | 컬럼 | 타입 | 설명 |
 |---|---|---|
 | `order_booking_id` | PK | |
-| `pending_booking_id` | String | ⚠️ 물리 컬럼명. Java 필드는 `reservationId`. 별도 마이그레이션으로 `reservation_id`로 rename 예정 |
+| `reservation_id` | String | Reservation ID. 코드 매핑은 `reservation_id`이며, 운영과 dev DB는 `docs/db-migrations/2026-10-10-order-booking-reservation-id-rename.sql`을 적용한 뒤 일치한다. 적용 전에는 물리 컬럼이 `pending_booking_id`이고 기동이 실패한다 |
 | `order_id` | FK | |
 | `train_schedule_id` | FK | |
 | `departure_stop_id`, `arrival_stop_id` | FK | |

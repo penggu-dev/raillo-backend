@@ -338,7 +338,7 @@ def insert_pending_phase(cursor, conn, count, members, trips, pre_booked):
     print("[Phase 2 - 2/3] OrderBooking 삽입...")
     sql_order_booking = """
         INSERT INTO order_booking
-            (order_id, pending_booking_id, train_schedule_id,
+            (order_id, reservation_id, train_schedule_id,
              departure_stop_id, arrival_stop_id, total_fare, created_at, updated_at)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     """
