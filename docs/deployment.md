@@ -87,6 +87,8 @@ Grafana 통합 알림으로 Discord에 보낸다. Alertmanager는 쓰지 않는�
 
 `grafana-alerting` configmap은 `grafana-deployment.yaml`이 마운트해야 읽힌다. 둘을 함께 적용하지 않으면 규칙이 들어가지 않는다.
 
+데이터소스는 uid를 `prometheus`로 고정한다. 알림 규칙이 `datasourceUid`로 지목하기 때문이다. 이름이 같고 uid가 다른 데이터소스가 Grafana DB에 이미 있으면 갱신이 `data source not found`로 실패하고, 프로비저닝 모듈 실패는 경고로 끝나지 않고 프로세스를 종료시켜 `CrashLoopBackOff`가 된다. uid는 갱신으로 바꿀 수 없으므로 `deleteDatasources`로 지우고 다시 만든다. 설정 DB는 노드 `hostPath` `/var/lib/raillo/grafana`에 보존되므로 파드를 지워도 이 상태가 남는다.
+
 ```bash
 kubectl -n monitoring patch secret grafana-secret \
   -p '{"stringData":{"DISCORD_WEBHOOK_URL":"<webhook url>"}}'
