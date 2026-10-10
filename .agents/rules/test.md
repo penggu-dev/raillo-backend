@@ -66,7 +66,7 @@ train = trainTestHelper.createKTX();
 scheduleResult = trainScheduleTestHelper.createDefault(train);
 ```
 
-**예약 생성 경로는 `@BeforeEach`에서 `trainCacheTestHelper.seed(train, scheduleResult)`를 해야 한다.** 예약 생성은 Redis 기준정보를 읽는데, Redis가 테스트마다 비워지기 때문이다.
+**예약 생성 경로는 `@BeforeEach`에서 `trainCacheTestHelper.seed(train, scheduleResult)`를 해야 한다.** 예약 생성은 Redis의 열차 캐시를 읽는데, Redis가 테스트마다 비워지기 때문이다.
 
 ## 실행
 

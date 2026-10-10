@@ -94,7 +94,7 @@ severity 기준: blocker = 잘못된 결과·데이터 손상·동시성 결함�
   - 좌석 점유 field `{seatId}:{sectionIndex}` → `R:{reservationId}` / `B:{bookingId}` 계약
   - 회원 인덱스를 Lua보다 먼저 쓰고 Lua 실패 시 HDEL로 되돌리는 순서
   - 예약 field 만료는 HEXPIRE, 예약 본문·예약 field·회원 인덱스 TTL 일치
-  - 기준정보 운행 키 만료는 운행일 기준 EXPIREAT(상대 TTL 금지), JSON 값에 @class 금지
+  - 열차 캐시의 운행 키 만료는 운행일 기준 EXPIREAT(상대 TTL 금지), JSON 값에 @class 금지
   - 결제 직전 DB 재검증(BookingValidator.validateSeatConflicts) 경로가 우회되지 않는지
 - 결제: 멱등성, 재시도 시 중복 처리, 외부 실패 후 내부 상태 불일치
 - 보안: 다른 회원의 리소스 접근(memberNo 소유권 검증 누락), 입력 검증 누락

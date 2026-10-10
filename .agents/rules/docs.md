@@ -4,14 +4,14 @@
 
 ## 구조
 
-문서는 도메인별 폴더에 둔다. 폴더 안의 파일 구성은 도메인마다 필요에 따라 나눈다. 요구사항은 `requirements.md`에 둔다.
+문서는 도메인별 폴더의 `README.md` 하나에 쓴다. 너무 길어진 도메인만 파일을 나눈다.
 
 | 폴더 | 다루는 코드 |
 |---|---|
 | `docs/payment/` | `payment` 도메인 (Toss 연동, 결제 시도, 환불) |
 | `docs/order/` | `order` 도메인 |
 | `docs/reservation/` | `booking` 도메인 (Redis 예약, 좌석 점유, Lua, 예매, 승차권) |
-| `docs/train/` | `train` 도메인 (스케줄, 운임, 기준정보 캐시) |
+| `docs/train/` | `train` 도메인 (스케줄, 운임, 열차 캐시) |
 | `docs/member/` | `member`, `auth` 도메인 |
 | `docs/batch/` | `raillo-batch` Job |
 | `docs/worker/` | `*Worker`, `*Scheduler` 같은 비동기, 주기 작업 |
