@@ -222,7 +222,14 @@ Java 25, Spring Boot 4.1.0, MySQL, Redis, Testcontainers, QueryDSL 5.1.0, JWT, S
 - Main branch: `develop`
 - CI runs on push/PR to `develop` via GitHub Actions
 - develop push의 테스트가 성공하면 `deploy_raillo_with_k8s.yml`이 OCI OKE에 배포한다 (`workflow_run`)
+- develop push와 PR에서 `secret_scan.yml`이 민감한 값을 스캔한다 (배포 체인과 분리)
 - Performance testing: K6
+
+**클론 후 한 번 실행** — 민감한 값 pre-commit 훅을 활성화한다:
+```bash
+brew install gitleaks && git config core.hooksPath .githooks
+```
+**에이전트는 `--no-verify`를 쓰지 않는다.** 훅에 막히면 출력의 `File`과 `Line`을 사용자에게 보고하고 판단을 받는다. 오탐이라고 스스로 결론 내려 억제 설정을 넓히지 않는다. 상세 → [docs/secret-scanning.md](./docs/secret-scanning.md)
 
 **이슈/브랜치/커밋/PR 흐름** — 모두 프로젝트 skill로 자동화한다:
 1. `/issue <작업 내용>` — 팀 GitHub Issue 컨벤션에 맞춘 제목·본문·라벨 생성
@@ -255,3 +262,6 @@ Java 25, Spring Boot 4.1.0, MySQL, Redis, Testcontainers, QueryDSL 5.1.0, JWT, S
 
 - **배포/인프라/K8s 작업 시** → [docs/deployment.md](./docs/deployment.md)
   핵심: 매니페스트는 `k8s/oke/{namespace}`이고 CI는 `api-server`·`batch`만 적용한다. 이미지는 GHCR `sha-<commit>` 태그를 쓴다.
+
+- **민감한 값 스캔 설정 변경 시** → [docs/secret-scanning.md](./docs/secret-scanning.md)
+  핵심: `.gitignore`, pre-commit 훅, CI 세 계층이고 훅과 CI의 gitleaks 버전을 맞춘다. 오탐 허용은 `targetRules`와 `paths` 또는 `regexes`를 함께 지정해 좁게 넣는다. `.gitleaksignore`는 쓰지 않는다. 훅을 고치면 positive/negative control로 차단 동작을 실측한다.

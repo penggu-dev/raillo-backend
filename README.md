@@ -30,6 +30,7 @@
 - [주요 기능](#-주요-기능)
 - [모니터링 & 운영](#-모니터링--운영)
 - [테스트](#-테스트)
+- [로컬 설정](#-로컬-설정)
 - [AI 코딩 에이전트 가이드](#-ai-코딩-에이전트-가이드)
 
 ## 📖 프로젝트 개요
@@ -175,6 +176,16 @@ Controller → Facade → Service → Repository
 - **WireMock** : Toss Payments 외부 API 모킹 → 결제 흐름까지 전체 부하 테스트
 - **Prometheus** + **Grafana** : Spring Boot Actuator / Redis 메트릭 실시간 수집·시각화 (`qa/grafana/dashboards`)
 
+## 🔐 로컬 설정
+클론 후 한 번 실행해 민감한 값 pre-commit 훅을 활성화한다. 활성화하지 않으면 API 키나 토큰이 포함된 커밋이 로컬에서 걸러지지 않는다.
+
+```bash
+brew install gitleaks            # macOS. 그 외는 릴리스 페이지 참조
+git config core.hooksPath .githooks
+```
+
+상세 → [`docs/secret-scanning.md`](./docs/secret-scanning.md)
+
 ## 🤖 AI 코딩 에이전트 가이드
 팀은 Claude Code·Codex 등 AI 코딩 에이전트를 일관된 컨벤션으로 사용하기 위해 다음 문서·도구를 함께 제공한다. 어떤 도구를 쓰든 동일한 결과가 나오도록 단일 컨텍스트(`AGENTS.md`)를 공유한다.
 
@@ -187,6 +198,7 @@ Controller → Facade → Service → Repository
 | [`domain-model.md`](./docs/domain-model.md) | 엔티티 관계도, Booking Flow, 한국어 도메인 용어 |
 | [`testing-guide.md`](./docs/testing-guide.md) | Helper/Fixture 사용 예제와 `@ServiceTest` 상세 |
 | [`deployment.md`](./docs/deployment.md) | K8s, ArgoCD, Docker, CI/CD 배포 상세 |
+| [`secret-scanning.md`](./docs/secret-scanning.md) | 민감한 값 스캔 세 계층과 pre-commit 훅 활성화 |
 
 ### 커스텀 Skills (`.agents/skills/`)
 팀 컨벤션을 코드화한 커스텀 skill. 실제 파일은 `.agents/skills/`에 두고 `.claude/skills`는 이를 가리키는 심볼릭 링크다 — Claude Code는 `.claude/skills`, Codex 등은 `.agents/skills`를 참조하므로 어떤 도구에서도 동일한 skill을 사용한다.
