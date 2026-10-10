@@ -1,66 +1,55 @@
 ---
 name: test
-description: 테스트 대상 코드를 분석하고 프로젝트 테스트 컨벤션에 맞는 테스트 코드를 작성하거나 수정한다. Use when the user asks for tests for a domain entity, service, facade, validator, or calculator, including requests like `/test BookingService.cancel`, `/test Booking 엔티티`, `SeatConflictValidator 테스트 작성`, or similar natural-language asks.
+description: 대상 코드를 분석해 프로젝트 테스트 규칙에 맞는 테스트를 작성하거나 고치고, 실행해 통과를 확인한다. Use when the user asks for tests for a domain entity, VO, service, facade, validator, calculator, or Redis repository — e.g. `/test BookingService.cancel`, `/test Booking 엔티티`, `SeatConflictValidator 테스트 작성`. Also used by `/implement` for steps marked "테스트 필요".
+argument-hint: "[클래스명 또는 클래스.메서드]"
 ---
 
-# Test Writer
+# Test
 
-## Workflow
-1. 대상 클래스, 대상 메서드, 관련 예외와 의존 객체를 읽는다.
-2. 기존 테스트 파일이 있으면 먼저 읽고 패턴을 따른다.
-3. 패키지 위치로 테스트 유형을 결정한다.
-    - `raillo-domain`의 `domain/`: 도메인 단위 테스트 (`raillo-domain/src/test`)
-    - `raillo-api`의 `application/calculator/`: 단위 테스트 (`raillo-api/src/test`)
-    - `application/service/`, `application/facade/`, `application/validator/`: 서비스 통합 테스트
-4. 테스트 케이스를 도출한다.
-    - 성공 케이스
-    - 실패 케이스
-    - 경계 케이스
-5. 코드 작성 전 테스트 케이스 목록을 먼저 짧게 제시한다.
-6. 프로젝트 컨벤션에 맞춰 테스트 코드를 작성한다.
-7. `./gradlew test --tests "<FQCN>"` 를 실행하고, 실패하면 수정 후 재실행한다.
+대상: `$ARGUMENTS`
 
-## Scope
-- 사용자가 메서드를 지정하면 그 메서드와 직접 연결된 분기를 우선 테스트한다.
-- 사용자가 클래스만 지정하면 모든 public 메서드를 대상으로 본다.
-- 메서드 본문뿐 아니라 Repository, Validator, Domain 객체 호출에서 발생하는 예외 분기도 함께 본다.
+규칙의 단일 소스는 [.agents/rules/test.md](../../rules/test.md)다. **작성 전에 읽는다.** 테스트 유형 선택, 금지 사항(`@Transactional` 등), 작성 컨벤션, Fixture와 Helper 사용법이 모두 거기 있다. 거기 없는 Helper 메서드는 `raillo-api/src/test/java/com/sudo/raillo/support/` 소스를 확인하고 쓴다. 없는 메서드를 추측하지 않는다.
 
-## Conventions
-- 파일명은 `{ClassName}Test.java` 를 사용한다.
-- `raillo-domain` 도메인 테스트는 Fixture 없이 Entity 정적 팩토리 메서드로 객체를 직접 생성하고 DB를 사용하지 않는다. 반복되는 생성 코드는 테스트 클래스의 private 메서드로 둔다.
-- `raillo-api` 테스트는 `support/fixture/`의 Fixture와 `support/helper/`의 TestHelper로 데이터를 만든다.
-- 서비스 통합 테스트는 `@ServiceTest` 를 사용한다.
-- 서비스 통합 테스트의 공통 데이터는 `@BeforeEach` 에서 준비한다.
-- Member는 `memberRepository.save(MemberFixture.create())` 방식으로 저장한다.
-- Train, Schedule, Booking, Order 등은 TestHelper가 있으면 우선 사용한다.
-- 모든 테스트에 `// given`, `// when`, `// then` 주석을 넣는다.
-- `@DisplayName` 은 한글 완전한 문장으로 `상황 + 기대 결과`를 쓴다.
-- 테스트 메서드명은 영어 스네이크 스타일로 작성한다.
-- 테스트 메서드에 `@Transactional` 을 사용하지 않는다.
-- BigDecimal 비교는 `isEqualByComparingTo` 를 사용한다.
-- 예외 검증은 예외 타입과 메시지 또는 에러코드를 함께 확인한다.
-- 기존 테스트가 더 강한 로컬 컨벤션을 보여주면 그 패턴을 우선 따른다.
+## 절차
 
-## Service Test Setup
-서비스 통합 테스트의 기본 공통 셋업은 다음 흐름을 따른다.
-- `member = memberRepository.save(MemberFixture.create())`
-- `train = trainTestHelper.createKTX()`
-- `scheduleResult = trainScheduleTestHelper.createDefault(train)`
-- 각 테스트에서 필요한 예매나 주문은 `bookingTestHelper`, `orderTestHelper` 등으로 생성한다.
+1. **대상 읽기**: 대상 메서드, 호출하는 Repository, Validator, Domain 메서드, 던지는 예외와 ErrorCode.
+2. **기존 테스트 읽기**: `{ClassName}Test.java`가 있으면 그 구조(`@Nested`, 필드, private 헬퍼)를 따른다. 없으면 같은 패키지의 형제 테스트 하나를 읽는다.
+3. **케이스 도출**: 분기마다 성공, 실패(예외), 경계(빈 목록, 구간 끝, 시간 경계). 호출되는 Validator와 Domain 메서드의 예외 분기도 포함한다. 메서드를 지정했으면 그 메서드만, 클래스만 지정했으면 public 메서드 전부.
+4. **케이스 목록 제시**: 단독 호출이면 확인을 받고 쓴다. `/implement` 안에서는 바로 쓴다.
 
-## Output
-코드 작성 전에는 테스트 케이스 목록을 먼저 제시한다.
-- 성공 케이스
-- 실패 케이스
-- 필요한 경우 경계 케이스
+   ```
+   🧪 {ClassName}
+   성공: 1) ...
+   실패: 1) ... → {ErrorCode}
+   경계: 1) ...
+   ```
 
-코드 작성 후에는 다음을 함께 보고한다.
-- 생성 또는 수정한 테스트 파일 경로
-- 추가하거나 수정한 테스트 수
-- 실행한 Gradle 명령
-- 테스트 통과 여부
+5. **작성**.
+6. **실행**: `./gradlew :{모듈}:test --tests "{FQCN}"`. 실패하면 고치고 다시 돌린다.
+   - 통과시키려면 **프로덕션 코드를 고쳐야 하면 멈추고 알린다.** 테스트가 버그를 찾은 것일 수 있다.
+   - Docker를 못 쓰면 `./gradlew :{모듈}:compileTestJava`까지만 하고 실행 명령을 넘긴다.
 
-## References
+## 자주 놓치는 것
 
-- [docs/testing-guide.md](../../../docs/testing-guide.md) — TrainTestHelper / TrainScheduleTestHelper / BookingTestHelper / OrderTestHelper의 빌더 사용 예제, Fixture 목록, `@ServiceTest`가 제공하는 Extension 상세. Helper 사용 패턴이 모호할 때 이 문서를 먼저 읽는다.
-- 루트 [AGENTS.md](../../../AGENTS.md)의 Layer Rules, Exception 3종, Transaction 규칙은 테스트 대상 코드를 이해할 때 함께 참고한다.
+- 상태 변경은 반환값이 아니라 **DB나 Redis에서 다시 조회해** 검증한다.
+- 예외는 타입과 ErrorCode를 함께 본다. 대상 코드가 실제로 던지는 타입(`DomainException` / `BusinessException`)을 확인한다.
+
+  ```java
+  assertThatThrownBy(() -> booking.cancel())
+      .isInstanceOf(DomainException.class)
+      .hasFieldOrPropertyWithValue("errorCode", BookingError.BOOKING_ALREADY_CANCELLED);
+  ```
+
+- 예약 생성 경로는 `@BeforeEach`에서 `trainCacheTestHelper.seed(...)`를 다시 한다.
+- Mock은 외부 API(Toss), 시계, 재시도처럼 재현이 어려운 경계에만 쓴다.
+
+## 보고
+
+```
+✅ {경로} (신규|수정)
+케이스: 성공 n / 실패 n / 경계 n
+실행: ./gradlew :{모듈}:test --tests "..." → 통과 n / 실패 n (또는 미실행: Docker 불가)
+발견 사항: {프로덕션 코드 의심 지점, 없으면 생략}
+```
+
+`/implement` 안에서는 커밋하지 않는다. 결과는 단계 검토 요청에 합쳐진다.

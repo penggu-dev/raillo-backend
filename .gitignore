@@ -51,3 +51,6 @@ package.json
 package-lock.json
 node_modules
 qa/k6/schedule-config.json
+
+### Claude ###
+.claude/plans/
