@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+#
+# 스테이징된 변경에서 민감한 값을 찾으면 커밋을 막는다.
+#
+# 활성화: git config core.hooksPath .githooks
+# 상세:   docs/secret-scanning.md
+#
+# 비정상 경로는 모두 차단으로 수렴한다. 검사하지 못한 상태를 통과로 처리하면
+# 훅이 있다는 사실만 남는다.
+
+set -uo pipefail
+
+# CI(.github/workflows/secret_scan.yml)의 GITLEAKS_VERSION 과 함께 올린다.
+readonly MIN_VERSION=8.30.1
+# gitleaks 종료 코드. 유출 탐지와 실행 실패를 구분하기 위해 전용 값을 쓴다.
+readonly LEAK_EXIT_CODE=2
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  cat >&2 <<'MSG'
+커밋을 중단했습니다. gitleaks가 설치되어 있지 않습니다.
+
+  macOS : brew install gitleaks
+  그 외  : https://github.com/gitleaks/gitleaks/releases
+MSG
+  exit 1
+fi
+
+installed_version=$(gitleaks version 2>/dev/null | head -1 | tr -dc '0-9.')
+if [ -z "${installed_version}" ] ||
+   [ "$(printf '%s\n%s\n' "${MIN_VERSION}" "${installed_version}" | sort -V | head -1)" != "${MIN_VERSION}" ]; then
+  cat >&2 <<MSG
+커밋을 중단했습니다. gitleaks 버전이 하한보다 낮습니다.
+
+  설치됨 : ${installed_version:-확인 실패}
+  필요    : ${MIN_VERSION} 이상 (CI와 동일)
+
+  brew upgrade gitleaks
+MSG
+  exit 1
+fi
+
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+config="${repo_root}/.gitleaks.toml"
+
+if [ ! -f "${config}" ]; then
+  printf '커밋을 중단했습니다. 설정 파일이 없습니다: %s\n' "${config}" >&2
+  exit 1
+fi
+
+# --gitleaks-ignore-path 는 기본 탐색을 대체하지 않고 추가하므로 플래그로 끌 수 없다.
+# 커밋하지 않은 로컬 파일로도 적용되어 CI의 거부 스텝이 볼 수 없다.
+if [ -e "${repo_root}/.gitleaksignore" ]; then
+  cat >&2 <<MSG
+커밋을 중단했습니다. .gitleaksignore 는 쓰지 않습니다.
+
+  ${repo_root}/.gitleaksignore
+
+이 파일은 fingerprint 로 탐지를 지우고 커밋 해시에 묶여 있어 히스토리를 재작성하면 억제가 풀립니다.
+오탐은 gitleaks:allow 주석이나 .gitleaks.toml allowlist 로 처리하세요.
+MSG
+  exit 1
+fi
+
+# --config: 절대 경로로 고정해 GITLEAKS_CONFIG 주입을 막는다.
+# --verbose: 탐지된 File 과 Line 을 출력한다.
+# --log-level warn: 깨끗한 커밋의 INF 출력을 숨긴다.
+gitleaks git --staged \
+  --config "${config}" \
+  --redact --no-banner --verbose --log-level warn \
+  --exit-code "${LEAK_EXIT_CODE}"
+status=$?
+
+case "${status}" in
+  0)
+    exit 0
+    ;;
+  "${LEAK_EXIT_CODE}")
+    cat >&2 <<'MSG'
+
+커밋을 중단했습니다. 스테이징된 변경에서 민감한 값으로 보이는 문자열을 찾았습니다.
+
+위 출력의 File 과 Line 을 확인하세요. 값은 가려져 있습니다.
+
+  실제 민감한 값이면 : 환경변수로 옮기고 이미 노출된 키는 폐기하고 재발급하세요.
+  오탐이면           : gitleaks:allow 주석을 달거나 .gitleaks.toml allowlist 에 좁게 추가하세요.
+
+--no-verify 는 사람이 판단할 예외 수단입니다. 에이전트는 쓰지 말고 이 출력을 사용자에게 보고하세요.
+MSG
+    exit 1
+    ;;
+  *)
+    cat >&2 <<MSG
+
+커밋을 중단했습니다. gitleaks 실행이 실패했습니다 (종료 코드 ${status}).
+
+유출이 없다는 뜻이 아니라 검사가 수행되지 않았다는 뜻입니다.
+
+  gitleaks version
+  gitleaks git --staged --config "${config}" --no-banner
+MSG
+    exit 1
+    ;;
+esac

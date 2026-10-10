@@ -1,0 +1,41 @@
+# 민감한 값 스캔 설정. 상세는 docs/secret-scanning.md
+#
+# 검증 기준 버전: gitleaks 8.30.1 (.githooks/pre-commit 의 MIN_VERSION 과 동일)
+# 허용은 규칙(targetRules)과 대상(paths 또는 regexes)을 함께 한정한다.
+
+[extend]
+useDefault = true
+
+# 기본 generic-api-key 는 값 근처의 키워드에 의존하므로 변수명이 축약어면
+# 운영 시크릿 키도 탐지되지 않는다. 접두사만으로 잡도록 규칙을 따로 둔다.
+# 저장소의 기존 스텁(test_sk_stub, test_sk_secret)은 접두사 뒤 6자 이하라 걸리지 않는다.
+[[rules]]
+id = "toss-secret-key"
+description = "Toss Payments 시크릿 키"
+regex = '''\b(test|live)_(sk|gsk)_[A-Za-z0-9]{20,}'''
+keywords = ["test_sk_", "live_sk_", "test_gsk_", "live_gsk_"]
+
+# 히스토리 전체 스캔에서 탐지된 오탐 7건이 이 두 파일에 있다.
+# 모듈 분리 전후로 경로가 바뀌어 양쪽을 모두 받는다.
+[[allowlists]]
+description = "Toss 결제 클라이언트 테스트의 paymentKey 픽스처"
+targetRules = ["generic-api-key"]
+paths = [
+  '''(^|/)src/test/java/.*Toss[A-Za-z]*Client[A-Za-z]*Test\.java$''',
+]
+
+[[allowlists]]
+description = "테스트 전용 application-test.yml 의 시크릿"
+targetRules = ["generic-api-key"]
+paths = [
+  '''(^|/)src/test/resources/application-test\.yml$''',
+]
+
+# 클라이언트 키는 결제창을 띄우는 뷰가 브라우저에 전달하는 공개 값이라 main 경로에도 존재한다.
+# 시크릿 키(sk, gsk)는 서버가 Basic 인증에 쓰는 자격이므로 허용하지 않는다.
+[[allowlists]]
+description = "Toss 클라이언트 키(브라우저 노출 공개 값)"
+targetRules = ["generic-api-key"]
+regexes = [
+  '''\btest_(ck|gck)_[A-Za-z0-9]+''',
+]
