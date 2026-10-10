@@ -27,7 +27,7 @@
 - [기술 스택](#-기술-스택)
 - [유저 플로우](#-유저-플로우)
 - [아키텍처](#-아키텍처)
-- [주요 기능](#-주요-기능)
+- [주요 특징](#-주요-특징)
 - [모니터링 & 운영](#-모니터링--운영)
 - [테스트](#-테스트)
 - [AI 코딩 에이전트 가이드](#-ai-코딩-에이전트-가이드)
@@ -37,8 +37,7 @@
 실제 서비스의 핵심 기능들을 최대한 유사하게 구현하여 현업에서 사용되는 기술 스택과 설계 패턴을 학습하고 적용한 프로젝트입니다.
 
 ### 📅 진행 기간
-- v1 : 2025. 05. 28. ~ 2025. 08. 08.
-- v2 : 2025. 10. 11. ~ now
+- 2025. 10. 11. ~ now
 
 ### 🎯 핵심 목표
 - **실제 서비스와 유사한 핵심 기능 구현** : 실제 코레일에서 제공하는 회원 인증 및 주요 예매 흐름을 최대한 비슷하게 구현
@@ -48,26 +47,27 @@
 ## 🔧 기술 스택
 ### Backend
 [![backend](https://skillicons.dev/icons?i=java,spring,redis,mysql,gradle)](https://skillicons.dev)
-- **Language** : Java
-- **Framework** : Spring Boot, Spring Security
+- **Language** : Java 25
+- **Framework** : Spring Boot 4.1, Spring Security, Spring Batch
 - **ORM** : Spring Data JPA, QueryDSL
-- **DB** : MySQL
-- **Cache** : Redis
+- **DB** : MySQL 8.4
+- **Cache / 좌석 점유** : Valkey 9 (Redis 호환)
 - **Authentication** : JWT
-- **Build Tool** : Gradle
+- **Payment** : Toss Payments
+- **Build Tool** : Gradle (멀티 모듈)
 
 ### Infrastructure & DevOps
-[![infra,devops](https://skillicons.dev/icons?i=git,github,docker,kubernetes,aws,prometheus,grafana,githubactions)](https://skillicons.dev)
-- **Cloud Platform** : AWS (EKS, RDS, Route53, Load Balancer)
+[![infra,devops](https://skillicons.dev/icons?i=git,github,docker,kubernetes,prometheus,grafana,githubactions)](https://skillicons.dev)
+- **Cloud Platform** : Oracle Cloud (OKE)
 - **Container** : Docker, Kubernetes
-- **CI/CD** : GitHub Actions, ArgoCD (GitOps)
+- **CI/CD** : GitHub Actions, GHCR
 - **Monitoring** : Prometheus, Grafana
 - **VCS** : Git, GitHub
 
 ### Testing
-- **Framework** : JUnit, Spring Boot Test
+- **Framework** : JUnit 5, Spring Boot Test
 - **Test Environment** : Testcontainers (MySQL 8.4.10, Valkey 9) — 운영과 동일 버전, Docker 필요
-- **Test Utils** : AssertJ
+- **Test Utils** : AssertJ, ArchUnit
 - **Performance Testing** : K6
 - **Email Testing** : GreenMail
 
@@ -77,126 +77,111 @@
 ## 🏗️ 아키텍처
 <img width="1920" alt="Raillo-Server-Architecture" src="https://github.com/user-attachments/assets/9d587d24-37e9-46d5-8f97-f1c7ea152bcc" />
 
-
-### 도메인 주도 설계 (DDD)
+### 모듈 구조
 ```
 raillo-domain ← raillo-api
               ← raillo-batch
 ```
 
-- `raillo-domain`: Booking·Member·Order·Payment·Train 도메인 모델과 Domain 공통 기반 클래스의 단일 원본
-- `raillo-api`: REST API와 application/infrastructure, Payment 헥사고날 port/adapter
-- `raillo-batch`: Non-Web Spring Batch Job과 Batch 전용 Repository/JDBC 구현
+- `raillo-domain`: Entity, VO, 도메인 규칙, Redis 키 계약의 단일 원본
+- `raillo-api`: REST API. 결제 도메인은 헥사고날 구조(port, adapter)
+- `raillo-batch`: 시간표 파싱, 운행 생성, 열차 캐시 적재, 회원 정리를 하는 Spring Batch 앱
 
 ### Layer 아키텍처
 ```
 Controller → Facade → Service → Repository
 ```
-- **Facade** : 도메인 단일 진입점으로 여러 Service를 조합하며, Facade → Facade 호출은 금지
-- **Service** : 비즈니스 로직과 트랜잭션 경계 담당
+- **Facade** : 여러 Service를 조합하는 진입점. Facade → Facade 호출은 금지
+- **Service** : 비즈니스 로직과 트랜잭션 경계. Service → Service 호출은 금지
 - **Validator / Calculator / Generator** : 검증, 계산, 식별자 생성 등 책임이 분리된 보조 컴포넌트
 
 ## 🚀 주요 특징
 ### 🔑 Auth 도메인
 - **JWT 기반 인증 시스템** : Access Token과 Refresh Token을 활용한 Stateless 인증 및 인가
-- **이메일 인증** : Redis를 활용한 인증 코드 발송 및 검증 시스템
+- **이메일 인증** : Redis를 활용한 인증 코드 발송 및 검증
 - **보안 강화** : 로그아웃된 토큰 Redis 관리, 쿠키 기반 Refresh Token 관리
 
 ### 👤 Member 도메인
 - **고유 회원번호 시스템** : Redis 기반 일일 증분 카운터를 활용한 회원번호 자동 생성 (`yyyyMMddCCCC` 형식)
 - **Soft-Delete** : 실제 회원 삭제가 아닌 비활성화 처리
-- **만료 회원 일괄 삭제** : 만료된 회원 데이터 정리를 위한 배치 처리 활용
-
-### 🎫 Booking 도메인
-- **장바구니 시스템**: 예약 후 결제 전 임시 저장 및 관리 기능
-- **좌석 예약 관리**: 승객 유형별 좌석 배정 및 예약 상태 관리
-- **요금 계산**: 거리별, 승객 유형별, 차량 등급별 요금 자동 계산
-- **Redis Lua 스크립트 기반 좌석 선점**: 좌석 구간 충돌 검사와 임시 좌석 점유를 Lua 스크립트로 원자적 처리하여 동시 예약 방지
-- **좌석 점유 인덱스 최적화**: 좌석별, 객차별 다중 인덱스 구조로 좌석 조회 성능과 정확성 확보
-- **TTL 기반 자동 만료**: 일정 시간 내 결제하지 않은 임시 예약과 좌석 점유는 자동으로 해제되어 좌석을 예매 가능 상태로 전환
-
-### 📦 Order 도메인
-- **주문 통합 관리**: 예약과 결제를 연결하는 주문 단위 관리
-- **주문 상태 라이프사이클 관리**: 결제 대기 → 결제 완료 → 취소까지의 주문 상태 흐름을 도메인 단에서 일관되게 관리
-- **결제 흐름 일관성 보장:** 주문 단계별 상태 검증으로 중복 결제와 잘못된 상태 전이 차단
-
-### 💵 Payment 도메인
-- **Toss Payments 기반 결제 연동**: Toss Payments의 결제 UI를 통해 결제 플로우를 안정적으로 처리
-- **결제 키 생성**: 고유한 결제 식별자 자동 생성
-- **금액 다중 검증 및 중복결제 방지**: 결제 단계별 금액을 비교 검증하고, 이미 처리된 주문에 대한 재결제 시도 차단
-- **자동 티켓 발급**: 결제 완료 시 티켓 생성
-- **취소 및 환불**: 결제 취소 및 환불 처리 시스템
+- **만료 회원 일괄 삭제** : 탈퇴 후 3년이 지난 회원을 Batch로 영구 삭제
 
 ### 🚅 Train 도메인
-- **실제 데이터 활용**: 코레일의 실제 운영 스케줄 Excel 파일을 파싱하여 데이터 구축
-- **열차 검색 최적화**: 배치 쿼리를 활용한 대용량 스케줄 검색 성능 최적화
-- **운행 캘린더 캐싱**: Redis 캐시로 반복 조회되는 운행 캘린더 응답 최적화
-- **좌석 현황 관리**: 실시간 좌석 예약 현황 및 여유석 정보 제공
-- **역 간 요금 시스템**: 구간별 세분화된 요금 체계 구현
+- **실제 데이터 활용** : 코레일의 실제 운영 시간표와 운임표 Excel을 파싱해 데이터 구축
+- **요일 템플릿 기반 운행 생성** : 시간표 템플릿으로 날짜별 운행을 매일 Batch로 생성
+- **구간 단위 잔여석 계산** : 정차 순서 구간으로 겹침을 판단해, 같은 좌석을 겹치지 않는 구간에 나눠 판매
+- **열차 캐시** : 예약 생성에 필요한 열차, 운행 정보를 Batch가 Redis에 적재해 예약 시 DB를 읽지 않음
+- **운행 캘린더 캐싱** : 하루 동안 같은 응답을 캐시하고 자정에 갱신
+
+### 🎫 Booking 도메인
+- **Redis Lua 기반 좌석 점유** : 좌석 구간 충돌 검사와 점유를 Lua 스크립트로 원자적으로 처리해 동시 예약 방지
+- **객차별 Hash 구간 점유** : 객차마다 Hash 하나에 `{좌석}:{구간}` field로 점유를 기록
+- **TTL 기반 자동 만료** : 결제하지 않은 예약의 좌석 점유는 field 단위 만료(`HEXPIRE`)로 자동 해제
+- **예매 확정** : 결제가 끝나면 예매와 승차권을 만들고, 좌석 점유를 예약에서 예매로 전환
+
+### 📦 Order 도메인
+- **주문 단위 결제** : 여러 예약을 하나의 주문으로 묶어 한 번에 결제
+- **예약 스냅샷** : 주문 시점의 예약을 저장해, Redis 예약이 만료된 뒤에도 결제를 확정
+
+### 💵 Payment 도메인
+- **Toss Payments 연동** : Toss 결제창과 승인 API로 결제 처리
+- **멱등한 승인** : `paymentKey`에서 계산한 시도 ID와 유니크 제약으로 같은 승인 요청의 중복 처리 방지
+- **결과 불명 대응** : 타임아웃, Toss 5xx는 실패로 단정하지 않고, 재요청 시 Toss 조회로 상태를 맞춰 이중 청구 방지
+- **트랜잭션 분리** : 승인 시작, Toss 호출, 승인 확정을 나눠 장애 시점과 관계없이 복구 가능한 기록을 남김
+- **Outbox** : DB 커밋 뒤 Redis 좌석 점유 전환을 Worker가 비동기로 재시도하며 처리
 
 ## 📊 모니터링 & 운영
 ### 인프라 & 배포
-- GitHub Actions와 ArgoCD를 활용해 GitOps 기반 CI/CD 환경 구성
-- Public / Private 서브넷을 분리하고, ALB를 통해서만 내부 서비스에 접근하도록 네트워크 구성
-- `topologySpreadConstraints` 기반 Pod 분산 배치와 다중 Replica 운영을 통해 고가용성을 확보하고, `readinessProbe` 기반 Rolling Update로 무중단 배포 구성
-- Spring Boot 애플리케이션과 Redis는 Kubernetes(EKS) 기반으로 운영하고, DB는 AWS 관리형 서비스(RDS)로 구성
+- Oracle Cloud OKE(Kubernetes)에 API, Batch CronJob, MySQL, Valkey, 모니터링을 운영
+- `develop`에 머지되면 GitHub Actions가 테스트, ARM64 이미지 빌드, 커밋 SHA 태그 배포까지 수행
+- `readinessProbe` 기반 Rolling Update로 무중단 배포
+- 운영 DB는 bastion을 통한 SSH 터널로만 접속
 
 ### 관측 (Observability)
-- Spring Boot Actuator + Micrometer → Prometheus → Grafana 기반 메트릭 파이프라인 구축
-- Node·JVM·HTTP 요청·애플리케이션 메트릭을 실시간 수집 및 시각화
-- 예매, 좌석 충돌, 결제 흐름 등 비즈니스 도메인 기반 커스텀 메트릭을 설계하고 Grafana 대시보드로 시각화
-- AOP 기반 계측을 적용해 비즈니스 로직 수정 없이 메트릭 수집
+- Spring Boot Actuator + Micrometer → Prometheus → Grafana 기반 메트릭 파이프라인
+- Node, JVM, HTTP 요청, MySQL, Valkey 메트릭을 수집하고 시각화
+- 예약, 좌석 충돌, 결제, Outbox 등 비즈니스 메트릭을 Micrometer로 수집. 예약과 결제는 AOP로 계측해 비즈니스 로직을 건드리지 않음
 
 ## 🧪 테스트
 ### 자동화 테스트 전략
-- **도메인 단위 테스트** : Entity, VO, Calculator, Validator의 핵심 규칙을 빠르게 검증
-- **서비스 통합 테스트** : `@ServiceTest` 기반으로 Testcontainers MySQL/Redis를 사용해 운영과 동일한 엔진에서 DB/Redis 연동 흐름 검증
-- **동시성 테스트** : 좌석 선점, 중복 예매, 결제 승인처럼 충돌 가능성이 높은 흐름을 별도 시나리오로 검증
-- **테스트 데이터 구성** : Fixture와 Test Helper를 분리해 단위 테스트와 통합 테스트의 데이터 준비 책임을 구분
-- **BDD 스타일** : `given / when / then` 주석과 한국어 `@DisplayName`으로 테스트 의도를 명확하게 표현
-
-### Test Helper 클래스
-서비스 통합 테스트에서는 반복되는 DB 저장 로직을 Test Helper로 분리해 테스트 본문이 검증 의도에 집중하도록 구성한다.
-
-- **Fixture** : DB 저장 없이 순수 도메인 객체를 생성할 때 사용
-- **Test Helper** : DB 저장이 필요한 통합 테스트 데이터를 구성할 때 사용
-
-| Helper | 역할 |
-|--------|------|
-| `TrainTestHelper` | 테스트용 열차, 객차, 좌석 생성 및 예약 가능한 좌석 조회 |
-| `TrainScheduleTestHelper` | 기본/커스텀 운행 스케줄, 정차역, 역 간 요금 생성 |
-| `BookingTestHelper` | 확정 예매, 좌석 예매, 티켓 발급까지 포함한 예매 데이터 구성 |
-| `OrderTestHelper` | 주문, OrderBooking, OrderSeatBooking 데이터 구성 |
+- **도메인 단위 테스트** : Entity, VO의 핵심 규칙을 빠르게 검증
+- **서비스 통합 테스트** : `@ServiceTest` 기반으로 Testcontainers MySQL/Valkey를 사용해 운영과 동일한 엔진에서 검증
+- **동시성 테스트** : 좌석 선점, 결제 승인처럼 충돌 가능성이 높은 흐름을 별도 시나리오로 검증
+- **아키텍처 테스트** : ArchUnit으로 결제 도메인의 헥사고날 의존 방향을 강제
+- **BDD 스타일** : `given / when / then` 주석과 한국어 `@DisplayName`으로 테스트 의도를 표현
 
 ### 로컬 부하 테스트 환경 (`compose-test.yaml`)
-운영 환경과 유사한 스택을 Docker Compose로 띄워, 외부 비용·제약 없이 반복 가능한 부하 테스트 환경 구축
+운영 환경과 유사한 스택을 Docker Compose로 띄워 반복 가능한 부하 테스트 환경을 구축
 - **Spring Boot** (CPU/메모리 제한으로 운영 Pod 스펙 모사)
-- **Redis** + **redis-exporter** (좌석 선점, 캐시, 메트릭 수집)
+- **MySQL**, **Valkey** + **redis-exporter**
 - **WireMock** : Toss Payments 외부 API 모킹 → 결제 흐름까지 전체 부하 테스트
-- **Prometheus** + **Grafana** : Spring Boot Actuator / Redis 메트릭 실시간 수집·시각화 (`qa/grafana/dashboards`)
+- **Prometheus** + **Grafana** : 메트릭 실시간 수집, 시각화 (`qa/grafana/dashboards`)
 
 ## 🤖 AI 코딩 에이전트 가이드
-팀은 Claude Code·Codex 등 AI 코딩 에이전트를 일관된 컨벤션으로 사용하기 위해 다음 문서·도구를 함께 제공한다. 어떤 도구를 쓰든 동일한 결과가 나오도록 단일 컨텍스트(`AGENTS.md`)를 공유한다.
+Claude Code, Codex 등 AI 코딩 에이전트가 같은 컨벤션으로 작업하도록 문서와 스킬을 저장소에 함께 둔다. 시작점은 [`AGENTS.md`](./AGENTS.md)이며 `CLAUDE.md`는 그 심볼릭 링크다.
 
-### 상세 문서 (`docs/`)
-| 문서 | 내용 |
+### 구성
+| 위치 | 내용 |
 |---|---|
-| [`reservation-cache-schema.md`](./docs/reservation-cache-schema.md) | 예약(Reservation) Redis 키 계약, 객차 점유 Hash, `reservation_create.lua` 흐름 |
-| [`train-cache-schema.md`](./docs/train-cache-schema.md) | 열차 기준정보 Redis 캐시 스키마와 Batch 적재 |
-| [`seat-conflict-validation.md`](./docs/seat-conflict-validation.md) | 좌석 충돌 방어 계층 (Validator → Lua 점유 → DB 재검증 → TTL) |
-| [`domain-model.md`](./docs/domain-model.md) | 엔티티 관계도, Booking Flow, 한국어 도메인 용어 |
-| [`testing-guide.md`](./docs/testing-guide.md) | Helper/Fixture 사용 예제와 `@ServiceTest` 상세 |
-| [`deployment.md`](./docs/deployment.md) | K8s, ArgoCD, Docker, CI/CD 배포 상세 |
+| [`AGENTS.md`](./AGENTS.md) | 문서 지도, 모듈 구조, 빌드 명령, 작업 흐름 |
+| [`docs/`](./docs) | 도메인별 문서. 도메인 설명, 용어, 모델, 설계 결정 |
+| [`.agents/rules/`](./.agents/rules) | 코드 컨벤션, 테스트 규칙, 문서 규칙 |
+| [`.agents/skills/`](./.agents/skills) | 팀 작업 흐름을 코드화한 스킬. `.claude/skills`는 이를 가리키는 심볼릭 링크 |
 
-### 커스텀 Skills (`.agents/skills/`)
-팀 컨벤션을 코드화한 커스텀 skill. 실제 파일은 `.agents/skills/`에 두고 `.claude/skills`는 이를 가리키는 심볼릭 링크다 — Claude Code는 `.claude/skills`, Codex 등은 `.agents/skills`를 참조하므로 어떤 도구에서도 동일한 skill을 사용한다.
+### 작업 흐름
+```
+/issue → /branch → /implement [ 구현 → /test → /commit ] × n → /review → /docs → /tidy-commits → /pr
+```
 
 | Skill | 용도 |
 |---|---|
-| `/issue` | 팀 Issue 컨벤션에 맞춘 제목·본문·라벨 텍스트 생성 |
-| `/branch` | 이슈 번호 기반 브랜치명 자동 생성 |
-| `/commit` | 브랜치명에서 이슈 추출 후 커밋 메시지 생성 (`Co-Authored-By` 금지) |
-| `/pr` | 변경사항 분석 후 팀 PR 템플릿으로 PR 생성 (사용자 검수 후 실행) |
-| `/test` | 도메인/서비스/Validator 테스트 자동 작성 (BDD, `@DisplayName` 한국어) |
-| `/validator` | `application/validator/{Domain}Validator.java` 클래스/메서드 생성 |
-| `/api-doc` | Controller 기반 Swagger `{Domain}ControllerDoc` 인터페이스 생성 |
+| `/issue` | 팀 형식으로 이슈를 쓰고 승인 후 생성 |
+| `/branch` | 이슈 번호 기반 브랜치를 원격 최신 기준으로 분기 |
+| `/implement` | 이슈를 커밋 단위 단계로 나눠 단계마다 검토 후 커밋 |
+| `/test` | 규칙에 맞는 테스트 작성과 실행 |
+| `/commit` | `type: 설명 (#N)` 형식으로 커밋 |
+| `/review` | 대화 맥락이 없는 서브에이전트가 컨벤션, 정확성, 테스트 관점으로 리뷰 |
+| `/docs` | 문서를 코드와 대조해 세션 맥락, 중복을 걷어내고 간결하게 유지 |
+| `/tidy-commits` | PR 전에 수정 커밋을 합치고 메시지 정리 |
+| `/pr` | 이슈 기준으로 PR을 쓰고 승인 후 생성 |
+| `/db-reset` | 테스트 DB에서 열차, 회원 데이터만 남기고 테이블 초기화 |
