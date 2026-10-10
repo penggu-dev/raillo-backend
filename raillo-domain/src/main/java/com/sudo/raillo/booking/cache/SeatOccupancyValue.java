@@ -8,7 +8,7 @@ package com.sudo.raillo.booking.cache;
  * <p>예외가 하나 있다. 결제 결과를 모르는 동안에는 {@code reservation_payment_hold.lua}가 예약 field의 만료를 없애고,
  * 결과가 실패로 확정되면 {@code reservation_payment_release.lua}가 되돌린다. 그 사이의 예약 field에는 만료가 없으므로
  * 만료가 없다는 사실만으로 예매 field라고 판단하면 안 된다. 자세한 규칙은
- * {@code docs/reservation-cache-schema.md} 5장에 있다.</p>
+ * {@code docs/reservation/README.md}에 있다.</p>
  */
 public record SeatOccupancyValue(Type type, String id) {
 
