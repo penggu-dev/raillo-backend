@@ -8,7 +8,7 @@ argument-hint: "[클래스명 또는 클래스.메서드]"
 
 대상: `$ARGUMENTS`
 
-규칙의 단일 소스는 [.agents/rules/test.md](../../rules/test.md)다. **작성 전에 읽는다.** 테스트 유형 선택, 금지 사항(`@Transactional` 등), 작성 컨벤션, Fixture와 Helper 사용법이 모두 거기 있다. 거기 없는 Helper 메서드는 `raillo-api/src/test/java/com/sudo/raillo/support/` 소스를 확인하고 쓴다. 없는 메서드를 추측하지 않는다.
+규칙의 단일 소스는 [.agents/rules/test.md](../../rules/test.md)다. **작성 전에 읽는다.** 테스트 유형 선택, 금지 사항(`@Transactional` 등), 작성 컨벤션, 테스트 데이터 만드는 법이 거기 있다. Helper와 Fixture 메서드는 `raillo-api/src/test/java/com/sudo/raillo/support/` 소스를 확인하고 쓴다. 없는 메서드를 추측하지 않는다.
 
 ## 절차
 

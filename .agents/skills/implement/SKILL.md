@@ -37,7 +37,7 @@ allowed-tools: Bash(gh issue view *) Bash(git status *) Bash(git diff *) Bash(gi
 
 ## 2. 계획
 
-- 이슈가 언급한 클래스와 호출 관계, 같은 도메인의 기존 패턴, [.agents/rules/docs.md](../../rules/docs.md) "먼저 읽을 문서"를 읽는다. 이미 있는 Validator, ErrorCode, 쿼리, 유틸을 재사용 후보로 적는다.
+- 이슈가 언급한 클래스와 호출 관계, 같은 도메인의 기존 패턴, 해당 도메인의 `docs/` 폴더([.agents/rules/docs.md](../../rules/docs.md) "구조")를 읽는다. 이미 있는 Validator, ErrorCode, 쿼리, 유틸을 재사용 후보로 적는다.
 - 코드로 정할 수 없는 선택지는 계획 전에 묻는다.
 
 **단계 분해**

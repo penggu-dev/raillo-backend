@@ -13,8 +13,8 @@ allowed-tools: Bash(gh issue *) Bash(gh label list *)
 - 제목은 `[CATEGORY] 설명`, 본문은 한국어 "-습니다" 완결형이다. 체크리스트 항목은 명사형으로 끝내도 된다.
 - 할 일은 "~합니다", 이미 확인한 사실은 과거형 + 근거(환경, 이슈나 PR 번호)로 쓴다.
 - 체크리스트에는 **테스트 항목과 문서 갱신 항목을 한 줄씩 반드시 둔다.** 없으면 "테스트 추가 없음: 이유", "문서 갱신 없음: 이유"로 쓴다.
-  - 테스트 필요 여부: [.agents/rules/test.md](../../rules/test.md) "테스트가 반드시 있어야 하는 변경"
-  - 갱신할 문서: [.agents/rules/docs.md](../../rules/docs.md) "변경에 따른 갱신 대상". 판단이 서지 않으면 추측하지 않고 묻는다.
+  - 테스트 필요 여부: [.agents/rules/test.md](../../rules/test.md) "테스트가 있어야 하는 변경"
+  - 갱신할 문서: [.agents/rules/docs.md](../../rules/docs.md) "구조", "언제 고치는가". 판단이 서지 않으면 추측하지 않고 묻는다.
 - 웹 UI 템플릿을 쓰지 않는다. `--title`과 `--body`로 만들어야 아래 공통 형식이 유지된다.
 
 ## CATEGORY와 라벨
