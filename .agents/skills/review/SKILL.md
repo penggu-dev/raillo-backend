@@ -1,7 +1,7 @@
 ---
 name: review
 description: 현재 브랜치(또는 지정 범위)의 변경을 대화 맥락이 없는 서브에이전트들이 관점별로 병렬 리뷰하고, 별도 검증 에이전트가 오탐을 걸러 확인된 지적만 보고한다. Use when the user says "/review", "리뷰해줘", "중간 리뷰", or when `/implement` finishes all steps. Do not auto-invoke after ordinary edits.
-argument-hint: "[비우면 develop...HEAD | --staged | --working | <base>..<head> | <경로>]"
+argument-hint: "[비우면 origin/develop...HEAD | --staged | --working | <base>..<head> | <경로>]"
 allowed-tools: Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git branch *) Bash(git merge-base *) Bash(gh issue view *)
 ---
 
@@ -20,11 +20,11 @@ allowed-tools: Bash(git diff *) Bash(git log *) Bash(git status *) Bash(git bran
 
 ## 1. 범위
 
-| 인자 | 범위 |
+| 인자 | `{DIFF_RANGE}` (`git diff {DIFF_RANGE}`로 쓴다) |
 |---|---|
 | 없음 | `origin/develop...HEAD` |
-| `--staged` | `git diff --cached` |
-| `--working` | `git diff HEAD` |
+| `--staged` | `--cached` |
+| `--working` | `HEAD` |
 | `A..B`, `A...B` | 그대로 |
 | 경로 | `origin/develop...HEAD -- <경로>` |
 

@@ -110,7 +110,7 @@ severity 기준: blocker = 잘못된 결과·데이터 손상·동시성 결함�
 
 체크리스트:
 - 커버리지: diff에서 새로 생기거나 바뀐 분기(if/예외/상태 전이/계산)마다 그것을 실패시킬 수 있는 테스트가 있는가. 없으면 "어떤 분기의 어떤 케이스"가 빠졌는지 구체적으로 적는다
-- 실패 케이스: 새 ErrorCode/예외 경로가 있으면 예외 타입 + errorCode를 검증하는 테스트가 있는가
+- 실패 케이스: 새 ErrorCode/예외 경로가 있으면 예외 타입과 함께 메시지나 errorCode를 검증하는 테스트가 있는가
 - 검증 강도: 반환값만 보고 DB/Redis 상태를 재조회하지 않음, isNotNull만 검사, 컬렉션 크기만 검사, BigDecimal을 isEqualTo로 비교
 - 격리: 테스트 간 순서 의존, @Transactional 사용, 예약 경로에서 trainCacheTestHelper.seed 누락
 - 컨벤션: // given / when / then 주석, 한국어 @DisplayName(상황 + 기대 결과), 테스트 위치·어노테이션(@ServiceTest / @RedisTest / 도메인 POJO)

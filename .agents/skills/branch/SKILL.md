@@ -28,7 +28,7 @@ allowed-tools: Bash(git *) Bash(gh pr list *)
 
 ## 라벨 매핑 (단일 소스)
 
-`/commit`, `/issue`, `/pr`이 이 표를 참조한다.
+`/commit`, `/issue`가 이 표를 참조한다. PR 라벨은 `.github/workflows/pr_auto_assign.yml`의 labelMap이 브랜치 라벨로 붙이므로, 표를 바꾸면 그 파일도 함께 고친다.
 
 | 브랜치 라벨 | 커밋 타입 | 이슈 CATEGORY |
 |---|---|---|

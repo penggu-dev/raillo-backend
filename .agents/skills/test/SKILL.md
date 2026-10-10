@@ -29,20 +29,6 @@ argument-hint: "[클래스명 또는 클래스.메서드]"
    - 통과시키려면 **프로덕션 코드를 고쳐야 하면 멈추고 알린다.** 테스트가 버그를 찾은 것일 수 있다.
    - Docker를 못 쓰면 `./gradlew :{모듈}:compileTestJava`까지만 하고 실행 명령을 넘긴다.
 
-## 자주 놓치는 것
-
-- 상태 변경은 반환값이 아니라 **DB나 Redis에서 다시 조회해** 검증한다.
-- 예외는 타입과 ErrorCode를 함께 본다. 대상 코드가 실제로 던지는 타입(`DomainException` / `BusinessException`)을 확인한다.
-
-  ```java
-  assertThatThrownBy(() -> booking.cancel())
-      .isInstanceOf(DomainException.class)
-      .hasFieldOrPropertyWithValue("errorCode", BookingError.BOOKING_ALREADY_CANCELLED);
-  ```
-
-- 예약 생성 경로는 `@BeforeEach`에서 `trainCacheTestHelper.seed(...)`를 다시 한다.
-- Mock은 외부 API(Toss), 시계, 재시도처럼 재현이 어려운 경계에만 쓴다.
-
 ## 보고
 
 ```

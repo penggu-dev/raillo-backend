@@ -13,7 +13,6 @@
   - 좌석 점유를 예약에서 예매로 바꾸는 일은 잠시 뒤 [Worker](../worker/README.md)가 한다.
 - 승인 요청은 같은 결제에 여러 번 올 수 있다(새로고침, 재시도). **카드는 한 번만 청구돼야 하고 예매도 한 번만 만들어져야 한다.**
 - Toss가 승인했는지 모르는 경우가 있다(타임아웃, Toss 5xx). 이때는 실패로 단정하지 않고, 승객이 다시 요청하면 Toss에 상태를 조회해 맞춘다.
-- 결제 취소와 환불은 아직 없다.
 
 ## 용어
 
@@ -24,8 +23,8 @@
 | 시도 ID | attemptId | 시도를 구분하는 외부 멱등 키. `paymentKey`에서 계산한다 |
 | paymentKey | - | Toss가 결제창에서 발급한 결제 식별자 |
 | 주문 코드 | orderCode | Toss에 넘기는 주문 번호(`orderId`). 주문의 주문 코드와 같다 |
-| 결과 불명 | outcome unknown | 요청은 나갔지만 Toss가 승인했는지 모르는 실패 |
-| 미전송 | not sent | 요청이 Toss에 도달하지 않은 것이 확정인 실패 |
+| 결과 불명 | - | 요청은 나갔지만 Toss가 승인했는지 모르는 실패 |
+| 미전송 | NOT_SENT | 요청이 Toss에 도달하지 않은 것이 확정인 실패 |
 | TX A, TX B | - | 승인 시작 트랜잭션과 승인 확정 트랜잭션 |
 
 ## 도메인 모델
@@ -83,9 +82,11 @@ Enum
 
 `PaymentAttemptType`은 `APPROVAL`, `CANCELLATION`이다. 취소 시도는 아직 쓰지 않는다.
 
-### 결제 승인 흐름
+### 도메인 서비스
 
-`PaymentConfirmService.confirm`은 트랜잭션을 열지 않고 세 단계를 잇는다.
+#### 결제 승인(PaymentConfirmService)
+
+`confirm`은 트랜잭션을 열지 않고 세 단계를 잇는다.
 
 1. **시작** (`PaymentApprovalStarter`, `PaymentAttemptManager`)
    - 주문, 결제 소유자와 금액(요청 = 주문 = 결제)을 확인한다.
@@ -105,7 +106,7 @@ Enum
   - 확정 단계에서 시도가 이미 `FAILED`면 거절한다. Toss는 승인했는데 기록만 실패인 경우이며, 지금은 감지만 하고 되살릴 경로가 없다
   - `seat_booking`에 좌석, 구간 유니크 제약이 없고 예매 생성도 좌석 충돌을 다시 보지 않는다. 이중 예매는 예약 생존 확인과 결제 준비의 DB 재검증으로 막는다
 
-#### 실패 응답
+**실패 응답**
 
 | 경우 | 응답 | 클라이언트가 할 일 |
 |---|---|---|
@@ -114,20 +115,6 @@ Enum
 | 결과 불명, 아직 처리 중 | 409 `PAYMENT_113` | 잠시 뒤 같은 요청으로 다시 확인한다. 자동 재시도하지 않는다 |
 | 이미 실패한 시도 | 409 `PAYMENT_112` | 새로 결제한다 |
 | 수동 확인 대상 | 409 `PAYMENT_117` | 고객센터 |
-
-### 서비스
-
-`raillo-api`의 `payment/`는 헥사고날 구조다. 다른 도메인은 `application/required/`의 포트(`OrderRegister`, `OrderReader`, `ReservationReader`, `SeatConflictValidator`, `BookingCreator`, `BookedSeatWriter` 등)로만 부르고, 구현은 `adapter/integration/`에 있다.
-
-- `POST /api/v1/payments/prepare`: `PaymentPrepareService`
-- `POST /api/v1/payments/confirm`: `PaymentConfirmService`
-- `GET /test/payments`: Toss 결제창을 띄워 보는 테스트 페이지
-
-### Toss 연동
-
-- `TossPaymentGateway`가 Toss 오류를 결과 불명, 거절, 미전송, 결제 없음(조회 404)으로 나눈다.
-- 타임아웃: 연결 3초, 읽기 15초, 커넥션 대기 2초.
-- **조회(GET)만 자동 재시도한다**(200ms, 400ms 간격으로 최대 2회, 5xx와 I/O 오류). 승인(POST)은 재시도하지 않는다.
 
 ## 설계 결정
 
@@ -148,7 +135,7 @@ Enum
 
 ### 결과 불명은 실패가 아니라 진행 중으로 남기고 409로 응답한다
 - 맥락: Toss 5xx나 타임아웃은 Toss가 승인한 뒤 응답만 실패했을 수 있다. 실패로 처리하거나 5xx를 그대로 내리면, 재시도하는 클라이언트가 승인을 다시 보내 이중 청구가 된다.
-- 결정: 결과 불명은 시도를 진행 중으로 두고 재시도를 부르지 않는 409로 응답한다. 같은 요청이 다시 오면 승인을 다시 보내지 않고 Toss에 조회한다. 승인 POST도 서버가 자동 재시도하지 않는다.
+- 결정: 결과 불명은 시도를 진행 중으로 두고 재시도를 부르지 않는 409로 응답한다. 같은 요청이 다시 오면 승인을 다시 보내지 않고 Toss에 조회한다. Toss 호출도 조회(GET)만 자동 재시도하고 승인(POST)은 재시도하지 않는다. 미도달, 결과 불명, 거절의 판정은 `TossPaymentClient`가 실어 보낸 전송 단계로 `PaymentGatewayException`이 하고, 시도 기록과 HTTP 응답이 같은 판정을 쓴다.
 - 결과: 이중 청구가 생기지 않는다. 대신 승객이 다시 요청하지 않으면 진행 중 시도가 그대로 남는다. 이를 대사할 복구 Worker는 아직 없다.
 
 ### 미전송은 실패와 구분한다

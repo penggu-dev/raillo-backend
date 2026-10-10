@@ -1,6 +1,6 @@
 ---
 name: implement
-description: GitHub 이슈로 구현 계획을 세우고, 커밋 단위 단계마다 "구현 → 테스트 → 검토 요청 → 승인 시 커밋"을 반복한 뒤 /review, /docs, /pr로 마무리한다. Use when the user says "/implement 123", "이슈 123 작업 시작하자", "이 이슈 구현해줘", or asks to resume an in-progress plan.
+description: GitHub 이슈로 구현 계획을 세우고, 커밋 단위 단계마다 "구현 → 테스트 → 검토 요청 → 승인 시 커밋"을 반복한 뒤 /review, /docs, /tidy-commits, /pr로 마무리한다. Use when the user says "/implement 123", "이슈 123 작업 시작하자", "이 이슈 구현해줘", or asks to resume an in-progress plan.
 argument-hint: "[issue-number]"
 disable-model-invocation: true
 allowed-tools: Bash(gh issue view *) Bash(git status *) Bash(git diff *) Bash(git log *) Bash(git branch *)
@@ -18,7 +18,7 @@ allowed-tools: Bash(gh issue view *) Bash(git status *) Bash(git diff *) Bash(gi
 1. 준비   이슈 읽기, 기존 계획 파일 확인
 2. 계획   코드 탐색 → 단계 분해 → .claude/plans/{N}.md → 승인
 3. 루프   [구현 → /test → 검증 → 검토 요청 → 승인 → /commit] × n
-4. 마무리 /review → /docs → /pr
+4. 마무리 /review → /docs → /tidy-commits → /pr
 ```
 
 ## 규칙
@@ -70,7 +70,7 @@ allowed-tools: Bash(gh issue view *) Bash(git status *) Bash(git diff *) Bash(gi
 ```
 
 - 상태: `todo` → `doing` → `done` (건너뛰면 `skipped` + 이유)
-- 테스트: 분기, 상태 전이, 계산, 검증, 동시성이 있으면 `필요`. DTO, 설정, 단순 위임이면 `불필요` + 이유.
+- 테스트: [.agents/rules/test.md](../../rules/test.md)의 "테스트가 있어야 하는 변경"으로 정한다. 버그 수정은 실패하는 테스트를 먼저 쓰는 단계를 두고, 리팩터링 대상에 고정 테스트가 없으면 그 테스트를 리팩터링보다 앞 단계에 둔다. `불필요`면 이유를 적는다.
 
 단계 표를 보여주고 승인을 받는다.
 
@@ -109,4 +109,5 @@ allowed-tools: Bash(gh issue view *) Bash(git status *) Bash(git diff *) Bash(gi
 
 1. 상태를 `review`로 바꾸고 `/review`를 실행한다. 사용자가 고른 지적은 새 단계로 추가해 루프로 처리한다.
 2. 이번 브랜치에서 문서를 고쳤으면 `/docs`로 덧붙은 내용을 정리한다.
-3. 단계 표(커밋 해시 포함)를 보여주고 `/pr`을 진행할지 묻는다. PR이 생성되면 상태를 `done`으로 바꾼다.
+3. 수정 커밋이 쌓였으면 `/tidy-commits`를 제안한다. 정리하면 계획 파일의 커밋 해시를 새 해시로 고친다.
+4. 단계 표(커밋 해시 포함)를 보여주고 `/pr`을 진행할지 묻는다. PR이 생성되면 상태를 `done`으로 바꾼다.

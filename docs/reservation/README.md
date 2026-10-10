@@ -23,7 +23,7 @@
 |---|---|---|
 | 예약 | Reservation | 결제 전의 임시 좌석 확보. Redis에 TTL로 저장된다 |
 | 좌석 점유 | SeatOccupancy | 좌석의 구간 한 칸을 누가 잡고 있는지. 예약(`R:`) 또는 예매(`B:`)다 |
-| 구간 칸 | section | 정차 순서 i에서 i+1로 가는 한 칸. 출발 stopOrder d, 도착 a인 예약은 d..a-1 칸을 점유한다 |
+| 구간 칸 | sectionIndex | 정차 순서 i에서 i+1로 가는 한 칸. 출발 stopOrder d, 도착 a인 예약은 d..a-1 칸을 점유한다 |
 | 회원 인덱스 | - | 회원이 가진 예약 목록. 예약 ID로 운행을 찾는 데 쓴다 |
 | 예매 | Booking | 결제가 끝난 확정 구매. DB에 저장된다 |
 | 예매 좌석 | SeatBooking | 예매가 차지한 좌석과 구간 |
@@ -136,7 +136,7 @@ Enum
 - 예매: `BOOKED` 예매 완료, `CANCELLED` 예매 취소
 - 승차권: `ISSUED` 발급, `USED` 사용, `CANCELLED` 취소
 
-### 서비스
+### 도메인 서비스
 
 `raillo-api`의 `booking/application/`에 있다.
 

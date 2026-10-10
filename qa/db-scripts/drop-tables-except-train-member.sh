@@ -46,7 +46,7 @@ DB_USER=$(env_value DB_USERNAME)
 export MYSQL_PWD
 MYSQL_PWD=$(env_value DB_PW)
 
-[[ "$DB_URL" =~ ^jdbc:mysql://([^:/?]+)(:([0-9]+))?/([A-Za-z0-9_]+) ]] || { echo ".env의 DB_URL을 해석할 수 없다: $DB_URL" >&2; exit 1; }
+[[ "$DB_URL" =~ ^jdbc:mysql://([^:/?]+)(:([0-9]+))?/([A-Za-z0-9_]+)(\?.*)?$ ]] || { echo ".env의 DB_URL을 해석할 수 없다: $DB_URL" >&2; exit 1; }
 HOST=${BASH_REMATCH[1]}
 PORT=${BASH_REMATCH[3]:-3306}
 DB=${BASH_REMATCH[4]}
@@ -61,7 +61,7 @@ if ! (exec 3<>"/dev/tcp/$HOST/$PORT") 2>/dev/null; then
 fi
 
 run_sql() {
-  "$MYSQL" -h "$HOST" -P "$PORT" -u "$DB_USER" -N -B "$DB"
+  "$MYSQL" --protocol=TCP -h "$HOST" -P "$PORT" -u "$DB_USER" -N -B "$DB"
 }
 
 KEEP_SQL=$(printf "'%s'," "${KEEP_TABLES[@]}")

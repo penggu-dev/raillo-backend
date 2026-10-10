@@ -58,9 +58,9 @@
 
 ### Infrastructure & DevOps
 [![infra,devops](https://skillicons.dev/icons?i=git,github,docker,kubernetes,prometheus,grafana,githubactions)](https://skillicons.dev)
-- **Cloud Platform** : Oracle Cloud (OKE)
+- **Cloud Platform** : Oracle Cloud (OKE), AWS
 - **Container** : Docker, Kubernetes
-- **CI/CD** : GitHub Actions, GHCR
+- **CI/CD** : ArgoCD, GitHub Actions, GHCR
 - **Monitoring** : Prometheus, Grafana
 - **VCS** : Git, GitHub
 
