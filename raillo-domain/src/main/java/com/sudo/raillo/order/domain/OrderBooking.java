@@ -30,7 +30,7 @@ public class OrderBooking extends BaseEntity {
 	@Comment("주문 예약 ID")
 	private Long id;
 
-	@Column(name = "pending_booking_id", nullable = false)
+	@Column(name = "reservation_id", nullable = false)
 	@Comment("예약 ID")
 	private String reservationId;
 

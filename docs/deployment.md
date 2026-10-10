@@ -114,3 +114,21 @@ develop push/PR
   - CI는 `api-server`, `batch`만 적용한다. 나머지는 수동으로 적용한다.
   - `workflow_dispatch`는 develop 최신 커밋을 테스트 없이 배포한다. 긴급 배포용이다.
   - CronJob은 다음 실행 시각부터 새 이미지를 쓴다.
+
+## 수동 DB 마이그레이션
+
+`ddl-auto`가 반영하지 못하는 스키마 변경은 `docs/db-migrations/YYYY-MM-DD-<slug>.sql`에 절차와 함께 둔다. 컬럼 타입 변경, 컬럼 이름 변경, 기존 ENUM 컬럼에 값 추가가 해당한다. 데이터 이관은 사례별로 따로 정한다.
+
+**머지 전에 적용한다.** 배포는 develop 머지로 자동 발사되고 승인 단계가 없다. 운영은 `ddl-auto: validate`라 스키마가 어긋나면 기동이 실패하는데, `replicas: 1`에 `strategy: Recreate`여서 구 파드가 이미 내려간 뒤에 실패한다. 서비스가 전면 중단되고 자가 회복되지 않는다. `RollingUpdate`로 가면 해결되지만 교체 순간 파드 하나 분량의 여유가 필요하고 OKE 무료 자원에 그 여유가 없다.
+
+- **구 코드와 함께 동작하는 변경** (예: ENUM에서 VARCHAR로) — 배포 전에 적용하면 된다. 중단 창이 필요 없다.
+- **그렇지 않은 변경** (컬럼 rename 등) — `kubectl -n api-server scale deployment/raillo-api --replicas=0`으로 창을 만들고, 파드가 0개인 것을 확인한 뒤 적용하고 머지한다. CI의 `kubectl apply`가 `replicas: 1`을 복원한다. 중단은 보통 8분이지만 1시간을 넘긴 배포 실행도 있었다. CI가 실패해 0 replicas로 남으면 역방향 마이그레이션을 먼저 적용하고 `scale --replicas=1`로 되살린다.
+
+**컬럼을 되돌리기 전에 `kubectl rollout undo`를 쓰지 않는다.** 롤백 경로는 역방향 마이그레이션을 들고 가지 않아 같은 중단이 재생산된다.
+
+적용 이력:
+
+| 날짜 | 변경 | 적용 시점 |
+|---|---|---|
+| 2026-09-26 | `payment_attempt.status`를 ENUM에서 VARCHAR로 (#270) | 배포 전 아무 때나 |
+| 2026-10-10 | `order_booking.pending_booking_id`를 `reservation_id`로 rename (#310) | 중단 창 필요 |
