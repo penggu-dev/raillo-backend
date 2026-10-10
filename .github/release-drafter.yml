@@ -7,7 +7,7 @@ categories: # 릴리즈 노트를 섹션별로 분류
       - '✨ feature' # PR에 붙은 라벨명
   - title: '🐛 버그 수정'
     labels:
-      - '🐞 bug'
+      - '🔧 fix'
   - title: '♻️ 리팩토링'
     labels:
       - '♻️ refactor'
