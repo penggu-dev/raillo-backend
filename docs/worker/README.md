@@ -54,7 +54,7 @@ Aggregate Root
   - 다른 예약이나 예매와 충돌한 항목이 있으면, 나머지 항목을 모두 처리한 뒤 예외를 한 번 던져 재시도에 맡긴다
   - 데이터 오염(`SEAT_OCCUPANCY_CORRUPTED`)이나 스크립트 실패(`SEAT_OCCUPANCY_SCRIPT_ERROR`)는 그 항목에서 바로 멈춘다. 오염은 재시도해도 낫지 않으므로 바로 `FAILED`가 된다
   - 이미 전환한 항목을 다시 처리해도 성공한다
-  - payload의 `schemaVersion`이 2가 아니거나 읽을 수 없으면 처리하지 않고 실패로 둔다
+  - payload의 `schemaVersion`이 2가 아니거나 읽을 수 없으면 처리하지 않는다. 이 오류는 재시도 불가로 선언돼 있지 않아 최대 재시도까지 돈 뒤 `FAILED`가 된다
 
 ### 설계 결정
 

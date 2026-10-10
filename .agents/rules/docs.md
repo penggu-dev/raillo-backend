@@ -12,7 +12,6 @@
 | `docs/order/` | `order` 도메인 |
 | `docs/reservation/` | `booking` 도메인 (Redis 예약, 좌석 점유, Lua, 예매, 승차권) |
 | `docs/train/` | `train` 도메인 (스케줄, 운임, 열차 캐시) |
-| `docs/member/` | `member`, `auth` 도메인 |
 | `docs/batch/` | `raillo-batch` Job |
 | `docs/worker/` | `*Worker`, `*Scheduler` 같은 비동기, 주기 작업 |
 | `docs/infra/` | `k8s/`, `.github/workflows/`, `Dockerfile`, `compose*.yaml` |
