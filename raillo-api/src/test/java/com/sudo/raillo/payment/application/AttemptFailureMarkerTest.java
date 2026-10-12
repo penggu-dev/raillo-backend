@@ -55,6 +55,32 @@ class AttemptFailureMarkerTest {
 	}
 
 	@Test
+	@DisplayName("수동 확인 마킹을 PaymentAttemptManager에 그대로 위임한다")
+	void delegates_review_required_to_manager() {
+		// given
+		AttemptError seatLost = new AttemptError("REVIEW_SEAT_LOST", "좌석 충돌");
+
+		// when
+		attemptFailureMarker.markReviewRequiredQuietly(PAYMENT_ID, ATTEMPT_DB_ID, seatLost);
+
+		// then
+		verify(paymentAttemptManager).markReviewRequiredInNewTransaction(PAYMENT_ID, ATTEMPT_DB_ID, seatLost);
+	}
+
+	@Test
+	@DisplayName("수동 확인 마킹이 실패해도 호출자에게 전파하지 않는다")
+	void swallows_review_required_marking_failure() {
+		// given
+		doThrow(new BusinessException(PaymentError.PAYMENT_NOT_FOUND))
+			.when(paymentAttemptManager).markReviewRequiredInNewTransaction(any(), any(), any());
+
+		// when & then
+		assertThatCode(() -> attemptFailureMarker.markReviewRequiredQuietly(
+			PAYMENT_ID, ATTEMPT_DB_ID, new AttemptError("REVIEW_SEAT_LOST", "좌석 충돌")))
+			.doesNotThrowAnyException();
+	}
+
+	@Test
 	@DisplayName("BusinessException이 아닌 ErrorCodeCarrier로 실패해도 삼킨다")
 	void swallows_other_error_code_carriers() {
 		// given RedisException은 BusinessException이 아니다. 과거 errorCodeOf가 BusinessException만 보던 탓에
