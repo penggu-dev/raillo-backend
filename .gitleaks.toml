@@ -1,4 +1,4 @@
-# 민감한 값 스캔 설정. 상세는 docs/secret-scanning.md
+# 민감한 값 스캔 설정. 상세는 docs/infra/README.md (민감한 값 스캔)
 #
 # 검증 기준 버전: gitleaks 8.30.1 (.githooks/pre-commit 의 MIN_VERSION 과 동일)
 # 허용은 규칙(targetRules)과 대상(paths 또는 regexes)을 함께 한정한다.

@@ -3,7 +3,7 @@
 # 스테이징된 변경에서 민감한 값을 찾으면 커밋을 막는다.
 #
 # 활성화: git config core.hooksPath .githooks
-# 상세:   docs/secret-scanning.md
+# 상세:   docs/infra/README.md (민감한 값 스캔)
 #
 # 비정상 경로는 모두 차단으로 수렴한다. 검사하지 못한 상태를 통과로 처리하면
 # 훅이 있다는 사실만 남는다.

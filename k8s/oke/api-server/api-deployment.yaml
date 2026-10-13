@@ -27,7 +27,7 @@ spec:
             - name: http
               containerPort: 8080
             # 관리 포트. Service에 노출하지 않는다. kubelet 프로브와 Prometheus 모두 파드 IP로
-            # 직접 붙는다. 포트를 분리한 이유는 docs/deployment.md 참고.
+            # 직접 붙는다. 포트를 분리한 이유는 docs/infra/README.md 참고.
             - name: management
               containerPort: 8081
           envFrom:

@@ -86,7 +86,7 @@ class PaymentOutboxTypeColumnTest {
 	 * <p>다음 enum 값 추가를 경고하지는 못한다. 테스트 스키마는 매번 매핑으로 다시 만들어져 CHECK에
 	 * 그때의 값이 모두 들어간다. 깨지는 환경은 값 추가 이전에 매핑으로 만들어진 스키마이고, 그쪽은
 	 * {@code MODIFY}가 아니라 {@code DROP CHECK}가 필요하다. 상세는
-	 * {@code docs/payment-data-contracts.md}에 있다.</p>
+	 * {@code .agents/rules/code-convention.md}의 "Enum 컬럼"에 있다.</p>
 	 */
 	@Test
 	@DisplayName("VARCHAR로 바뀌어도 Hibernate가 type의 값 목록을 CHECK 제약으로 만든다")

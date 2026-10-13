@@ -16,7 +16,7 @@ import org.springframework.web.client.RestClient;
 import com.sudo.raillo.support.container.TestContainerInitializer;
 
 /**
- * 관리 엔드포인트가 메인 포트와 분리된 채로 유지되는지 고정한다. 설계 근거는 docs/deployment.md에 있다.
+ * 관리 엔드포인트가 메인 포트와 분리된 채로 유지되는지 고정한다. 설계 근거는 docs/infra/README.md에 있다.
  *
  * <p>스레드 풀 분리 자체는 포화를 재현해야 확인되므로 범위 밖이다. 여기서는 포트가 다르다는 것, 프로브가
  * 인증 없이 통과한다는 것, 종합 health와 무관하다는 것을 본다. kubelet은 토큰을 보내지 않으므로 두 번째가
