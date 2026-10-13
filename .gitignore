@@ -50,6 +50,5 @@ package-lock.json
 node_modules
 qa/k6/schedule-config.json
 
-### Python ###
-__pycache__/
-*.pyc
+### Claude ###
+.claude/plans/
