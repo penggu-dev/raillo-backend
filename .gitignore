@@ -43,6 +43,7 @@ out/
 ### AI docs ###
 .claude/settings.local.json
 docs/superpowers/
+docs/local/
 
 ### K6 Test ###
 package.json
