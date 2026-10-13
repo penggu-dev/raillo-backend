@@ -47,7 +47,7 @@ public class PaymentAttempt {
 	private Long paymentId;
 
 	@Column(name = "attempt_id", nullable = false, length = 64)
-	@Comment("외부 idempotency key. DB PK와 별개로 두는 이유는 도메인 문서 참고: docs/payment-consistency.md#paymentattempt-idempotency-key")
+	@Comment("외부 idempotency key. DB PK와 별개로 두는 이유는 도메인 문서 참고: docs/payment/README.md")
 	private String attemptId;
 
 	@Enumerated(EnumType.STRING)

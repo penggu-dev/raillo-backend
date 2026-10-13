@@ -7,9 +7,7 @@ build/
 /.venv/
 
 ### Environment ###
-.env
-.env-local
-.env-prod
+.env*
 
 ### STS ###
 .apt_generated
@@ -52,6 +50,5 @@ package-lock.json
 node_modules
 qa/k6/schedule-config.json
 
-### Python ###
-__pycache__/
-*.pyc
+### Claude ###
+.claude/plans/

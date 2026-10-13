@@ -50,7 +50,7 @@ jobs:
 
             const categories = [
               { title: '✨ 새로운 기능', labels: ['✨ feature'], items: [] },
-              { title: '🐛 버그 수정', labels: ['🐞 bug'], items: [] },
+              { title: '🐛 버그 수정', labels: ['🔧 fix'], items: [] },
               { title: '♻️ 리팩토링', labels: ['♻️ refactor'], items: [] },
               { title: '그 외', labels: ['⚙️ chore', '📝 docs', '✅ test'], items: [] },
             ];

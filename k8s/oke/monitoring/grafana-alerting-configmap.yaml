@@ -34,7 +34,7 @@ data:
         name: raillo-dependencies
         folder: raillo
         interval: 1m
-        # 규칙 설계와 noDataState 정책은 docs/deployment.md 알림 절에 있다. 여기 주석은 규칙별
+        # 규칙 목록과 noDataState 정책은 docs/infra/README.md 모니터링 절에 있다. 여기 주석은 규칙별
         # 단서만 적는다. 수집 불가 세 규칙만 noDataState 기본값이고 나머지는 OK다.
         rules:
           - uid: raillo-api-scrape-down

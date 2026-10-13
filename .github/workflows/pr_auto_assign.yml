@@ -35,7 +35,8 @@ jobs:
             const branchName = context.payload.pull_request.head.ref;
             const labelMap = {
               'feature': '✨ feature',
-              'bug': '🐞 bug',
+              'fix': '🔧 fix',
+              'bug': '🔧 fix',
               'refactor': '♻️ refactor',
               'chore': '⚙️ chore',
               'test': '✅ test',

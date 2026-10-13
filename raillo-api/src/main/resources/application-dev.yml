@@ -98,7 +98,7 @@ raillo:
 
 # Prometheus
 management:
-  # 관리 엔드포인트 전용 포트. 포트와 프로브 설계는 docs/deployment.md 참고.
+  # 관리 엔드포인트 전용 포트. 포트와 프로브 설계는 docs/infra/README.md 참고.
   server:
     port: ${MANAGEMENT_PORT:8081}
   endpoints:
