@@ -87,6 +87,7 @@ raillo-batch/.../{domain}/    job/  application/  infrastructure/  config/
 ## 지켜야 할 것
 
 - 이슈, PR 생성처럼 팀에 보이는 일과 push는 사용자 승인을 받고 한다.
+- 작업을 마치면(마지막 커밋 후, `/review` 전) `bash .claude/hooks/run-tests.sh`로 전체 빌드와 테스트를 돌린다. 일부 테스트만 돌리고 끝내지 않는다. 통과 기록이 없는 커밋은 `require-tests.sh` 훅이 push와 PR 생성을 막는다.
 - `develop`, `main`에서 커밋하지 않는다.
 - `develop`에 머지되면 승인 없이 운영에 배포된다. 운영 DB는 `ddl-auto: validate`라 스키마 변경은 배포 전에 DB에 반영해야 한다.
 - **운영 클러스터와 DB는 조회만 한다.** `kubectl`은 `get`, `describe`, `logs` 같은 조회 명령만 쓰고, DB는 `qa/db-scripts/readonly-query.sh`로 조회한다. 클러스터 변경, DB 쓰기, 터널 열기가 필요하면 명령을 사용자에게 제시하고 사용자가 실행한다. 예외는 사용자 승인 후 `.env`의 DB에 실행하는 `/db-reset`이다. Claude Code에서는 가드 훅이 강제한다. → [에이전트 접근 제한](docs/infra/README.md#에이전트-접근-제한)

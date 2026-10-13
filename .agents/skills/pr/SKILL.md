@@ -21,6 +21,7 @@ allowed-tools: Bash(git *) Bash(gh issue view *) Bash(gh pr list *) Bash(gh pr c
    - 이슈 번호: 인자 > 브랜치명 `label/N-...`. 없으면 묻는다.
    - `gh issue view {N} --json title --jq .title`
    - `git fetch origin` 후 `git log origin/{base}..HEAD --oneline`, `git diff origin/{base}...HEAD --stat`
+   - `bash .claude/hooks/run-tests.sh`로 전체 빌드와 테스트를 돌린다. 이미 통과한 트리면 건너뛴다. 실패하면 PR을 쓰지 않고 실패한 테스트를 보고한다. 문서(`*.md`)만 바뀌었으면 돌리지 않는다
 2. **base 결정**: 기본은 `develop`이다. 열린 PR의 head 브랜치 중 현재 브랜치의 조상이면서 develop에 머지되지 않은 것이 있으면 스택이다. 그 브랜치를 base로 제안한다.
 
    ```bash

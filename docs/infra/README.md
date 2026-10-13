@@ -91,6 +91,8 @@ AI 에이전트(Claude Code)는 운영 클러스터와 DB를 **조회만** 한�
 | 파일 | 역할 |
 |---|---|
 | `.claude/hooks/guard-bash.sh` | 셸 명령을 실행 전에 검사해 막는다. Bash, Monitor, 터미널 패널 실행 도구에 걸린다 |
+| `.claude/hooks/require-tests.sh` | 테스트를 통과하지 않은 커밋의 `git push`, `gh pr create`를 막는다 |
+| `.claude/hooks/run-tests.sh` | `./gradlew build`를 돌리고 통과하면 HEAD의 트리 해시를 `.git/raillo-tests-passed`에 기록한다 |
 | `.claude/settings.json` | 훅 등록, 조회 명령 자동 허용, `.env*` 읽기 금지, 가드 파일 수정 시 확인 |
 | `qa/db-scripts/readonly-query.sh` | `.env`의 DB에 조회 쿼리 하나를 읽기 전용 세션으로 실행한다 |
 
@@ -115,6 +117,9 @@ qa/db-scripts/readonly-query.sh "SELECT status, COUNT(*) FROM booking GROUP BY s
   - `jq`가 없거나 검사 중 오류가 나면 막는다. macOS 15 이상은 `/usr/bin/jq`가 있다.
   - **실수는 막지만 작정한 우회는 막지 못한다.** 변수에 담은 명령, 에이전트가 직접 쓴 스크립트 안의 명령, `k` 외의 개인 alias는 검사하지 못한다. 개인 설정의 `disableAllHooks`는 훅을 끈다. 로컬 kubeconfig와 `.env` 계정의 권한은 그대로다.
   - 훅을 고치면 `.claude/hooks/guard-bash.test.sh`에 막을 명령과 통과시킬 명령을 함께 추가하고 실행한다.
+  - **에이전트는 테스트를 통과한 커밋만 push하고 PR로 올린다.** `require-tests.sh`가 HEAD의 트리 해시를 `run-tests.sh`의 기록과 비교한다. 커밋 해시가 아니라 트리 해시라서 `/tidy-commits`로 이력만 정리하면 다시 돌리지 않아도 된다. `origin/develop` 대비 바뀐 파일이 `*.md`뿐이면 검사하지 않는다.
+  - `run-tests.sh`는 커밋하지 않은 변경이 있으면 돌지 않는다. 테스트한 코드와 push할 커밋이 같아야 하기 때문이다. Docker가 없어 돌릴 수 없으면 사용자에게 알리고, push는 사용자가 직접 한다.
+  - `require-tests.sh`를 고치면 `.claude/hooks/require-tests.test.sh`를 실행한다.
 
 ## 민감한 값 스캔
 
