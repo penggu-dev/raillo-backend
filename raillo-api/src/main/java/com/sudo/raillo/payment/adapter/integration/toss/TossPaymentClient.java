@@ -117,7 +117,7 @@ public class TossPaymentClient {
 						paymentKey, retry + 1, e.getCause());
 					continue;
 				}
-				// 헤더를 이미 받은 뒤의 실패이므로 요청은 분명히 나갔다.
+				// 헤더를 이미 받은 뒤의 실패이므로 요청은 나감
 				throw queryUncertain("BODY", HttpStatus.BAD_GATEWAY, e.getCause(), DeliveryPhase.NO_RESPONSE);
 			} catch (Exception e) {
 				DeliveryPhase phase = phaseOf(e);
@@ -215,8 +215,8 @@ public class TossPaymentClient {
 	 * @param request 취소 요청 (cancelReason 필수, cancelAmount는 부분 취소 시에만)
 	 * @return Payment 객체 -> TossPaymentCancelResponse 변환
 	 *
-	 * <p>요청마다 새 {@code Idempotency-Key}를 보낸다. 같은 키로 재시도하면 토스가 캐시된 응답을 돌려줘
-	 * 중복 취소를 막는다(키는 15일간 유효).</p>
+	 * <p>요청마다 새 {@code Idempotency-Key}를 보낸다. 토스는 같은 키로 온 요청에 캐시된 응답을 돌려주지만(키는 15일간 유효)
+	 * 우리가 호출마다 새 키를 만들기 때문에 같은 취소를 다시 보내면 별개 요청으로 처리된다.</p>
 	 */
 	public TossPaymentCancelResponse cancelPayment(String paymentKey, TossPaymentCancelRequest request) {
 		String idempotencyKey = UUID.randomUUID().toString();
