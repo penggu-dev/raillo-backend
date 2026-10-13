@@ -29,6 +29,7 @@ public enum PaymentError implements ErrorCode {
 	INVALID_PAYMENT_ATTEMPT_ID("결제 시도 ID는 64자 이하여야 합니다.", HttpStatus.BAD_REQUEST, "PAYMENT_115"),
 	PAYMENT_GATEWAY_NOT_SENT("결제 요청이 전송되지 않았습니다. 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_118"),
 	PAYMENT_ATTEMPT_REVIEW_REQUIRED("결제 결과 확인이 필요합니다. 고객센터로 문의해주세요.", HttpStatus.CONFLICT, "PAYMENT_117"),
+	PAYMENT_ATTEMPT_PAYMENT_KEY_MISSING("결제 시도에 저장된 결제 키가 없습니다.", HttpStatus.INTERNAL_SERVER_ERROR, "PAYMENT_119"),
 
 	// 금액과 수단, 키 (2xx)
 	PAYMENT_AMOUNT_MISMATCH("결제 금액이 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "PAYMENT_201"),

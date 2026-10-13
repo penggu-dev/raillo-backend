@@ -15,6 +15,9 @@ import lombok.RequiredArgsConstructor;
  */
 public interface PaymentGateway {
 
+	/** 조회 결과를 알 수 없을 때 어댑터가 오류 코드에 붙이는 접두사. 접두사가 이미 있으면 덧붙이지 않는다. */
+	String QUERY_UNCERTAIN_PREFIX = "QUERY_UNCERTAIN_";
+
 	GatewayConfirmResult confirm(PaymentConfirmCommand command);
 
 	/**

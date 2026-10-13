@@ -18,7 +18,6 @@ import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.adapter.persistence.PaymentJpaRepository;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
 import com.sudo.raillo.payment.domain.Payment;
-import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.domain.PaymentMethod;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.support.annotation.ServiceTest;
@@ -140,51 +139,60 @@ class PaymentValidatorTest {
 	}
 
 	@Nested
-	@DisplayName("validateGatewayResponseMatchesRequest")
-	class ValidateGatewayResponseMatchesRequest {
+	@DisplayName("validateGatewayResponseMatchesStored")
+	class ValidateGatewayResponseMatchesStored {
 
 		@Test
-		@DisplayName("게이트웨이 응답의 금액과 paymentKey가 요청과 일치하면 검증을 통과한다")
-		void success_responseMatchesRequest() {
+		@DisplayName("게이트웨이 응답의 금액과 paymentKey가 저장값과 일치하면 검증을 통과한다")
+		void success_responseMatchesStored() {
 			String paymentKey = "gw_pk_test";
 			BigDecimal amount = BigDecimal.valueOf(50000);
 
 			PaymentGateway.GatewayConfirmResult result = new PaymentGateway.GatewayConfirmResult(
 				paymentKey, "ORDER_001", amount, PaymentMethod.CREDIT_CARD);
-			PaymentConfirmCommand request = new PaymentConfirmCommand(paymentKey, "ORDER_001", amount);
-
-			assertThatCode(() -> paymentValidator.validateGatewayResponseMatchesRequest(result, request))
-				.doesNotThrowAnyException();
+			assertThatCode(() -> paymentValidator.validateGatewayResponseMatchesStored(
+				result, paymentKey, "ORDER_001", amount)).doesNotThrowAnyException();
 		}
 
 		@Test
-		@DisplayName("게이트웨이 응답 금액이 요청 금액과 다르면 PAYMENT_AMOUNT_MISMATCH 예외가 발생한다")
+		@DisplayName("게이트웨이 응답 금액이 저장된 금액과 다르면 PAYMENT_AMOUNT_MISMATCH 예외가 발생한다")
 		void fail_amountMismatch() {
 			String paymentKey = "gw_pk_test";
 
 			PaymentGateway.GatewayConfirmResult result = new PaymentGateway.GatewayConfirmResult(
 				paymentKey, "ORDER_001", BigDecimal.valueOf(60000), PaymentMethod.CREDIT_CARD);
-			PaymentConfirmCommand request = new PaymentConfirmCommand(
-				paymentKey, "ORDER_001", BigDecimal.valueOf(50000));
-
-			assertThatThrownBy(() -> paymentValidator.validateGatewayResponseMatchesRequest(result, request))
+			assertThatThrownBy(() -> paymentValidator.validateGatewayResponseMatchesStored(
+				result, paymentKey, "ORDER_001", BigDecimal.valueOf(50000)))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_AMOUNT_MISMATCH);
 		}
 
 		@Test
-		@DisplayName("게이트웨이 응답 paymentKey가 요청 paymentKey와 다르면 PAYMENT_KEY_MISMATCH 예외가 발생한다")
+		@DisplayName("게이트웨이 응답 paymentKey가 저장된 paymentKey와 다르면 PAYMENT_KEY_MISMATCH 예외가 발생한다")
 		void fail_paymentKeyMismatch() {
 			BigDecimal amount = BigDecimal.valueOf(50000);
 
 			PaymentGateway.GatewayConfirmResult result = new PaymentGateway.GatewayConfirmResult(
 				"gw_pk_different", "ORDER_001", amount, PaymentMethod.CREDIT_CARD);
-			PaymentConfirmCommand request = new PaymentConfirmCommand(
-				"gw_pk_original", "ORDER_001", amount);
-
-			assertThatThrownBy(() -> paymentValidator.validateGatewayResponseMatchesRequest(result, request))
+			assertThatThrownBy(() -> paymentValidator.validateGatewayResponseMatchesStored(
+				result, "gw_pk_original", "ORDER_001", amount))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_KEY_MISMATCH);
 		}
+
+		@Test
+		@DisplayName("게이트웨이 응답 orderCode가 저장된 orderCode와 다르면 PAYMENT_ORDER_MISMATCH 예외가 발생한다")
+		void fail_orderCodeMismatch() {
+			String paymentKey = "gw_pk_test";
+			BigDecimal amount = BigDecimal.valueOf(50000);
+
+			PaymentGateway.GatewayConfirmResult result = new PaymentGateway.GatewayConfirmResult(
+				paymentKey, "SOMEONE_ELSES_ORDER", amount, PaymentMethod.CREDIT_CARD);
+			assertThatThrownBy(() -> paymentValidator.validateGatewayResponseMatchesStored(
+				result, paymentKey, "ORDER_001", amount))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ORDER_MISMATCH);
+		}
+
 	}
 }

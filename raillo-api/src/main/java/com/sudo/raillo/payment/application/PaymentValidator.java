@@ -99,11 +99,16 @@ public class PaymentValidator {
 	}
 
 	/**
-	 * 게이트웨이 응답이 원 요청과 일치하는지 검증한다.
-	 *
-	 * <p>사용자 재시도로 조회 API를 태우는 경로에서는 응답이 다른 주문의 결제일 수 있어 {@code orderCode}까지 확인한다. 승인 confirm 응답은 같은 orderCode를 되돌려주므로 이 검증이 무해하다.
+	 * 게이트웨이 응답을 DB에 저장된 확정 대상과 비교한다. 사용자 명령을 받지 않으므로 지금은 TX B가 쓰고,
+	 * Recovery Worker(#270, 아직 없다)도 그대로 쓸 수 있다.
 	 */
-	public void validateGatewayResponseMatchesRequest(GatewayConfirmResult result, PaymentConfirmCommand command) {
+	public void validateGatewayResponseMatchesStored(
+		GatewayConfirmResult result, String storedPaymentKey, String storedOrderCode, BigDecimal storedAmount) {
+		validateGatewayResponseMatchesRequest(result,
+			new PaymentConfirmCommand(storedPaymentKey, storedOrderCode, storedAmount));
+	}
+
+	private void validateGatewayResponseMatchesRequest(GatewayConfirmResult result, PaymentConfirmCommand command) {
 		if (result.totalAmount().compareTo(command.amount()) != 0) {
 			log.error("[게이트웨이 응답 금액 불일치] gatewayAmount={}, requestAmount={}", result.totalAmount(), command.amount());
 			throw new BusinessException(

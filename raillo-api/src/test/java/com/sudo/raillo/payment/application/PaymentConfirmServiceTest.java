@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -128,6 +129,9 @@ class PaymentConfirmServiceTest {
 
 	@Autowired
 	private PaymentApprovalFinalizer paymentApprovalFinalizer;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	@Autowired
 	private SeatOccupancyTestHelper seatOccupancyTestHelper;
@@ -603,7 +607,7 @@ class PaymentConfirmServiceTest {
 		// Outbox Worker가 R→B(예약→예매 점유 전환)까지 끝내도록 스텁으로 경합 순서를 고정한다.
 		given(tossPaymentClient.queryPayment(paymentKey)).willAnswer(invocation -> {
 			paymentApprovalFinalizer.finalizeApproval(
-				payment.getId(), inProgressAttempt.getId(), originalCommand, gatewayResult);
+				payment.getId(), inProgressAttempt.getId(), gatewayResult);
 			paymentOutboxWorker.poll();
 			return new TossPaymentQueryResponse(
 				paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE");
@@ -703,8 +707,8 @@ class PaymentConfirmServiceTest {
 	}
 
 	@Test
-	@DisplayName("IN_PROGRESS 재요청 시 게이트웨이가 DONE이지만 다른 주문의 결제로 응답하면 PAYMENT_ORDER_MISMATCH로 거절한다")
-	void confirmPayment_retryOnInProgressAttempt_gatewayOrderMismatch_rejects() {
+	@DisplayName("IN_PROGRESS 재요청 시 게이트웨이가 DONE이지만 다른 주문의 결제로 응답하면 수동 확인 대상으로 남긴다")
+	void confirmPayment_retryOnInProgressAttempt_gatewayOrderMismatch_marksReviewRequired() {
 		// given
 		BigDecimal amount = BigDecimal.valueOf(50000);
 		String paymentKey = "toss_pk_order_mismatch";
@@ -726,15 +730,20 @@ class PaymentConfirmServiceTest {
 		PaymentConfirmCommand request = new PaymentConfirmCommand(
 			paymentKey, preparedResult.orderCode(), amount);
 
-		// when + then
+		// when + then 카드가 이미 승인됐을 수 있어 재시도를 안내하지 않고 사람이 확인하게 남긴다
 		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
 			.isInstanceOf(BusinessException.class)
-			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ORDER_MISMATCH);
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 
 		// 주문 상태는 변화 없음
 		Payment savedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
 		assertThat(savedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
 		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+
+		// attempt에 사유가 남아 운영자가 찾을 수 있다
+		PaymentAttempt reviewed = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(reviewed.getStatus()).isEqualTo(PaymentAttemptStatus.REVIEW_REQUIRED);
+		assertThat(reviewed.getErrorCode()).isEqualTo("REVIEW_RESULT_MISMATCH");
 	}
 
 	@Test
@@ -1259,9 +1268,39 @@ class PaymentConfirmServiceTest {
 
 		// when & then
 		assertThatThrownBy(() -> paymentApprovalFinalizer.finalizeApproval(
-			payment.getId(), saved.getId(), command, gatewayResult))
+			payment.getId(), saved.getId(), gatewayResult))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED.getMessage());
+		assertThat(bookingRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("attempt에 paymentKey가 없으면 확정이 PAYMENT_ATTEMPT_PAYMENT_KEY_MISSING으로 끝난다")
+	void finalizeApproval_attemptWithoutPaymentKey_fails() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_missing_key";
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = findPayment(preparedResult.orderCode());
+
+		PaymentAttempt inProgress = PaymentAttempt.startApproval(
+			payment.getId(), forApproval(paymentKey), paymentKey);
+		PaymentAttempt saved = paymentAttemptRepository.save(inProgress);
+		// TX A가 사전 저장하므로 엔티티로는 비울 수 없다. 과거 행을 재현하려고 컬럼을 직접 지운다
+		jdbcTemplate.update("update payment_attempt set payment_key = null where payment_attempt_id = ?",
+			saved.getId());
+
+		GatewayConfirmResult gatewayResult = new GatewayConfirmResult(
+			paymentKey, preparedResult.orderCode(), amount, PaymentMethod.CREDIT_CARD);
+
+		// when & then
+		assertThatThrownBy(() -> paymentApprovalFinalizer.finalizeApproval(
+			payment.getId(), saved.getId(), gatewayResult))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_PAYMENT_KEY_MISSING);
 		assertThat(bookingRepository.count()).isZero();
 	}
 
@@ -1287,7 +1326,7 @@ class PaymentConfirmServiceTest {
 
 		// when & then
 		assertThatThrownBy(() -> paymentApprovalFinalizer.finalizeApproval(
-			payment.getId(), saved.getId(), command, gatewayResult))
+			payment.getId(), saved.getId(), gatewayResult))
 			.isInstanceOf(BusinessException.class)
 			.hasMessage(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED.getMessage());
 		assertThat(bookingRepository.count()).isZero();
@@ -1428,7 +1467,7 @@ class PaymentConfirmServiceTest {
 
 		// when & then
 		assertThatThrownBy(() -> paymentApprovalFinalizer.finalizeApproval(
-			notSent.getPaymentId(), notSent.getId(), request, approval))
+			notSent.getPaymentId(), notSent.getId(), approval))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
 	}

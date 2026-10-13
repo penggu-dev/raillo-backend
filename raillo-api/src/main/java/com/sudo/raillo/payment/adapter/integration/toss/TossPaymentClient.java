@@ -22,6 +22,7 @@ import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.exception.DeliveryPhase;
+import com.sudo.raillo.payment.application.required.PaymentGateway;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 
 import lombok.RequiredArgsConstructor;
@@ -129,7 +130,7 @@ public class TossPaymentClient {
 	}
 
 	private TossPaymentException queryUncertain(String cause, HttpStatus status, Throwable e, DeliveryPhase phase) {
-		String errorCode = "QUERY_UNCERTAIN_" + cause;
+		String errorCode = PaymentGateway.QUERY_UNCERTAIN_PREFIX + cause;
 		log.error("[TOSS] 결제 조회 결과 불명: errorCode={}, phase={}", errorCode, phase, e);
 		tossApiMetrics.incrementFailure("query", 0, errorCode, phase);
 		return new TossPaymentException(status.value(), errorCode, "결제 조회 결과를 확인하지 못했습니다.", phase);
