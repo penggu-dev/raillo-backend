@@ -26,9 +26,10 @@
 | `trainParse` | 파싱 → 정적 적재 | 시간표나 운임표가 바뀌었을 때 |
 | `trainMonthlySchedule` | 오늘부터 1개월 + 1일치 스케줄 생성 → 운행 적재 | 수동 |
 | `trainDailySchedule` | 하루치 스케줄 생성 → 운행 적재 | 매일 03:00 (CronJob) |
+| `trainDailyScheduleOnly` | 하루치 스케줄 생성 | 매일 03:30, `test` DB (CronJob) |
 | `trainStaticCacheLoad` | 정적 적재 | 캐시만 복구할 때 |
 | `trainScheduleCacheLoad` | 운행 적재 | 캐시만 복구할 때 |
-| `deleteExpiredMembers` | 탈퇴 3년 경과 회원 삭제 | 매일 04:00 (CronJob) |
+| `deleteExpiredMembers` | 탈퇴 3년 경과 회원 삭제 | 매일 04:00, `test` DB는 04:30 (CronJob) |
 
 ### 파싱 (`trainParse`)
 
@@ -40,13 +41,14 @@
   - 차종별 객차 구성과 좌석 배열은 `train-template.yml`이 정한다
   - 이미 만든 운행은 바꾸지 않는다. 바뀐 시간표는 이후 새로 만드는 날짜부터 적용된다
 
-### 스케줄 생성 (`trainDailySchedule`, `trainMonthlySchedule`)
+### 스케줄 생성 (`trainDailySchedule`, `trainDailyScheduleOnly`, `trainMonthlySchedule`)
 
-- 파라미터: `trainDailySchedule`만 `--operationDate=yyyy-MM-dd`를 받는다. 없으면 **DB의 마지막 운행일 다음 날**을 만든다
+- 파라미터: `trainDailySchedule`, `trainDailyScheduleOnly`만 `--operationDate=yyyy-MM-dd`를 받는다. 없으면 **DB의 마지막 운행일 다음 날**을 만든다
 - 규칙
   - 날짜마다 그 요일에 운행하는 템플릿만 운행으로 만든다
   - 이미 운행이 있는 날짜는 건너뛴다. 건너뛴 날짜도 운행 적재 대상에는 넣는다
   - `trainDailySchedule`은 하루씩만 늘린다. 며칠 빠지면 실행 한 번에 하루만 따라잡는다
+  - `trainDailyScheduleOnly`는 `trainDailySchedule`에서 운행 적재 Step을 뺀 것이다. 운영 Redis를 쓰지 않는 DB에 쓴다. → [test DB 배치](../infra/README.md#test-db-배치는-열차-캐시를-적재하지-않는다)
   - 대량 저장은 JPA가 아니라 JDBC batch insert(`*JdbcRepository`)로 한다
 
 ### 열차 캐시 적재 (`trainStaticCacheLoad`, `trainScheduleCacheLoad`)
@@ -76,7 +78,7 @@ java -jar raillo-batch.jar --job=trainDailySchedule --operationDate=2026-01-01
 - `run.id`를 실행마다 자동으로 붙인다. 같은 파라미터로 다시 돌릴 수 있다
 - 종료 코드는 성공 0, 실패 1이다
 - **Spring Batch 메타 테이블(`BATCH_*`)을 자동으로 만들지 않는다**(`initialize-schema: never`). DB에 미리 있어야 한다
-- 운영 CronJob은 `k8s/oke/batch/batch-cronjob.yaml`이다. 한국 시간 기준이고 동시 실행을 막는다
+- 운영 CronJob은 `k8s/oke/batch/batch-cronjob.yaml`이다. 한국 시간 기준이고 동시 실행을 막는다. `raillo` DB와 `test` DB에 각각 돈다
 
 ## 설계 결정
 

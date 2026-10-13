@@ -21,12 +21,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 /**
  * 하루치 운행 스케줄을 생성한다.
  * operationDate 파라미터가 있으면 해당 날짜, 없으면 마지막 운행일의 다음 날짜를 생성한다.
+ * {@value #SCHEDULE_ONLY_JOB_NAME}은 열차 캐시를 적재하지 않는다. 운영 Redis를 쓰지 않는 DB(test)에 쓴다.
  */
 @Configuration
 @RequiredArgsConstructor
 public class TrainDailyScheduleJobConfig {
 
 	public static final String JOB_NAME = "trainDailySchedule";
+	public static final String SCHEDULE_ONLY_JOB_NAME = "trainDailyScheduleOnly";
 
 	private final JobRepository jobRepository;
 	private final PlatformTransactionManager transactionManager;
@@ -37,6 +39,13 @@ public class TrainDailyScheduleJobConfig {
 		return new JobBuilder(JOB_NAME, jobRepository)
 			.start(trainDailyScheduleStep())
 			.next(trainScheduleCacheStep)
+			.build();
+	}
+
+	@Bean
+	public Job trainDailyScheduleOnlyJob() {
+		return new JobBuilder(SCHEDULE_ONLY_JOB_NAME, jobRepository)
+			.start(trainDailyScheduleStep())
 			.build();
 	}
 

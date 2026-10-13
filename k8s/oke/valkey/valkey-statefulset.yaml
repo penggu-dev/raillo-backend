@@ -85,7 +85,6 @@ spec:
               cpu: 100m
               memory: 3Gi
             limits:
-              cpu: 500m
               memory: 3Gi
       volumes:
         - name: valkey-data

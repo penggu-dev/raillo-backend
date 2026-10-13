@@ -84,6 +84,7 @@ class RailloBatchApplicationTests {
 			TrainStaticCacheJobConfig.JOB_NAME,
 			TrainScheduleCacheJobConfig.JOB_NAME,
 			TrainDailyScheduleJobConfig.JOB_NAME,
+			TrainDailyScheduleJobConfig.SCHEDULE_ONLY_JOB_NAME,
 			TrainMonthlyScheduleJobConfig.JOB_NAME,
 			TrainInitializeJobConfig.JOB_NAME,
 			DeleteExpiredMembersJobConfig.JOB_NAME

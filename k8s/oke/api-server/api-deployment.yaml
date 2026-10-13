@@ -6,8 +6,12 @@ metadata:
 spec:
   revisionHistoryLimit: 2
   replicas: 1
+  # 새 파드가 Ready가 된 뒤 기존 파드를 내린다. 배포 중에는 app 노드에 API 파드가 2대 뜬다.
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: raillo-api
@@ -18,6 +22,8 @@ spec:
     spec:
       nodeSelector:
         raillo-node: app
+      # preStop 5초 + Spring graceful shutdown 30초(timeout-per-shutdown-phase 기본값)보다 길게 둔다.
+      terminationGracePeriodSeconds: 45
       imagePullSecrets:
         - name: ghcr-secret
       containers:
@@ -39,11 +45,11 @@ spec:
             - name: JDK_JAVA_OPTIONS
               value: -XX:MaxRAMPercentage=75.0
           resources:
+            # CPU는 request만 둔다. 롤링 업데이트 중 두 파드의 request 합이 app 노드에 들어가야 한다.
             requests:
-              cpu: 1000m
+              cpu: 500m
               memory: 2Gi
             limits:
-              cpu: 1000m
               memory: 2Gi
           lifecycle:
             preStop:

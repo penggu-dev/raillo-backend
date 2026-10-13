@@ -26,6 +26,8 @@ import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
@@ -39,8 +41,10 @@ class TrainScheduleJobIntegrationTest {
 	private final JobOperatorTestUtils jobOperatorTestUtils;
 	private final Job trainParseJob;
 	private final Job trainDailyScheduleJob;
+	private final Job trainDailyScheduleOnlyJob;
 	private final Job trainMonthlyScheduleJob;
 	private final JdbcTemplate jdbcTemplate;
+	private final StringRedisTemplate stringRedisTemplate;
 	private final StationRepository stationRepository;
 	private final TrainRepository trainRepository;
 	private final TrainScheduleTemplateRepository trainScheduleTemplateRepository;
@@ -50,8 +54,10 @@ class TrainScheduleJobIntegrationTest {
 		JobOperatorTestUtils jobOperatorTestUtils,
 		@Qualifier("trainParseJob") Job trainParseJob,
 		@Qualifier("trainDailyScheduleJob") Job trainDailyScheduleJob,
+		@Qualifier("trainDailyScheduleOnlyJob") Job trainDailyScheduleOnlyJob,
 		@Qualifier("trainMonthlyScheduleJob") Job trainMonthlyScheduleJob,
 		JdbcTemplate jdbcTemplate,
+		StringRedisTemplate stringRedisTemplate,
 		StationRepository stationRepository,
 		TrainRepository trainRepository,
 		TrainScheduleTemplateRepository trainScheduleTemplateRepository
@@ -59,8 +65,10 @@ class TrainScheduleJobIntegrationTest {
 		this.jobOperatorTestUtils = jobOperatorTestUtils;
 		this.trainParseJob = trainParseJob;
 		this.trainDailyScheduleJob = trainDailyScheduleJob;
+		this.trainDailyScheduleOnlyJob = trainDailyScheduleOnlyJob;
 		this.trainMonthlyScheduleJob = trainMonthlyScheduleJob;
 		this.jdbcTemplate = jdbcTemplate;
+		this.stringRedisTemplate = stringRedisTemplate;
 		this.stationRepository = stationRepository;
 		this.trainRepository = trainRepository;
 		this.trainScheduleTemplateRepository = trainScheduleTemplateRepository;
@@ -113,6 +121,27 @@ class TrainScheduleJobIntegrationTest {
 		// then
 		assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
 		assertThat(countSchedules(lastOperationDate.plusDays(1))).isPositive();
+	}
+
+	@DisplayName("캐시 없는 일일 Job은 스케줄만 생성하고 열차 캐시를 적재하지 않는다")
+	@Test
+	void schedule_only_daily_job_does_not_load_train_cache() throws Exception {
+		// given
+		createScheduleTemplate();
+		flushRedis();
+		LocalDate operationDate = LocalDate.now().plusDays(1);
+		jobOperatorTestUtils.setJob(trainDailyScheduleOnlyJob);
+
+		// when
+		JobExecution execution = jobOperatorTestUtils.startJob(new JobParametersBuilder()
+			.addString("operationDate", operationDate.toString())
+			.addLong("run.id", System.nanoTime())
+			.toJobParameters());
+
+		// then
+		assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+		assertThat(countSchedules(operationDate)).isPositive();
+		assertThat(stringRedisTemplate.keys("*")).isEmpty();
 	}
 
 	@DisplayName("월간 Job은 실행일부터 한 달 뒤까지 스케줄을 생성한다")
@@ -171,6 +200,13 @@ class TrainScheduleJobIntegrationTest {
 		return new JobParametersBuilder()
 			.addLong("run.id", System.nanoTime())
 			.toJobParameters();
+	}
+
+	private void flushRedis() {
+		stringRedisTemplate.execute((RedisCallback<Object>)connection -> {
+			connection.serverCommands().flushDb();
+			return null;
+		});
 	}
 
 	private long countRows(String tableName) {
