@@ -67,6 +67,7 @@ flowchart LR
 | (클러스터) | ingress-nginx, cert-manager `raillo-issuer` | OCI Load Balancer, Let's Encrypt |
 
 - 규칙
+  - **CPU는 request만 두고 limit을 두지 않는다. 메모리는 limit을 둔다.** 노드 CPU가 남으면 request보다 더 쓰고, 모자라면 request 비율로 나눠 받는다. OKE가 관리하는 `kube-system` 파드는 건드리지 않는다.
   - Valkey가 `noeviction`이므로 메모리가 차면 쓰기가 실패한다. 예약과 열차 캐시 키를 지워서 공간을 만들지 않는다.
   - actuator는 관리 포트 8081에서만 뜬다. Service와 Ingress는 8080만 노출하므로 밖에서 actuator에 닿지 않는다. kubelet 프로브와 Prometheus는 파드 IP로 8081에 직접 붙는다.
   - 프로브는 `/actuator/health/liveness`(startup, liveness)와 `/actuator/health/readiness`다. 둘 다 DB, Redis 같은 의존성을 보지 않는다.
