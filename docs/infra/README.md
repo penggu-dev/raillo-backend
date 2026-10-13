@@ -48,7 +48,7 @@ flowchart LR
 2. 그 워크플로가 push에서 성공하면 `Build ARM64 images and deploy to OKE`가 시작한다. **승인 단계 없이 운영에 배포된다.**
 3. `raillo-api`, `raillo-batch` 이미지를 ARM64로 빌드해 GHCR에 `latest`와 `sha-{커밋}` 태그로 올린다.
 4. `k8s/oke/api-server/`, `k8s/oke/batch/` 매니페스트의 이미지를 `sha-{커밋}`으로 바꿔 `kubectl apply` 한다.
-5. `raillo-api` rollout이 끝나기를 기다린다. CronJob은 다음 실행부터 새 이미지를 쓴다.
+5. `raillo-api` rollout이 끝나기를 기다린다. 롤링 업데이트라 새 파드가 Ready가 된 뒤 기존 파드를 내린다. CronJob은 다음 실행부터 새 이미지를 쓴다.
 
 - 규칙
   - 배포는 한 번에 하나만 돈다(`concurrency: raillo-oke-production`).
@@ -59,7 +59,7 @@ flowchart LR
 
 | 네임스페이스 | 리소스 | 설정 |
 |---|---|---|
-| `api-server` | `raillo-api` Deployment, Service, Ingress | 1대, `Recreate`, CPU 1, 메모리 2Gi, 힙은 메모리의 75%. 요청은 8080, 관리 엔드포인트는 8081 |
+| `api-server` | `raillo-api` Deployment, Service, Ingress | 1대, `RollingUpdate`(`maxSurge` 1, `maxUnavailable` 0), CPU request 500m, 메모리 2Gi, 힙은 메모리의 75%. 요청은 8080, 관리 엔드포인트는 8081 |
 | `batch` | `train-daily-schedule`, `delete-expired-members` CronJob (`raillo` DB), `-test`가 붙은 같은 CronJob (`test` DB) | 03:00, 04:00, test는 03:30, 04:30 (한국 시간), 동시 실행 금지. Job은 [batch](../batch/README.md) |
 | `mysql` | `mysql` StatefulSet, PVC 50Gi | `mysql-admin` NodePort 30060으로 클러스터 밖 접속 |
 | `valkey` | `valkey` StatefulSet | AOF(`everysec`), RDB 없음, `maxmemory 2gb`, `noeviction` |
@@ -68,6 +68,7 @@ flowchart LR
 
 - 규칙
   - **CPU는 request만 두고 limit을 두지 않는다. 메모리는 limit을 둔다.** 노드 CPU가 남으면 request보다 더 쓰고, 모자라면 request 비율로 나눠 받는다. OKE가 관리하는 `kube-system` 파드는 건드리지 않는다.
+  - API 롤링 업데이트 중에는 app 노드에 API 파드가 2대 뜬다. app 노드의 CPU request 여유가 API request(500m)보다 작으면 새 파드가 Pending에 걸려 배포가 타임아웃된다. app 노드에 파드를 추가하거나 request를 올릴 때 확인한다.
   - `test` CronJob은 `env`의 `DB_URL`로 `raillo-config`의 값을 덮는다. Redis는 운영 Valkey를 가리키므로 열차 캐시를 적재하지 않는 Job만 돌린다.
   - Valkey가 `noeviction`이므로 메모리가 차면 쓰기가 실패한다. 예약과 열차 캐시 키를 지워서 공간을 만들지 않는다.
   - actuator는 관리 포트 8081에서만 뜬다. Service와 Ingress는 8080만 노출하므로 밖에서 actuator에 닿지 않는다. kubelet 프로브와 Prometheus는 파드 IP로 8081에 직접 붙는다.
@@ -174,7 +175,12 @@ git config core.hooksPath .githooks
 ### 프로브는 의존성을 보지 않는다
 - 맥락: 종합 `/actuator/health`는 DB, Redis, 메일 상태를 합산한다. 이를 프로브에 쓰면 의존성이 흔들릴 때마다 파드가 재시작되고, 그 장애는 재시작으로 고쳐지지 않는다.
 - 결정: liveness는 livenessState만, readiness도 의존성을 보지 않는다. 의존성 상태는 알림이 다룬다.
-- 결과: 파드가 1대인 동안 readiness 때문에 Service에서 빠져 전면 중단되는 일이 없다. 스케일 아웃하면 readiness 기준을 다시 정한다.
+- 결과: 파드가 1대인 동안 readiness 때문에 Service에서 빠져 전면 중단되는 일이 없다. 롤링 업데이트는 기동이 끝나면 새 파드를 Ready로 보므로, 새 파드가 DB나 Redis에 붙지 못해도 기존 파드를 내린다. 스케일 아웃하면 readiness 기준을 다시 정한다.
+
+### API는 롤링 업데이트로 무중단 배포한다
+- 맥락: `Recreate`는 기존 파드를 먼저 내려 기동이 끝날 때까지(최대 180초) 서비스가 멈춘다. 롤링 업데이트는 두 파드가 잠시 함께 뜨는데, app 노드의 CPU request가 거의 차 있어 API request 1000m으로는 두 번째 파드가 들어가지 못했다.
+- 결정: `maxSurge` 1, `maxUnavailable` 0으로 새 파드가 Ready가 된 뒤 기존 파드를 내린다. CPU limit을 없애고 API CPU request를 500m으로 낮춰 두 파드가 app 노드에 들어가게 한다. 내려가는 파드는 preStop 5초 동안 Service에서 빠지고, Spring graceful shutdown(최대 30초)으로 진행 중인 요청을 마친다. `terminationGracePeriodSeconds`는 이 둘보다 긴 45초다.
+- 결과: 배포 중에도 요청을 받는다. 잠시 두 인스턴스가 함께 돌지만 결제 Outbox Worker는 `SKIP LOCKED`로 같은 행을 잡지 않는다. request를 낮춘 만큼 노드 CPU가 붐비면 API가 1 CPU를 보장받지 못한다.
 
 ### test DB 배치는 열차 캐시를 적재하지 않는다
 - 맥락: `test` DB도 운행이 매일 늘어야 한다. 그런데 Batch의 Redis는 운영 Valkey이고, 운행 캐시 키(`{schedule:{id}}:*`)는 운행 ID로 정해져 `raillo`와 `test`의 ID가 겹친다. 그대로 적재하면 운영 예약이 읽는 캐시를 test 데이터로 덮는다.
