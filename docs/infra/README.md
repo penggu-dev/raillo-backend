@@ -17,7 +17,7 @@ flowchart LR
     ingress --> api[raillo-api]
     api --> mysql[(MySQL 8.4)]
     api --> valkey[(Valkey 9)]
-    cron[CronJob raillo-batch] --> mysql
+    cron[CronJob raillo-batch<br/>raillo, test DB] --> mysql
     cron --> valkey
     dev[개발자] -->|SSH 터널| bastion[raillo-bastion] -->|NodePort 30060| mysql
     prom[Prometheus] --> api
@@ -60,7 +60,7 @@ flowchart LR
 | 네임스페이스 | 리소스 | 설정 |
 |---|---|---|
 | `api-server` | `raillo-api` Deployment, Service, Ingress | 1대, `Recreate`, CPU 1, 메모리 2Gi, 힙은 메모리의 75%. 요청은 8080, 관리 엔드포인트는 8081 |
-| `batch` | `train-daily-schedule`, `delete-expired-members` CronJob | 03:00, 04:00 (한국 시간), 동시 실행 금지. Job은 [batch](../batch/README.md) |
+| `batch` | `train-daily-schedule`, `delete-expired-members` CronJob (`raillo` DB), `-test`가 붙은 같은 CronJob (`test` DB) | 03:00, 04:00, test는 03:30, 04:30 (한국 시간), 동시 실행 금지. Job은 [batch](../batch/README.md) |
 | `mysql` | `mysql` StatefulSet, PVC 50Gi | `mysql-admin` NodePort 30060으로 클러스터 밖 접속 |
 | `valkey` | `valkey` StatefulSet | AOF(`everysec`), RDB 없음, `maxmemory 2gb`, `noeviction` |
 | `monitoring` | Prometheus, Grafana, kube-state-metrics, node-exporter, mysql-exporter, valkey-exporter | Grafana는 `monitoring.raillo.site` |
@@ -68,6 +68,7 @@ flowchart LR
 
 - 규칙
   - **CPU는 request만 두고 limit을 두지 않는다. 메모리는 limit을 둔다.** 노드 CPU가 남으면 request보다 더 쓰고, 모자라면 request 비율로 나눠 받는다. OKE가 관리하는 `kube-system` 파드는 건드리지 않는다.
+  - `test` CronJob은 `env`의 `DB_URL`로 `raillo-config`의 값을 덮는다. Redis는 운영 Valkey를 가리키므로 열차 캐시를 적재하지 않는 Job만 돌린다.
   - Valkey가 `noeviction`이므로 메모리가 차면 쓰기가 실패한다. 예약과 열차 캐시 키를 지워서 공간을 만들지 않는다.
   - actuator는 관리 포트 8081에서만 뜬다. Service와 Ingress는 8080만 노출하므로 밖에서 actuator에 닿지 않는다. kubelet 프로브와 Prometheus는 파드 IP로 8081에 직접 붙는다.
   - 프로브는 `/actuator/health/liveness`(startup, liveness)와 `/actuator/health/readiness`다. 둘 다 DB, Redis 같은 의존성을 보지 않는다.
@@ -174,6 +175,11 @@ git config core.hooksPath .githooks
 - 맥락: 종합 `/actuator/health`는 DB, Redis, 메일 상태를 합산한다. 이를 프로브에 쓰면 의존성이 흔들릴 때마다 파드가 재시작되고, 그 장애는 재시작으로 고쳐지지 않는다.
 - 결정: liveness는 livenessState만, readiness도 의존성을 보지 않는다. 의존성 상태는 알림이 다룬다.
 - 결과: 파드가 1대인 동안 readiness 때문에 Service에서 빠져 전면 중단되는 일이 없다. 스케일 아웃하면 readiness 기준을 다시 정한다.
+
+### test DB 배치는 열차 캐시를 적재하지 않는다
+- 맥락: `test` DB도 운행이 매일 늘어야 한다. 그런데 Batch의 Redis는 운영 Valkey이고, 운행 캐시 키(`{schedule:{id}}:*`)는 운행 ID로 정해져 `raillo`와 `test`의 ID가 겹친다. 그대로 적재하면 운영 예약이 읽는 캐시를 test 데이터로 덮는다.
+- 결정: test CronJob은 운행 적재 Step이 없는 `trainDailyScheduleOnly`를 돌린다. 회원 정리는 Redis를 쓰지 않아 같은 Job을 쓴다.
+- 결과: test DB의 운행은 늘지만 그 운행의 캐시는 생기지 않는다. test DB로 예약하려면 그 환경의 Redis에 `trainScheduleCacheLoad`를 따로 돌린다.
 
 ### 배포는 커밋 SHA 태그로 고정한다
 - 맥락: 매니페스트는 `latest`를 가리킨다. `latest`로 apply 하면 매니페스트가 바뀌지 않아 rollout이 일어나지 않고, 어떤 커밋이 떠 있는지 알 수 없다.

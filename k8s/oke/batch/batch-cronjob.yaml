@@ -88,3 +88,101 @@ spec:
                   memory: 1Gi
                 limits:
                   memory: 2Gi
+
+---
+# test DB. raillo와 운행 ID가 겹치므로 운영 Redis에 열차 캐시를 적재하지 않는 Job을 쓴다.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: train-daily-schedule-test
+  namespace: batch
+spec:
+  schedule: "30 3 * * *"
+  timeZone: Asia/Seoul
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: raillo-batch
+        spec:
+          restartPolicy: Never
+          nodeSelector:
+            raillo-node: data
+          imagePullSecrets:
+            - name: ghcr-secret
+          containers:
+            - name: raillo-batch
+              image: ghcr.io/penggu-dev/raillo-batch:latest
+              args:
+                - --job=trainDailyScheduleOnly
+              envFrom:
+                - configMapRef:
+                    name: raillo-config
+                - secretRef:
+                    name: raillo-secrets
+              env:
+                # env가 envFrom보다 우선한다. raillo-config의 DB_URL을 test DB로 덮는다.
+                - name: DB_URL
+                  value: jdbc:mysql://mysql.mysql.svc.cluster.local:3306/test
+                - name: JDK_JAVA_OPTIONS
+                  value: -XX:MaxRAMPercentage=75.0
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  memory: 2Gi
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: delete-expired-members-test
+  namespace: batch
+spec:
+  schedule: "30 4 * * *"
+  timeZone: Asia/Seoul
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: raillo-batch
+        spec:
+          restartPolicy: Never
+          nodeSelector:
+            raillo-node: data
+          imagePullSecrets:
+            - name: ghcr-secret
+          containers:
+            - name: raillo-batch
+              image: ghcr.io/penggu-dev/raillo-batch:latest
+              args:
+                - --job=deleteExpiredMembers
+              envFrom:
+                - configMapRef:
+                    name: raillo-config
+                - secretRef:
+                    name: raillo-secrets
+              env:
+                - name: DB_URL
+                  value: jdbc:mysql://mysql.mysql.svc.cluster.local:3306/test
+                - name: JDK_JAVA_OPTIONS
+                  value: -XX:MaxRAMPercentage=75.0
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  memory: 2Gi
