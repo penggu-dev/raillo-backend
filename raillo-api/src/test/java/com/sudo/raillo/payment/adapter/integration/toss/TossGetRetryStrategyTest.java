@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 
 import org.apache.hc.client5.http.protocol.HttpClientContext;
 import org.apache.hc.core5.http.HttpRequest;
@@ -40,7 +43,7 @@ class TossGetRetryStrategyTest {
 			IOException ex = new SocketTimeoutException("read timed out");
 
 			assertThat(strategy.retryRequest(postRequest, ex, 1, HttpClientContext.create()))
-				.as("POST는 idempotent하지 않아 자동 재시도 금지").isFalse();
+				.as("쓰기 호출은 재시도 안전성이 보장되지 않아 전송 층에서 재시도 금지").isFalse();
 		}
 	}
 
@@ -80,24 +83,61 @@ class TossGetRetryStrategyTest {
 			BasicHttpResponse response = new BasicHttpResponse(502, "Bad Gateway");
 
 			assertThat(strategy.retryRequest(response, 1, ctx))
-				.as("POST 5xx는 IN_PROGRESS attempt 남기고 Recovery Worker에 위임").isFalse();
+				.as("POST 5xx는 IN_PROGRESS attempt로 남겨 회복 경로에 위임").isFalse();
 		}
 	}
 
 	@Nested
-	@DisplayName("지수 backoff")
+	@DisplayName("지수 backoff와 지터")
 	class Backoff {
 
-		@Test
-		@DisplayName("실행 횟수에 따라 200ms → 400ms로 backoff가 증가한다")
-		void backoff_doublesEachRetry() {
+		private static final int SAMPLES = 20;
+
+		private List<Long> intervalsOf(int execCount) {
 			HttpRequest req = new BasicHttpRequest("GET", "/x");
 			IOException ex = new SocketTimeoutException();
+			List<Long> intervals = new ArrayList<>();
+			for (int i = 0; i < SAMPLES; i++) {
+				intervals.add(strategy.getRetryInterval(req, ex, execCount, HttpClientContext.create()).toMilliseconds());
+			}
+			return intervals;
+		}
 
-			assertThat(strategy.getRetryInterval(req, ex, 1, HttpClientContext.create()).toMilliseconds())
-				.isEqualTo(200);
-			assertThat(strategy.getRetryInterval(req, ex, 2, HttpClientContext.create()).toMilliseconds())
-				.isEqualTo(400);
+		@Test
+		@DisplayName("1차 재시도 간격을 반복해 구하면 모두 100ms 이상 300ms 미만이다")
+		void firstRetry_staysWithinBand() {
+			// given
+			// when
+			List<Long> intervals = intervalsOf(1);
+
+			// then
+			assertThat(intervals).allSatisfy(ms ->
+				assertThat(ms).isGreaterThanOrEqualTo(100).isLessThan(300));
+		}
+
+		@Test
+		@DisplayName("2차 재시도 간격을 반복해 구하면 모두 200ms 이상 600ms 미만이다")
+		void secondRetry_staysWithinBand() {
+			// given
+			// when
+			List<Long> intervals = intervalsOf(2);
+
+			// then
+			assertThat(intervals).allSatisfy(ms ->
+				assertThat(ms).isGreaterThanOrEqualTo(200).isLessThan(600));
+		}
+
+		@Test
+		@DisplayName("같은 실행 횟수로 여러 번 호출하면 간격이 한 값으로 고정되지 않는다")
+		void sameExecCount_producesVaryingIntervals() {
+			// given
+			// when
+			List<Long> intervals = intervalsOf(2);
+
+			// then
+			assertThat(new HashSet<>(intervals))
+				.as("지터가 없으면 값이 하나뿐이라 장애 시 재시도가 같은 순간에 몰린다")
+				.hasSizeGreaterThan(1);
 		}
 	}
 }

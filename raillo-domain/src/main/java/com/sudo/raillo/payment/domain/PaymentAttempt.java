@@ -139,8 +139,9 @@ public class PaymentAttempt {
 	}
 
 	/**
-	 * Toss에서 승인돼 돈이 나갔지만 자동으로 예매를 확정하면 안 되는 attempt로 표시한다.
-	 * errorCode는 {@code REVIEW_SEAT_LOST}, {@code REVIEW_DEPARTED}, {@code REVIEW_RESULT_MISMATCH} 중 하나다.
+	 * Toss에서 승인됐을 수 있어 자동으로 예매를 확정하면 안 되는 attempt로 표시한다.
+	 * errorCode는 판정이 만드는 {@code REVIEW_RESULT_MISMATCH}, {@code REVIEW_PAYMENT_KEY_MISSING}과
+	 * 아직 생산 경로가 없는 {@code REVIEW_SEAT_LOST}, {@code REVIEW_DEPARTED}(#270) 중 하나다.
 	 */
 	public void markReviewRequired(String errorCode, String errorMessage) {
 		if (this.status != PaymentAttemptStatus.IN_PROGRESS) {

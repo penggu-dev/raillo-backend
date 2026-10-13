@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
  * 상태로 쓴다. 승인은 멱등하지 않아 그 규칙을 그대로 쓸 수 없다. 응답을 받지 못한 실패는 값이 0이라 쓸 수
  * 없고, 게이트웨이가 5xx로 답한 실패는 값이 있어도 그대로 내리면 안 된다. 5xx는 승인한 뒤 응답에 실패한
  * 경우를 포함하므로, 5xx에 자동 재시도를 걸어둔 호출자가 있으면 승인 요청이 다시 나가 이중 청구가 된다.
- * 멱등하지 않은 호출을 5xx 재시도 대상에서 빼는 것은 {@code TossGetRetryStrategy}가 Toss GET에만 재시도를
+ * 재시도 안전성이 보장되지 않은 쓰기 호출을 5xx 재시도 대상에서 빼는 것은 {@code TossGetRetryStrategy}가 Toss GET에만 재시도를
  * 허용하는 것과 같은 판단이다.</p>
  *
  * <p>그래서 세 분기를 {@link PaymentGatewayException}의 판정 메서드에 1:1로 맞춘다. 결과 불명은 재시도를

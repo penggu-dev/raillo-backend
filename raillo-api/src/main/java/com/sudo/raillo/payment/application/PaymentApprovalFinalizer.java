@@ -1,6 +1,5 @@
 package com.sudo.raillo.payment.application;
 
-import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.result.PaymentConfirmResult;
 import java.util.List;
 
@@ -51,16 +50,16 @@ public class PaymentApprovalFinalizer {
 	public PaymentConfirmResult finalizeApproval(
 		Long paymentId,
 		Long attemptDbId,
-		PaymentConfirmCommand command,
 		GatewayConfirmResult gatewayResult
 	) {
 		Payment payment = paymentRepository.findByIdForUpdate(paymentId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_NOT_FOUND));
-		Order order = orderReader.getOrderByOrderCode(command.orderId());
 		PaymentAttempt attempt = paymentAttemptRepository.findById(attemptDbId)
 			.orElseThrow(() -> new BusinessException(PaymentError.PAYMENT_ATTEMPT_NOT_FOUND));
+		String storedPaymentKey = requirePaymentKey(attempt);
+		Order order = orderReader.getOrderByOrderCode(payment.getOrderCode());
 
-		paymentValidator.validateApprovalAttempt(attempt, paymentId, command.paymentKey());
+		paymentValidator.validateApprovalAttempt(attempt, paymentId, storedPaymentKey);
 
 		// 확정은 아래 TX B가 Order와 Payment와 Booking과 Attempt와 Outbox를 한 트랜잭션으로 커밋하는 것. 이 switch는 그 전의 상태별 조기 종료다.
 		// enum switch 문은 exhaustive 강제가 없어 모든 상태를 직접 열거하고 default로 막는다. 빠진 상태가 조용히 확정 경로로 떨어지는 것이 가장 위험하다.
@@ -71,18 +70,18 @@ public class PaymentApprovalFinalizer {
 				log.info("[결제 확정 - 동시 요청이 먼저 확정] attemptId={}, paymentId={}", attempt.getAttemptId(), paymentId);
 				return PaymentConfirmResult.from(payment);
 			}
-			// Worker가 먼저 수동 확인 대상으로 바꾼 attempt는 자동으로 확정하지 않는다.
+			// 다른 경로가 먼저 수동 확인 대상으로 바꾼 attempt는 자동으로 확정하지 않는다.
 			case REVIEW_REQUIRED -> {
 				log.warn("[결제 확정 거절 - 수동 확인 대상] attemptId={}, paymentId={}, errorCode={}",
 					attempt.getAttemptId(), paymentId, attempt.getErrorCode());
 				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 			}
-			// Toss는 승인해 카드가 청구됐는데 기록만 FAILED라 예매가 없는 상태. Recovery Worker는 IN_PROGRESS만 집어 아무도 다시 보지 않음
+			// Toss는 승인해 카드가 청구됐는데 기록만 FAILED라 예매가 없는 상태. 대사는 IN_PROGRESS만 대상이라 아무도 다시 보지 않음
 			// TODO(#270): 탐지와 알림만 수행. markReviewRequired가 IN_PROGRESS에서만 허용돼 이 레코드를 되살릴 경로 없음
 			case FAILED -> {
 				log.error("[결제 확정 위험 - 이미 FAILED인 attempt에 승인 확정 진입] paymentKey={}, attemptId={}, paymentId={}, "
 						+ "돈이 이미 빠져나갔을 수 있으나 attempt는 FAILED이고 예매는 생성되지 않았습니다.",
-					command.paymentKey(), attempt.getAttemptId(), paymentId);
+					storedPaymentKey, attempt.getAttemptId(), paymentId);
 				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 			}
 			// 정상 경로. 조기 종료 없이 switch 아래 확정 로직으로 진행
@@ -99,7 +98,8 @@ public class PaymentApprovalFinalizer {
 
 		paymentValidator.validateApprovable(payment);
 		paymentValidator.validateDuplicatePayment(order);
-		paymentValidator.validateGatewayResponseMatchesRequest(gatewayResult, command);
+		paymentValidator.validateGatewayResponseMatchesStored(
+			gatewayResult, storedPaymentKey, payment.getOrderCode(), payment.getAmount());
 
 		order.completePayment();
 		var confirmed = bookingCreator.createBookingFromOrder(order);
@@ -109,6 +109,15 @@ public class PaymentApprovalFinalizer {
 		List<Reservation> reservations = orderReader.getReservationSnapshots(order);
 		paymentOutboxRepository.save(buildBookingConfirmedOutbox(BookingConfirmedPayload.from(paymentId, attempt, reservations, confirmed)));
 		return PaymentConfirmResult.from(payment);
+	}
+
+	/** TX A가 사전 저장하지만 과거 행에는 없을 수 있다. 결제 키가 비면 분류된 실패로 끝낸다. */
+	private static String requirePaymentKey(PaymentAttempt attempt) {
+		String paymentKey = attempt.getPaymentKey();
+		if (paymentKey == null || paymentKey.isBlank()) {
+			throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_PAYMENT_KEY_MISSING);
+		}
+		return paymentKey;
 	}
 
 	private PaymentOutbox buildBookingConfirmedOutbox(BookingConfirmedPayload payload) {

@@ -55,14 +55,14 @@ public class PaymentConfirmService implements PaymentConfirmer {
 					attemptFailureMarker.markNotSentQuietly(start.paymentId(), start.attemptDbId(),
 						new AttemptError(failure.getErrorCode(), failure.getMessage()));
 				}
-				// 5xx/timeout은 결과 불명이라 IN_PROGRESS로 남기고 회복 경로(사용자 재시도·Recovery Worker)에 위임한다.
+				// 5xx/timeout은 결과 불명이라 IN_PROGRESS로 남기고 회복 경로에 위임한다. 지금은 사용자 재시도뿐이고 Recovery Worker는 아직 없다(#270).
 				throw failure;
 			}
 		}
 
 		// 3단계: 승인 확정 — 이 메서드 전체가 TX B (Order/Booking/Payment/Attempt/Outbox 원자 커밋)
 		PaymentConfirmResult result = paymentApprovalFinalizer.finalizeApproval(
-			start.paymentId(), start.attemptDbId(), command, approval
+			start.paymentId(), start.attemptDbId(), approval
 		);
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", start.paymentId(), command.orderId());

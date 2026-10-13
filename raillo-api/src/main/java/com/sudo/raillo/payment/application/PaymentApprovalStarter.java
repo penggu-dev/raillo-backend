@@ -5,14 +5,16 @@ import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.order.domain.Order;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
-import com.sudo.raillo.payment.application.exception.PaymentGatewayException;
 import com.sudo.raillo.payment.application.required.MemberFinder;
 import com.sudo.raillo.payment.application.required.OrderReader;
 import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
-import com.sudo.raillo.payment.application.required.PaymentGateway;
-import com.sudo.raillo.payment.application.required.PaymentGateway.GatewayPaymentStatus;
-import com.sudo.raillo.payment.application.required.PaymentGateway.GatewayQueryResult;
+import com.sudo.raillo.payment.application.required.PaymentGateway.GatewayConfirmResult;
+import org.springframework.stereotype.Component;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import com.sudo.raillo.payment.application.result.PaymentAttemptStartResult;
+import com.sudo.raillo.payment.application.result.ReconcileDecision;
 import com.sudo.raillo.payment.application.required.ReservationReader;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
@@ -20,10 +22,7 @@ import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import java.util.List;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Component;
 
 /**
  * 승인 시작 단계. Toss 호출에 필요한 조회·검증을 마치고 {@link PaymentAttemptManager}로 TX A를 커밋한다.
@@ -47,7 +46,7 @@ public class PaymentApprovalStarter {
 	private final OrderReader orderReader;
 	private final MemberFinder memberFinder;
 	private final ReservationReader reservationReader;
-	private final PaymentGateway paymentGateway;
+	private final PaymentApprovalReconciler reconciler;
 
 	public PaymentApprovalStart start(PaymentConfirmCommand command, String memberNo) {
 		String attemptId = command.attemptId();
@@ -141,33 +140,31 @@ public class PaymentApprovalStarter {
 		return PaymentApprovalStart.started(payment.getId(), existing.getId());
 	}
 
-	/** IN_PROGRESS attempt 발견 시(사용자 재시도 또는 동시 요청 경합) 게이트웨이 상태를 조회해 로컬을 정정한다. */
+	/**
+	 * IN_PROGRESS attempt 발견 시(사용자 재시도 또는 동시 요청 경합) 게이트웨이 상태를 재조회해 사용자 응답을 만든다.
+	 * 판정은 {@link PaymentApprovalReconciler}가 하고 여기서는 그 판정을 응답으로 바꾼다.
+	 * 같은 판정을 상태 기록으로 바꿀 Recovery Worker는 아직 없다(#270).
+	 */
 	private PaymentApprovalStart recoverInProgressAttempt(
 		PaymentAttempt existing, Payment payment, ApprovalContext ctx
 	) {
 		log.info("[결제 재요청 - IN_PROGRESS attempt 상태 재조회 시작] attemptId={}, paymentId={}", existing.getAttemptId(), payment.getId());
 
-		String paymentKey = ctx.command().paymentKey();
-		GatewayQueryResult query;
-		try {
-			query = paymentGateway.query(paymentKey);
-		} catch (PaymentGatewayException gatewayFailure) {
-			return handleQueryFailure(existing, payment, gatewayFailure);
-		}
-		GatewayPaymentStatus status = query.status();
-		log.info("[결제 재요청 - 게이트웨이 상태 조회] paymentKey={}, status={}", paymentKey, status);
-
-		return switch (status) {
-			case DONE -> resolveGatewayDone(existing, payment, ctx, query);
-			case ABORTED, EXPIRED, CANCELED, PARTIAL_CANCELED -> {
-				// Toss 상 확정 실패 - attempt를 FAILED로 마킹하고 사용자에게 안내한다.
-				log.warn("[결제 재요청 - 게이트웨이가 확정 실패로 응답] status={}, paymentKey={}", status, paymentKey);
-				throw failAndReject(existing, payment,
-					"GATEWAY_" + status.name(), "게이트웨이가 확정 실패로 응답했습니다.");
-			}
-			case READY, IN_PROGRESS, WAITING_FOR_DEPOSIT, UNKNOWN -> {
-				// 아직 처리 중이거나 상태 불명 - 로컬 IN_PROGRESS를 유지하고 사용자에게 재시도를 안내한다.
-				log.info("[결제 재요청 - 게이트웨이가 아직 처리 중] status={}, paymentKey={}", status, paymentKey);
+		ReconcileDecision decision = reconciler.reconcile(PaymentConfirmTarget.of(existing, payment));
+		return switch (decision) {
+			case ReconcileDecision.Confirmable confirmable ->
+				resolveGatewayDone(existing, payment, ctx, confirmable.gatewayResult());
+			case ReconcileDecision.DefinitiveFailure failure ->
+				throw failAndReject(existing, payment, new AttemptError(failure.errorCode(), failure.message()));
+			case ReconcileDecision.ReviewRequired review ->
+				throw requireReviewAndReject(existing, payment, new AttemptError(review.errorCode(), review.message()));
+			case ReconcileDecision.StillPending _ ->
+				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+			case ReconcileDecision.QueryUncertain _ ->
+				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+			case ReconcileDecision.UnexpectedStatus unexpected -> {
+				log.error("[결제 재요청 - 이 프로젝트가 쓰지 않는 게이트웨이 상태] status={}, paymentId={}",
+					unexpected.status(), payment.getId());
 				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 			}
 		};
@@ -175,15 +172,14 @@ public class PaymentApprovalStarter {
 
 	/** 게이트웨이가 이미 승인 완료로 응답한 경우. 로컬 DB는 TX B에서 정정한다. */
 	private PaymentApprovalStart resolveGatewayDone(
-		PaymentAttempt existing, Payment payment, ApprovalContext ctx, GatewayQueryResult query
+		PaymentAttempt existing, Payment payment, ApprovalContext ctx, GatewayConfirmResult gatewayResult
 	) {
-		paymentValidator.validateGatewayResponseMatchesRequest(query.confirmResult(), ctx.command());
 		try {
 			validateReservationsAlive(ctx.order(), ctx.memberNo());
 		} catch (BusinessException reservationCheckFailed) {
 			return resolveWhenReservationsGone(existing, payment, reservationCheckFailed);
 		}
-		return PaymentApprovalStart.recovered(payment.getId(), existing.getId(), query.confirmResult());
+		return PaymentApprovalStart.recovered(payment.getId(), existing.getId(), gatewayResult);
 	}
 
 	/**
@@ -216,30 +212,16 @@ public class PaymentApprovalStarter {
 		};
 	}
 
-	/**
-	 * 게이트웨이 조회 자체가 실패한 경우의 처리. 조회 API의 4xx는 승인의 4xx와 의미가 달라, "결제 없음"이 확정된 응답만 attempt를 FAILED로 마킹한다.
-	 * 그 외(인증 오류·rate limit·게이트웨이 내부 오류)는 승인 여부 판단 불가라 로컬 상태를 유지하고 재시도를 안내하며, Recovery Worker(#270)가 이어서 대사한다.
-	 */
-	private PaymentApprovalStart handleQueryFailure(PaymentAttempt existing, Payment payment, PaymentGatewayException failure) {
-		if (failure.isResourceNotFound()) {
-			log.warn("[결제 재요청 - 게이트웨이가 paymentKey를 찾지 못함] httpStatus={}, errorCode={}, message={}",
-				failure.getHttpStatus(), failure.getErrorCode(), failure.getMessage());
-			throw failAndReject(existing, payment,
-				"GATEWAY_" + failure.getErrorCode(), failure.getMessage());
-		}
-		log.warn("[결제 재요청 - 게이트웨이 조회 실패, IN_PROGRESS 유지 후 Recovery 대기] httpStatus={}, errorCode={}",
-			failure.getHttpStatus(), failure.getErrorCode());
-		throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+	/** attempt를 FAILED로 마킹하고 사용자에게 돌려줄 예외를 만든다. 마킹 실패가 이 예외를 가리지 않도록 삼키는 경로로 부른다. */
+	private BusinessException failAndReject(PaymentAttempt existing, Payment payment, AttemptError error) {
+		attemptFailureMarker.markFailedQuietly(payment.getId(), existing.getId(), error);
+		return new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 	}
 
-	/**
-	 * attempt를 FAILED로 마킹하고 사용자에게 돌려줄 예외를 만든다.
-	 *
-	 * <p>마킹이 실패해도 여기서 만든 {@code PAYMENT_ATTEMPT_ALREADY_FAILED}를 가리면 안 되므로 삼키는 경로로 부른다.</p>
-	 */
-	private BusinessException failAndReject(PaymentAttempt existing, Payment payment, String code, String message) {
-		attemptFailureMarker.markFailedQuietly(payment.getId(), existing.getId(), new AttemptError(code, message));
-		return new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
+	/** attempt를 수동 확인 대상으로 마킹하고 사용자에게 돌려줄 예외를 만든다. 마킹 실패 처리는 {@link #failAndReject}와 같다. */
+	private BusinessException requireReviewAndReject(PaymentAttempt existing, Payment payment, AttemptError error) {
+		attemptFailureMarker.markReviewRequiredQuietly(payment.getId(), existing.getId(), error);
+		return new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 	}
 
 	private void validateReservationsAlive(Order order, String memberNo) {
