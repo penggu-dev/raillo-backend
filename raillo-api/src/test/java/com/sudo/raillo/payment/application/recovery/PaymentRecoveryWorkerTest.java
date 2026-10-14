@@ -26,22 +26,33 @@ import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.ReservationSeat;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
 import com.sudo.raillo.member.infrastructure.MemberRepository;
+import com.sudo.raillo.order.domain.Order;
+import com.sudo.raillo.order.infrastructure.OrderRepository;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentQueryResponse;
+import com.sudo.raillo.payment.adapter.persistence.PaymentOutboxJpaRepository;
+import com.sudo.raillo.payment.application.PaymentApprovalFinalizer;
+import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.command.PaymentPrepareCommand;
+import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
 import com.sudo.raillo.payment.application.provided.PaymentPreparer;
 import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
 import com.sudo.raillo.payment.application.result.PaymentPrepareResult;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
 import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
+import com.sudo.raillo.payment.domain.PaymentMethod;
+import com.sudo.raillo.payment.domain.PaymentStatus;
 import com.sudo.raillo.payment.adapter.persistence.PaymentJpaRepository;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import com.sudo.raillo.support.fixture.MemberFixture;
+import com.sudo.raillo.support.fixture.PaymentFixture;
+import com.sudo.raillo.support.helper.BookingTestHelper;
 import com.sudo.raillo.support.helper.PaymentReservationTestHelper;
 import com.sudo.raillo.support.helper.PaymentReservationTestHelper.SeatPassenger;
 import com.sudo.raillo.support.helper.TrainScheduleResult;
@@ -71,10 +82,22 @@ class PaymentRecoveryWorkerTest {
 	private PaymentPreparer paymentPreparer;
 
 	@Autowired
+	private PaymentConfirmer paymentConfirmer;
+
+	@Autowired
 	private PaymentAttemptRepository paymentAttemptRepository;
 
 	@Autowired
 	private PaymentJpaRepository paymentRepository;
+
+	@Autowired
+	private PaymentOutboxJpaRepository paymentOutboxRepository;
+
+	@Autowired
+	private BookingRepository bookingRepository;
+
+	@Autowired
+	private OrderRepository orderRepository;
 
 	@Autowired
 	private MemberRepository memberRepository;
@@ -89,6 +112,9 @@ class PaymentRecoveryWorkerTest {
 	private ReservationService reservationService;
 
 	@Autowired
+	private BookingTestHelper bookingTestHelper;
+
+	@Autowired
 	private StringRedisTemplate stringRedisTemplate;
 
 	@MockitoBean
@@ -97,13 +123,17 @@ class PaymentRecoveryWorkerTest {
 	@MockitoSpyBean
 	private SeatOccupancyRepository seatOccupancyRepository;
 
+	@MockitoSpyBean
+	private PaymentApprovalFinalizer paymentApprovalFinalizer;
+
+	private Member member;
 	private String memberNo;
 	private TrainScheduleResult trainScheduleResult;
 	private int seatCursor;
 
 	@BeforeEach
 	void setUp() {
-		Member member = memberRepository.save(MemberFixture.create());
+		member = memberRepository.save(MemberFixture.create());
 		memberNo = member.getMemberDetail().getMemberNo();
 
 		Train train = trainTestHelper.createKTX();
@@ -205,6 +235,112 @@ class PaymentRecoveryWorkerTest {
 		assertThat(untouched.getProcessingOwner()).isNull();
 	}
 
+	@Test
+	@DisplayName("조회가 DONE이면 Toss를 다시 부르지 않고 확정해 예매와 Outbox 행을 만든다")
+	void poll_confirmable_finalizesWithoutReconfirming() {
+		// given
+		RecoveryFixture f = givenStaleInProgressAttempt();
+		given(tossPaymentClient.queryPayment(f.paymentKey())).willReturn(new TossPaymentQueryResponse(
+			f.paymentKey(), f.orderCode(), "카드", f.amount().longValue(), "DONE"));
+
+		// when
+		paymentRecoveryWorker.poll();
+
+		// then
+		PaymentAttempt updated = paymentAttemptRepository.findByAttemptId(f.attemptId()).orElseThrow();
+		assertThat(updated.getStatus()).isEqualTo(PaymentAttemptStatus.SUCCEEDED);
+		assertThat(paymentRepository.findById(f.paymentId()).orElseThrow().getPaymentStatus())
+			.isEqualTo(PaymentStatus.PAID);
+		assertThat(bookingRepository.findAll()).hasSize(1);
+		assertThat(paymentOutboxRepository.findAll()).hasSize(1);
+		verify(tossPaymentClient, never()).confirmPayment(any(PaymentConfirmCommand.class));
+	}
+
+	@Test
+	@DisplayName("확정된 시도는 다음 poll에서 다시 선점되지 않는다")
+	void poll_finalizedAttempt_isNotClaimedAgain() {
+		// given
+		RecoveryFixture f = givenStaleInProgressAttempt();
+		given(tossPaymentClient.queryPayment(f.paymentKey())).willReturn(new TossPaymentQueryResponse(
+			f.paymentKey(), f.orderCode(), "카드", f.amount().longValue(), "DONE"));
+
+		// when
+		paymentRecoveryWorker.poll();
+		paymentRecoveryWorker.poll();
+
+		// then
+		assertThat(bookingRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("확정 직전 좌석을 빼앗겼으면 수동 확인으로 남기고 예매를 만들지 않는다")
+	void poll_seatTakenBeforeFinalize_marksReviewSeatLost() {
+		// given
+		RecoveryFixture f = givenStaleInProgressAttempt();
+		bookingTestHelper.createDefault(member, trainScheduleResult);
+		given(tossPaymentClient.queryPayment(f.paymentKey())).willReturn(new TossPaymentQueryResponse(
+			f.paymentKey(), f.orderCode(), "카드", f.amount().longValue(), "DONE"));
+
+		// when
+		paymentRecoveryWorker.poll();
+
+		// then
+		PaymentAttempt updated = paymentAttemptRepository.findByAttemptId(f.attemptId()).orElseThrow();
+		assertThat(updated.getStatus()).isEqualTo(PaymentAttemptStatus.REVIEW_REQUIRED);
+		assertThat(updated.getErrorCode()).isEqualTo("REVIEW_SEAT_LOST");
+		assertThat(paymentRepository.findById(f.paymentId()).orElseThrow().getPaymentStatus())
+			.isEqualTo(PaymentStatus.PENDING);
+	}
+
+	@Test
+	@DisplayName("같은 주문에 이미 완료된 결제가 있어 확정이 거절되면 상태를 바꾸지 않고 다음 조회로 미룬다")
+	void poll_finalizeRejectedByDuplicatePayment_keepsInProgress() {
+		// given
+		RecoveryFixture f = givenStaleInProgressAttempt();
+		givenAnotherPaidPaymentOnSameOrder(f);
+		given(tossPaymentClient.queryPayment(f.paymentKey())).willReturn(new TossPaymentQueryResponse(
+			f.paymentKey(), f.orderCode(), "카드", f.amount().longValue(), "DONE"));
+
+		// when
+		paymentRecoveryWorker.poll();
+
+		// then
+		verify(paymentApprovalFinalizer).finalizeApproval(eq(f.paymentId()), anyLong(), any());
+		PaymentAttempt updated = paymentAttemptRepository.findByAttemptId(f.attemptId()).orElseThrow();
+		assertThat(updated.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+		assertThat(updated.getNextRetryAt()).isAfter(LocalDateTime.now());
+		assertThat(bookingRepository.findAll()).isEmpty();
+		assertThat(paymentOutboxRepository.findAll()).isEmpty();
+		assertThat(paymentRepository.findById(f.paymentId()).orElseThrow().getPaymentStatus())
+			.isEqualTo(PaymentStatus.PENDING);
+	}
+
+	@Test
+	@DisplayName("Worker가 선점한 시도에 승객이 다시 요청해도 예매는 하나만 생긴다")
+	void poll_concurrentUserRetry_createsSingleBooking() {
+		// given
+		RecoveryFixture f = givenStaleInProgressAttempt();
+		given(tossPaymentClient.queryPayment(f.paymentKey())).willReturn(new TossPaymentQueryResponse(
+			f.paymentKey(), f.orderCode(), "카드", f.amount().longValue(), "DONE"));
+
+		// when Worker가 먼저 확정하고 승객이 같은 attempt로 다시 요청한다
+		paymentRecoveryWorker.poll();
+		paymentConfirmer.confirm(new PaymentConfirmCommand(f.paymentKey(), f.orderCode(), f.amount()), memberNo);
+
+		// then
+		assertThat(bookingRepository.findAll()).hasSize(1);
+		assertThat(paymentAttemptRepository.findByAttemptId(f.attemptId()).orElseThrow().getStatus())
+			.isEqualTo(PaymentAttemptStatus.SUCCEEDED);
+	}
+
+	/** 같은 주문에 이미 PAID된 결제가 있는 상황을 만든다. */
+	private void givenAnotherPaidPaymentOnSameOrder(RecoveryFixture f) {
+		Order order = orderRepository.findByOrderCode(f.orderCode()).orElseThrow();
+		Payment duplicate = PaymentFixture.create(member, order);
+		duplicate.approve(PaymentMethod.CREDIT_CARD, "toss_pk_duplicate_" + UUID.randomUUID());
+		paymentRepository.save(duplicate);
+	}
+
 	/**
 	 * 예약, 주문, 결제를 만들고 승인 시도를 IN_PROGRESS로 저장한 뒤 좌석을 붙잡아 둔다. {@code stale-after=0s}라
 	 * 바로 복구 Worker의 후보가 된다.
@@ -219,7 +355,7 @@ class PaymentRecoveryWorkerTest {
 		Payment payment = findPayment(prepared.orderCode());
 		paymentAttemptRepository.save(PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
 		reservationService.holdForPayment(reservation);
-		return new RecoveryFixture(paymentKey, prepared.orderCode(), amount, attemptId, reservation);
+		return new RecoveryFixture(paymentKey, prepared.orderCode(), amount, attemptId, payment.getId(), reservation);
 	}
 
 	/** 호출마다 다음 좌석을 써 예약을 만든다. */
@@ -271,6 +407,7 @@ class PaymentRecoveryWorkerTest {
 	}
 
 	private record RecoveryFixture(
-		String paymentKey, String orderCode, BigDecimal amount, String attemptId, Reservation reservation) {
+		String paymentKey, String orderCode, BigDecimal amount, String attemptId, Long paymentId,
+		Reservation reservation) {
 	}
 }

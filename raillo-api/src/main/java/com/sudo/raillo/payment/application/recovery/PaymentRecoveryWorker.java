@@ -5,12 +5,15 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.application.AttemptError;
 import com.sudo.raillo.payment.application.AttemptFailureMarker;
+import com.sudo.raillo.payment.application.PaymentApprovalFinalizer;
 import com.sudo.raillo.payment.application.PaymentApprovalReconciler;
 import com.sudo.raillo.payment.application.PaymentAttemptManager;
 import com.sudo.raillo.payment.application.PaymentConfirmTarget;
 import com.sudo.raillo.payment.application.PaymentSeatGuard;
+import com.sudo.raillo.payment.application.exception.AttemptReviewRequiredException;
 import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
 import com.sudo.raillo.payment.application.required.PaymentRepository;
 import com.sudo.raillo.payment.application.result.ReconcileDecision;
@@ -33,6 +36,7 @@ public class PaymentRecoveryWorker {
 	private final PaymentAttemptRepository paymentAttemptRepository;
 	private final PaymentRepository paymentRepository;
 	private final PaymentApprovalReconciler reconciler;
+	private final PaymentApprovalFinalizer paymentApprovalFinalizer;
 	private final AttemptFailureMarker attemptFailureMarker;
 	private final PaymentSeatGuard paymentSeatGuard;
 	private final PaymentAttemptManager paymentAttemptManager;
@@ -73,10 +77,7 @@ public class PaymentRecoveryWorker {
 	private void apply(ReconcileDecision decision, PaymentAttempt attempt, Payment payment, LocalDateTime now) {
 		String orderCode = payment.getOrderCode();
 		switch (decision) {
-			case ReconcileDecision.Confirmable _ -> {
-				log.info("[복구 Worker - 확정 재실행 대상] attemptId={}", attempt.getAttemptId());
-				backOff(attempt, now);
-			}
+			case ReconcileDecision.Confirmable confirmable -> finalizeRecovered(confirmable, attempt, payment, now);
 			case ReconcileDecision.DefinitiveFailure failure -> {
 				attemptFailureMarker.markFailedQuietly(payment.getId(), attempt.getId(),
 					new AttemptError(failure.errorCode(), failure.message()));
@@ -99,6 +100,24 @@ public class PaymentRecoveryWorker {
 				paymentSeatGuard.holdQuietly(orderCode, payment.getId(), attempt.getId());
 				backOff(attempt, now);
 			}
+		}
+	}
+
+	/** 게이트웨이가 승인 완료로 응답한 건의 로컬 확정을 재실행한다. Toss 승인은 다시 보내지 않는다. */
+	private void finalizeRecovered(
+		ReconcileDecision.Confirmable confirmable, PaymentAttempt attempt, Payment payment, LocalDateTime now
+	) {
+		try {
+			paymentApprovalFinalizer.finalizeApproval(payment.getId(), attempt.getId(), confirmable.gatewayResult());
+			release(attempt);
+			log.info("[복구 Worker - 확정 재실행 완료] attemptId={}, paymentId={}", attempt.getAttemptId(), payment.getId());
+		} catch (AttemptReviewRequiredException review) {
+			attemptFailureMarker.markReviewRequiredQuietly(payment.getId(), attempt.getId(), review.getAttemptError());
+			paymentSeatGuard.releaseQuietly(payment.getOrderCode(), payment.getId(), attempt.getId());
+			release(attempt);
+		} catch (BusinessException rejected) {
+			log.warn("[복구 Worker - 확정 거절] attemptId={}, errorCode={}", attempt.getAttemptId(), rejected.getErrorCode());
+			backOff(attempt, now);
 		}
 	}
 
