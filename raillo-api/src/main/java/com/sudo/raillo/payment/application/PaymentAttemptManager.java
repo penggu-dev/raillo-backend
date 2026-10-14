@@ -13,6 +13,7 @@ import com.sudo.raillo.payment.domain.PaymentAttempt;
 import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -154,6 +155,18 @@ public class PaymentAttemptManager {
 			});
 
 		attempt.reopen();
+	}
+
+	/** 점유만 반납한다. 상태 전이와 무관하므로 Payment를 잠그지 않는다. */
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void releaseProcessingInNewTransaction(Long attemptDbId) {
+		paymentAttemptRepository.findById(attemptDbId).ifPresent(PaymentAttempt::releaseProcessing);
+	}
+
+	/** 점유를 반납하고 다음 조회 시각을 적는다. */
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void scheduleRetryInNewTransaction(Long attemptDbId, LocalDateTime nextRetryAt) {
+		paymentAttemptRepository.findById(attemptDbId).ifPresent(attempt -> attempt.scheduleRetry(nextRetryAt));
 	}
 
 	/**

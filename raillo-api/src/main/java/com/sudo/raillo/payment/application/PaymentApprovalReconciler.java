@@ -15,8 +15,8 @@ import lombok.extern.slf4j.Slf4j;
  * IN_PROGRESS로 남은 승인 시도를 게이트웨이에 조회해 무엇을 할지 판정한다. 게이트웨이 상태별 판정은
  * {@code reconcile}의 switch가 단일 원본이고 {@code PaymentApprovalReconcilerTest}가 행마다 고정한다.
  *
- * <p>상태를 바꾸지 않고 기록도 하지 않는다. 지금 판정을 쓰는 것은 사용자 재시도 경로
- * ({@link PaymentApprovalStarter})뿐이고, 같은 판정을 상태 기록으로 바꿀 Recovery Worker는 아직 없다(#270).</p>
+ * <p>상태를 바꾸지 않고 기록도 하지 않는다. 사용자 재시도 경로({@link PaymentApprovalStarter})와
+ * {@code PaymentRecoveryWorker}가 이 판정을 각자의 방식으로 상태 기록으로 바꾼다.</p>
  */
 @Slf4j
 @Component
