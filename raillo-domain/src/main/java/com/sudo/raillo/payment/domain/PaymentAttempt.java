@@ -151,4 +151,30 @@ public class PaymentAttempt {
 		this.errorCode = errorCode;
 		this.errorMessage = errorMessage;
 	}
+
+	/** 복구 Worker가 이 시도를 집어간다. 진행 중일 때만 허용한다. */
+	public void startProcessing(String owner, LocalDateTime leaseUntil) {
+		if (this.status != PaymentAttemptStatus.IN_PROGRESS) {
+			throw new DomainException(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
+		}
+		this.processingOwner = owner;
+		this.processingLeaseUntil = leaseUntil;
+	}
+
+	/** 점유를 반납한다. 상태를 보지 않는다. */
+	public void releaseProcessing() {
+		this.processingOwner = null;
+		this.processingLeaseUntil = null;
+	}
+
+	/** 점유를 반납하고 다음 조회 시각을 적는다. */
+	public void scheduleRetry(LocalDateTime nextRetryAt) {
+		releaseProcessing();
+		this.nextRetryAt = nextRetryAt;
+	}
+
+	/** lease가 없거나 지났으면 다른 인스턴스가 집어도 된다. */
+	public boolean isLeaseExpired(LocalDateTime now) {
+		return this.processingLeaseUntil == null || this.processingLeaseUntil.isBefore(now);
+	}
 }

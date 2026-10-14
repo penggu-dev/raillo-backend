@@ -3,6 +3,8 @@ package com.sudo.raillo.payment.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.LocalDateTime;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -147,5 +149,65 @@ class PaymentAttemptTest {
         assertThatThrownBy(attempt::reopen)
             .isInstanceOf(DomainException.class)
             .hasMessage(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE.getMessage());
+    }
+
+    @Test
+    @DisplayName("진행 중 시도에 소유자와 lease를 각인하면 두 값이 남는다")
+    void startProcessing_stampsOwnerAndLease() {
+        // given
+        PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-1", "key-1");
+        LocalDateTime leaseUntil = LocalDateTime.of(2026, 10, 15, 12, 0);
+
+        // when
+        attempt.startProcessing("pod-a", leaseUntil);
+
+        // then
+        assertThat(attempt.getProcessingOwner()).isEqualTo("pod-a");
+        assertThat(attempt.getProcessingLeaseUntil()).isEqualTo(leaseUntil);
+    }
+
+    @Test
+    @DisplayName("이미 종결된 시도에는 소유자를 각인할 수 없다")
+    void startProcessing_rejectsTerminalAttempt() {
+        // given
+        PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-1", "key-1");
+        attempt.markFailed("PAYMENT_X", "거절");
+
+        // when & then
+        assertThatThrownBy(() -> attempt.startProcessing("pod-a", LocalDateTime.now()))
+            .isInstanceOf(DomainException.class)
+            .hasMessage(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE.getMessage());
+    }
+
+    @Test
+    @DisplayName("다음 조회를 예약하면 소유자와 lease가 비워지고 조회 시각이 남는다")
+    void scheduleRetry_clearsLeaseAndSetsNextRetry() {
+        // given
+        PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-1", "key-1");
+        attempt.startProcessing("pod-a", LocalDateTime.now().plusMinutes(5));
+        LocalDateTime next = LocalDateTime.of(2026, 10, 15, 13, 0);
+
+        // when
+        attempt.scheduleRetry(next);
+
+        // then
+        assertThat(attempt.getProcessingOwner()).isNull();
+        assertThat(attempt.getProcessingLeaseUntil()).isNull();
+        assertThat(attempt.getNextRetryAt()).isEqualTo(next);
+    }
+
+    @Test
+    @DisplayName("lease가 없거나 지났으면 만료로 본다")
+    void isLeaseExpired_treatsNullAndPastAsExpired() {
+        // given
+        LocalDateTime now = LocalDateTime.of(2026, 10, 15, 12, 0);
+        PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-1", "key-1");
+
+        // when & then
+        assertThat(attempt.isLeaseExpired(now)).isTrue();
+        attempt.startProcessing("pod-a", now.minusSeconds(1));
+        assertThat(attempt.isLeaseExpired(now)).isTrue();
+        attempt.startProcessing("pod-a", now.plusSeconds(1));
+        assertThat(attempt.isLeaseExpired(now)).isFalse();
     }
 }
