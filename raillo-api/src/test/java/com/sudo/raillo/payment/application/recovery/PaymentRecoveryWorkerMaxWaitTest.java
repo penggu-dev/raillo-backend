@@ -88,7 +88,8 @@ class PaymentRecoveryWorkerMaxWaitTest {
 	@Autowired
 	private StringRedisTemplate stringRedisTemplate;
 
-	@MockitoBean
+	// 복구 Worker는 Worker 전용 빈 체인(workerApprovalReconciler → tossWorkerPaymentGateway → tossWorkerPaymentClient)을 쓴다.
+	@MockitoBean(name = "tossWorkerPaymentClient")
 	private TossPaymentClient tossPaymentClient;
 
 	private Member member;

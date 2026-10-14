@@ -3,6 +3,7 @@ package com.sudo.raillo.payment.application.recovery;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.global.exception.BusinessException;
@@ -35,6 +36,7 @@ public class PaymentRecoveryWorker {
 	private final PaymentAttemptClaimer claimer;
 	private final PaymentAttemptRepository paymentAttemptRepository;
 	private final PaymentRepository paymentRepository;
+	@Qualifier("workerApprovalReconciler")
 	private final PaymentApprovalReconciler reconciler;
 	private final PaymentApprovalFinalizer paymentApprovalFinalizer;
 	private final AttemptFailureMarker attemptFailureMarker;

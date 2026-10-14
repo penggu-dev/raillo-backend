@@ -96,7 +96,7 @@ class PaymentConfirmServiceTest {
 	@Autowired
 	private PaymentPreparer paymentPreparer;
 
-	@MockitoBean
+	@MockitoBean(name = "tossPaymentClient")
 	private TossPaymentClient tossPaymentClient;
 
 	@Autowired

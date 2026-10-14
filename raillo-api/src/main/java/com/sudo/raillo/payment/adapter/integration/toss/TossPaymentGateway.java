@@ -2,8 +2,6 @@ package com.sudo.raillo.payment.adapter.integration.toss;
 
 import java.math.BigDecimal;
 
-import org.springframework.stereotype.Component;
-
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
@@ -14,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class TossPaymentGateway implements PaymentGateway {
 

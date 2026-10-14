@@ -1,7 +1,5 @@
 package com.sudo.raillo.payment.application;
 
-import org.springframework.stereotype.Component;
-
 import com.sudo.raillo.payment.application.exception.PaymentGatewayException;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
 import com.sudo.raillo.payment.application.required.PaymentGateway.GatewayConfirmResult;
@@ -19,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
  * {@code PaymentRecoveryWorker}가 이 판정을 각자의 방식으로 상태 기록으로 바꾼다.</p>
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class PaymentApprovalReconciler {
 
