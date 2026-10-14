@@ -8,6 +8,8 @@ import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyCommand.SeatCar;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyRepository;
 import com.sudo.raillo.booking.infrastructure.SeatOccupancyResult;
+import com.sudo.raillo.booking.infrastructure.SeatHoldCommand;
+import com.sudo.raillo.booking.infrastructure.SeatHoldReleaseCommand;
 import com.sudo.raillo.booking.infrastructure.SeatReleaseCommand;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.global.redis.util.RedisJsonConverter;
@@ -147,6 +149,38 @@ public class ReservationService {
 		reservationRedisRepository.removeMemberIndex(memberNo, reservationId);
 	}
 
+	/**
+	 * 결제 결과를 모르는 동안 자기 예약의 좌석 field를 붙잡는다. 예약 본문과 회원 인덱스는 원래 TTL을 따른다.
+	 *
+	 * @return 붙잡았으면 true, 다른 예약이나 예매와 충돌해 아무것도 쓰지 않았으면 false
+	 * @throws BusinessException 스크립트 실행이 실패했을 때
+	 */
+	public boolean holdForPayment(Reservation reservation) {
+		return seatOccupancyRepository.hold(new SeatHoldCommand(
+			reservation.trainScheduleId(),
+			reservation.reservationId(),
+			TrainCacheKey.expireAtEpochSecond(reservation.operationDate()),
+			reservation.departure().stopOrder(),
+			reservation.arrival().stopOrder(),
+			toSeatCars(reservation)
+		)).success();
+	}
+
+	/**
+	 * 자기 예약 좌석 field의 만료를 보호 이전으로 되돌린다. 되돌릴 기한이 없으면 스크립트가 자기 field를 지운다.
+	 *
+	 * @throws BusinessException 스크립트 실행이 실패했을 때
+	 */
+	public void releasePaymentHold(Reservation reservation) {
+		seatOccupancyRepository.releaseHold(new SeatHoldReleaseCommand(
+			reservation.trainScheduleId(),
+			reservation.reservationId(),
+			reservation.departure().stopOrder(),
+			reservation.arrival().stopOrder(),
+			toSeatCars(reservation)
+		));
+	}
+
 	private SeatOccupancyCommand toOccupyCommand(Reservation reservation, Duration ttl) {
 		return new SeatOccupancyCommand(
 			reservation.trainScheduleId(),
@@ -156,9 +190,7 @@ public class ReservationService {
 			redisJsonConverter.toJson(reservation),
 			reservation.departure().stopOrder(),
 			reservation.arrival().stopOrder(),
-			reservation.seats().stream()
-				.map(seat -> new SeatCar(seat.seatId(), seat.trainCarId()))
-				.toList()
+			toSeatCars(reservation)
 		);
 	}
 
@@ -168,10 +200,14 @@ public class ReservationService {
 			reservation.reservationId(),
 			reservation.departure().stopOrder(),
 			reservation.arrival().stopOrder(),
-			reservation.seats().stream()
-				.map(seat -> new SeatCar(seat.seatId(), seat.trainCarId()))
-				.toList()
+			toSeatCars(reservation)
 		);
+	}
+
+	private static List<SeatCar> toSeatCars(Reservation reservation) {
+		return reservation.seats().stream()
+			.map(seat -> new SeatCar(seat.seatId(), seat.trainCarId()))
+			.toList();
 	}
 
 	private static long toTtlSeconds(Duration ttl) {

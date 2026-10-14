@@ -40,6 +40,7 @@ public class PaymentApprovalStarter {
 
 	private final PaymentAttemptManager paymentAttemptManager;
 	private final AttemptFailureMarker attemptFailureMarker;
+	private final PaymentSeatGuard paymentSeatGuard;
 	private final PaymentAttemptRepository paymentAttemptRepository;
 	private final PaymentReader paymentReader;
 	private final PaymentValidator paymentValidator;
@@ -155,19 +156,27 @@ public class PaymentApprovalStarter {
 			case ReconcileDecision.Confirmable confirmable ->
 				resolveGatewayDone(existing, payment, ctx, confirmable.gatewayResult());
 			case ReconcileDecision.DefinitiveFailure failure ->
-				throw failAndReject(existing, payment, new AttemptError(failure.errorCode(), failure.message()));
+				throw failAndReject(existing, payment, ctx, new AttemptError(failure.errorCode(), failure.message()));
 			case ReconcileDecision.ReviewRequired review ->
-				throw requireReviewAndReject(existing, payment, new AttemptError(review.errorCode(), review.message()));
-			case ReconcileDecision.StillPending _ ->
-				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
-			case ReconcileDecision.QueryUncertain _ ->
-				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+				throw requireReviewAndReject(existing, payment, ctx, new AttemptError(review.errorCode(), review.message()));
+			case ReconcileDecision.StillPending _ -> throw holdAndAskRetry(existing, payment, ctx);
+			case ReconcileDecision.QueryUncertain _ -> throw holdAndAskRetry(existing, payment, ctx);
 			case ReconcileDecision.UnexpectedStatus unexpected -> {
 				log.error("[결제 재요청 - 이 프로젝트가 쓰지 않는 게이트웨이 상태] status={}, paymentId={}",
 					unexpected.status(), payment.getId());
-				throw new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+				throw holdAndAskRetry(existing, payment, ctx);
 			}
 		};
+	}
+
+	/**
+	 * 승인 결과를 아직 모르는 경우. attempt를 진행 중으로 남기고 다시 확인하라는 예외를 만든다.
+	 *
+	 * <p>기다리는 동안 예약 TTL이 좌석을 가져가면 이미 승인된 결제를 확정할 수 없으므로 좌석을 붙잡는다.</p>
+	 */
+	private BusinessException holdAndAskRetry(PaymentAttempt existing, Payment payment, ApprovalContext ctx) {
+		paymentSeatGuard.holdQuietly(ctx.command().orderId(), payment.getId(), existing.getId());
+		return new BusinessException(PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
 	}
 
 	/** 게이트웨이가 이미 승인 완료로 응답한 경우. 로컬 DB는 TX B에서 정정한다. */
@@ -212,15 +221,29 @@ public class PaymentApprovalStarter {
 		};
 	}
 
-	/** attempt를 FAILED로 마킹하고 사용자에게 돌려줄 예외를 만든다. 마킹 실패가 이 예외를 가리지 않도록 삼키는 경로로 부른다. */
-	private BusinessException failAndReject(PaymentAttempt existing, Payment payment, AttemptError error) {
+	/**
+	 * attempt를 FAILED로 마킹하고 사용자에게 돌려줄 예외를 만든다. 마킹 실패가 이 예외를 가리지 않도록 삼키는 경로로 부른다.
+	 *
+	 * <p>확정 실패이므로 좌석 보호도 되돌린다. 남은 예약 시간 안에서는 다른 카드로 다시 결제할 수 있어야 한다.</p>
+	 */
+	private BusinessException failAndReject(
+		PaymentAttempt existing, Payment payment, ApprovalContext ctx, AttemptError error
+	) {
 		attemptFailureMarker.markFailedQuietly(payment.getId(), existing.getId(), error);
+		paymentSeatGuard.releaseQuietly(ctx.command().orderId(), payment.getId(), existing.getId());
 		return new BusinessException(PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
 	}
 
-	/** attempt를 수동 확인 대상으로 마킹하고 사용자에게 돌려줄 예외를 만든다. 마킹 실패 처리는 {@link #failAndReject}와 같다. */
-	private BusinessException requireReviewAndReject(PaymentAttempt existing, Payment payment, AttemptError error) {
+	/**
+	 * attempt를 수동 확인 대상으로 마킹하고 사용자에게 돌려줄 예외를 만든다. 마킹 실패 처리는 {@link #failAndReject}와 같다.
+	 *
+	 * <p>이 attempt로는 확정될 일이 없으므로 좌석 보호를 되돌린다. 보상은 운영의 수동 절차로 남는다.</p>
+	 */
+	private BusinessException requireReviewAndReject(
+		PaymentAttempt existing, Payment payment, ApprovalContext ctx, AttemptError error
+	) {
 		attemptFailureMarker.markReviewRequiredQuietly(payment.getId(), existing.getId(), error);
+		paymentSeatGuard.releaseQuietly(ctx.command().orderId(), payment.getId(), existing.getId());
 		return new BusinessException(PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
 	}
 
