@@ -1,6 +1,7 @@
 package com.sudo.raillo.payment.application;
 
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
+import com.sudo.raillo.payment.application.exception.AttemptReviewRequiredException;
 import com.sudo.raillo.payment.application.exception.PaymentGatewayException;
 import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
@@ -67,9 +68,15 @@ public class PaymentConfirmService implements PaymentConfirmer {
 		}
 
 		// 3단계: 승인 확정 — 이 메서드 전체가 TX B (Order/Booking/Payment/Attempt/Outbox 원자 커밋)
-		PaymentConfirmResult result = paymentApprovalFinalizer.finalizeApproval(
-			start.paymentId(), start.attemptDbId(), approval
-		);
+		PaymentConfirmResult result;
+		try {
+			result = paymentApprovalFinalizer.finalizeApproval(start.paymentId(), start.attemptDbId(), approval);
+		} catch (AttemptReviewRequiredException review) {
+			// 확정은 사유만 실어 중단했다. 마킹과 좌석 해제는 TX B가 롤백되고 Payment 잠금이 풀린 여기서 한다.
+			attemptFailureMarker.markReviewRequiredQuietly(start.paymentId(), start.attemptDbId(), review.getAttemptError());
+			paymentSeatGuard.releaseQuietly(command.orderId(), start.paymentId(), start.attemptDbId());
+			throw review;
+		}
 
 		log.info("[결제 승인 완료] paymentId={}, orderCode={}", start.paymentId(), command.orderId());
 		return result;

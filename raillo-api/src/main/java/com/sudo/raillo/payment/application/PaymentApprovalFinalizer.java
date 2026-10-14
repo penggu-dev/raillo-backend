@@ -1,6 +1,7 @@
 package com.sudo.raillo.payment.application;
 
 import com.sudo.raillo.payment.application.result.PaymentConfirmResult;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Component;
@@ -10,14 +11,17 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import com.sudo.raillo.booking.domain.Reservation;
+import com.sudo.raillo.booking.exception.BookingError;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.order.domain.Order;
+import com.sudo.raillo.payment.application.exception.AttemptReviewRequiredException;
 import com.sudo.raillo.payment.application.required.BookingCreator;
 import com.sudo.raillo.payment.application.required.OrderReader;
 import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
 import com.sudo.raillo.payment.application.required.PaymentGateway.GatewayConfirmResult;
 import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
 import com.sudo.raillo.payment.application.required.PaymentRepository;
+import com.sudo.raillo.payment.application.required.SeatConflictValidator;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
 import com.sudo.raillo.payment.domain.PaymentOutbox;
@@ -43,6 +47,7 @@ public class PaymentApprovalFinalizer {
 	private final PaymentOutboxRepository paymentOutboxRepository;
 	private final OrderReader orderReader;
 	private final BookingCreator bookingCreator;
+	private final SeatConflictValidator seatConflictValidator;
 	private final PaymentValidator paymentValidator;
 	private final ObjectMapper objectMapper;
 
@@ -101,14 +106,54 @@ public class PaymentApprovalFinalizer {
 		paymentValidator.validateGatewayResponseMatchesStored(
 			gatewayResult, storedPaymentKey, payment.getOrderCode(), payment.getAmount());
 
+		List<Reservation> reservations = orderReader.getReservationSnapshots(order);
+		requireNotDeparted(reservations);
+		requireSeatsStillFree(reservations);
+
 		order.completePayment();
 		var confirmed = bookingCreator.createBookingFromOrder(order);
 		payment.approve(gatewayResult.method(), gatewayResult.paymentKey());
 		attempt.markSucceeded();
 
-		List<Reservation> reservations = orderReader.getReservationSnapshots(order);
 		paymentOutboxRepository.save(buildBookingConfirmedOutbox(BookingConfirmedPayload.from(paymentId, attempt, reservations, confirmed)));
 		return PaymentConfirmResult.from(payment);
+	}
+
+	/**
+	 * 출발 시각이 지난 예약은 확정하지 않는다. 카드가 승인됐어도 발권할 열차가 없다.
+	 *
+	 * @throws AttemptReviewRequiredException 출발 시각이 지났을 때
+	 */
+	private static void requireNotDeparted(List<Reservation> reservations) {
+		LocalDateTime now = LocalDateTime.now();
+		reservations.stream()
+			.filter(reservation -> !reservation.departureAt().isAfter(now))
+			.findFirst()
+			.ifPresent(departed -> {
+				log.error("[결제 확정 거절 - 출발 시각 경과] reservationId={}, departureAt={}, now={}",
+					departed.reservationId(), departed.departureAt(), now);
+				throw new AttemptReviewRequiredException(new AttemptError("REVIEW_DEPARTED",
+					"출발 시각이 지나 승차권을 발행할 수 없습니다."));
+			});
+	}
+
+	/**
+	 * 확정 좌석과 겹치는지 잠금 아래에서 다시 본다. Redis 예약 점유가 풀린 사이 다른 예매가 좌석을 가져갔을 수 있다.
+	 *
+	 * @throws AttemptReviewRequiredException 좌석이 이미 다른 예매의 것일 때
+	 */
+	private void requireSeatsStillFree(List<Reservation> reservations) {
+		try {
+			seatConflictValidator.validateSeatConflicts(reservations);
+		} catch (BusinessException conflict) {
+			if (conflict.getErrorCode() != BookingError.SEAT_CONFLICT_WITH_BOOKING) {
+				throw conflict;
+			}
+			log.error("[결제 확정 거절 - 좌석을 다른 예매가 점유] reservationIds={}",
+				reservations.stream().map(Reservation::reservationId).toList());
+			throw new AttemptReviewRequiredException(new AttemptError("REVIEW_SEAT_LOST",
+				"좌석이 다른 예매에 확정되어 승차권을 발행할 수 없습니다."));
+		}
 	}
 
 	/** TX A가 사전 저장하지만 과거 행에는 없을 수 있다. 결제 키가 비면 분류된 실패로 끝낸다. */

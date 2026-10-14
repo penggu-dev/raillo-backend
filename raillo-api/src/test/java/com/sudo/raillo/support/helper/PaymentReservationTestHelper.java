@@ -57,7 +57,7 @@ public class PaymentReservationTestHelper {
 		return Reservation.create(b.id, b.memberNo, b.scheduleId, 1, "KTX", schedule.getOperationDate(),
 			new ReservationStop(dep.getId(), dep.getStopOrder(), dep.getStation().getId(), "출발", java.time.LocalTime.of(5, 0)),
 			new ReservationStop(arr.getId(), arr.getStopOrder(), arr.getStation().getId(), "도착", java.time.LocalTime.of(8, 0)),
-			LocalDateTime.now().plusDays(1), com.sudo.raillo.train.domain.type.CarType.STANDARD,
+			b.departureAt, com.sudo.raillo.train.domain.type.CarType.STANDARD,
 			snapshotSeats, LocalDateTime.now(), Duration.ofMinutes(10));
 	}
 
@@ -67,6 +67,8 @@ public class PaymentReservationTestHelper {
 		private String memberNo = "202601010001";
 		private Long scheduleId = 1L, departureId = 1L, arrivalId = 2L;
 		private List<SeatPassenger> passengers = List.of(new SeatPassenger(1L, PassengerType.ADULT));
+		private LocalDateTime departureAt = LocalDateTime.now().plusDays(1);
+		public Builder withDepartureAt(LocalDateTime v) { departureAt=v; return this; }
 		public Builder withId(String v) { id=v; return this; }
 		public Builder withMemberNo(String v) { memberNo=v; return this; }
 		public Builder withTrainScheduleId(Long v) { scheduleId=v; return this; }

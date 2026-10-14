@@ -11,6 +11,7 @@ import com.sudo.raillo.payment.application.command.PaymentPrepareCommand;
 import com.sudo.raillo.payment.application.result.PaymentPrepareResult;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -138,6 +139,9 @@ class PaymentConfirmServiceTest {
 
 	@Autowired
 	private com.sudo.raillo.booking.application.service.ReservationService reservationService;
+
+	@Autowired
+	private com.sudo.raillo.support.helper.BookingTestHelper bookingTestHelper;
 
 	@Autowired
 	private StringRedisTemplate stringRedisTemplate;
@@ -1631,6 +1635,92 @@ class PaymentConfirmServiceTest {
 
 		// then
 		assertThat(heldFieldTtl(reservation)).isBetween(1L, 600L);
+	}
+
+	@Test
+	@DisplayName("출발 시각이 지난 예약은 확정하지 않고 REVIEW_DEPARTED로 남긴다")
+	void confirmPayment_departed_marksReviewDeparted() {
+		// given 출발이 1분 전인 예약
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_departed";
+		String attemptId = forApproval(paymentKey);
+		Reservation reservation = createReservationDepartingAt(LocalDateTime.now().minusMinutes(1), amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willReturn(new TossPaymentConfirmResponse(
+				paymentKey, prepared.orderCode(), "카드", amount.longValue(), "DONE"));
+
+		// when 카드는 승인됐지만 열차가 떠나 발권할 수 없다
+		assertThatThrownBy(() -> paymentConfirmer.confirm(
+			new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount), memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
+
+		// then
+		PaymentAttempt reviewed = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(reviewed.getStatus()).isEqualTo(PaymentAttemptStatus.REVIEW_REQUIRED);
+		assertThat(reviewed.getErrorCode()).isEqualTo("REVIEW_DEPARTED");
+		assertThat(bookingRepository.findAll()).isEmpty();
+
+		Payment savedPayment = findPayment(prepared.orderCode());
+		assertThat(savedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+		assertThat(orderRepository.findByOrderCode(prepared.orderCode()).orElseThrow().getOrderStatus())
+			.isEqualTo(OrderStatus.PENDING);
+	}
+
+	@Test
+	@DisplayName("확정 직전 다른 예매가 좌석을 가져갔으면 REVIEW_SEAT_LOST로 남기고 예매를 만들지 않는다")
+	void confirmPayment_seatTakenBeforeFinalize_marksReviewSeatLost() {
+		// given 결제 준비까지 통과한 뒤 같은 좌석 구간에 확정된 예매가 생긴 상황
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_seat_lost";
+		String attemptId = forApproval(paymentKey);
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		bookingTestHelper.createDefault(member, trainScheduleResult);
+
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willReturn(new TossPaymentConfirmResponse(
+				paymentKey, prepared.orderCode(), "카드", amount.longValue(), "DONE"));
+
+		// when
+		assertThatThrownBy(() -> paymentConfirmer.confirm(
+			new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount), memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
+
+		// then 빼앗은 예매만 남고 이 주문의 예매는 생기지 않는다
+		PaymentAttempt reviewed = paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow();
+		assertThat(reviewed.getStatus()).isEqualTo(PaymentAttemptStatus.REVIEW_REQUIRED);
+		assertThat(reviewed.getErrorCode()).isEqualTo("REVIEW_SEAT_LOST");
+
+		Payment savedPayment = findPayment(prepared.orderCode());
+		assertThat(savedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+		assertThat(orderRepository.findByOrderCode(prepared.orderCode()).orElseThrow().getOrderStatus())
+			.isEqualTo(OrderStatus.PENDING);
+	}
+
+	private Reservation createReservationDepartingAt(LocalDateTime departureAt, BigDecimal fare) {
+		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
+		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);
+		List<Seat> seats = trainTestHelper.getSeats(
+			trainScheduleResult.trainSchedule().getTrain(), CarType.STANDARD, 1);
+
+		Reservation reservation = paymentReservations.builder()
+			.withMemberNo(memberNo)
+			.withTrainScheduleId(trainScheduleResult.trainSchedule().getId())
+			.withDepartureStopId(departureStop.getId())
+			.withArrivalStopId(arrivalStop.getId())
+			.withSeats(List.of(new SeatPassenger(seats.get(0).getId(), PassengerType.ADULT)))
+			.withTotalFare(fare)
+			.withDepartureAt(departureAt)
+			.build();
+
+		paymentReservations.save(reservation);
+		return reservation;
 	}
 
 	/** 예약이 점유한 첫 좌석 field의 남은 만료 초. 만료 없음은 -1, field 없음은 -2다. */
