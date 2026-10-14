@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.sudo.raillo.payment.domain.PaymentAttempt;
+import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.PaymentAttemptType;
 
 public interface PaymentAttemptRepository {
@@ -17,9 +18,12 @@ public interface PaymentAttemptRepository {
 
 	Optional<PaymentAttempt> findLatestApprovalByPaymentId(Long paymentId);
 
-	/**
-	 * Recovery Worker가 처리할 후보를 조회한다.
-	 * IN_PROGRESS 상태이면서 updated_at이 임계값보다 오래된 attempt를 반환한다.
-	 */
-	List<PaymentAttempt> findInProgressOlderThan(PaymentAttemptType type, LocalDateTime threshold, int limit);
+	/** Recovery Worker가 집어갈 수 있는 후보를 선점한다. */
+	List<PaymentAttempt> lockClaimable(PaymentAttemptType type, LocalDateTime staleBefore, LocalDateTime now, int limit);
+
+	/** 운영 지표용: 상태별 attempt 수를 센다. */
+	long countByStatus(PaymentAttemptStatus status);
+
+	/** 운영 지표용: 오래된 진행 중 attempt 수를 센다. */
+	long countStaleInProgress(PaymentAttemptType type, LocalDateTime staleBefore);
 }

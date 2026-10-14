@@ -41,7 +41,17 @@ public class PaymentAttemptPersistenceAdapter implements PaymentAttemptRepositor
 	}
 
 	@Override
-	public List<PaymentAttempt> findInProgressOlderThan(PaymentAttemptType type, LocalDateTime threshold, int limit) {
-		return jpaRepository.findStaleInProgress(PaymentAttemptStatus.IN_PROGRESS, type, threshold, Limit.of(limit));
+	public List<PaymentAttempt> lockClaimable(PaymentAttemptType type, LocalDateTime staleBefore, LocalDateTime now, int limit) {
+		return jpaRepository.lockClaimable(PaymentAttemptStatus.IN_PROGRESS, type, staleBefore, now, Limit.of(limit));
+	}
+
+	@Override
+	public long countByStatus(PaymentAttemptStatus status) {
+		return jpaRepository.countByStatus(status);
+	}
+
+	@Override
+	public long countStaleInProgress(PaymentAttemptType type, LocalDateTime staleBefore) {
+		return jpaRepository.countStaleInProgress(PaymentAttemptStatus.IN_PROGRESS, type, staleBefore);
 	}
 }
