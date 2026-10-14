@@ -506,4 +506,90 @@ class ReservationServiceTest {
 			assertThat(memberIndexValue("RV1")).isEqualTo(String.valueOf(SCHEDULE_ID));
 		}
 	}
+
+	/** 점유 field의 남은 만료 초. HTTL과 같은 센티넬로 만료 없음은 -1, field 없음은 -2를 돌려준다. */
+	private long fieldTtl(long seatId, int sectionIndex) {
+		String field = ReservationCacheKey.seatField(seatId, sectionIndex);
+		var expiration = stringRedisTemplate.opsForHash()
+			.getTimeToLive(ReservationCacheKey.carSeats(SCHEDULE_ID, CAR_ID), TimeUnit.SECONDS, List.of(field))
+			.expirationOf(field);
+		if (expiration.isPersistent()) {
+			return -1L;
+		}
+		if (expiration.isMissing()) {
+			return -2L;
+		}
+		return expiration.value();
+	}
+
+	@Nested
+	@DisplayName("holdForPayment")
+	class HoldForPayment {
+
+		@Test
+		@DisplayName("결제 보호를 걸면 자기 예약 좌석 field의 만료가 사라진다")
+		void hold_persists_own_fields() {
+			// given
+			Reservation reservation = reservation("RV1", 11L, 12L);
+			reservationService.reserve(reservation, TTL);
+
+			// when
+			boolean held = reservationService.holdForPayment(reservation);
+
+			// then
+			assertThat(held).isTrue();
+			assertThat(fieldTtl(11L, 0)).isEqualTo(-1L);
+			assertThat(fieldTtl(12L, 0)).isEqualTo(-1L);
+		}
+
+		@Test
+		@DisplayName("다른 예약이 점유한 구간이면 보호를 걸지 않고 false를 돌려준다")
+		void hold_conflict_returns_false() {
+			// given
+			seatOccupancyTestHelper.markReserved(SCHEDULE_ID, CAR_ID, 11L, 0, 1, "OTHER");
+
+			// when
+			boolean held = reservationService.holdForPayment(reservation("RV1", 11L));
+
+			// then
+			assertThat(held).isFalse();
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("R:OTHER");
+		}
+	}
+
+	@Nested
+	@DisplayName("releasePaymentHold")
+	class ReleasePaymentHold {
+
+		@Test
+		@DisplayName("보호를 해제하면 예약 본문의 남은 TTL로 좌석 field 만료가 되돌아간다")
+		void release_restores_ttl() {
+			// given
+			Reservation reservation = reservation("RV1", 11L);
+			reservationService.reserve(reservation, TTL);
+			reservationService.holdForPayment(reservation);
+
+			// when
+			reservationService.releasePaymentHold(reservation);
+
+			// then
+			assertThat(fieldTtl(11L, 0)).isBetween(1L, 600L);
+		}
+
+		@Test
+		@DisplayName("예약 본문이 이미 만료됐으면 좌석 field를 지워 좌석을 회수한다")
+		void release_deletes_when_no_deadline() {
+			// given
+			Reservation reservation = reservation("RV1", 11L);
+			reservationService.reserve(reservation, TTL);
+			reservationService.holdForPayment(reservation);
+			stringRedisTemplate.delete(ReservationCacheKey.reservation(SCHEDULE_ID, "RV1"));
+
+			// when
+			reservationService.releasePaymentHold(reservation);
+
+			// then
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isNull();
+		}
+	}
 }
