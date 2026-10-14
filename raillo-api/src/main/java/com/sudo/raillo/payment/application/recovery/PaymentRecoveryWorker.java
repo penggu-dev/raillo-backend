@@ -67,6 +67,10 @@ public class PaymentRecoveryWorker {
 			Payment payment = paymentRepository.findById(attempt.getPaymentId())
 				.orElseThrow(() -> new IllegalStateException(
 					"payment를 찾을 수 없음: attemptDbId=" + attemptDbId + ", paymentId=" + attempt.getPaymentId()));
+			if (backoffPolicy.isMaxWaitExceeded(attempt.getCreatedAt(), now)) {
+				giveUp(attempt, payment);
+				return;
+			}
 			apply(reconciler.reconcile(PaymentConfirmTarget.of(attempt, payment)), attempt, payment, now);
 		} catch (RuntimeException e) {
 			log.error("[복구 Worker 처리 실패] attemptDbId={}, cause={}", attemptDbId, e.toString(), e);
@@ -119,6 +123,16 @@ public class PaymentRecoveryWorker {
 			log.warn("[복구 Worker - 확정 거절] attemptId={}, errorCode={}", attempt.getAttemptId(), rejected.getErrorCode());
 			backOff(attempt, now);
 		}
+	}
+
+	/** 최대 대기를 넘긴 시도를 수동 확인으로 종결한다. */
+	private void giveUp(PaymentAttempt attempt, Payment payment) {
+		log.error("[복구 Worker - 최대 대기 초과] attemptId={}, paymentId={}, createdAt={}",
+			attempt.getAttemptId(), payment.getId(), attempt.getCreatedAt());
+		attemptFailureMarker.markReviewRequiredQuietly(payment.getId(), attempt.getId(),
+			new AttemptError("REVIEW_RECOVERY_TIMEOUT", "복구 최대 대기 시간을 초과해 사람이 확인해야 합니다."));
+		paymentSeatGuard.releaseQuietly(payment.getOrderCode(), payment.getId(), attempt.getId());
+		release(attempt);
 	}
 
 	private void backOff(PaymentAttempt attempt, LocalDateTime now) {
