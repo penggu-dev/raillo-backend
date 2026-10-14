@@ -95,6 +95,15 @@ raillo:
       initial-backoff: 30s
       max-backoff: 10m
       max-retries: 5
+    recovery:
+      enabled: true
+      polling-interval: 30s
+      stale-after: 2m
+      batch-size: 20
+      lease-duration: 5m
+      initial-backoff: 1m
+      max-backoff: 30m
+      max-wait: 24h
 
 # Prometheus
 management:

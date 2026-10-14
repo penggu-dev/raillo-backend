@@ -63,6 +63,15 @@ raillo:
       initial-backoff: 100ms
       max-backoff: 1s
       max-retries: 3
+    recovery:
+      enabled: false
+      polling-interval: 500ms
+      stale-after: 1m
+      batch-size: 10
+      lease-duration: 10s
+      initial-backoff: 100ms
+      max-backoff: 1s
+      max-wait: 24h
 
 # redis TTL
 redis:
