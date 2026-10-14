@@ -27,6 +27,7 @@ public class PaymentConfirmService implements PaymentConfirmer {
 	private final PaymentApprovalStarter paymentApprovalStarter;
 	private final PaymentApprovalFinalizer paymentApprovalFinalizer;
 	private final AttemptFailureMarker attemptFailureMarker;
+	private final PaymentSeatGuard paymentSeatGuard;
 	private final PaymentGateway paymentGateway;
 
 	@Override
@@ -50,12 +51,17 @@ public class PaymentConfirmService implements PaymentConfirmer {
 					// 마킹이 실패해도 원래 실패 사유(failure)를 가리지 않는 것은 marker가 보장한다.
 					attemptFailureMarker.markFailedQuietly(start.paymentId(), start.attemptDbId(),
 						new AttemptError(failure.getErrorCode(), failure.getMessage()));
+					// 되살릴 승인이 없으므로 보호를 되돌린다. 남은 예약 시간 안에서는 다른 카드로 다시 결제할 수 있어야 한다.
+					paymentSeatGuard.releaseQuietly(command.orderId(), start.paymentId(), start.attemptDbId());
 				} else if (failure.isNotReached()) {
 					// 호출이 나가지 않은 것이 확정이므로 같은 attemptId로 다시 시도할 수 있게 비종결 상태로 남긴다.
 					attemptFailureMarker.markNotSentQuietly(start.paymentId(), start.attemptDbId(),
 						new AttemptError(failure.getErrorCode(), failure.getMessage()));
+				} else {
+					// 5xx/timeout은 결과 불명이라 IN_PROGRESS로 남기고 회복 경로에 위임한다. 지금은 사용자 재시도뿐이고 Recovery Worker는 아직 없다(#270).
+					// 그 사이 예약 TTL이 좌석을 가져가면 이미 승인된 결제를 확정할 수 없으므로 좌석 field의 만료를 없앤다.
+					paymentSeatGuard.holdQuietly(command.orderId(), start.paymentId(), start.attemptDbId());
 				}
-				// 5xx/timeout은 결과 불명이라 IN_PROGRESS로 남기고 회복 경로에 위임한다. 지금은 사용자 재시도뿐이고 Recovery Worker는 아직 없다(#270).
 				throw failure;
 			}
 		}

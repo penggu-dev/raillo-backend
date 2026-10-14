@@ -137,6 +137,9 @@ class PaymentConfirmServiceTest {
 	private SeatOccupancyTestHelper seatOccupancyTestHelper;
 
 	@Autowired
+	private com.sudo.raillo.booking.application.service.ReservationService reservationService;
+
+	@Autowired
 	private StringRedisTemplate stringRedisTemplate;
 
 	@Autowired
@@ -1470,5 +1473,180 @@ class PaymentConfirmServiceTest {
 			notSent.getPaymentId(), notSent.getId(), approval))
 			.isInstanceOf(BusinessException.class)
 			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
+	}
+
+	@Test
+	@DisplayName("Toss 5xx로 결과가 불명이면 예약 좌석 field의 만료를 없애 좌석을 붙잡는다")
+	void confirmPayment_unknownResult_holdsSeats() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_hold_on_unknown";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willThrow(new TossPaymentException(500, "INTERNAL_SERVER_ERROR", "응답 결과 불명"));
+
+		// when
+		assertThatThrownBy(() -> paymentConfirmer.confirm(
+			new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount), memberNo))
+			.isInstanceOf(TossPaymentException.class);
+
+		// then 결과를 모르는 동안 예약 TTL이 좌석을 가져가지 못하게 만료를 없앤다
+		assertThat(heldFieldTtl(reservation)).isEqualTo(-1L);
+	}
+
+	@Test
+	@DisplayName("Toss 4xx로 확정 실패하면 좌석 보호를 풀어 예약 TTL이 다시 흐른다")
+	void confirmPayment_definitiveFailure_releasesHold() {
+		// given 앞선 요청이 결과 불명으로 좌석을 붙잡아 둔 상태에서 시작한다
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_release_on_4xx";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		reservationService.holdForPayment(reservation);
+		assertThat(heldFieldTtl(reservation)).isEqualTo(-1L);
+
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willThrow(new TossPaymentException(400, "REJECT_CARD_PAYMENT", "카드 승인 거절"));
+
+		// when
+		assertThatThrownBy(() -> paymentConfirmer.confirm(
+			new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount), memberNo))
+			.isInstanceOf(TossPaymentException.class);
+
+		// then 카드가 거절됐어도 남은 시간 안에서는 다른 카드로 다시 결제할 수 있어야 한다
+		assertThat(heldFieldTtl(reservation)).isBetween(1L, 600L);
+	}
+
+	@Test
+	@DisplayName("IN_PROGRESS 재요청에서 조회가 5xx로 결과 불명이면 좌석을 붙잡는다")
+	void confirmPayment_retryQueryUncertain_holdsSeats() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_retry_hold_uncertain";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = findPayment(prepared.orderCode());
+		paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), forApproval(paymentKey), paymentKey));
+
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willThrow(new TossPaymentException(500, "FAILED_PAYMENT_INTERNAL_SYSTEM_PROCESSING", "결제가 완료되지 않았어요."));
+
+		// when
+		assertThatThrownBy(() -> paymentConfirmer.confirm(
+			new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount), memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+
+		// then
+		assertThat(heldFieldTtl(reservation)).isEqualTo(-1L);
+	}
+
+	@Test
+	@DisplayName("IN_PROGRESS 재요청에서 게이트웨이가 아직 처리 중이면 좌석을 붙잡는다")
+	void confirmPayment_retryStillPending_holdsSeats() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_retry_hold_pending";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = findPayment(prepared.orderCode());
+		paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), forApproval(paymentKey), paymentKey));
+
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willReturn(new TossPaymentQueryResponse(
+				paymentKey, prepared.orderCode(), null, amount.longValue(), "IN_PROGRESS"));
+
+		// when
+		assertThatThrownBy(() -> paymentConfirmer.confirm(
+			new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount), memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_IN_PROGRESS);
+
+		// then
+		assertThat(heldFieldTtl(reservation)).isEqualTo(-1L);
+	}
+
+	@Test
+	@DisplayName("수동 확인 대상으로 남길 때 좌석 보호를 풀어 점유를 예약 TTL로 돌린다")
+	void confirmPayment_reviewRequired_releasesHold() {
+		// given 조회가 다른 주문의 결제로 응답해 REVIEW_RESULT_MISMATCH가 되는 상황
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_review_release";
+		String attemptId = forApproval(paymentKey);
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = findPayment(prepared.orderCode());
+		paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), attemptId, paymentKey));
+		reservationService.holdForPayment(reservation);
+
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willReturn(new TossPaymentQueryResponse(
+				paymentKey, "SOMEONE_ELSES_ORDER", "카드", amount.longValue(), "DONE"));
+
+		// when
+		assertThatThrownBy(() -> paymentConfirmer.confirm(
+			new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount), memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_REVIEW_REQUIRED);
+
+		// then 확정될 일이 없는 예매가 예약 TTL까지 점유를 쥐고 있지 않는다
+		assertThat(paymentAttemptRepository.findByAttemptId(attemptId).orElseThrow().getErrorCode())
+			.isEqualTo("REVIEW_RESULT_MISMATCH");
+		assertThat(heldFieldTtl(reservation)).isBetween(1L, 600L);
+	}
+
+	@Test
+	@DisplayName("조회가 ABORTED로 확정 실패를 알리면 좌석 보호를 푼다")
+	void confirmPayment_retryDefinitiveFailure_releasesHold() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_aborted_release";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+		Payment payment = findPayment(prepared.orderCode());
+		paymentAttemptRepository.save(
+			PaymentAttempt.startApproval(payment.getId(), forApproval(paymentKey), paymentKey));
+		reservationService.holdForPayment(reservation);
+
+		given(tossPaymentClient.queryPayment(paymentKey))
+			.willReturn(new TossPaymentQueryResponse(
+				paymentKey, prepared.orderCode(), null, amount.longValue(), "ABORTED"));
+
+		// when
+		assertThatThrownBy(() -> paymentConfirmer.confirm(
+			new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount), memberNo))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("errorCode", PaymentError.PAYMENT_ATTEMPT_ALREADY_FAILED);
+
+		// then
+		assertThat(heldFieldTtl(reservation)).isBetween(1L, 600L);
+	}
+
+	/** 예약이 점유한 첫 좌석 field의 남은 만료 초. 만료 없음은 -1, field 없음은 -2다. */
+	private long heldFieldTtl(Reservation reservation) {
+		ReservationSeat seat = reservation.seats().get(0);
+		String field = ReservationCacheKey.seatField(seat.seatId(), reservation.departure().stopOrder());
+		var expiration = stringRedisTemplate.opsForHash()
+			.getTimeToLive(ReservationCacheKey.carSeats(reservation.trainScheduleId(), seat.trainCarId()),
+				TimeUnit.SECONDS, List.of(field))
+			.expirationOf(field);
+		if (expiration.isPersistent()) {
+			return -1L;
+		}
+		if (expiration.isMissing()) {
+			return -2L;
+		}
+		return expiration.value();
 	}
 }
