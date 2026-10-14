@@ -53,3 +53,4 @@ qa/k6/schedule-config.json
 
 ### Claude ###
 .claude/plans/
+.superpowers/
