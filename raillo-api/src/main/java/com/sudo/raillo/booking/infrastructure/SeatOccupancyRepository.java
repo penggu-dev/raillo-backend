@@ -136,8 +136,7 @@ public class SeatOccupancyRepository {
 					ReservationCacheKey.reservationOrder(command.trainScheduleId(), command.reservationId())),
 				args.toArray());
 			SeatHoldReleaseResult result = SeatHoldReleaseResult.fromLuaResult(raw);
-			log.info("[결제 중 좌석 보호 해제] {}, restored={}, deleted={}",
-				ctx, result.restoredCount(), result.deletedCount());
+			log.info("[결제 중 좌석 보호 해제] {}, restored={}, deleted={}", ctx, result.restoredCount(), result.deletedCount());
 			warnIfFieldsLeftBehind(command, result);
 			return result;
 		} catch (Exception e) {
