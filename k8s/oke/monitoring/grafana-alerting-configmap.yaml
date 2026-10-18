@@ -335,3 +335,69 @@ data:
                         type: gt
                         params:
                           - 0
+
+          - uid: raillo-payment-review-required
+            title: 결제 수동 확인 대기
+            condition: C
+            execErrState: Error
+            noDataState: OK
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: 수동 확인으로 남아 사람 개입을 기다리는 결제 시도가 있습니다
+              description: PAYMENT_117 사유로 REVIEW_REQUIRED가 된 시도입니다. 고객센터 확인이 필요합니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 300
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: max by (pod) (payment_attempt_review_required_rows{job="raillo-api"})
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params:
+                          - 0
+
+          - uid: raillo-payment-recovery-stale
+            title: 결제 복구 지체
+            condition: C
+            execErrState: Error
+            noDataState: OK
+            for: 15m
+            labels:
+              severity: critical
+            annotations:
+              summary: 복구 임계값을 넘겨 진행 중으로 남은 결제 시도가 쌓이고 있습니다
+              description: 복구 Worker가 처리하지 못하고 있거나 Toss 호출 경로가 막혔을 수 있습니다.
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 900
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: max by (pod) (payment_attempt_stale_in_progress_rows{job="raillo-api"})
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params:
+                          - 5

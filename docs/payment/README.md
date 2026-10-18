@@ -69,7 +69,7 @@ Entity, Payment N:1 (외래키 없이 `paymentId`)
   - `attemptId`는 `sha256("apv:" + paymentKey)`다. 클라이언트에게 받지 않는다. 유니크 제약이 있다
   - 시도의 `paymentKey`와 결제, 유형이 요청과 다르면 같은 오류(`PAYMENT_ATTEMPT_REQUEST_MISMATCH`)로 거절한다. 어느 쪽이 다른지는 로그에만 남긴다
   - 요청과의 대조는 잠금 없는 시작 단계에서 한다. 확정(TX B)은 저장된 값으로 비교하므로 `paymentKey` 축이 항상 일치한다. 요청의 `paymentKey`는 `attemptId` 파생과 유니크 제약으로 이미 시도에 묶여 있다
-  - `processingOwner`, `processingLeaseUntil`, `nextRetryAt`은 복구 Worker용 컬럼이며 아직 쓰지 않는다
+  - `processingOwner`, `processingLeaseUntil`, `nextRetryAt`은 복구 Worker가 선점과 백오프에 쓴다
 
 #### 시도 상태(PaymentAttemptStatus)
 Enum
@@ -90,6 +90,7 @@ Enum
 | `REVIEW_PAYMENT_KEY_MISSING` | 시도에 `paymentKey`가 없어 조회조차 못 한다 |
 | `REVIEW_SEAT_LOST` | 확정 단계에서 좌석이 이미 다른 예매의 것이다 |
 | `REVIEW_DEPARTED` | 확정 단계에서 출발 시각이 지났다 |
+| `REVIEW_RECOVERY_TIMEOUT` | 복구 Worker가 최대 대기 시간을 넘기도록 판정하지 못했다 |
 
 `PaymentAttemptType`은 `APPROVAL`, `CANCELLATION`이다. 취소 시도는 아직 쓰지 않는다.
 
@@ -150,7 +151,7 @@ Enum
 ### 결과 불명은 실패가 아니라 진행 중으로 남기고 409로 응답한다
 - 맥락: Toss 5xx나 타임아웃은 Toss가 승인한 뒤 응답만 실패했을 수 있다. 실패로 처리하거나 5xx를 그대로 내리면, 재시도하는 클라이언트가 승인을 다시 보내 이중 청구가 된다.
 - 결정: 결과 불명은 시도를 진행 중으로 두고 재시도를 부르지 않는 409로 응답한다. 같은 요청이 다시 오면 승인을 다시 보내지 않고 Toss에 조회한다. Toss 호출도 조회(GET)만 자동 재시도하고 승인(POST)은 재시도하지 않는다. Toss는 POST에 `Idempotency-Key`를 지원하지만(Toss 문서 기준 15일 dedup, 2026-10 확인) 승인은 아직 헤더를 보내지 않고(#260) 취소는 호출마다 새 키를 만들어, 전송 층에서 다시 보내면 게이트웨이가 별개 요청으로 받는다. 미도달, 결과 불명, 거절의 판정은 `TossPaymentClient`가 실어 보낸 전송 단계로 `PaymentGatewayException`이 하고, 시도 기록과 HTTP 응답이 같은 판정을 쓴다.
-- 결과: 이중 청구가 생기지 않는다. 대신 승객이 다시 요청하지 않으면 진행 중 시도가 그대로 남는다. 이를 대사할 복구 Worker는 아직 없다.
+- 결과: 이중 청구가 생기지 않는다. 대신 승객이 다시 요청하지 않으면 진행 중 시도가 그대로 남는다. 이를 대사하는 [복구 Worker](../worker/README.md)가 오래된 시도를 정기적으로 가져가 처리한다.
 
 ### 결과를 모르는 동안만 좌석을 붙잡는다
 - 맥락: 예약 TTL은 10분인데 결과 불명인 시도는 그보다 오래 남는다. 그 사이 좌석이 풀려 남이 가져가면, Toss가 승인한 결제를 확정할 수 없다. 반대로 결제 내내 좌석을 영구 점유하면 이탈한 결제가 좌석을 운행일까지 묶는다.
@@ -158,9 +159,14 @@ Enum
 - 결과: 정상 승인 경로는 Redis 호출이 늘지 않고, 노출이 사람이 봐야 하는 시도로 한정된다. 대신 보호를 걸고 해제가 오지 않으면(승객 이탈, 프로세스 종료) 좌석이 객차 키 만료까지 남는다. 고아 `R:` field 정리는 #274다.
 
 ### 회복 판정을 별도 컴포넌트로 분리한다
-- 맥락: 진행 중인 시도를 Toss에 조회해 맞추는 판단은 승객의 재요청과 복구 Worker(#270, 아직 없다)가 함께 쓸 것이다. 이 판단이 승인 시작 단계에 들어 있으면 복구 Worker는 재사용할 수 없다. 시작 단계는 요청과 회원 번호를 받아 결과를 예외로 돌려주는 구조다.
+- 맥락: 진행 중인 시도를 Toss에 조회해 맞추는 판단은 승객의 재요청과 [복구 Worker](../worker/README.md)가 함께 쓴다. 이 판단이 승인 시작 단계에 들어 있으면 복구 Worker는 재사용할 수 없다. 시작 단계는 요청과 회원 번호를 받아 결과를 예외로 돌려주는 구조다.
 - 결정: 조회와 판정을 `PaymentApprovalReconciler`로 분리한다. 상태를 바꾸지 않고 `ReconcileDecision` 여섯 가지 중 하나를 돌려준다. 승객 경로는 판정을 시도 상태 기록과 HTTP 응답으로 바꾸고, 복구 Worker는 상태 기록으로만 바꾼다.
-- 결과: 두 경로가 하나의 판정을 공유하게 된다. 지금 판정을 쓰는 주체는 승객의 재요청뿐이다. `ReconcileDecision`은 sealed이므로 판정이 늘면 모든 소비자에서 컴파일이 멈추고, 새 판정이 기존 응답으로 조용히 처리되지 않는다.
+- 결과: 두 경로가 하나의 판정을 공유한다. 판정별 건수는 `payment.recovery.decision` 지표로 모인다. `ReconcileDecision`은 sealed이므로 판정이 늘면 모든 소비자에서 컴파일이 멈추고, 새 판정이 기존 응답으로 조용히 처리되지 않는다.
+
+### 최대 대기 초과를 강제 실패로 기록하지 않는다
+- 맥락: 복구 Worker가 아무리 재시도해도 Toss 응답을 못 받는 시도가 있을 수 있다. 끝없이 재시도를 걸면 그 시도는 영원히 `IN_PROGRESS`로 남아 좌석과 자원을 붙잡는다.
+- 결정: `RecoveryBackoffPolicy`의 최대 대기를 넘기면 자동으로 `FAILED`를 선언하지 않고 `REVIEW_RECOVERY_TIMEOUT` 사유로 `REVIEW_REQUIRED`에 올려 사람이 Toss 쪽을 직접 확인하게 한다.
+- 결과: 승인됐을 수도 있는 시도를 자동으로 실패 처리해 이중 청구나 환불 누락을 만들지 않는다. 대신 수동 확인 대기가 늘어날 수 있어 `payment.attempt.review_required_rows` 게이지로 지켜본다.
 
 ### 미전송은 실패와 구분한다
 - 맥락: `attemptId`가 `paymentKey`에서 결정되므로, 실패로 기록하면 그 `paymentKey`로는 다시 승인할 수 없다. 그런데 요청이 Toss에 가지도 않았다면 다시 보내도 위험이 없다.

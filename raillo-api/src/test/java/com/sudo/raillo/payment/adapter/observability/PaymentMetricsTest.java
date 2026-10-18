@@ -24,8 +24,11 @@ import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
 import com.sudo.raillo.payment.application.provided.PaymentPreparer;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.command.PaymentPrepareCommand;
+import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
+import com.sudo.raillo.payment.application.required.RecoveryMetrics;
 import com.sudo.raillo.payment.application.result.PaymentPrepareResult;
 import com.sudo.raillo.global.exception.BusinessException;
+import com.sudo.raillo.payment.domain.PaymentAttempt;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentException;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient;
@@ -40,6 +43,8 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.type.CarType;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 
 @ServiceTest
@@ -71,6 +76,12 @@ class PaymentMetricsTest {
 
 	@Autowired
 	private MeterRegistry meterRegistry;
+
+	@Autowired
+	private RecoveryMetrics recoveryMetrics;
+
+	@Autowired
+	private PaymentAttemptRepository paymentAttemptRepository;
 
 	private Member member;
 	private String memberNo;
@@ -257,6 +268,40 @@ class PaymentMetricsTest {
 			"http_status", String.valueOf(PaymentError.PAYMENT_SYSTEM_ERROR.getStatus().value()),
 			"error_code", PaymentError.PAYMENT_SYSTEM_ERROR.getCode()).count();
 		assertThat(after).isEqualTo(before + 1);
+	}
+
+	@Test
+	@DisplayName("복구 판정과 확정 재실행 건수가 태그와 함께 집계된다")
+	void recoveryCountersAreRegistered() {
+		// given
+		recoveryMetrics.incrementDecision("DefinitiveFailure");
+		recoveryMetrics.incrementRecovered();
+
+		// when
+		Counter decision = meterRegistry.find("payment.recovery.decision")
+			.tag("decision", "DefinitiveFailure").counter();
+
+		// then
+		assertThat(decision).isNotNull();
+		assertThat(decision.count()).isEqualTo(1.0);
+		assertThat(meterRegistry.find("payment.recovery.recovered").counter().count()).isEqualTo(1.0);
+	}
+
+	@Test
+	@DisplayName("수동 확인 대기 행과 오래된 진행 중 행이 게이지로 노출된다")
+	void operationalGaugesReflectRows() {
+		// given
+		PaymentAttempt reviewed = paymentAttemptRepository.save(PaymentAttempt.startApproval(1L, "a-1", "k-1"));
+		reviewed.markReviewRequired("REVIEW_RECOVERY_TIMEOUT", "최대 대기 초과");
+		paymentAttemptRepository.save(reviewed);
+
+		// when
+		Gauge reviewRows = meterRegistry.find("payment.attempt.review_required_rows").gauge();
+
+		// then
+		assertThat(reviewRows).isNotNull();
+		assertThat(reviewRows.value()).isEqualTo(1.0);
+		assertThat(meterRegistry.find("payment.attempt.stale_in_progress_rows").gauge()).isNotNull();
 	}
 
 	private Reservation createReservationWithHold(BigDecimal fare) {

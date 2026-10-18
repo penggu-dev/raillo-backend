@@ -7,7 +7,17 @@
 | Worker | 주기 | 하는 일 |
 |---|---|---|
 | `PaymentOutboxWorker` | 5초 간격 (`raillo.payment.outbox.polling-interval`) | 결제 Outbox를 처리한다 |
+| `PaymentRecoveryWorker` | `raillo.payment.recovery.polling-interval` | 오래 진행 중인 결제 승인 시도를 Toss와 대사한다 |
 | `CalendarCacheEvictScheduler` | 매일 00:00 | 운행 캘린더 캐시(`train:calendar`)를 비운다 |
+
+Outbox Worker와 복구 Worker는 둘 다 결제를 다루지만 역할이 다르다.
+
+| | Outbox Worker | 복구 Worker |
+|---|---|---|
+| 다루는 사실 | 이미 정해진 사실(TX B가 커밋한 결과)을 전파한다 | 정해지지 않은 사실(Toss가 승인했는지 모름)을 Toss에 물어 알아내고 정한다 |
+| 행이 생기는 시점 | TX B가 커밋될 때 생긴다 | TX B가 커밋되지 못한 시도를 대상으로 한다 |
+| 못 보는 사고 | TX B 자체가 커밋되지 못한 사고는 Outbox 행이 없어 볼 수 없다 | - |
+| 자세한 내용 | 아래 [결제 Outbox](#결제-outbox) | [결제](../payment/README.md)의 `PaymentApprovalReconciler`, `ReconcileDecision` |
 
 결제 Outbox는 이렇게 동작한다.
 

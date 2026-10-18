@@ -17,6 +17,7 @@ import com.sudo.raillo.payment.application.PaymentSeatGuard;
 import com.sudo.raillo.payment.application.exception.AttemptReviewRequiredException;
 import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
 import com.sudo.raillo.payment.application.required.PaymentRepository;
+import com.sudo.raillo.payment.application.required.RecoveryMetrics;
 import com.sudo.raillo.payment.application.result.ReconcileDecision;
 import com.sudo.raillo.payment.domain.Payment;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
@@ -43,6 +44,7 @@ public class PaymentRecoveryWorker {
 	private final PaymentSeatGuard paymentSeatGuard;
 	private final PaymentAttemptManager paymentAttemptManager;
 	private final RecoveryBackoffPolicy backoffPolicy;
+	private final RecoveryMetrics recoveryMetrics;
 
 	public void poll() {
 		LocalDateTime now = LocalDateTime.now();
@@ -81,6 +83,7 @@ public class PaymentRecoveryWorker {
 	}
 
 	private void apply(ReconcileDecision decision, PaymentAttempt attempt, Payment payment, LocalDateTime now) {
+		recoveryMetrics.incrementDecision(decision.getClass().getSimpleName());
 		String orderCode = payment.getOrderCode();
 		switch (decision) {
 			case ReconcileDecision.Confirmable confirmable -> finalizeRecovered(confirmable, attempt, payment, now);
@@ -115,6 +118,7 @@ public class PaymentRecoveryWorker {
 	) {
 		try {
 			paymentApprovalFinalizer.finalizeApproval(payment.getId(), attempt.getId(), confirmable.gatewayResult());
+			recoveryMetrics.incrementRecovered();
 			release(attempt);
 			log.info("[복구 Worker - 확정 재실행 완료] attemptId={}, paymentId={}", attempt.getAttemptId(), payment.getId());
 		} catch (AttemptReviewRequiredException review) {
