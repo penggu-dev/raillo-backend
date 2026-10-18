@@ -128,7 +128,7 @@ public class PaymentAttempt {
 		this.errorMessage = errorMessage;
 	}
 
-	/** 전송되지 않은 attempt를 다시 진행 중으로 되돌린다. 이전 실패 정보는 지운다. */
+	/** 전송되지 않은 attempt를 다시 진행 중으로 되돌린다. 이전 실패 정보와 다음 조회 시각은 지운다. */
 	public void reopen() {
 		if (this.status != PaymentAttemptStatus.NOT_SENT) {
 			throw new DomainException(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
@@ -136,6 +136,7 @@ public class PaymentAttempt {
 		this.status = PaymentAttemptStatus.IN_PROGRESS;
 		this.errorCode = null;
 		this.errorMessage = null;
+		this.nextRetryAt = null;
 	}
 
 	/**

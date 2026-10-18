@@ -142,6 +142,21 @@ class PaymentAttemptTest {
     }
 
     @Test
+    @DisplayName("다시 연 시도는 이전 백오프에 걸리지 않도록 다음 조회 시각도 지운다")
+    void reopen_clearsNextRetryAt() {
+        // given
+        PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-abc", "toss-key");
+        attempt.scheduleRetry(LocalDateTime.now().plusMinutes(30));
+        attempt.markNotSent("CONFIRM_NOT_SENT", "결제 요청이 전송되지 않았습니다.");
+
+        // when
+        attempt.reopen();
+
+        // then
+        assertThat(attempt.getNextRetryAt()).isNull();
+    }
+
+    @Test
     @DisplayName("NOT_SENT가 아닌 attempt는 다시 열 수 없다")
     void reopen_rejectedWhenNotNotSent() {
         PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-abc", "toss-key");
