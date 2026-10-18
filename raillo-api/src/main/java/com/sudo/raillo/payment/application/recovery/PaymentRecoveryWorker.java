@@ -47,17 +47,16 @@ public class PaymentRecoveryWorker {
 	private final RecoveryMetrics recoveryMetrics;
 
 	public void poll() {
-		LocalDateTime now = LocalDateTime.now();
-		List<Long> claimed = claimer.claim(now);
+		List<Long> claimed = claimer.claim(LocalDateTime.now());
 		if (claimed.isEmpty()) {
 			return;
 		}
 		log.info("[복구 Worker 선점] count={}", claimed.size());
-		claimed.forEach(attemptDbId -> recoverOne(attemptDbId, now));
+		claimed.forEach(this::recoverOne);
 	}
 
 	/** attempt 조회 실패는 점유만 반납하고, attempt를 읽은 뒤의 실패는 attempt의 createdAt으로 백오프한다. */
-	private void recoverOne(Long attemptDbId, LocalDateTime now) {
+	private void recoverOne(Long attemptDbId) {
 		PaymentAttempt attempt;
 		try {
 			attempt = paymentAttemptRepository.findById(attemptDbId)
@@ -71,22 +70,22 @@ public class PaymentRecoveryWorker {
 			Payment payment = paymentRepository.findById(attempt.getPaymentId())
 				.orElseThrow(() -> new IllegalStateException(
 					"payment를 찾을 수 없음: attemptDbId=" + attemptDbId + ", paymentId=" + attempt.getPaymentId()));
-			if (backoffPolicy.isMaxWaitExceeded(attempt.getCreatedAt(), now)) {
+			if (backoffPolicy.isMaxWaitExceeded(attempt.getCreatedAt(), LocalDateTime.now())) {
 				giveUp(attempt, payment);
 				return;
 			}
-			apply(reconciler.reconcile(PaymentConfirmTarget.of(attempt, payment)), attempt, payment, now);
+			apply(reconciler.reconcile(PaymentConfirmTarget.of(attempt, payment)), attempt, payment);
 		} catch (RuntimeException e) {
 			log.error("[복구 Worker 처리 실패] attemptDbId={}, cause={}", attemptDbId, e.toString(), e);
-			backOff(attempt, now);
+			backOff(attempt);
 		}
 	}
 
-	private void apply(ReconcileDecision decision, PaymentAttempt attempt, Payment payment, LocalDateTime now) {
+	private void apply(ReconcileDecision decision, PaymentAttempt attempt, Payment payment) {
 		recoveryMetrics.incrementDecision(decision.getClass().getSimpleName());
 		String orderCode = payment.getOrderCode();
 		switch (decision) {
-			case ReconcileDecision.Confirmable confirmable -> finalizeRecovered(confirmable, attempt, payment, now);
+			case ReconcileDecision.Confirmable confirmable -> finalizeRecovered(confirmable, attempt, payment);
 			case ReconcileDecision.DefinitiveFailure failure -> {
 				attemptFailureMarker.markFailedQuietly(payment.getId(), attempt.getId(),
 					new AttemptError(failure.errorCode(), failure.message()));
@@ -101,20 +100,20 @@ public class PaymentRecoveryWorker {
 			}
 			case ReconcileDecision.StillPending _, ReconcileDecision.QueryUncertain _ -> {
 				paymentSeatGuard.holdQuietly(orderCode, payment.getId(), attempt.getId());
-				backOff(attempt, now);
+				backOff(attempt);
 			}
 			case ReconcileDecision.UnexpectedStatus unexpected -> {
 				log.error("[복구 Worker - 쓰지 않는 게이트웨이 상태] status={}, attemptId={}",
 					unexpected.status(), attempt.getAttemptId());
 				paymentSeatGuard.holdQuietly(orderCode, payment.getId(), attempt.getId());
-				backOff(attempt, now);
+				backOff(attempt);
 			}
 		}
 	}
 
 	/** 게이트웨이가 승인 완료로 응답한 건의 로컬 확정을 재실행한다. Toss 승인은 다시 보내지 않는다. */
 	private void finalizeRecovered(
-		ReconcileDecision.Confirmable confirmable, PaymentAttempt attempt, Payment payment, LocalDateTime now
+		ReconcileDecision.Confirmable confirmable, PaymentAttempt attempt, Payment payment
 	) {
 		try {
 			paymentApprovalFinalizer.finalizeApproval(payment.getId(), attempt.getId(), confirmable.gatewayResult());
@@ -127,7 +126,7 @@ public class PaymentRecoveryWorker {
 			release(attempt);
 		} catch (BusinessException rejected) {
 			log.warn("[복구 Worker - 확정 거절] attemptId={}, errorCode={}", attempt.getAttemptId(), rejected.getErrorCode());
-			backOff(attempt, now);
+			backOff(attempt);
 		}
 	}
 
@@ -141,9 +140,10 @@ public class PaymentRecoveryWorker {
 		release(attempt);
 	}
 
-	private void backOff(PaymentAttempt attempt, LocalDateTime now) {
+	/** 한 배치가 길어질 수 있어 백오프 기준 시각을 이 시점에 다시 읽는다. */
+	private void backOff(PaymentAttempt attempt) {
 		paymentAttemptManager.scheduleRetryInNewTransaction(
-			attempt.getId(), backoffPolicy.nextRetryAt(now, attempt.getCreatedAt()));
+			attempt.getId(), backoffPolicy.nextRetryAt(LocalDateTime.now(), attempt.getCreatedAt()));
 	}
 
 	private void release(PaymentAttempt attempt) {
