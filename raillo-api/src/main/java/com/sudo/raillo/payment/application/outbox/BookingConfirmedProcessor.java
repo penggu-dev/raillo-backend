@@ -20,7 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * 승인 확정 후 Redis 좌석 점유를 예매 점유(R→B)로 바꾼다.
  *
- * <p>운행일이 지난 항목과 예매가 더는 유효하지 않은 항목은 좌석을 건드리지 않고 예약 본문과 회원 인덱스만 지운다.
+ * <p>운행일이 지난 항목과 예매가 더는 유효하지 않은 항목은 예약이 잡았던 좌석 점유까지 함께 되돌린다.
  * 다른 예약이나 예매와 충돌한 항목이 있어도 나머지 항목은 모두 처리한 뒤 예외를 한 번만 던져 Outbox 재시도에 맡기지만,
  * 데이터 오염({@code SEAT_OCCUPANCY_CORRUPTED})은 재시도로 낫지 않아 즉시 멈추고 알려야 하고 스크립트 실행 실패
  * ({@code SEAT_OCCUPANCY_SCRIPT_ERROR})는 모든 항목에 똑같이 영향을 주므로
@@ -67,13 +67,13 @@ public class BookingConfirmedProcessor implements OutboxEventProcessor {
 		if (entry.operationDate().isBefore(today)) {
 			log.info("[예매 점유 전환 생략 - 운행일 경과] paymentId={}, reservationId={}, operationDate={}",
 				paymentId, entry.reservationId(), entry.operationDate());
-			bookedSeatWriter.discardReservation(entry);
+			bookedSeatWriter.releaseReservation(entry);
 			return true;
 		}
 		if (!bookingReader.isBooked(entry.bookingId())) {
 			log.warn("[예매 점유 전환 생략 - 유효하지 않은 예매] paymentId={}, reservationId={}, bookingId={}",
 				paymentId, entry.reservationId(), entry.bookingId());
-			bookedSeatWriter.discardReservation(entry);
+			bookedSeatWriter.releaseReservation(entry);
 			return true;
 		}
 		if (!bookedSeatWriter.markBooked(entry)) {

@@ -3,6 +3,7 @@ package com.sudo.raillo.payment.adapter.integration;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.booking.application.dto.BookingConversionRequest;
+import com.sudo.raillo.booking.application.dto.ReservationReleaseRequest;
 import com.sudo.raillo.booking.application.service.BookedSeatService;
 import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.payment.application.BookingConfirmedPayload;
@@ -34,7 +35,16 @@ public class BookedSeatWriterAdapter implements BookedSeatWriter {
 	}
 
 	@Override
-	public void discardReservation(BookingConfirmedPayload.Entry entry) {
-		reservationService.discardReservation(entry.trainScheduleId(), entry.reservationId(), entry.memberNo());
+	public void releaseReservation(BookingConfirmedPayload.Entry entry) {
+		reservationService.releaseReservation(new ReservationReleaseRequest(
+			entry.reservationId(),
+			entry.memberNo(),
+			entry.trainScheduleId(),
+			entry.departureStopOrder(),
+			entry.arrivalStopOrder(),
+			entry.seats().stream()
+				.map(seat -> new ReservationReleaseRequest.SeatCar(seat.seatId(), seat.trainCarId()))
+				.toList()
+		));
 	}
 }
