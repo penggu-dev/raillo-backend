@@ -1,6 +1,7 @@
 package com.sudo.raillo.payment.adapter.observability;
 
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import com.sudo.raillo.payment.application.exception.DeliveryPhase;
@@ -26,7 +27,10 @@ public class TossApiMetrics {
 
 	private final MeterRegistry meterRegistry;
 
-	public TossApiMetrics(MeterRegistry meterRegistry, PoolingHttpClientConnectionManager tossHttpConnectionManager) {
+	public TossApiMetrics(
+		MeterRegistry meterRegistry,
+		@Qualifier("tossHttpConnectionManager") PoolingHttpClientConnectionManager tossHttpConnectionManager
+	) {
 		this.meterRegistry = meterRegistry;
 
 		Gauge.builder("toss.pool.connections.active", tossHttpConnectionManager,
