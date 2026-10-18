@@ -172,9 +172,4 @@ public class PaymentAttempt {
 		releaseProcessing();
 		this.nextRetryAt = nextRetryAt;
 	}
-
-	/** lease가 없거나 지났으면 다른 인스턴스가 집어도 된다. */
-	public boolean isLeaseExpired(LocalDateTime now) {
-		return this.processingLeaseUntil == null || this.processingLeaseUntil.isBefore(now);
-	}
 }

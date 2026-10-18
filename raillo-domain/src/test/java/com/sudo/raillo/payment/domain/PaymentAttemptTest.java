@@ -195,19 +195,4 @@ class PaymentAttemptTest {
         assertThat(attempt.getProcessingLeaseUntil()).isNull();
         assertThat(attempt.getNextRetryAt()).isEqualTo(next);
     }
-
-    @Test
-    @DisplayName("lease가 없거나 지났으면 만료로 본다")
-    void isLeaseExpired_treatsNullAndPastAsExpired() {
-        // given
-        LocalDateTime now = LocalDateTime.of(2026, 10, 15, 12, 0);
-        PaymentAttempt attempt = PaymentAttempt.startApproval(1L, "attempt-1", "key-1");
-
-        // when & then
-        assertThat(attempt.isLeaseExpired(now)).isTrue();
-        attempt.startProcessing("pod-a", now.minusSeconds(1));
-        assertThat(attempt.isLeaseExpired(now)).isTrue();
-        attempt.startProcessing("pod-a", now.plusSeconds(1));
-        assertThat(attempt.isLeaseExpired(now)).isFalse();
-    }
 }
