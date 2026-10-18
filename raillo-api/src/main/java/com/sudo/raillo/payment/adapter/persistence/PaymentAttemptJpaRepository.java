@@ -48,6 +48,8 @@ public interface PaymentAttemptJpaRepository extends JpaRepository<PaymentAttemp
 
 	long countByStatus(PaymentAttemptStatus status);
 
+	long countByStatusAndUpdatedAtAfter(PaymentAttemptStatus status, LocalDateTime updatedAfter);
+
 	@Query("""
 		select count(a)
 		  from PaymentAttempt a

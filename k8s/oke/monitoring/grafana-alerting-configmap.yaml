@@ -345,8 +345,8 @@ data:
             labels:
               severity: warning
             annotations:
-              summary: 수동 확인으로 남아 사람 개입을 기다리는 결제 시도가 있습니다
-              description: PAYMENT_117 사유로 REVIEW_REQUIRED가 된 시도입니다. 고객센터 확인이 필요합니다.
+              summary: 최근 24시간 안에 수동 확인으로 남은 결제 시도가 있습니다
+              description: 최근 24시간 안에 REVIEW_REQUIRED가 된 시도입니다. 고객센터 확인이 필요합니다.
             data:
               - refId: A
                 relativeTimeRange:
@@ -356,7 +356,7 @@ data:
                 model:
                   refId: A
                   instant: true
-                  expr: max by (pod) (payment_attempt_review_required_rows{job="raillo-api"})
+                  expr: max by (pod) (payment_attempt_review_required_recent_rows{job="raillo-api"})
               - refId: C
                 datasourceUid: __expr__
                 model:

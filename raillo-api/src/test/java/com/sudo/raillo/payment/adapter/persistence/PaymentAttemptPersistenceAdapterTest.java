@@ -96,4 +96,24 @@ class PaymentAttemptPersistenceAdapterTest {
 			.isEqualTo(1);
 		assertThat(stale.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
 	}
+
+	@Test
+	@DisplayName("수동 확인 행 수를 셀 때 창 밖에서 바뀐 행은 빼고 센다")
+	void countByStatusUpdatedAfter_excludesRowsOutsideWindow() {
+		// given
+		LocalDateTime now = LocalDateTime.now();
+		PaymentAttempt reviewed = paymentAttemptRepository.save(PaymentAttempt.startApproval(1L, "a-recent", "k1"));
+		reviewed.markReviewRequired("REVIEW_RESULT_MISMATCH", "불일치");
+		paymentAttemptRepository.save(reviewed);
+
+		// when
+		long withinWindow = paymentAttemptRepository.countByStatusUpdatedAfter(
+			PaymentAttemptStatus.REVIEW_REQUIRED, now.minusHours(24));
+		long outsideWindow = paymentAttemptRepository.countByStatusUpdatedAfter(
+			PaymentAttemptStatus.REVIEW_REQUIRED, now.plusMinutes(1));
+
+		// then
+		assertThat(withinWindow).isEqualTo(1);
+		assertThat(outsideWindow).isZero();
+	}
 }

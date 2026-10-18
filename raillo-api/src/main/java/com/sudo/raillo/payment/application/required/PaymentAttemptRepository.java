@@ -24,6 +24,9 @@ public interface PaymentAttemptRepository {
 	/** 운영 지표용: 상태별 attempt 수를 센다. */
 	long countByStatus(PaymentAttemptStatus status);
 
+	/** 운영 지표용: 주어진 시각 이후에 바뀐 상태별 attempt 수를 센다. */
+	long countByStatusUpdatedAfter(PaymentAttemptStatus status, LocalDateTime updatedAfter);
+
 	/** 운영 지표용: 오래된 진행 중 attempt 수를 센다. */
 	long countStaleInProgress(PaymentAttemptType type, LocalDateTime staleBefore);
 }

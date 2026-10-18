@@ -51,6 +51,11 @@ public class PaymentAttemptPersistenceAdapter implements PaymentAttemptRepositor
 	}
 
 	@Override
+	public long countByStatusUpdatedAfter(PaymentAttemptStatus status, LocalDateTime updatedAfter) {
+		return jpaRepository.countByStatusAndUpdatedAtAfter(status, updatedAfter);
+	}
+
+	@Override
 	public long countStaleInProgress(PaymentAttemptType type, LocalDateTime staleBefore) {
 		return jpaRepository.countStaleInProgress(PaymentAttemptStatus.IN_PROGRESS, type, staleBefore);
 	}

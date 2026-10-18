@@ -304,6 +304,22 @@ class PaymentMetricsTest {
 		assertThat(meterRegistry.find("payment.attempt.stale_in_progress_rows").gauge()).isNotNull();
 	}
 
+	@Test
+	@DisplayName("최근 창 안에서 수동 확인으로 바뀐 행은 별도 게이지로도 노출된다")
+	void recentReviewRequiredGaugeIsExposedSeparately() {
+		// given
+		PaymentAttempt reviewed = paymentAttemptRepository.save(PaymentAttempt.startApproval(2L, "a-2", "k-2"));
+		reviewed.markReviewRequired("REVIEW_RECOVERY_TIMEOUT", "최대 대기 초과");
+		paymentAttemptRepository.save(reviewed);
+
+		// when
+		Gauge recentRows = meterRegistry.find("payment.attempt.review_required_recent_rows").gauge();
+
+		// then
+		assertThat(recentRows).isNotNull();
+		assertThat(recentRows.value()).isEqualTo(1.0);
+	}
+
 	private Reservation createReservationWithHold(BigDecimal fare) {
 		ScheduleStop departureStop = trainScheduleResult.scheduleStops().get(0);
 		ScheduleStop arrivalStop = trainScheduleResult.scheduleStops().get(1);

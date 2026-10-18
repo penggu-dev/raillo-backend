@@ -1,5 +1,6 @@
 package com.sudo.raillo.payment.adapter.observability;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Component;
@@ -19,6 +20,9 @@ import io.micrometer.core.instrument.MeterRegistry;
 
 @Component
 public class PaymentMetrics implements OutboxMetrics, RecoveryMetrics {
+
+	/** 수동 확인 대기 알림이 보는 창. 상태에 해소 표식이 없어 전체 행 게이지로는 알림을 걸 수 없다. */
+	private static final Duration REVIEW_REQUIRED_RECENT_WINDOW = Duration.ofHours(24);
 
 	private final MeterRegistry meterRegistry;
 	private final Counter prepareCounter;
@@ -71,6 +75,12 @@ public class PaymentMetrics implements OutboxMetrics, RecoveryMetrics {
 		Gauge.builder("payment.attempt.review_required_rows", paymentAttemptRepository,
 				r -> r.countByStatus(PaymentAttemptStatus.REVIEW_REQUIRED))
 			.description("수동 확인으로 남아 사람 개입을 기다리는 결제 시도 수")
+			.register(meterRegistry);
+
+		Gauge.builder("payment.attempt.review_required_recent_rows", paymentAttemptRepository,
+				r -> r.countByStatusUpdatedAfter(PaymentAttemptStatus.REVIEW_REQUIRED,
+					LocalDateTime.now().minus(REVIEW_REQUIRED_RECENT_WINDOW)))
+			.description("최근 24시간 안에 수동 확인으로 바뀌어 사람 개입을 기다리는 결제 시도 수")
 			.register(meterRegistry);
 
 		Gauge.builder("payment.attempt.stale_in_progress_rows", paymentAttemptRepository,
