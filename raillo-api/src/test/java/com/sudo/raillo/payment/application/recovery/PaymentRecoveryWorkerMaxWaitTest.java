@@ -47,13 +47,13 @@ import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
 
 /**
- * {@code max-wait=0s}로 경계를 재현한다. {@link PaymentRecoveryWorkerTest}와 설정이 달라 별도 클래스로 둔다.
+ * {@code max-wait=1ms}로 경계를 재현한다. {@link PaymentRecoveryWorkerTest}와 설정이 달라 별도 클래스로 둔다.
  */
 @ServiceTest
 @TestPropertySource(properties = {
 	"raillo.payment.recovery.enabled=false",
-	"raillo.payment.recovery.stale-after=0s",
-	"raillo.payment.recovery.max-wait=0s",
+	"raillo.payment.recovery.stale-after=1ms",
+	"raillo.payment.recovery.max-wait=1ms",
 	"raillo.payment.recovery.initial-backoff=1m"
 })
 class PaymentRecoveryWorkerMaxWaitTest {
@@ -125,7 +125,7 @@ class PaymentRecoveryWorkerMaxWaitTest {
 	}
 
 	/**
-	 * 예약, 주문, 결제를 만들고 승인 시도를 IN_PROGRESS로 저장한 뒤 좌석을 붙잡아 둔다. {@code stale-after=0s}라
+	 * 예약, 주문, 결제를 만들고 승인 시도를 IN_PROGRESS로 저장한 뒤 좌석을 붙잡아 둔다. {@code stale-after=1ms}라
 	 * 바로 복구 Worker의 후보가 된다.
 	 */
 	private RecoveryFixture givenStaleInProgressAttempt() {

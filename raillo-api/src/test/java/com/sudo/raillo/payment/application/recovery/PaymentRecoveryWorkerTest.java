@@ -66,7 +66,7 @@ import com.sudo.raillo.train.domain.type.CarType;
 @ServiceTest
 @TestPropertySource(properties = {
 	"raillo.payment.recovery.enabled=false",
-	"raillo.payment.recovery.stale-after=0s",
+	"raillo.payment.recovery.stale-after=1ms",
 	"raillo.payment.recovery.initial-backoff=1m",
 	"raillo.payment.recovery.max-backoff=30m"
 })
@@ -343,7 +343,7 @@ class PaymentRecoveryWorkerTest {
 	}
 
 	/**
-	 * 예약, 주문, 결제를 만들고 승인 시도를 IN_PROGRESS로 저장한 뒤 좌석을 붙잡아 둔다. {@code stale-after=0s}라
+	 * 예약, 주문, 결제를 만들고 승인 시도를 IN_PROGRESS로 저장한 뒤 좌석을 붙잡아 둔다. {@code stale-after=1ms}라
 	 * 바로 복구 Worker의 후보가 된다.
 	 */
 	private RecoveryFixture givenStaleInProgressAttempt() {
