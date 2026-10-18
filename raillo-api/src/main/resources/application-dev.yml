@@ -96,7 +96,7 @@ raillo:
       max-backoff: 10m
       max-retries: 5
     recovery:
-      enabled: true
+      enabled: false
       polling-interval: 30s
       stale-after: 2m
       batch-size: 20
