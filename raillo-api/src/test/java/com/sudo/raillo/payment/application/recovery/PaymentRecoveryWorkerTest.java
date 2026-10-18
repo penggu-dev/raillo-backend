@@ -11,9 +11,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.TestPropertySource;
@@ -63,6 +65,10 @@ import com.sudo.raillo.train.domain.ScheduleStop;
 import com.sudo.raillo.train.domain.Seat;
 import com.sudo.raillo.train.domain.Train;
 import com.sudo.raillo.train.domain.type.CarType;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 @ServiceTest
 @TestPropertySource(properties = {
@@ -135,6 +141,7 @@ class PaymentRecoveryWorkerTest {
 	private String memberNo;
 	private TrainScheduleResult trainScheduleResult;
 	private int seatCursor;
+	private ListAppender<ILoggingEvent> workerLogs;
 
 	@BeforeEach
 	void setUp() {
@@ -144,6 +151,16 @@ class PaymentRecoveryWorkerTest {
 		Train train = trainTestHelper.createKTX();
 		trainScheduleResult = trainScheduleTestHelper.createDefault(train);
 		seatCursor = 0;
+
+		workerLogs = new ListAppender<>();
+		workerLogs.start();
+		workerLogger().addAppender(workerLogs);
+	}
+
+	@AfterEach
+	void tearDown() {
+		workerLogger().detachAppender(workerLogs);
+		workerLogs.stop();
 	}
 
 	@Test
@@ -202,7 +219,7 @@ class PaymentRecoveryWorkerTest {
 	}
 
 	@Test
-	@DisplayName("좌석 보호 해제가 실패해도 판정 기록은 남는다")
+	@DisplayName("좌석 보호 해제가 실패해도 판정 기록이 남고 Worker의 예외 경로로 빠지지 않는다")
 	void poll_seatGuardFailure_keepsDecisionRecorded() {
 		// given
 		RecoveryFixture f = givenStaleInProgressAttempt();
@@ -217,6 +234,8 @@ class PaymentRecoveryWorkerTest {
 		// then
 		assertThat(paymentAttemptRepository.findByAttemptId(f.attemptId()).orElseThrow().getStatus())
 			.isEqualTo(PaymentAttemptStatus.FAILED);
+		assertThat(workerLogs.list)
+			.noneMatch(event -> event.getFormattedMessage().contains("[복구 Worker 처리 실패]"));
 	}
 
 	@Test
@@ -356,6 +375,11 @@ class PaymentRecoveryWorkerTest {
 		assertThat(updated.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
 		assertThat(updated.getProcessingOwner()).isNull();
 		assertThat(updated.getNextRetryAt()).isAfter(LocalDateTime.now());
+	}
+
+	/** 복구 Worker가 남긴 로그를 모으는 appender를 붙일 로거. */
+	private static Logger workerLogger() {
+		return (Logger) LoggerFactory.getLogger(PaymentRecoveryWorker.class);
 	}
 
 	/** 같은 주문에 이미 PAID된 결제가 있는 상황을 만든다. */
