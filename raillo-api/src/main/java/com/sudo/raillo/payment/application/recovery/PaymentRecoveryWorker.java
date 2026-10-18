@@ -90,13 +90,13 @@ public class PaymentRecoveryWorker {
 				attemptFailureMarker.markFailedQuietly(payment.getId(), attempt.getId(),
 					new AttemptError(failure.errorCode(), failure.message()));
 				paymentSeatGuard.releaseQuietly(orderCode, payment.getId(), attempt.getId());
-				release(attempt);
+				backOff(attempt);
 			}
 			case ReconcileDecision.ReviewRequired review -> {
 				attemptFailureMarker.markReviewRequiredQuietly(payment.getId(), attempt.getId(),
 					new AttemptError(review.errorCode(), review.message()));
 				paymentSeatGuard.releaseQuietly(orderCode, payment.getId(), attempt.getId());
-				release(attempt);
+				backOff(attempt);
 			}
 			case ReconcileDecision.StillPending _, ReconcileDecision.QueryUncertain _ -> {
 				paymentSeatGuard.holdQuietly(orderCode, payment.getId(), attempt.getId());
@@ -140,7 +140,7 @@ public class PaymentRecoveryWorker {
 		release(attempt);
 	}
 
-	/** 한 배치가 길어질 수 있어 백오프 기준 시각을 이 시점에 다시 읽는다. */
+	/** 기준 시각을 이 시점에 다시 읽는다. 종결 분기에서도 써서 마킹이 조용히 실패한 행이 바로 다시 집히지 않게 한다. */
 	private void backOff(PaymentAttempt attempt) {
 		paymentAttemptManager.scheduleRetryInNewTransaction(
 			attempt.getId(), backoffPolicy.nextRetryAt(LocalDateTime.now(), attempt.getCreatedAt()));

@@ -37,6 +37,7 @@ import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentClient;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentQueryResponse;
 import com.sudo.raillo.payment.adapter.persistence.PaymentOutboxJpaRepository;
 import com.sudo.raillo.payment.application.PaymentApprovalFinalizer;
+import com.sudo.raillo.payment.application.PaymentAttemptManager;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.command.PaymentPrepareCommand;
 import com.sudo.raillo.payment.application.provided.PaymentConfirmer;
@@ -126,6 +127,9 @@ class PaymentRecoveryWorkerTest {
 
 	@MockitoSpyBean
 	private PaymentApprovalFinalizer paymentApprovalFinalizer;
+
+	@MockitoSpyBean
+	private PaymentAttemptManager paymentAttemptManager;
 
 	private Member member;
 	private String memberNo;
@@ -332,6 +336,26 @@ class PaymentRecoveryWorkerTest {
 		assertThat(bookingRepository.findAll()).hasSize(1);
 		assertThat(paymentAttemptRepository.findByAttemptId(f.attemptId()).orElseThrow().getStatus())
 			.isEqualTo(PaymentAttemptStatus.SUCCEEDED);
+	}
+
+	@Test
+	@DisplayName("종결 마킹이 조용히 실패하면 다음 조회 시각을 적어 즉시 다시 선점되지 않게 한다")
+	void poll_quietMarkingFailure_schedulesRetryInsteadOfImmediateReclaim() {
+		// given
+		RecoveryFixture f = givenStaleInProgressAttempt();
+		doThrow(new IllegalStateException("marking failed"))
+			.when(paymentAttemptManager).markFailedInNewTransaction(anyLong(), anyLong(), any());
+		given(tossPaymentClient.queryPayment(f.paymentKey())).willReturn(new TossPaymentQueryResponse(
+			f.paymentKey(), f.orderCode(), null, f.amount().longValue(), "ABORTED"));
+
+		// when
+		paymentRecoveryWorker.poll();
+
+		// then
+		PaymentAttempt updated = paymentAttemptRepository.findByAttemptId(f.attemptId()).orElseThrow();
+		assertThat(updated.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+		assertThat(updated.getProcessingOwner()).isNull();
+		assertThat(updated.getNextRetryAt()).isAfter(LocalDateTime.now());
 	}
 
 	/** 같은 주문에 이미 PAID된 결제가 있는 상황을 만든다. */
