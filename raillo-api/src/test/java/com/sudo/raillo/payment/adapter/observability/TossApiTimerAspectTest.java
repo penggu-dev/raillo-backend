@@ -33,6 +33,7 @@ class TossApiTimerAspectTest {
 		meterRegistry = new SimpleMeterRegistry();
 		TossApiTimerAspect aspect = new TossApiTimerAspect(meterRegistry);
 		stubClient = mock(TossPaymentClient.class);
+		given(stubClient.getCallPath()).willReturn("user");
 
 		AspectJProxyFactory factory = new AspectJProxyFactory(stubClient);
 		factory.addAspect(aspect);
@@ -151,6 +152,32 @@ class TossApiTimerAspectTest {
 			.longTaskTimer();
 		assertThat(active).isNotNull();
 		assertThat(active.activeTasks()).isZero();
+	}
+
+	@Test
+	@DisplayName("callPath가 다르면 toss.api.duration Timer가 path 태그로 사용자와 Worker 경로를 가른다")
+	void differentCallPaths_registerSeparateDurationTimersByPathTag() {
+		// given
+		TossPaymentClient workerStubClient = mock(TossPaymentClient.class);
+		given(workerStubClient.getCallPath()).willReturn("worker");
+		AspectJProxyFactory factory = new AspectJProxyFactory(workerStubClient);
+		factory.addAspect(new TossApiTimerAspect(meterRegistry));
+		TossPaymentClient workerProxy = factory.getProxy();
+
+		// when
+		proxy.confirmPayment(sampleConfirmCommand());
+		workerProxy.confirmPayment(sampleConfirmCommand());
+
+		// then
+		Timer userTimer = meterRegistry.find("toss.api.duration")
+			.tag("operation", "confirm").tag("outcome", "success").tag("path", "user").timer();
+		Timer workerTimer = meterRegistry.find("toss.api.duration")
+			.tag("operation", "confirm").tag("outcome", "success").tag("path", "worker").timer();
+		assertThat(userTimer).isNotNull();
+		assertThat(workerTimer).isNotNull();
+		assertThat(userTimer).isNotSameAs(workerTimer);
+		assertThat(userTimer.count()).isEqualTo(1);
+		assertThat(workerTimer.count()).isEqualTo(1);
 	}
 
 	@Test

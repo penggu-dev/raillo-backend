@@ -8,9 +8,12 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
 import com.sudo.raillo.payment.domain.PaymentAttempt;
+import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
 import com.sudo.raillo.payment.domain.PaymentAttemptType;
 import com.sudo.raillo.support.annotation.ServiceTest;
 
@@ -19,6 +22,9 @@ class PaymentAttemptPersistenceAdapterTest {
 
 	@Autowired
 	private PaymentAttemptRepository paymentAttemptRepository;
+
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 
 	@Test
 	@DisplayName("저장한 attempt를 attemptId로 조회한다")
@@ -35,21 +41,79 @@ class PaymentAttemptPersistenceAdapterTest {
 	}
 
 	@Test
-	@DisplayName("threshold보다 오래된 IN_PROGRESS attempt만 반환한다")
-	void findInProgressOlderThan_filtersByThreshold() {
-		paymentAttemptRepository.save(
-			PaymentAttempt.startApproval(1L, "attempt-fresh", "key-fresh")
-		);
-		paymentAttemptRepository.save(
-			PaymentAttempt.startApproval(2L, "attempt-stale", "key-stale")
-		);
+	@DisplayName("오래되고 점유되지 않은 진행 중 시도만 선점 후보로 돌려준다")
+	void lockClaimable_returnsOnlyUnclaimedStaleRows() {
+		// given
+		LocalDateTime now = LocalDateTime.now();
+		PaymentAttempt claimable = paymentAttemptRepository.save(PaymentAttempt.startApproval(1L, "a-claimable", "k1"));
+		PaymentAttempt leased = paymentAttemptRepository.save(PaymentAttempt.startApproval(2L, "a-leased", "k2"));
+		leased.startProcessing("pod-other", now.plusMinutes(5));
+		paymentAttemptRepository.save(leased);
+		PaymentAttempt backoff = paymentAttemptRepository.save(PaymentAttempt.startApproval(3L, "a-backoff", "k3"));
+		backoff.scheduleRetry(now.plusMinutes(10));
+		paymentAttemptRepository.save(backoff);
 
-		LocalDateTime futureThreshold = LocalDateTime.now().plusDays(1);
-		List<PaymentAttempt> results =
-			paymentAttemptRepository.findInProgressOlderThan(PaymentAttemptType.APPROVAL, futureThreshold, 10);
+		// when
+		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+		List<PaymentAttempt> claimed = transactionTemplate.execute(status ->
+			paymentAttemptRepository.lockClaimable(PaymentAttemptType.APPROVAL, now.plusDays(1), now, 10));
 
-		assertThat(results).hasSize(2);
-		assertThat(results).extracting(PaymentAttempt::getAttemptId)
-			.containsExactlyInAnyOrder("attempt-fresh", "attempt-stale");
+		// then
+		assertThat(claimed).extracting(PaymentAttempt::getAttemptId).containsExactly("a-claimable");
+	}
+
+	@Test
+	@DisplayName("lease가 지난 시도는 다시 선점 후보가 된다")
+	void lockClaimable_reclaimsExpiredLease() {
+		// given
+		LocalDateTime now = LocalDateTime.now();
+		PaymentAttempt abandoned = paymentAttemptRepository.save(PaymentAttempt.startApproval(1L, "a-abandoned", "k1"));
+		abandoned.startProcessing("pod-dead", now.minusMinutes(1));
+		paymentAttemptRepository.save(abandoned);
+
+		// when
+		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+		List<PaymentAttempt> claimed = transactionTemplate.execute(status ->
+			paymentAttemptRepository.lockClaimable(PaymentAttemptType.APPROVAL, now.plusDays(1), now, 10));
+
+		// then
+		assertThat(claimed).extracting(PaymentAttempt::getAttemptId).containsExactly("a-abandoned");
+	}
+
+	@Test
+	@DisplayName("수동 확인 대기 행 수와 오래된 진행 중 행 수를 센다")
+	void countsExposeOperationalGauges() {
+		// given
+		LocalDateTime now = LocalDateTime.now();
+		PaymentAttempt stale = paymentAttemptRepository.save(PaymentAttempt.startApproval(1L, "a-stale", "k1"));
+		PaymentAttempt reviewed = paymentAttemptRepository.save(PaymentAttempt.startApproval(2L, "a-review", "k2"));
+		reviewed.markReviewRequired("REVIEW_RESULT_MISMATCH", "불일치");
+		paymentAttemptRepository.save(reviewed);
+
+		// when & then
+		assertThat(paymentAttemptRepository.countByStatus(PaymentAttemptStatus.REVIEW_REQUIRED)).isEqualTo(1);
+		assertThat(paymentAttemptRepository.countStaleInProgress(PaymentAttemptType.APPROVAL, now.plusDays(1)))
+			.isEqualTo(1);
+		assertThat(stale.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+	}
+
+	@Test
+	@DisplayName("수동 확인 행 수를 셀 때 창 밖에서 바뀐 행은 빼고 센다")
+	void countByStatusUpdatedAfter_excludesRowsOutsideWindow() {
+		// given
+		LocalDateTime now = LocalDateTime.now();
+		PaymentAttempt reviewed = paymentAttemptRepository.save(PaymentAttempt.startApproval(1L, "a-recent", "k1"));
+		reviewed.markReviewRequired("REVIEW_RESULT_MISMATCH", "불일치");
+		paymentAttemptRepository.save(reviewed);
+
+		// when
+		long withinWindow = paymentAttemptRepository.countByStatusUpdatedAfter(
+			PaymentAttemptStatus.REVIEW_REQUIRED, now.minusHours(24));
+		long outsideWindow = paymentAttemptRepository.countByStatusUpdatedAfter(
+			PaymentAttemptStatus.REVIEW_REQUIRED, now.plusMinutes(1));
+
+		// then
+		assertThat(withinWindow).isEqualTo(1);
+		assertThat(outsideWindow).isZero();
 	}
 }

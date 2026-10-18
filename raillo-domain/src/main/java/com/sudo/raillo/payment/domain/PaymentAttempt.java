@@ -128,7 +128,7 @@ public class PaymentAttempt {
 		this.errorMessage = errorMessage;
 	}
 
-	/** 전송되지 않은 attempt를 다시 진행 중으로 되돌린다. 이전 실패 정보는 지운다. */
+	/** 전송되지 않은 attempt를 다시 진행 중으로 되돌린다. 이전 실패 정보와 다음 조회 시각은 지운다. */
 	public void reopen() {
 		if (this.status != PaymentAttemptStatus.NOT_SENT) {
 			throw new DomainException(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
@@ -136,6 +136,7 @@ public class PaymentAttempt {
 		this.status = PaymentAttemptStatus.IN_PROGRESS;
 		this.errorCode = null;
 		this.errorMessage = null;
+		this.nextRetryAt = null;
 	}
 
 	/**
@@ -150,5 +151,26 @@ public class PaymentAttempt {
 		this.status = PaymentAttemptStatus.REVIEW_REQUIRED;
 		this.errorCode = errorCode;
 		this.errorMessage = errorMessage;
+	}
+
+	/** 복구 Worker가 이 시도를 집어간다. 진행 중일 때만 허용한다. */
+	public void startProcessing(String owner, LocalDateTime leaseUntil) {
+		if (this.status != PaymentAttemptStatus.IN_PROGRESS) {
+			throw new DomainException(PaymentError.PAYMENT_ATTEMPT_NOT_TRANSITIONABLE);
+		}
+		this.processingOwner = owner;
+		this.processingLeaseUntil = leaseUntil;
+	}
+
+	/** 점유를 반납한다. 상태를 보지 않는다. */
+	public void releaseProcessing() {
+		this.processingOwner = null;
+		this.processingLeaseUntil = null;
+	}
+
+	/** 점유를 반납하고 다음 조회 시각을 적는다. */
+	public void scheduleRetry(LocalDateTime nextRetryAt) {
+		releaseProcessing();
+		this.nextRetryAt = nextRetryAt;
 	}
 }

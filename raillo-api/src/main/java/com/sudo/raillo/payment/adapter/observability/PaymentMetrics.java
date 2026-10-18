@@ -1,9 +1,17 @@
 package com.sudo.raillo.payment.adapter.observability;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+
 import org.springframework.stereotype.Component;
 
+import com.sudo.raillo.payment.application.recovery.RecoveryProperties;
 import com.sudo.raillo.payment.application.required.OutboxMetrics;
+import com.sudo.raillo.payment.application.required.PaymentAttemptRepository;
 import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
+import com.sudo.raillo.payment.application.required.RecoveryMetrics;
+import com.sudo.raillo.payment.domain.PaymentAttemptStatus;
+import com.sudo.raillo.payment.domain.PaymentAttemptType;
 import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
 
 import io.micrometer.core.instrument.Counter;
@@ -11,7 +19,10 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 
 @Component
-public class PaymentMetrics implements OutboxMetrics {
+public class PaymentMetrics implements OutboxMetrics, RecoveryMetrics {
+
+	/** 수동 확인 대기 알림이 보는 창. 상태에 해소 표식이 없어 전체 행 게이지로는 알림을 걸 수 없다. */
+	private static final Duration REVIEW_REQUIRED_RECENT_WINDOW = Duration.ofHours(24);
 
 	private final MeterRegistry meterRegistry;
 	private final Counter prepareCounter;
@@ -19,8 +30,12 @@ public class PaymentMetrics implements OutboxMetrics {
 	private final Counter outboxFailedCounter;
 	private final Counter cleanupFailureCounter;
 	private final Counter outboxNonRetryableCounter;
+	private final Counter recoveredCounter;
 
-	public PaymentMetrics(MeterRegistry meterRegistry, PaymentOutboxRepository paymentOutboxRepository) {
+	public PaymentMetrics(
+		MeterRegistry meterRegistry, PaymentOutboxRepository paymentOutboxRepository,
+		PaymentAttemptRepository paymentAttemptRepository, RecoveryProperties recoveryProperties
+	) {
 		this.meterRegistry = meterRegistry;
 
 		this.prepareCounter = Counter.builder("payment_prepare_total")
@@ -43,6 +58,10 @@ public class PaymentMetrics implements OutboxMetrics {
 			.description("Outbox 처리 개별 실패 건수 (재시도 진입 포함)")
 			.register(meterRegistry);
 
+		this.recoveredCounter = Counter.builder("payment.recovery.recovered")
+			.description("복구 Worker가 확정 재실행에 성공한 건수")
+			.register(meterRegistry);
+
 		Gauge.builder("payment.outbox.pending", paymentOutboxRepository, r -> r.countByStatus(PaymentOutboxStatus.PENDING))
 			.description("현재 처리 대기 중인 outbox PENDING 건수")
 			.register(meterRegistry);
@@ -51,6 +70,23 @@ public class PaymentMetrics implements OutboxMetrics {
 		Gauge.builder("payment.outbox.failed_rows", paymentOutboxRepository,
 				r -> r.countByStatus(PaymentOutboxStatus.FAILED))
 			.description("FAILED로 종착해 사람 개입을 기다리는 outbox 행 수")
+			.register(meterRegistry);
+
+		Gauge.builder("payment.attempt.review_required_rows", paymentAttemptRepository,
+				r -> r.countByStatus(PaymentAttemptStatus.REVIEW_REQUIRED))
+			.description("수동 확인으로 남아 사람 개입을 기다리는 결제 시도 수")
+			.register(meterRegistry);
+
+		Gauge.builder("payment.attempt.review_required_recent_rows", paymentAttemptRepository,
+				r -> r.countByStatusUpdatedAfter(PaymentAttemptStatus.REVIEW_REQUIRED,
+					LocalDateTime.now().minus(REVIEW_REQUIRED_RECENT_WINDOW)))
+			.description("최근 24시간 안에 수동 확인으로 바뀌어 사람 개입을 기다리는 결제 시도 수")
+			.register(meterRegistry);
+
+		Gauge.builder("payment.attempt.stale_in_progress_rows", paymentAttemptRepository,
+				r -> r.countStaleInProgress(PaymentAttemptType.APPROVAL,
+					LocalDateTime.now().minus(recoveryProperties.staleAfter())))
+			.description("복구 임계값을 넘겨 진행 중으로 남은 결제 시도 수")
 			.register(meterRegistry);
 	}
 
@@ -85,5 +121,19 @@ public class PaymentMetrics implements OutboxMetrics {
 	@Override
 	public void incrementOutboxNonRetryable() {
 		outboxNonRetryableCounter.increment();
+	}
+
+	@Override
+	public void incrementDecision(String decision) {
+		Counter.builder("payment.recovery.decision")
+			.description("복구 Worker의 판정별 건수")
+			.tag("decision", decision)
+			.register(meterRegistry)
+			.increment();
+	}
+
+	@Override
+	public void incrementRecovered() {
+		recoveredCounter.increment();
 	}
 }

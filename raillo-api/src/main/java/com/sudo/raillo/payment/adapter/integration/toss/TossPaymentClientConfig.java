@@ -14,13 +14,20 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+
+import tools.jackson.databind.ObjectMapper;
+import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
+import com.sudo.raillo.payment.application.PaymentApprovalReconciler;
+import com.sudo.raillo.payment.application.required.PaymentGateway;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -103,7 +110,7 @@ public class TossPaymentClientConfig {
 	 */
 	@Bean(destroyMethod = "close")
 	public CloseableHttpClient tossHttpClient(
-		PoolingHttpClientConnectionManager connectionManager,
+		@Qualifier("tossHttpConnectionManager") PoolingHttpClientConnectionManager connectionManager,
 		TossPaymentProperties properties
 	) {
 		log.info("[TOSS] HTTP 클라이언트 초기화: connectTimeout={}, readTimeout={}, connectionRequestTimeout={}, "
@@ -125,7 +132,9 @@ public class TossPaymentClientConfig {
 	}
 
 	@Bean
-	public RestClient tossPaymentRestClient(CloseableHttpClient tossHttpClient, TossPaymentProperties properties) {
+	public RestClient tossPaymentRestClient(
+		@Qualifier("tossHttpClient") CloseableHttpClient tossHttpClient, TossPaymentProperties properties
+	) {
 		String encodedSecretKey = Base64.getEncoder()
 			.encodeToString((properties.secretKey() + ":").getBytes(StandardCharsets.UTF_8));
 
@@ -144,6 +153,29 @@ public class TossPaymentClientConfig {
 				return execution.execute(request, body);
 			})
 			.build();
+	}
+
+	/** 사용자 경로 빈. Worker 경로 빈과 타입이 같으므로 기존 주입 지점이 이쪽으로 해석되도록 {@code @Primary}를 둔다. */
+	@Bean
+	@Primary
+	public TossPaymentClient tossPaymentClient(
+		@Qualifier("tossPaymentRestClient") RestClient restClient, ObjectMapper objectMapper, TossApiMetrics metrics
+	) {
+		return new TossPaymentClient(restClient, objectMapper, metrics, "user");
+	}
+
+	@Bean
+	@Primary
+	public PaymentGateway tossPaymentGateway(@Qualifier("tossPaymentClient") TossPaymentClient tossPaymentClient) {
+		return new TossPaymentGateway(tossPaymentClient);
+	}
+
+	@Bean
+	@Primary
+	public PaymentApprovalReconciler paymentApprovalReconciler(
+		@Qualifier("tossPaymentGateway") PaymentGateway paymentGateway
+	) {
+		return new PaymentApprovalReconciler(paymentGateway);
 	}
 
 	private Map<String, List<String>> maskSensitiveHeaders(HttpHeaders headers) {

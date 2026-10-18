@@ -23,8 +23,17 @@ public record TossPaymentProperties(
 	@Positive @DefaultValue("100") int maxConnectionsPerRoute,
 	@Positive @DefaultValue("200") int maxTotal,
 	@NotNull @DefaultValue("60s") Duration keepAliveDuration,
-	@NotNull @DefaultValue("30s") Duration evictIdleAfter
+	@NotNull @DefaultValue("30s") Duration evictIdleAfter,
+	@NotNull @DefaultValue WorkerHttp worker
 ) {
+	/** 복구 Worker 전용 Toss 호출 예산. */
+	public record WorkerHttp(
+		@NotNull @DefaultValue("20s") Duration readTimeout,
+		@NotNull @DefaultValue("5s") Duration connectionRequestTimeout,
+		@Positive @DefaultValue("10") int maxConnectionsPerRoute,
+		@Positive @DefaultValue("10") int maxTotal
+	) {}
+
 	public TossPaymentProperties {
 		if (secretKey != null && secretKey.startsWith("${")) {
 			throw new IllegalStateException(

@@ -14,7 +14,6 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import tools.jackson.databind.ObjectMapper;
@@ -25,11 +24,11 @@ import com.sudo.raillo.payment.application.exception.DeliveryPhase;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
 import com.sudo.raillo.payment.domain.exception.PaymentError;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class TossPaymentClient {
 
@@ -42,6 +41,10 @@ public class TossPaymentClient {
 	private final RestClient tossPaymentRestClient;
 	private final ObjectMapper objectMapper;
 	private final TossApiMetrics tossApiMetrics;
+
+	/** 지표가 사용자 경로와 Worker 경로를 구분하는 이름. */
+	@Getter
+	private final String callPath;
 
 	/**
 	 * 토스페이먼츠 결제 승인 API 호출

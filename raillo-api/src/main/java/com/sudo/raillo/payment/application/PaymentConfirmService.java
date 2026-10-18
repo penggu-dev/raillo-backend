@@ -59,7 +59,7 @@ public class PaymentConfirmService implements PaymentConfirmer {
 					attemptFailureMarker.markNotSentQuietly(start.paymentId(), start.attemptDbId(),
 						new AttemptError(failure.getErrorCode(), failure.getMessage()));
 				} else {
-					// 5xx/timeout은 결과 불명이라 IN_PROGRESS로 남기고 회복 경로에 위임한다. 지금은 사용자 재시도뿐이고 Recovery Worker는 아직 없다(#270).
+					// 5xx/timeout은 결과 불명이라 IN_PROGRESS로 남기고 회복 경로에 위임한다(사용자 재시도 또는 Recovery Worker).
 					// 그 사이 예약 TTL이 좌석을 가져가면 이미 승인된 결제를 확정할 수 없으므로 좌석 field의 만료를 없앤다.
 					paymentSeatGuard.holdQuietly(command.orderId(), start.paymentId(), start.attemptDbId());
 				}

@@ -64,7 +64,7 @@ class PaymentScenarioTest {
 	@Autowired
 	private PaymentConfirmer paymentConfirmer;
 
-	@MockitoBean
+	@MockitoBean(name = "tossPaymentClient")
 	private TossPaymentClient tossPaymentClient;
 
 	@Autowired

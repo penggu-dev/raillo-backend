@@ -21,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import tools.jackson.databind.ObjectMapper;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
@@ -29,7 +30,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 
-@RestClientTest(TossPaymentClient.class)
+@RestClientTest
 @Import(TossPaymentClientMetricsTest.TestConfig.class)
 class TossPaymentClientMetricsTest {
 
@@ -62,6 +63,12 @@ class TossPaymentClientMetricsTest {
 		public TossApiMetrics tossApiMetrics(MeterRegistry meterRegistry,
 			PoolingHttpClientConnectionManager tossHttpConnectionManager) {
 			return new TossApiMetrics(meterRegistry, tossHttpConnectionManager);
+		}
+
+		@Bean
+		public TossPaymentClient tossPaymentClient(RestClient tossPaymentRestClient, ObjectMapper objectMapper,
+			TossApiMetrics tossApiMetrics) {
+			return new TossPaymentClient(tossPaymentRestClient, objectMapper, tossApiMetrics, "user");
 		}
 	}
 

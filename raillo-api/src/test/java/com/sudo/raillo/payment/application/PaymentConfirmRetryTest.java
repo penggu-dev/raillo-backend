@@ -55,7 +55,7 @@ class PaymentConfirmRetryTest {
 	@Autowired private TrainScheduleTestHelper scheduleTestHelper;
 	@Autowired private JdbcTemplate jdbcTemplate;
 
-	@MockitoBean private TossPaymentClient tossPaymentClient;
+	@MockitoBean(name = "tossPaymentClient") private TossPaymentClient tossPaymentClient;
 
 	private Member member;
 	private String memberNo;

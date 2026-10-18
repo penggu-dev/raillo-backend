@@ -43,7 +43,7 @@ import org.apache.hc.core5.http.ConnectionRequestTimeoutException;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 
-@RestClientTest(TossPaymentClient.class)
+@RestClientTest
 @Import(TossPaymentClientTest.TestConfig.class)
 class TossPaymentClientTest {
 
@@ -76,6 +76,12 @@ class TossPaymentClientTest {
 		public TossApiMetrics tossApiMetrics(MeterRegistry meterRegistry,
 			PoolingHttpClientConnectionManager tossHttpConnectionManager) {
 			return new TossApiMetrics(meterRegistry, tossHttpConnectionManager);
+		}
+
+		@Bean
+		public TossPaymentClient tossPaymentClient(RestClient tossPaymentRestClient, ObjectMapper objectMapper,
+			TossApiMetrics tossApiMetrics) {
+			return new TossPaymentClient(tossPaymentRestClient, objectMapper, tossApiMetrics, "user");
 		}
 	}
 

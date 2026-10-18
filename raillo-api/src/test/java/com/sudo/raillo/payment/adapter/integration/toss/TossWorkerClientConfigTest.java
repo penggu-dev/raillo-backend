@@ -1,0 +1,53 @@
+package com.sudo.raillo.payment.adapter.integration.toss;
+
+import static org.assertj.core.api.Assertions.*;
+
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import com.sudo.raillo.payment.application.recovery.PaymentRecoveryWorker;
+import com.sudo.raillo.payment.application.required.PaymentGateway;
+import com.sudo.raillo.support.annotation.ServiceTest;
+
+@ServiceTest
+@DisplayName("Worker 전용 Toss 클라이언트")
+class TossWorkerClientConfigTest {
+
+	@Autowired
+	private ApplicationContext context;
+
+	@Test
+	@DisplayName("복구 Worker는 Worker 전용 판정기를 주입받는다")
+	void recoveryWorkerUsesWorkerReconciler() {
+		// given
+		PaymentRecoveryWorker worker = context.getBean(PaymentRecoveryWorker.class);
+
+		// when
+		Object injected = ReflectionTestUtils.getField(worker, "reconciler");
+
+		// then
+		assertThat(injected).isSameAs(context.getBean("workerApprovalReconciler"));
+	}
+
+	@Test
+	@DisplayName("사용자 경로와 Worker 경로가 서로 다른 커넥션 풀과 게이트웨이를 쓴다")
+	void workerBeansAreSeparateFromUserPath() {
+		// given
+		PaymentGateway userGateway = context.getBean(PaymentGateway.class);
+		PaymentGateway workerGateway = (PaymentGateway)context.getBean("tossWorkerPaymentGateway");
+
+		// when
+		PoolingHttpClientConnectionManager userPool =
+			(PoolingHttpClientConnectionManager)context.getBean("tossHttpConnectionManager");
+		PoolingHttpClientConnectionManager workerPool =
+			(PoolingHttpClientConnectionManager)context.getBean("tossWorkerHttpConnectionManager");
+
+		// then
+		assertThat(workerGateway).isNotSameAs(userGateway);
+		assertThat(workerPool).isNotSameAs(userPool);
+	}
+}

@@ -20,7 +20,7 @@ public class AttemptFailureMarker {
 
 	private final PaymentAttemptManager paymentAttemptManager;
 
-	/** attempt를 FAILED로 바꾼다. 마킹이 실패하면 attempt가 IN_PROGRESS로 남고, 대사할 Recovery Worker는 아직 없다(#270). */
+	/** attempt를 FAILED로 바꾼다. 마킹이 실패하면 attempt가 IN_PROGRESS로 남고 복구 Worker가 대사한다. */
 	public void markFailedQuietly(Long paymentId, Long attemptDbId, AttemptError error) {
 		try {
 			paymentAttemptManager.markFailedInNewTransaction(paymentId, attemptDbId, error);
