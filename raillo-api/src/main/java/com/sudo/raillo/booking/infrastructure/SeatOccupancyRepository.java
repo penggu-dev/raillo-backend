@@ -175,10 +175,10 @@ public class SeatOccupancyRepository {
 	/**
 	 * 자기 `Booking`의 점유 field를 지운다. 다른 `Booking`이나 `Reservation`이 점유한 field는 건드리지 않는다.
 	 *
-	 * <p>해제 수 0은 실패가 아니다. 다만 좌석이 풀렸다는 뜻도 아니어서, R에서 B로 전환되기 전에 지운
-	 * `Booking`은 {@code R:} field를 남긴다. 그 해제는 #270에서 한다.</p>
+	 * @return 지운 field 수와 자기 것이 아니어서 건너뛴 field 수
+	 * @throws BusinessException 스크립트 실행이 실패했을 때({@code SEAT_OCCUPANCY_RELEASE_FAILED})
 	 */
-	public void releaseBooking(BookingSeatReleaseCommand command) {
+	public BookingSeatReleaseResult releaseBooking(BookingSeatReleaseCommand command) {
 		SeatKeyLayout layout = SeatKeyLayout.of(command.trainScheduleId(), command.seats());
 
 		List<String> args = new ArrayList<>();
@@ -193,9 +193,10 @@ public class SeatOccupancyRepository {
 			// 이 스크립트는 앞에 두는 키가 없어 객차 Hash가 KEYS[1]부터다
 			@SuppressWarnings("unchecked")
 			List<Object> raw = stringRedisTemplate.execute(bookingSeatReleaseScript, layout.keys(), args.toArray());
-			long released = ((Number)raw.get(0)).longValue();
-			log.info("[예매 점유 해제] {}, releasedFields={}", ctx, released);
-			warnIfPartiallyReleased(command, released, ctx);
+			BookingSeatReleaseResult result = BookingSeatReleaseResult.fromLuaResult(raw);
+			log.info("[예매 점유 해제] {}, releasedFields={}, foreignFields={}", ctx, result.releasedCount(), result.foreignCount());
+			warnIfNotFullyReleased(command, result, ctx);
+			return result;
 		} catch (Exception e) {
 			throw scriptFailure("예매 점유 해제", ctx, e, BookingError.SEAT_OCCUPANCY_RELEASE_FAILED);
 		}
@@ -238,23 +239,25 @@ public class SeatOccupancyRepository {
 	}
 
 	/**
-	 * 요청 구간의 일부만 지워졌으면 경고로 남긴다.
+	 * 요청 구간을 전부 해제하지 못했으면 경고로 남긴다.
 	 *
-	 * <p>0건은 경고하지 않는다. 무해한 경우(전환 처리기 도입 이전 `Booking`, 재처리)와 위험한 경우(오염,
-	 * 전환 전 삭제)가 모두 0건이라 값만으로 가를 수 없고 무해한 쪽이 흔하다. 가르려면 스크립트가
-	 * 자기 것이 아니었던 field 수를 함께 돌려줘야 하며 #270에서 다룬다.</p>
-	 *
-	 * <p>일부만 지워진 것은 정상 경로로 설명되지 않는다. 남은 field가 운행일까지 좌석을 묶는다.
-	 * 던지지 않는 이유는 되돌릴 수 없고 재시도도 같은 결과여서다.</p>
+	 * <p>아무 값도 없었으면 이미 해제된 것이라 경고하지 않는다. 재처리에서 흔하다. {@code foreign}이 0보다
+	 * 크면 다른 주인이 쥔 field가 남아 운행일까지 좌석을 묶는다. 던지지 않는 이유는 되돌릴 수 없고 재시도도
+	 * 같은 결과여서다.</p>
 	 */
-	private static void warnIfPartiallyReleased(BookingSeatReleaseCommand command, long released, String ctx) {
+	private static void warnIfNotFullyReleased(
+		BookingSeatReleaseCommand command, BookingSeatReleaseResult result, String ctx) {
 		int sections = command.arrivalStopOrder() - command.departureStopOrder();
 		long expected = (long)command.seats().size() * sections;
-		if (released > 0 && released < expected) {
-			log.warn("[예매 점유 해제 - 일부만 해제됨] {}, expected={}, released={}, leftBehind={} "
-					+ "(남은 field는 운행일까지 좌석을 묶는다)",
-				ctx, expected, released, expected - released);
+		if (result.releasedCount() >= expected) {
+			return;
 		}
+		if (result.releasedCount() == 0 && result.foreignCount() == 0) {
+			return;
+		}
+		log.warn("[예매 점유 해제 - 전부 해제하지 못함] {}, expected={}, released={}, foreign={} "
+				+ "(foreign이 0보다 크면 남은 field가 운행일까지 좌석을 묶는다)",
+			ctx, expected, result.releasedCount(), result.foreignCount());
 	}
 
 	/**

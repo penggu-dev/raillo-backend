@@ -890,6 +890,70 @@ class SeatOccupancyRepositoryTest {
 		}
 
 		@Test
+		@DisplayName("요청 구간을 모두 해제하면 해제 수만 올라가고 다른 주인 수는 0이다")
+		void reports_released_count_without_foreign() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(confirmCommand("RV1", 77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			BookingSeatReleaseResult result = seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.releasedCount()).isEqualTo(2);
+			assertThat(result.foreignCount()).isZero();
+		}
+
+		@Test
+		@DisplayName("전환되지 않고 남은 예약 field는 다른 주인으로 센다")
+		void counts_reservation_fields_as_foreign() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			BookingSeatReleaseResult result = seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.releasedCount()).isZero();
+			assertThat(result.foreignCount()).isEqualTo(2);
+		}
+
+		@Test
+		@DisplayName("다른 예매가 점유한 field는 다른 주인으로 센다")
+		void counts_other_booking_fields_as_foreign() {
+			// given
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_A, 0), "B:77");
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_B, 0), "B:88");
+
+			// when
+			BookingSeatReleaseResult result = seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 1, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_1)));
+
+			// then
+			assertThat(result.releasedCount()).isEqualTo(1);
+			assertThat(result.foreignCount()).isEqualTo(1);
+		}
+
+		@Test
+		@DisplayName("남은 field가 없으면 해제 수와 다른 주인 수가 모두 0이다")
+		void reports_zero_counts_when_nothing_remains() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(confirmCommand("RV1", 77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.releaseBooking(bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			BookingSeatReleaseResult result = seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.releasedCount()).isZero();
+			assertThat(result.foreignCount()).isZero();
+		}
+
+		@Test
 		@DisplayName("객차 키가 Hash가 아니면 SEAT_OCCUPANCY_RELEASE_FAILED 예외가 발생한다")
 		void throws_when_car_key_is_not_hash() {
 			// given
