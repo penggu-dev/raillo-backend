@@ -99,8 +99,7 @@ public class PaymentValidator {
 	}
 
 	/**
-	 * 게이트웨이 응답을 DB에 저장된 확정 대상과 비교한다. 사용자 명령을 받지 않으므로 지금은 TX B가 쓰고,
-	 * Recovery Worker(#270, 아직 없다)도 그대로 쓸 수 있다.
+	 * 게이트웨이 응답을 DB에 저장된 확정 대상과 비교한다. TX B와 Recovery Worker 모두에서 사용된다.
 	 */
 	public void validateGatewayResponseMatchesStored(
 		GatewayConfirmResult result, String storedPaymentKey, String storedOrderCode, BigDecimal storedAmount) {

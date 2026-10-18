@@ -144,7 +144,6 @@ public class PaymentApprovalStarter {
 	/**
 	 * IN_PROGRESS attempt 발견 시(사용자 재시도 또는 동시 요청 경합) 게이트웨이 상태를 재조회해 사용자 응답을 만든다.
 	 * 판정은 {@link PaymentApprovalReconciler}가 하고 여기서는 그 판정을 응답으로 바꾼다.
-	 * 같은 판정을 상태 기록으로 바꿀 Recovery Worker는 아직 없다(#270).
 	 */
 	private PaymentApprovalStart recoverInProgressAttempt(
 		PaymentAttempt existing, Payment payment, ApprovalContext ctx

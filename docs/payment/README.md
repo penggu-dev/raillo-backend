@@ -166,7 +166,7 @@ Enum
 ### 최대 대기 초과를 강제 실패로 기록하지 않는다
 - 맥락: 복구 Worker가 아무리 재시도해도 Toss 응답을 못 받는 시도가 있을 수 있다. 끝없이 재시도를 걸면 그 시도는 영원히 `IN_PROGRESS`로 남아 좌석과 자원을 붙잡는다.
 - 결정: `RecoveryBackoffPolicy`의 최대 대기를 넘기면 자동으로 `FAILED`를 선언하지 않고 `REVIEW_RECOVERY_TIMEOUT` 사유로 `REVIEW_REQUIRED`에 올려 사람이 Toss 쪽을 직접 확인하게 한다.
-- 결과: 승인됐을 수도 있는 시도를 자동으로 실패 처리해 이중 청구나 환불 누락을 만들지 않는다. 대신 수동 확인 대기가 늘어날 수 있어 `payment.attempt.review_required_rows` 게이지로 지켜본다.
+- 결과: 승인됐을 수도 있는 시도를 자동으로 실패 처리해 이중 청구나 환불 누락을 만들지 않는다. 대신 수동 확인 대기가 늘어날 수 있어 `payment.attempt.review_required_rows` 게이지로 지켜본다. `REVIEW_REQUIRED`에는 처리됐다는 표식이 없어 이 게이지는 줄지 않으므로, 알림은 최근 24시간 안에 바뀐 행만 세는 `payment.attempt.review_required_recent_rows`에 걸고 전체 행 게이지는 전체 적체 규모를 보려고 둔다. 해소 표식은 #302 범위다.
 
 ### 미전송은 실패와 구분한다
 - 맥락: `attemptId`가 `paymentKey`에서 결정되므로, 실패로 기록하면 그 `paymentKey`로는 다시 승인할 수 없다. 그런데 요청이 Toss에 가지도 않았다면 다시 보내도 위험이 없다.

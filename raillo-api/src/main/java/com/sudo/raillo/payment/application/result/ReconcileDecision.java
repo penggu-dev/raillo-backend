@@ -6,8 +6,7 @@ import com.sudo.raillo.payment.application.required.PaymentGateway.GatewayPaymen
 /**
  * IN_PROGRESS attempt 하나에 대한 회복 판정. 상태를 바꾸지 않고 무엇을 할지만 돌려준다.
  *
- * <p>sealed로 두어 소비자가 분기를 빠뜨리면 컴파일이 멈춘다. 지금 소비자는 사용자 재시도 경로뿐이고,
- * 같은 판정을 상태 기록으로 바꿀 Recovery Worker는 아직 없다(#270).</p>
+ * <p>sealed로 두어 소비자가 분기를 빠뜨리면 컴파일이 멈춘다. 소비자는 사용자 재시도 경로와 Recovery Worker이다.</p>
  */
 public sealed interface ReconcileDecision {
 
