@@ -13,6 +13,14 @@ import com.sudo.raillo.payment.domain.PaymentOutboxType;
 import com.sudo.raillo.support.annotation.ServiceTest;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +54,7 @@ class PaymentOutboxWorkerIntegrationTest {
 
 	@org.junit.jupiter.api.BeforeEach
 	void register_processor_types() {
-		when(dispatcher.supportedTypes()).thenReturn(java.util.List.of(PaymentOutboxType.BOOKING_CONFIRMED));
+		when(dispatcher.supportedTypes()).thenReturn(List.of(PaymentOutboxType.BOOKING_CONFIRMED));
 	}
 
 	@Test
@@ -245,6 +253,182 @@ class PaymentOutboxWorkerIntegrationTest {
 		PaymentOutbox reloaded = outboxRepository.findById(row.getId()).orElseThrow();
 		assertThat(reloaded.getStatus()).isEqualTo(PaymentOutboxStatus.PENDING);
 		assertThat(reloaded.getRetryCount()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("처리 가능한 행이 배치 크기보다 많으면 한 번의 poll에서 배치 크기만큼만 처리한다")
+	void poll_processesAtMostBatchSize() {
+		// given
+		int overflow = properties.batchSize() + 2;
+		for (int i = 0; i < overflow; i++) {
+			outboxRepository.save(PaymentOutbox.forBookingConfirmed(100L + i, "{}"));
+		}
+		doNothing().when(dispatcher).dispatch(any(), any());
+
+		// when
+		worker.poll();
+
+		// then
+		assertThat(outboxRepository.countByStatus(PaymentOutboxStatus.DONE)).isEqualTo(properties.batchSize());
+		assertThat(outboxRepository.countByStatus(PaymentOutboxStatus.PENDING)).isEqualTo(overflow - properties.batchSize());
+	}
+
+	@Test
+	@DisplayName("다음 조회 시각이 없는 행을 먼저, 그 다음은 조회 시각이 이른 순으로 처리한다")
+	void poll_processesInNextRetryAtThenIdOrder() {
+		// given 저장 순서와 기대 처리 순서를 다르게 둔다
+		saveWithNextRetryAt(201L, LocalDateTime.now().minusSeconds(10));
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(202L, payloadOf(202L)));
+		saveWithNextRetryAt(203L, LocalDateTime.now().minusMinutes(5));
+		List<Long> dispatched = recordDispatchOrder();
+
+		// when
+		worker.poll();
+
+		// then 조회 시각이 없는 202가 먼저, 그 다음 더 이른 203, 마지막이 201이다
+		assertThat(dispatched).containsExactly(202L, 203L, 201L);
+	}
+
+	@Test
+	@DisplayName("FAILED로 종착한 행은 다시 처리하지 않는다")
+	void poll_skipsFailedRows() {
+		// given
+		PaymentOutbox row = outboxRepository.save(PaymentOutbox.forBookingConfirmed(301L, "{}"));
+		row.markFailed();
+		outboxRepository.save(row);
+		doNothing().when(dispatcher).dispatch(any(), any());
+
+		// when
+		worker.poll();
+
+		// then
+		assertThat(outboxRepository.findById(row.getId()).orElseThrow().getStatus())
+			.isEqualTo(PaymentOutboxStatus.FAILED);
+		verify(dispatcher, never()).dispatch(any(), any());
+	}
+
+	@Test
+	@DisplayName("이미 DONE인 행은 다시 처리하지 않는다")
+	void poll_skipsDoneRows() {
+		// given
+		PaymentOutbox row = outboxRepository.save(PaymentOutbox.forBookingConfirmed(302L, "{}"));
+		row.markDone();
+		outboxRepository.save(row);
+		doNothing().when(dispatcher).dispatch(any(), any());
+
+		// when
+		worker.poll();
+
+		// then
+		verify(dispatcher, never()).dispatch(any(), any());
+	}
+
+	@Test
+	@DisplayName("등록된 처리기가 없는 타입의 행은 선점하지 않는다")
+	void poll_skipsUnsupportedTypes() {
+		// given dispatcher가 지원하는 타입은 BOOKING_CONFIRMED뿐이다
+		PaymentOutbox unsupported = outboxRepository.save(
+			PaymentOutbox.forBookingSeatRelease(401L, "{}"));
+		doNothing().when(dispatcher).dispatch(any(), any());
+
+		// when
+		worker.poll();
+
+		// then
+		assertThat(outboxRepository.findById(unsupported.getId()).orElseThrow().getStatus())
+			.isEqualTo(PaymentOutboxStatus.PENDING);
+		verify(dispatcher, never()).dispatch(any(), any());
+	}
+
+	@Test
+	@DisplayName("앞선 Worker가 배치를 선점한 채 멈춰 있어도 다른 Worker는 막히지 않고 같은 행을 두 번 처리하지 않는다")
+	void poll_concurrentWorkers_neverProcessSameRowTwice() throws Exception {
+		// given 배치 크기의 두 배를 쌓는다. 선점한 쪽이 커밋 전에 멈춰 경합을 결정적으로 만든다
+		int rows = properties.batchSize() * 2;
+		for (int i = 0; i < rows; i++) {
+			outboxRepository.save(PaymentOutbox.forBookingConfirmed(500L + i, payloadOf(500L + i)));
+		}
+		List<Long> dispatched = Collections.synchronizedList(new ArrayList<>());
+		CountDownLatch firstHoldsBatch = new CountDownLatch(1);
+		CountDownLatch secondFinished = new CountDownLatch(1);
+		doAnswer(invocation -> {
+			dispatched.add(aggregateIdOf(invocation.getArgument(1)));
+			if (firstHoldsBatch.getCount() > 0) {
+				firstHoldsBatch.countDown();
+				// SKIP LOCKED가 없으면 뒤 Worker가 이 잠금에 막혀 서로를 기다리다 타임아웃된다
+				secondFinished.await(10, TimeUnit.SECONDS);
+			}
+			return null;
+		}).when(dispatcher).dispatch(any(), any());
+
+		// when
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		try {
+			Future<?> first = pool.submit(() -> worker.poll());
+			Future<?> second = pool.submit(() -> {
+				awaitLatch(firstHoldsBatch);
+				worker.poll();
+				secondFinished.countDown();
+			});
+			second.get(30, TimeUnit.SECONDS);
+			first.get(30, TimeUnit.SECONDS);
+		} finally {
+			pool.shutdownNow();
+		}
+
+		// then 선점한 배치가 겹치지 않으므로 같은 행이 두 번 위임되지 않는다
+		assertThat(dispatched).doesNotHaveDuplicates();
+		assertThat(outboxRepository.countByStatus(PaymentOutboxStatus.DONE)).isEqualTo(dispatched.size());
+	}
+
+	@Test
+	@DisplayName("PENDING 행은 payment.outbox.pending 게이지에 반영된다")
+	void pendingRows_areVisibleInGauge() {
+		// given 게이지가 등록돼 있지 않으면 get()이 던진다
+		double before = meterRegistry.get("payment.outbox.pending").gauge().value();
+
+		// when
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(601L, "{}"));
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(602L, "{}"));
+
+		// then
+		assertThat(meterRegistry.get("payment.outbox.pending").gauge().value()).isEqualTo(before + 2);
+	}
+
+	private static void awaitLatch(CountDownLatch latch) {
+		try {
+			if (!latch.await(10, TimeUnit.SECONDS)) {
+				throw new IllegalStateException("앞선 Worker가 배치를 선점하지 못했다");
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException(e);
+		}
+	}
+
+	private PaymentOutbox saveWithNextRetryAt(long aggregateId, LocalDateTime nextRetryAt) {
+		PaymentOutbox row = outboxRepository.save(
+			PaymentOutbox.forBookingConfirmed(aggregateId, payloadOf(aggregateId)));
+		row.markRetry(nextRetryAt);
+		return outboxRepository.save(row);
+	}
+
+	private static String payloadOf(long aggregateId) {
+		return "{\"aggregateId\":" + aggregateId + "}";
+	}
+
+	/** payload에 심은 aggregateId로 dispatcher 호출 순서를 모은다. */
+	private List<Long> recordDispatchOrder() {
+		List<Long> order = new ArrayList<>();
+		doAnswer(invocation -> {
+			order.add(aggregateIdOf(invocation.getArgument(1)));
+			return null;
+		}).when(dispatcher).dispatch(any(), any());
+		return order;
+	}
+
+	private static long aggregateIdOf(String payload) {
+		return Long.parseLong(payload.replaceAll("[^0-9]", ""));
 	}
 
 	@Service
