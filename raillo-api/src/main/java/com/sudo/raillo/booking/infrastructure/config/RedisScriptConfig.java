@@ -47,7 +47,7 @@ public class RedisScriptConfig {
 	/**
 	 * `Booking` 점유 해제 스크립트. 자기 `Booking`의 점유 field만 지운다.
 	 *
-	 * <p>반환값: {@code {released}}</p>
+	 * <p>반환값: {@code {released, foreign}}. foreign은 값이 있었지만 자기 것이 아니었던 field 수다</p>
 	 */
 	@Bean
 	public DefaultRedisScript<List> bookingSeatReleaseScript() {

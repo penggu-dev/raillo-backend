@@ -62,8 +62,8 @@ Aggregate Root
 ### 예매 점유 전환(BookingConfirmedProcessor)
 
 - payload의 예약마다
-  - 운행일이 지났으면 좌석은 두고 예약 본문과 회원 인덱스만 지운다
-  - 예매가 더는 유효하지 않으면(취소, 삭제) 같은 방식으로 지운다
+  - 운행일이 지났으면 `reservation_delete.lua`로 좌석 점유와 예약 본문, 회원 인덱스를 되돌린다
+  - 예매가 더는 유효하지 않으면(취소, 삭제) 같은 방식으로 되돌린다. 결제 중 보호로 만료가 사라진 field를 남기지 않기 위해서다
   - 그 외에는 `reservation_booking_confirm.lua`로 좌석 점유를 예매로 바꾼다
 - 규칙
   - 다른 예약이나 예매와 충돌한 항목이 있으면, 나머지 항목을 모두 처리한 뒤 예외를 한 번 던져 재시도에 맡긴다
@@ -76,6 +76,7 @@ Aggregate Root
 - `Booking` 행이 이미 없으므로 payload만으로 `booking_seat_release.lua`를 부른다
 - 규칙
   - 값이 자기 `B:{bookingId}`일 때만 지우므로 다시 실행해도 안전하다
+  - 해제 0건은 좌석이 풀렸다는 뜻이 아니다. 스크립트가 함께 돌려주는 foreign 수가 0보다 크면 다른 주인이 쥐고 있다
   - payload의 `schemaVersion`이 1이 아니거나 구간 순서가 잘못됐으면 처리하지 않는다
 
 ### payload 형식을 바꿀 때
