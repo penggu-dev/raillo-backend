@@ -95,7 +95,7 @@ Value Object, record
 | `reservation_booking_confirm.lua` | 자기 `R:`, 자기 `B:`, 빈 field를 `B:{bookingId}`로 바꾸고 field 만료를 없앤다. 예약 본문을 지운다 |
 | `reservation_payment_hold.lua` | 결제 결과를 모르는 동안 자기 `R:` field의 만료를 없앤다 |
 | `reservation_payment_release.lua` | 결제 실패가 확정되면 field 만료를 주문 표시 키나 예약 본문의 남은 TTL로 되돌린다 |
-| `booking_seat_release.lua` | 값이 정확히 자기 `B:{bookingId}`인 field만 지운다. 삭제된 예매의 좌석을 푼다 |
+| `booking_seat_release.lua` | 값이 정확히 자기 `B:{bookingId}`인 field만 지운다. 삭제된 예매의 좌석을 푼다. 지운 수와 함께 자기 것이 아니었던 field 수를 돌려준다 |
 
 - 규칙
   - **만료가 없다는 것만으로 `B:` field라고 판단하면 안 된다.** 결제 중 보호된 `R:` field도 만료가 없다
@@ -148,7 +148,7 @@ Enum
 
 - `reserve(reservation, ttl)`: 회원 인덱스를 쓰고 좌석을 점유한다
 - `cancel(reservationId, memberNo)`: 좌석 점유를 해제하고 회원 인덱스를 지운다. 없거나 만료된 예약은 성공으로 본다
-- `discardReservation(...)`: 좌석은 두고 예약 본문과 회원 인덱스만 지운다
+- `releaseReservation(request)`: 예매가 되지 못한 예약의 `R:` 점유와 예약 본문, 회원 인덱스를 되돌린다
 - 규칙
   - 충돌하면 상대가 예약인지 예매인지 구분해 오류를 낸다
   - `R:` 점유와 예약 본문, 회원 인덱스만 다룬다. 생성과 취소는 Lua 하나가 점유와 본문을 함께 쓰므로 나눌 수 없다

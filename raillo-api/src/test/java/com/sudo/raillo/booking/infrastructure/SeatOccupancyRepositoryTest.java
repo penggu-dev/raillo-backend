@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+import com.sudo.raillo.booking.application.dto.SeatOccupancyQuery;
 import com.sudo.raillo.booking.cache.ReservationCacheKey;
 import com.sudo.raillo.booking.cache.SeatOccupancyValue;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -38,6 +40,9 @@ class SeatOccupancyRepositoryTest {
 
 	@Autowired
 	private StringRedisTemplate stringRedisTemplate;
+
+	@Autowired
+	private SeatOccupancyQueryRepository seatOccupancyQueryRepository;
 
 	private static SeatOccupancyCommand command(String reservationId, int dep, int arr, SeatCar... seats) {
 		return command(reservationId, TTL_SECONDS, dep, arr, seats);
@@ -64,6 +69,10 @@ class SeatOccupancyRepositoryTest {
 	private static BookingOccupancyCommand confirmCommand(String reservationId, long bookingId, long keyExpireAt,
 		int dep, int arr, SeatCar... seats) {
 		return new BookingOccupancyCommand(SCHEDULE_ID, reservationId, bookingId, keyExpireAt, dep, arr, List.of(seats));
+	}
+
+	private static SeatReleaseCommand releaseCommand(String reservationId, int dep, int arr, SeatCar... seats) {
+		return new SeatReleaseCommand(SCHEDULE_ID, reservationId, dep, arr, List.of(seats));
 	}
 
 	private static BookingSeatReleaseCommand bookingReleaseCommand(long bookingId, int dep, int arr, SeatCar... seats) {
@@ -890,6 +899,70 @@ class SeatOccupancyRepositoryTest {
 		}
 
 		@Test
+		@DisplayName("요청 구간을 모두 해제하면 해제 수만 올라가고 다른 주인 수는 0이다")
+		void reports_released_count_without_foreign() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(confirmCommand("RV1", 77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			BookingSeatReleaseResult result = seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.releasedCount()).isEqualTo(2);
+			assertThat(result.foreignCount()).isZero();
+		}
+
+		@Test
+		@DisplayName("전환되지 않고 남은 예약 field는 다른 주인으로 센다")
+		void counts_reservation_fields_as_foreign() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			BookingSeatReleaseResult result = seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.releasedCount()).isZero();
+			assertThat(result.foreignCount()).isEqualTo(2);
+		}
+
+		@Test
+		@DisplayName("다른 예매가 점유한 field는 다른 주인으로 센다")
+		void counts_other_booking_fields_as_foreign() {
+			// given
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_A, 0), "B:77");
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_B, 0), "B:88");
+
+			// when
+			BookingSeatReleaseResult result = seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 1, new SeatCar(SEAT_A, CAR_1), new SeatCar(SEAT_B, CAR_1)));
+
+			// then
+			assertThat(result.releasedCount()).isEqualTo(1);
+			assertThat(result.foreignCount()).isEqualTo(1);
+		}
+
+		@Test
+		@DisplayName("남은 field가 없으면 해제 수와 다른 주인 수가 모두 0이다")
+		void reports_zero_counts_when_nothing_remains() {
+			// given
+			seatOccupancyRepository.occupy(command("RV1", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(confirmCommand("RV1", 77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.releaseBooking(bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			BookingSeatReleaseResult result = seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.releasedCount()).isZero();
+			assertThat(result.foreignCount()).isZero();
+		}
+
+		@Test
 		@DisplayName("객차 키가 Hash가 아니면 SEAT_OCCUPANCY_RELEASE_FAILED 예외가 발생한다")
 		void throws_when_car_key_is_not_hash() {
 			// given
@@ -900,6 +973,135 @@ class SeatOccupancyRepositoryTest {
 				bookingReleaseCommand(77L, 0, 1, new SeatCar(SEAT_A, CAR_1))))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_RELEASE_FAILED);
+		}
+	}
+
+	@Nested
+	@DisplayName("정리 재처리와 소유권")
+	class CleanupReprocess {
+
+		@Test
+		@DisplayName("정리된 예약의 낡은 정리를 다시 실행해도 같은 좌석을 새로 선점한 예약은 남는다")
+		void replayed_release_keeps_new_reservation() {
+			// given A가 선점했다가 정리되고, 같은 좌석을 B가 다시 선점한다
+			seatOccupancyRepository.occupy(command("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.occupy(command("RV-B", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when A의 낡은 정리를 두 번 더 실행한다
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then B의 점유와 예약 본문이 그대로다
+			assertThat(carHash(CAR_1)).containsOnly(
+				Map.entry(field(SEAT_A, 0), SeatOccupancyValue.reserved("RV-B").serialize()),
+				Map.entry(field(SEAT_A, 1), SeatOccupancyValue.reserved("RV-B").serialize()));
+			assertThat(stringRedisTemplate.hasKey(reservationKey("RV-B"))).isTrue();
+		}
+
+		@Test
+		@DisplayName("낡은 정리를 다시 실행한 뒤에도 제3자의 겹치는 선점은 거절된다")
+		void replayed_release_still_rejects_third_party() {
+			// given
+			seatOccupancyRepository.occupy(command("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.occupy(command("RV-B", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			SeatOccupancyResult result = seatOccupancyRepository.occupy(
+				command("RV-C", 1, 3, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(result.success()).isFalse();
+			assertThat(result.conflictType()).isEqualTo(SeatOccupancyValue.Type.RESERVED);
+		}
+
+		@Test
+		@DisplayName("낡은 정리를 다시 실행해도 새 예약은 검색에서 점유로 보인다")
+		void replayed_release_keeps_new_reservation_visible_to_search() {
+			// given
+			seatOccupancyRepository.occupy(command("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.occupy(command("RV-B", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			Map<Long, Set<Long>> occupied = seatOccupancyQueryRepository.findOccupiedSeatIds(
+				new SeatOccupancyQuery(SCHEDULE_ID, List.of(CAR_1), 0, 2));
+			assertThat(occupied.get(CAR_1)).containsExactly(SEAT_A);
+		}
+
+		@Test
+		@DisplayName("예매로 전환된 좌석은 그 예약의 낡은 정리가 다시 실행돼도 남는다")
+		void replayed_release_keeps_converted_booking() {
+			// given 전환 뒤 같은 예약 ID로 낡은 정리 이벤트가 다시 들어온다
+			seatOccupancyRepository.occupy(command("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(confirmCommand("RV-A", 77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(carHash(CAR_1)).containsOnly(
+				Map.entry(field(SEAT_A, 0), "B:77"),
+				Map.entry(field(SEAT_A, 1), "B:77"));
+		}
+
+		@Test
+		@DisplayName("삭제된 예매의 낡은 해제를 다시 실행해도 같은 좌석을 새로 선점한 예약은 남는다")
+		void replayed_booking_release_keeps_new_reservation() {
+			// given 예매가 해제된 좌석을 새 예약이 가져간다
+			seatOccupancyRepository.occupy(command("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.confirmBooking(confirmCommand("RV-A", 77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.releaseBooking(bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.occupy(command("RV-B", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			BookingSeatReleaseResult result = seatOccupancyRepository.releaseBooking(
+				bookingReleaseCommand(77L, 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then B의 점유가 남고 해제 0건의 원인이 다른 주인으로 보고된다
+			assertThat(carHash(CAR_1)).containsOnly(
+				Map.entry(field(SEAT_A, 0), SeatOccupancyValue.reserved("RV-B").serialize()),
+				Map.entry(field(SEAT_A, 1), SeatOccupancyValue.reserved("RV-B").serialize()));
+			assertThat(result.releasedCount()).isZero();
+			assertThat(result.foreignCount()).isEqualTo(2);
+		}
+
+		@Test
+		@DisplayName("겹치지 않는 구간을 쓰는 다른 예약은 낡은 정리에 영향을 받지 않는다")
+		void replayed_release_keeps_non_overlapping_reservation() {
+			// given A는 [0,2), B는 같은 좌석의 [2,4)
+			seatOccupancyRepository.occupy(command("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.occupy(command("RV-B", 2, 4, new SeatCar(SEAT_A, CAR_1)));
+
+			// when
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(carHash(CAR_1)).containsOnly(
+				Map.entry(field(SEAT_A, 2), SeatOccupancyValue.reserved("RV-B").serialize()),
+				Map.entry(field(SEAT_A, 3), SeatOccupancyValue.reserved("RV-B").serialize()));
+		}
+
+		@Test
+		@DisplayName("일부 구간만 새 예약이 가져간 뒤 낡은 정리를 다시 실행하면 자기 구간만 지운다")
+		void replayed_release_removes_only_own_sections() {
+			// given A의 [0,2) 중 한 구간을 B가 먼저 가져간 상태를 만든다
+			seatOccupancyRepository.occupy(command("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+			stringRedisTemplate.opsForHash().put(carKey(CAR_1), field(SEAT_A, 1),
+				SeatOccupancyValue.reserved("RV-B").serialize());
+
+			// when
+			seatOccupancyRepository.release(releaseCommand("RV-A", 0, 2, new SeatCar(SEAT_A, CAR_1)));
+
+			// then
+			assertThat(carHash(CAR_1)).containsOnly(
+				Map.entry(field(SEAT_A, 1), SeatOccupancyValue.reserved("RV-B").serialize()));
 		}
 	}
 }

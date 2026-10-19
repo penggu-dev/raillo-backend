@@ -19,8 +19,9 @@ import tools.jackson.databind.ObjectMapper;
  * <p>`Booking` 행이 이미 없으므로 payload만으로 처리한다. 자기 {@code B:{bookingId}} 값일 때만 지우는
  * 비교 삭제라 다시 실행해도 안전하다.</p>
  *
- * <p>0건을 "좌석이 풀렸다"로 읽지 말 것. R에서 B로 전환되기 전에 지운 `Booking`은 {@code R:} field를
- * 남기고, 그 해제는 #270에서 한다. 경우 구분은 {@code SeatOccupancyRepository.releaseBooking} 참고.</p>
+ * <p>0건을 "좌석이 풀렸다"로 읽지 말 것. R에서 B로 전환되기 전에 지운 `Booking`은 {@code R:} field를 남기고,
+ * 그 해제는 {@link BookingConfirmedProcessor}가 유효하지 않은 예매를 만났을 때 한다. 원인 구분은 스크립트가
+ * 함께 돌려주는 foreign 수로 한다.</p>
  */
 @Slf4j
 @Component

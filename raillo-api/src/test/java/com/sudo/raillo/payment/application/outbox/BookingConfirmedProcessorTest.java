@@ -17,6 +17,7 @@ import com.sudo.raillo.booking.domain.Booking;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.domain.type.PassengerType;
 import com.sudo.raillo.booking.exception.BookingError;
+import com.sudo.raillo.booking.application.service.ReservationService;
 import com.sudo.raillo.booking.infrastructure.BookingRepository;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.member.domain.Member;
@@ -78,6 +79,9 @@ class BookingConfirmedProcessorTest {
 
 	@Autowired
 	private BookingRepository bookingRepository;
+
+	@Autowired
+	private ReservationService reservationService;
 
 	private Member member;
 	private TrainScheduleResult scheduleResult;
@@ -150,8 +154,8 @@ class BookingConfirmedProcessorTest {
 	}
 
 	@Test
-	@DisplayName("운행일이 지난 항목은 좌석을 바꾸지 않고 예약 본문과 회원 인덱스만 지운다")
-	void process_skips_seats_for_past_operation_date() {
+	@DisplayName("운행일이 지난 항목은 좌석 점유와 예약 본문, 회원 인덱스를 함께 해제한다")
+	void process_releases_seats_for_past_operation_date() {
 		// given
 		String payload = payload(List.of(withOperationDate(reservation, LocalDate.now(TrainCacheKey.ZONE).minusDays(1))), booking.getId());
 
@@ -159,14 +163,14 @@ class BookingConfirmedProcessorTest {
 		processor.process(payload);
 
 		// then
-		assertThat(seatValue(reservation, seats.get(0))).isEqualTo("R:" + reservation.reservationId());
+		assertThat(seatValue(reservation, seats.get(0))).isNull();
 		assertThat(reservationBodyExists(reservation)).isFalse();
 		assertThat(memberIndexExists(reservation)).isFalse();
 	}
 
 	@Test
-	@DisplayName("예매가 취소됐으면 좌석을 바꾸지 않고 예약 본문과 회원 인덱스만 지운다")
-	void process_skips_seats_for_cancelled_booking() {
+	@DisplayName("예매가 취소됐으면 좌석 점유와 예약 본문, 회원 인덱스를 함께 해제한다")
+	void process_releases_seats_for_cancelled_booking() {
 		// given
 		Booking cancelled = bookingRepository.findById(booking.getId()).orElseThrow();
 		cancelled.cancel();
@@ -177,14 +181,14 @@ class BookingConfirmedProcessorTest {
 		processor.process(payload);
 
 		// then
-		assertThat(seatValue(reservation, seats.get(0))).isEqualTo("R:" + reservation.reservationId());
+		assertThat(seatValue(reservation, seats.get(0))).isNull();
 		assertThat(reservationBodyExists(reservation)).isFalse();
 		assertThat(memberIndexExists(reservation)).isFalse();
 	}
 
 	@Test
-	@DisplayName("예매가 존재하지 않으면 좌석을 바꾸지 않고 예약 본문과 회원 인덱스만 지운다")
-	void process_skips_seats_for_missing_booking() {
+	@DisplayName("예매가 존재하지 않으면 좌석 점유와 예약 본문, 회원 인덱스를 함께 해제한다")
+	void process_releases_seats_for_missing_booking() {
 		// given
 		String payload = payload(List.of(reservation), Long.MAX_VALUE);
 
@@ -192,9 +196,38 @@ class BookingConfirmedProcessorTest {
 		processor.process(payload);
 
 		// then
-		assertThat(seatValue(reservation, seats.get(0))).isEqualTo("R:" + reservation.reservationId());
+		assertThat(seatValue(reservation, seats.get(0))).isNull();
 		assertThat(reservationBodyExists(reservation)).isFalse();
 		assertThat(memberIndexExists(reservation)).isFalse();
+	}
+
+	@Test
+	@DisplayName("결제 중 보호로 만료가 사라진 좌석도 예매가 유효하지 않으면 함께 해제된다")
+	void process_releases_persisted_seat_when_booking_is_invalid() {
+		// given 보호가 걸린 field는 만료가 없어 해제하지 않으면 운행일까지 좌석을 묶는다
+		reservationService.holdForPayment(reservation);
+		String payload = payload(List.of(reservation), Long.MAX_VALUE);
+
+		// when
+		processor.process(payload);
+
+		// then
+		assertThat(seatValue(reservation, seats.get(0))).isNull();
+	}
+
+	@Test
+	@DisplayName("예매가 유효하지 않은 낡은 payload를 다시 처리해도 같은 좌석을 새로 가져간 예약은 남는다")
+	void process_keeps_new_reservation_when_releasing_stale_entry() {
+		// given Outbox 행이 DONE으로 커밋되지 않은 사이 예매가 사라지고 같은 좌석을 다른 예약이 가져갔다
+		markReservedByOther(reservation, seats.get(0));
+		String payload = payload(List.of(reservation), Long.MAX_VALUE);
+
+		// when
+		processor.process(payload);
+
+		// then 해제는 자기 R: field만 지우므로 새 예약의 점유가 남는다
+		assertThat(seatValue(reservation, seats.get(0))).isEqualTo("R:RV-OTHER");
+		assertThat(reservationBodyExists(reservation)).isFalse();
 	}
 
 	@Test

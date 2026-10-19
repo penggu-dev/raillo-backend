@@ -1,5 +1,6 @@
 package com.sudo.raillo.booking.application.service;
 
+import com.sudo.raillo.booking.application.dto.ReservationReleaseRequest;
 import com.sudo.raillo.booking.application.validator.ReservationValidator;
 import com.sudo.raillo.booking.domain.Reservation;
 import com.sudo.raillo.booking.exception.BookingError;
@@ -143,10 +144,20 @@ public class ReservationService {
 		log.info("[예약 삭제] reservationId={}, memberNo={}", reservationId, memberNo);
 	}
 
-	/** 좌석은 그대로 두고 예약 본문과 회원 인덱스만 지운다. */
-	public void discardReservation(long trainScheduleId, String reservationId, String memberNo) {
-		reservationRedisRepository.delete(trainScheduleId, reservationId);
-		reservationRedisRepository.removeMemberIndex(memberNo, reservationId);
+	/**
+	 * 예매가 되지 못한 예약의 좌석 점유와 예약 본문, 회원 인덱스를 되돌린다. 예약 본문은 해제 스크립트가 함께 지운다.
+	 *
+	 * <p>값이 {@code R:{reservationId}}인 field만 지우므로 다른 예약이나 예매의 점유는 남는다. 결제 중 보호가
+	 * 걸렸던 예약은 field에 만료가 없어, 여기서 지우지 않으면 운행일까지 좌석이 묶인다.</p>
+	 *
+	 * @throws BusinessException 점유 해제 스크립트 실행이 실패했을 때
+	 */
+	public void releaseReservation(ReservationReleaseRequest request) {
+		seatOccupancyRepository.release(new SeatReleaseCommand(
+			request.trainScheduleId(), request.reservationId(),
+			request.departureStopOrder(), request.arrivalStopOrder(),
+			request.seats().stream().map(seat -> new SeatCar(seat.seatId(), seat.trainCarId())).toList()));
+		removeMemberIndexQuietly(request.memberNo(), request.reservationId());
 	}
 
 	/**
