@@ -216,6 +216,21 @@ class BookingConfirmedProcessorTest {
 	}
 
 	@Test
+	@DisplayName("예매가 유효하지 않은 낡은 payload를 다시 처리해도 같은 좌석을 새로 가져간 예약은 남는다")
+	void process_keeps_new_reservation_when_releasing_stale_entry() {
+		// given Outbox 행이 DONE으로 커밋되지 않은 사이 예매가 사라지고 같은 좌석을 다른 예약이 가져갔다
+		markReservedByOther(reservation, seats.get(0));
+		String payload = payload(List.of(reservation), Long.MAX_VALUE);
+
+		// when
+		processor.process(payload);
+
+		// then 해제는 자기 R: field만 지우므로 새 예약의 점유가 남는다
+		assertThat(seatValue(reservation, seats.get(0))).isEqualTo("R:RV-OTHER");
+		assertThat(reservationBodyExists(reservation)).isFalse();
+	}
+
+	@Test
 	@DisplayName("좌석 점유가 비어 있어도 예매가 유효하면 예매 점유를 쓴다")
 	void process_writes_booking_when_seat_field_is_empty() {
 		// given - 예약 field가 만료된 상황
