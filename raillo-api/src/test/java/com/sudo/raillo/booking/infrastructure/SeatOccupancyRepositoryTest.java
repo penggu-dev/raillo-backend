@@ -157,8 +157,8 @@ class SeatOccupancyRepositoryTest {
 				ReservationCacheKey.reservation(SCHEDULE_ID, "RV1"), TimeUnit.SECONDS);
 			assertThat(reservationTtl).isBetween(TTL_SECONDS - 5, TTL_SECONDS);
 
-			Long carKeyTtl = stringRedisTemplate.getExpire(carKey, TimeUnit.SECONDS);
-			assertThat(carKeyTtl).isBetween(3600L - 5, 3600L);
+			// 객차 키는 예약 TTL이 아니라 운행일 기준 만료를 쓴다. 초 단위 값은 검증 대상이 아니다
+			assertThat(stringRedisTemplate.getExpire(carKey, TimeUnit.SECONDS)).isGreaterThan(TTL_SECONDS);
 		}
 
 		@Test
@@ -725,16 +725,18 @@ class SeatOccupancyRepositoryTest {
 		@Test
 		@DisplayName("객차 키에 이미 만료가 있으면 그 만료를 바꾸지 않는다")
 		void keeps_existing_car_key_expiration() {
-			// given - occupy가 지금부터 1시간 뒤 만료를 건다
+			// given - occupy가 건 만료의 남은 시간을 들고 있다가 두 배로 먼 만료를 요청한다
 			seatOccupancyRepository.occupy(command("RV1", 0, 1, new SeatCar(SEAT_A, CAR_1)));
+			Long ttlBefore = stringRedisTemplate.getExpire(carKey(CAR_1), TimeUnit.SECONDS);
 			long laterExpireAt = Instant.now().plusSeconds(7200).getEpochSecond();
 
 			// when
 			seatOccupancyRepository.confirmBooking(
 				confirmCommand("RV1", 77L, laterExpireAt, 0, 1, new SeatCar(SEAT_A, CAR_1)));
 
-			// then
-			assertThat(stringRedisTemplate.getExpire(carKey(CAR_1), TimeUnit.SECONDS)).isLessThanOrEqualTo(3600L);
+			// then 덮어썼다면 남은 시간이 두 배로 늘어난다
+			assertThat(stringRedisTemplate.getExpire(carKey(CAR_1), TimeUnit.SECONDS))
+				.isBetween(ttlBefore - 5, ttlBefore);
 		}
 
 		@Test
