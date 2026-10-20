@@ -437,6 +437,33 @@ class PaymentConfirmServiceTest {
 	}
 
 	@Test
+	@DisplayName("SUCCEEDED attempt로 재요청해도 BOOKING_CONFIRMED Outbox 행은 늘어나지 않는다")
+	void confirmPayment_retryOnSucceededAttempt_doesNotPublishSecondOutboxRow() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_retry_outbox_once";
+		forApproval(paymentKey);
+
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult preparedResult = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		TossPaymentConfirmResponse tossResponse = new TossPaymentConfirmResponse(
+			paymentKey, preparedResult.orderCode(), "카드", amount.longValue(), "DONE");
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class))).willReturn(tossResponse);
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(
+			paymentKey, preparedResult.orderCode(), amount);
+		paymentConfirmer.confirm(request, memberNo);
+
+		// when 같은 attemptId로 재요청한다
+		paymentConfirmer.confirm(request, memberNo);
+
+		// then 발행은 TX B에서만 일어나고 재요청은 TX B에 들어가지 않는다
+		assertThat(countOutboxRowsOfType(PaymentOutboxType.BOOKING_CONFIRMED)).isEqualTo(1);
+	}
+
+	@Test
 	@DisplayName("FAILED attempt로 재요청하면 PAYMENT_ATTEMPT_ALREADY_FAILED 예외를 던진다")
 	void confirmPayment_retryOnFailedAttempt_throwsAlreadyFailed() {
 		// given: 첫 요청은 Toss 실패
@@ -1738,5 +1765,12 @@ class PaymentConfirmServiceTest {
 			return -2L;
 		}
 		return expiration.value();
+	}
+
+	/** 타입별 Outbox 행 수. 중복 발행 여부는 행 수로만 판정할 수 있다. */
+	private int countOutboxRowsOfType(PaymentOutboxType type) {
+		Integer count = jdbcTemplate.queryForObject(
+			"select count(*) from payment_outbox where type = ?", Integer.class, type.name());
+		return count == null ? 0 : count;
 	}
 }
