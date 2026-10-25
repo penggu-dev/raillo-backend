@@ -108,9 +108,11 @@ class TrainCacheQueryServiceTest {
 		@DisplayName("정차역 출발 시각이 열차 출발 시각보다 이르면 자정을 넘긴 것이므로 다음 날로 계산한다")
 		void departure_at_rolls_over_midnight() {
 			// given - 서울 23:30 출발, 대전 00:30 출발
+			// 캐시 만료가 운행일 기준이라 지난 날짜로 고정하면 심자마자 지워진다
+			LocalDate overnightDate = LocalDate.now().plusDays(1);
 			TrainScheduleResult overnight = trainScheduleTestHelper.builder()
 				.train(train)
-				.operationDate(LocalDate.of(2026, 10, 20))
+				.operationDate(overnightDate)
 				.addStop("서울", null, LocalTime.of(23, 30))
 				.addStop("대전", LocalTime.of(0, 25), LocalTime.of(0, 30))
 				.addStop("부산", LocalTime.of(2, 0), null)
@@ -125,7 +127,8 @@ class TrainCacheQueryServiceTest {
 				List.of(standardSeats.get(0).getId()));
 
 			// then
-			assertThat(context.departureAt()).isEqualTo(LocalDateTime.of(2026, 10, 21, 0, 30));
+			assertThat(context.departureAt())
+				.isEqualTo(LocalDateTime.of(overnightDate.plusDays(1), LocalTime.of(0, 30)));
 		}
 	}
 
