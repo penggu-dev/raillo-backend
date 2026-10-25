@@ -10,7 +10,7 @@
 | `PaymentRecoveryWorker` | `raillo.payment.recovery.polling-interval` | 오래 진행 중인 결제 승인 시도를 Toss와 대사한다 |
 | `CalendarCacheEvictScheduler` | 매일 00:00 | 운행 캘린더 캐시(`train:calendar`)를 비운다 |
 
-**폴링 간격은 정리 지연의 상한이 아니다.** `@Scheduled(fixedDelayString = ...)`은 실행이 **끝난 뒤부터** 다음 실행까지 기다리는 시간이다. 한 배치가 오래 걸리면 다음 폴링은 그만큼 뒤로 밀린다. 간격 5초에 배치가 8초 걸리면 주기는 13초다. 행이 생긴 뒤 처리될 때까지의 시간은 `간격 + 앞선 배치가 걸린 시간 + 자기 배치에서 자기 차례까지`이고, 설정값만으로는 상한을 말할 수 없다.
+`fixedDelay`는 실행이 끝난 뒤부터 재는 대기 시간이다. 간격 5초에 배치가 8초 걸리면 주기는 13초가 된다. **폴링 간격은 정리 지연의 상한이 아니다.**
 
 Outbox Worker와 복구 Worker는 둘 다 결제를 다루지만 역할이 다르다.
 
@@ -111,11 +111,14 @@ Outbox 행은 쓴 코드와 읽는 코드가 다른 배포본일 수 있다. 그
 - 결정: `ErrorCode.failedWorkRetryable()`이 `false`인 실패는 바로 `FAILED`로 보낸다. 예외 클래스가 아니라 에러 코드로 판단한다. 에러 코드를 싣는 예외가 셋이라 클래스를 나열하면 새 예외가 빠지기 때문이다.
 - 결과: 새 에러 코드를 만들 때 재시도해도 소용없는 오류면 `failedWorkRetryable()`을 `false`로 오버라이드해야 한다.
 
+### 선점 인덱스의 컬럼 순서는 `ORDER BY`를 따른다
+- 맥락: 적체 게이지의 `min(created_at)`이 커버링이 아니라 PENDING 행마다 데이터를 읽는다. `(status, next_retry_at, created_at)`으로 넓혔더니 인덱스 순서가 선점 쿼리의 `ORDER BY next_retry_at, payment_outbox_id`와 어긋나 `Using filesort`가 됐다. 그러면 `LIMIT`에서 멈추지 못해 조건에 맞는 행을 **전부** 잠근다.
+- 결정: `payment_outbox_id`를 `created_at` 앞에 두어 `(status, next_retry_at, payment_outbox_id, created_at)`으로 만든다.
+- 결과: 선점은 인덱스 순서로 읽어 `LIMIT`만큼만 잠그고, 게이지는 커버링으로 끝난다. **`created_at`을 `payment_outbox_id` 앞으로 옮기면 filesort가 돌아온다.** `PaymentOutboxPersistenceAdapterTest`의 SKIP LOCKED 테스트가 이 회귀를 잡는다.
+
 ### 여러 인스턴스가 같은 행을 처리하지 않게 `SKIP LOCKED`로 가져온다
 - 맥락: API 서버가 여러 대면 모든 인스턴스의 Worker가 같은 테이블을 폴링한다.
 - 결정: 행을 비관적 잠금 + `SKIP LOCKED`로 가져온다. 다른 인스턴스가 잡은 행은 건너뛴다.
-- 결과: 별도 분산 락 없이 인스턴스를 늘려도 같은 행이 두 번 처리되지 않는다.
+- 결과: 인스턴스를 늘려도 같은 행이 두 번 처리되지 않는다. **대신 처리량도 늘지 않는다.**
 
-**인스턴스를 늘려도 처리량은 늘지 않는다.** 앞선 Worker가 큐 머리의 배치를 쥐고 있으면 뒤 Worker는 남은 행이 있어도 0건을 받는다. 행 20건에 배치 크기 10으로 둘을 동시에 폴링해 10건만 처리되는 것을 확인했다(#272). 선점 쿼리의 `LIMIT`이 잠긴 행을 건너뛰기 전에 후보를 자르는 것으로 보이며, 측정은 재현했고 기제는 추론이다.
-
-`replicas: 1`이지만 `maxSurge: 1`인 롤링 업데이트 중에는 API 파드가 2대 떠서 이 상황이 이미 생긴다. 데이터는 안전하고 처리량만 늘지 않는다. 선점 방식 변경은 #277에 있다.
+앞 Worker가 큐 앞쪽 배치를 잠그고 있으면 뒤 Worker는 남은 행이 있어도 0건을 받는다. 행 20건에 배치 10으로 Worker 둘을 동시에 폴링해 10건만 처리되는 것을 확인했다(#272). `LIMIT`이 잠긴 행을 거르기 전에 후보를 자르는 것으로 보이지만 원인은 추정이다. `replicas: 1`이어도 `maxSurge: 1` 롤링 업데이트 중에는 파드가 2대 떠서 이미 일어난다. 선점 방식 변경은 #277에 있다.

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Service;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -51,6 +52,9 @@ class PaymentOutboxWorkerIntegrationTest {
 
 	@Autowired
 	private FailingTxService failingTxService;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	@org.junit.jupiter.api.BeforeEach
 	void register_processor_types() {
@@ -379,6 +383,97 @@ class PaymentOutboxWorkerIntegrationTest {
 		// then 선점한 배치가 겹치지 않으므로 같은 행이 두 번 위임되지 않는다
 		assertThat(dispatched).doesNotHaveDuplicates();
 		assertThat(outboxRepository.countByStatus(PaymentOutboxStatus.DONE)).isEqualTo(dispatched.size());
+	}
+
+	@Test
+	@DisplayName("성공 처리한 행 수만큼 payment.outbox.processed 카운터가 증가한다")
+	void poll_success_incrementsProcessedCounter() {
+		// given
+		double before = meterRegistry.counter("payment.outbox.processed").count();
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(701L, "{}"));
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(702L, "{}"));
+		doNothing().when(dispatcher).dispatch(any(), any());
+
+		// when
+		worker.poll();
+
+		// then
+		assertThat(meterRegistry.counter("payment.outbox.processed").count()).isEqualTo(before + 2);
+	}
+
+	@Test
+	@DisplayName("백오프 후 재시도로 돌린 행은 payment.outbox.retry_scheduled 카운터를 증가시킨다")
+	void poll_transientFailure_incrementsRetryScheduledCounter() {
+		// given
+		double before = meterRegistry.counter("payment.outbox.retry_scheduled").count();
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(703L, "{}"));
+		doThrow(new RuntimeException("transient")).when(dispatcher).dispatch(any(), any());
+
+		// when
+		worker.poll();
+
+		// then
+		assertThat(meterRegistry.counter("payment.outbox.retry_scheduled").count()).isEqualTo(before + 1);
+	}
+
+	@Test
+	@DisplayName("FAILED로 보낸 행은 payment.outbox.retry_scheduled 카운터를 증가시키지 않는다")
+	void poll_nonRetryableFailure_doesNotIncrementRetryScheduled() {
+		// given
+		double before = meterRegistry.counter("payment.outbox.retry_scheduled").count();
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(704L, "{}"));
+		doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED))
+			.when(dispatcher).dispatch(any(), any());
+
+		// when
+		worker.poll();
+
+		// then
+		assertThat(meterRegistry.counter("payment.outbox.retry_scheduled").count()).isEqualTo(before);
+	}
+
+	@Test
+	@DisplayName("처리할 행이 있었던 poll만 payment.outbox.poll 타이머에 기록된다")
+	void poll_recordsDurationOnlyWhenBatchIsNotEmpty() {
+		// given 게이지가 등록돼 있지 않으면 get()이 던진다
+		long before = meterRegistry.get("payment.outbox.poll").timer().count();
+		doNothing().when(dispatcher).dispatch(any(), any());
+
+		// when 처리할 행이 없는 poll은 기록하지 않는다
+		worker.poll();
+		long afterEmptyPoll = meterRegistry.get("payment.outbox.poll").timer().count();
+
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(705L, "{}"));
+		worker.poll();
+
+		// then
+		assertThat(afterEmptyPoll).isEqualTo(before);
+		assertThat(meterRegistry.get("payment.outbox.poll").timer().count()).isEqualTo(before + 1);
+	}
+
+	@Test
+	@DisplayName("가장 오래된 PENDING 행의 나이가 payment.outbox.oldest_pending_seconds 게이지에 반영된다")
+	void oldestPendingAge_isVisibleInGauge() {
+		// given 생성 시각을 60초 전으로 돌린 행과 방금 만든 행을 둔다.
+		// 자바 시각을 넘기면 JVM 시간대와 JDBC 세션 시간대가 다를 때 어긋나므로 SQL 안에서 상대 연산한다.
+		PaymentOutbox old = outboxRepository.save(PaymentOutbox.forBookingConfirmed(706L, "{}"));
+		outboxRepository.save(PaymentOutbox.forBookingConfirmed(707L, "{}"));
+		jdbcTemplate.update(
+			"update payment_outbox set created_at = created_at - interval 60 second where payment_outbox_id = ?",
+			old.getId());
+
+		// when & then 더 오래된 쪽의 나이가 나온다
+		assertThat(meterRegistry.get("payment.outbox.oldest_pending_seconds").gauge().value())
+			.isBetween(60.0, 70.0);
+	}
+
+	@Test
+	@DisplayName("PENDING 행이 없으면 payment.outbox.oldest_pending_seconds 게이지는 0이다")
+	void oldestPendingAge_isZeroWithoutPendingRows() {
+		// given - PENDING 행이 없는 상태
+
+		// when & then
+		assertThat(meterRegistry.get("payment.outbox.oldest_pending_seconds").gauge().value()).isZero();
 	}
 
 	@Test

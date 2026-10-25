@@ -55,4 +55,9 @@ public class PaymentOutboxPersistenceAdapter implements PaymentOutboxRepository 
 	public long countByStatus(PaymentOutboxStatus status) {
 		return jpaRepository.countByStatus(status);
 	}
+
+	@Override
+	public Optional<LocalDateTime> findOldestPendingCreatedAt() {
+		return Optional.ofNullable(jpaRepository.findOldestCreatedAt(PaymentOutboxStatus.PENDING));
+	}
 }

@@ -17,6 +17,7 @@ import com.sudo.raillo.payment.domain.PaymentOutboxStatus;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 
 @Component
 public class PaymentMetrics implements OutboxMetrics, RecoveryMetrics {
@@ -31,6 +32,9 @@ public class PaymentMetrics implements OutboxMetrics, RecoveryMetrics {
 	private final Counter cleanupFailureCounter;
 	private final Counter outboxNonRetryableCounter;
 	private final Counter recoveredCounter;
+	private final Counter retryScheduledCounter;
+	private final Counter processedCounter;
+	private final Timer pollTimer;
 
 	public PaymentMetrics(
 		MeterRegistry meterRegistry, PaymentOutboxRepository paymentOutboxRepository,
@@ -62,8 +66,26 @@ public class PaymentMetrics implements OutboxMetrics, RecoveryMetrics {
 			.description("복구 Worker가 확정 재실행에 성공한 건수")
 			.register(meterRegistry);
 
+		this.retryScheduledCounter = Counter.builder("payment.outbox.retry_scheduled")
+			.description("백오프 후 재시도로 돌린 outbox 행 수. FAILED 전이는 세지 않는다")
+			.register(meterRegistry);
+
+		this.processedCounter = Counter.builder("payment.outbox.processed")
+			.description("Outbox Worker가 성공 처리한 행 수")
+			.register(meterRegistry);
+
+		// 빈 poll은 기록하지 않는다. 함께 재면 평균이 0에 가까워져 배치 크기를 비교할 수 없다
+		this.pollTimer = Timer.builder("payment.outbox.poll")
+			.description("처리할 행이 있었던 poll 한 번의 실행 시간")
+			.register(meterRegistry);
+
 		Gauge.builder("payment.outbox.pending", paymentOutboxRepository, r -> r.countByStatus(PaymentOutboxStatus.PENDING))
 			.description("현재 처리 대기 중인 outbox PENDING 건수")
+			.register(meterRegistry);
+
+		Gauge.builder("payment.outbox.oldest_pending_seconds", paymentOutboxRepository,
+				PaymentMetrics::oldestPendingAgeSeconds)
+			.description("가장 오래된 PENDING 행의 나이. 적체의 최고 대기 시간")
 			.register(meterRegistry);
 
 		// 카운터는 프로세스를 재시작하면 누적이 사라져 과거 사고가 보이지 않는다. 사람 개입을 기다리는 행은 게이지로 본다
@@ -135,5 +157,27 @@ public class PaymentMetrics implements OutboxMetrics, RecoveryMetrics {
 	@Override
 	public void incrementRecovered() {
 		recoveredCounter.increment();
+	}
+
+	@Override
+	public void incrementRetryScheduled() {
+		retryScheduledCounter.increment();
+	}
+
+	@Override
+	public void incrementProcessed() {
+		processedCounter.increment();
+	}
+
+	@Override
+	public void recordPollDuration(Duration elapsed) {
+		pollTimer.record(elapsed);
+	}
+
+	/** PENDING 행이 없으면 0이다. 적체가 없다는 뜻이므로 게이지를 비우지 않는다. */
+	private static double oldestPendingAgeSeconds(PaymentOutboxRepository repository) {
+		return repository.findOldestPendingCreatedAt()
+			.map(createdAt -> (double)Duration.between(createdAt, LocalDateTime.now()).toSeconds())
+			.orElse(0.0);
 	}
 }

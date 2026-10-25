@@ -3,6 +3,7 @@ package com.sudo.raillo.payment.application.outbox;
 import com.sudo.raillo.payment.application.required.OutboxMetrics;
 import com.sudo.raillo.payment.application.required.PaymentOutboxRepository;
 import com.sudo.raillo.payment.domain.PaymentOutbox;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +55,7 @@ public class PaymentOutboxWorker {
 	@Transactional
 	public void poll() {
 		LocalDateTime now = LocalDateTime.now();
+		long startedAt = System.nanoTime();
 		List<PaymentOutbox> batch = outboxRepository.lockProcessable(now, properties.batchSize(), dispatcher.supportedTypes());
 		if (batch.isEmpty()) {
 			return;
@@ -62,12 +64,14 @@ public class PaymentOutboxWorker {
 		for (PaymentOutbox row : batch) {
 			processSingle(row, now);
 		}
+		outboxMetrics.recordPollDuration(Duration.ofNanos(System.nanoTime() - startedAt));
 	}
 
 	private void processSingle(PaymentOutbox row, LocalDateTime now) {
 		try {
 			dispatchInNewTransaction(row);
 			row.markDone();
+			outboxMetrics.incrementProcessed();
 		} catch (Exception e) {
 			recordFailure(row, now, e);
 		}
@@ -95,6 +99,7 @@ public class PaymentOutboxWorker {
 		}
 
 		row.markRetry(retryPolicy.nextRetryAt(now, row.getRetryCount()));
+		outboxMetrics.incrementRetryScheduled();
 	}
 
 	/**
