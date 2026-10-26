@@ -192,6 +192,33 @@ def get_seat_ranges(conn, schedule_ids):
             "seatEnd": row["seat_end"],
             "totalSeats": row["total_seats"],
         }
+
+    # 객차별 좌석 범위. 예약은 한 객차 안의 좌석만 받는다(validateSingleTrainCar).
+    # 스케줄 범위 전체에서 좌석을 무작위로 고르면 다른 객차가 섞여 400으로 거절된다.
+    car_sql = f"""
+        SELECT
+            ts.train_schedule_id AS schedule_id,
+            tc.train_car_id AS car_id,
+            MIN(s.seat_id) AS seat_start,
+            MAX(s.seat_id) AS seat_end,
+            COUNT(*) AS seats
+        FROM train_schedule ts
+        JOIN train_car tc ON tc.train_id = ts.train_id
+        JOIN seat s ON s.train_car_id = tc.train_car_id
+        WHERE ts.train_schedule_id IN ({placeholders})
+        GROUP BY ts.train_schedule_id, tc.train_car_id
+        ORDER BY ts.train_schedule_id, MIN(s.seat_id)
+    """
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    cursor.execute(car_sql, schedule_ids)
+    for row in cursor.fetchall():
+        seat_map[row["schedule_id"]].setdefault("cars", []).append({
+            "carId": row["car_id"],
+            "seatStart": row["seat_start"],
+            "seatEnd": row["seat_end"],
+            "seats": row["seats"],
+        })
+    cursor.close()
     return seat_map
 
 
@@ -344,6 +371,7 @@ def main():
             "seatStart": seats["seatStart"],
             "seatEnd": seats["seatEnd"],
             "totalSeats": seats["totalSeats"],
+            "cars": seats.get("cars", []),
             "trainName": s.get("trainName", ""),
             "trainNumber": s.get("trainNumber", ""),
         }

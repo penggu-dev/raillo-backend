@@ -28,6 +28,12 @@ services:
       - DB_USERNAME=raillo
       - DB_PW=raillo-local
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      # 시나리오마다 바꿔야 해서 쉘에서 주입받는다. 기본값은 dev 프로파일과 같다.
+      # 이름에 하이픈을 쓰지 않는다. batch-size는 BATCHSIZE다.
+      - RAILLO_PAYMENT_OUTBOX_ENABLED=${RAILLO_PAYMENT_OUTBOX_ENABLED:-true}
+      - RAILLO_PAYMENT_OUTBOX_BATCHSIZE=${RAILLO_PAYMENT_OUTBOX_BATCHSIZE:-50}
+      - RAILLO_PAYMENT_OUTBOX_POLLINGINTERVAL=${RAILLO_PAYMENT_OUTBOX_POLLINGINTERVAL:-5s}
+      - RAILLO_PAYMENT_RECOVERY_ENABLED=${RAILLO_PAYMENT_RECOVERY_ENABLED:-false}
     depends_on:
       mysql:
         condition: service_healthy
