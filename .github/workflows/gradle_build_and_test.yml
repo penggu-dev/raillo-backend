@@ -17,25 +17,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 캐시는 setup-gradle에만 맡긴다. setup-java의 cache: gradle과 같이 두면
+      # setup-java가 먼저 복원해 hit으로 끝내고, setup-gradle은 "내가 복원한 게 아니라"며
+      # 저장을 건너뛴다. 결국 아무도 저장하지 않아 의존성을 매번 내려받는다.
       - uses: actions/setup-java@v4
         with:
           java-version: '25'
           distribution: 'temurin'
-          cache: 'gradle'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3.1.0
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Build and Test with Gradle
-        run: |
-          ./gradlew build --info
+        run: ./gradlew build
 
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1
         with:
           files: '**/build/test-results/test/TEST-*.xml'
-
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v3
-        with:
-          report_paths: '**/build/test-results/test/TEST-*.xml'
