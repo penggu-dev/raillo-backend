@@ -68,4 +68,7 @@ public interface PaymentOutboxJpaRepository extends JpaRepository<PaymentOutbox,
 	);
 
 	long countByStatus(PaymentOutboxStatus status);
+
+	@Query("select min(o.createdAt) from PaymentOutbox o where o.status = :status")
+	LocalDateTime findOldestCreatedAt(@Param("status") PaymentOutboxStatus status);
 }

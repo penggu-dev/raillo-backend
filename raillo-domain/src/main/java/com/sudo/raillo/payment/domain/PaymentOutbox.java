@@ -30,7 +30,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 @Table(name = "payment_outbox", indexes = {
-	@Index(name = "idx_payment_outbox_status_next_retry", columnList = "status,next_retry_at"),
+	// 컬럼 순서는 선점 쿼리의 ORDER BY를 따른다. 바꾸면 filesort가 생긴다. → docs/worker/README.md
+	@Index(name = "idx_payment_outbox_claim",
+		columnList = "status,next_retry_at,payment_outbox_id,created_at"),
 	@Index(name = "uk_payment_outbox_dedup", columnList = "deduplication_key", unique = true)
 })
 @EntityListeners(AuditingEntityListener.class)

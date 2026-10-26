@@ -172,6 +172,35 @@ git config core.hooksPath .githooks
   - 데이터소스 uid는 `prometheus`로 고정한다. 알림 규칙이 uid로 지목한다. **이름이 같고 uid가 다른 데이터소스가 Grafana DB에 있으면 프로비저닝이 실패해 Grafana가 CrashLoopBackOff에 빠진다.** uid는 갱신으로 바꿀 수 없어 `deleteDatasources`로 지우고 다시 만든다. Grafana DB는 노드의 `/var/lib/raillo/grafana`(hostPath)에 남아 파드를 지워도 그대로다.
   - 스레드 지표는 `server.tomcat.mbeanregistry.enabled: true`일 때만 생긴다. `spring.threads.virtual`을 켜면 `config_max`가 0이 되어 포화 규칙이 의미를 잃는다.
 
+### 부하 측정에 쓸 지표
+
+이름과 단위는 코드가 아니라 노출 결과를 기준으로 쓴다. 아래는 `compose-test`에서 `/actuator/prometheus`와 redis-exporter의 응답을 받아 확인했다(2026-10-26).
+
+| 보려는 것 | 지표 | 비고 |
+|---|---|---|
+| API 지연 p95, p99 | `http_server_requests_seconds_bucket` | 버킷 69개. `histogram_quantile`로 계산한다 |
+| API 오류율 | `http_server_requests_seconds_count` | `outcome`과 `status` 태그로 성공과 실패를 나눈다 |
+| DB 커넥션 | `hikaricp_connections_active`, `_pending` | 개 |
+| DB 커넥션 획득 시간 | `hikaricp_connections_acquire_seconds`, `_max` | summary라 평균과 최댓값만 나온다 |
+| Outbox 적체 | `payment_outbox_pending` | 개 |
+| Outbox 최고 대기 시간 | `payment_outbox_oldest_pending_seconds` | PENDING이 없으면 0 |
+| Worker 배치 시간 | `payment_outbox_poll_seconds`, `_max` | 빈 poll은 기록하지 않는다 |
+| Worker 처리량 | `payment_outbox_processed_total` | 배치 누적 시간을 이 값으로 나누면 행당 평균이 나온다 |
+| 재시도 전이 | `payment_outbox_retry_scheduled_total` | FAILED로 끝난 행은 세지 않는다 |
+| Outbox FAILED | `payment_outbox_failed_total`, `payment_outbox_failed_rows` | 누적 건수와 현재 행 수 |
+| Outbox 개별 실패 | `payment_cleanup_failure_total` | 재시도와 FAILED를 함께 센다 |
+| 복구 대상 적체 | `payment_attempt_stale_in_progress_rows` | 개 |
+| Redis 명령 지연 | `redis_commands_duration_seconds_total{cmd}`, `redis_commands_total{cmd}` | redis-exporter가 낸다. 두 값의 증가분으로 명령별 평균을 구한다 |
+| Lua 호출 수와 시간 | 위 두 지표의 `cmd="evalsha"` | 좌석 수와 구간 수를 바꿔 가며 센다 |
+
+- 규칙
+  - Redis 명령 지연은 서버가 본 시간이라 네트워크 왕복이 빠져 있다. 클라이언트 측은 Lettuce 지표를 등록해야 보인다.
+  - **태그가 붙은 카운터는 처음 증가하기 전까지 노출되지 않는다.** `payment_recovery_decision_total`, `toss_api_failure_total` 등이 그렇다. 그때까지 대시보드는 No data이고 `noDataState: OK`인 알림은 조용히 통과한다.
+  - 배치 시간과 처리량은 Outbox Worker에만 있다. 복구 Worker는 평소 처리할 행이 없어 넣지 않았다.
+  - 게이지 여섯 개가 스크랩마다 사용자 요청과 같은 Hikari 풀로 DB를 조회한다. 15초에 여섯 건이라 평소에는 영향이 없다. `payment_outbox_oldest_pending_seconds`의 `min(created_at)`은 `idx_payment_outbox_claim`이 커버링으로 받는다. → [Worker](../worker/README.md)
+  - 적체 지표 셋은 mysql-exporter 커스텀 쿼리로 옮길 수 있다. 앱 풀을 쓰지 않고 앱이 내려가도 보인다. 지표 이름과 대시보드, 알림을 함께 바꿔야 해서 후속으로 둔다.
+
+
 ## 설계 결정
 
 ### 관리 엔드포인트를 별도 포트로 분리한다

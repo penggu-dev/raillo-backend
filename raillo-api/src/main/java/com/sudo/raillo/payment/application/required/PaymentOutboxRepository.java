@@ -30,4 +30,7 @@ public interface PaymentOutboxRepository {
 	List<PaymentOutbox> lockProcessable(LocalDateTime now, int limit, List<PaymentOutboxType> types);
 
 	long countByStatus(PaymentOutboxStatus status);
+
+	/** 가장 오래된 PENDING 행이 만들어진 시각. 적체의 최고 대기 시간을 재는 데 쓴다. */
+	Optional<LocalDateTime> findOldestPendingCreatedAt();
 }

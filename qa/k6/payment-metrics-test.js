@@ -1,5 +1,9 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { Counter } from 'k6/metrics';
+
+// 예약 거절을 상태 코드별로 센다. 거절되면 iteration이 끝나 check만으로는 비율이 보이지 않는다.
+const reservationRejected = new Counter('reservation_rejected');
 
 // ================================================================================
 // Payment 메트릭 테스트 스크립트
@@ -159,7 +163,7 @@ export default function (data) {
     // 선택된 스케줄의 좌석 범위 내에서 랜덤으로 1~2석을 골라 임시 예약(Reservation) 요청
     // 성공하면 reservationId를 받아서 다음 단계로 진행
     const seatCount = randomIntBetween(1, 2);
-    const seatIds = pickRandomSeats(seatCount, schedule.seatStart, schedule.seatEnd);
+    const seatIds = pickRandomSeats(seatCount, schedule);
     const passengerTypes = seatIds.map(() => 'ADULT');  // 좌석 수만큼 ADULT 탑승자
 
     const reservationRes = http.post(`${BASE_URL}/api/v1/reservations`, JSON.stringify({
@@ -170,8 +174,12 @@ export default function (data) {
         seatIds: seatIds,
     }), { headers, tags: { name: 'reservation' }, timeout: '10s' });
 
-    // 좌석 충돌(409) 등으로 실패하면 이번 iteration은 포기하고 다음으로
+    // 409는 좌석 경쟁의 정상 결과라 허용한다. 400은 스크립트가 보낸 요청이 잘못됐다는 뜻이라 0이어야 한다.
+    check(reservationRes, {
+        'reservation 잘못된 요청 아님': (r) => r.status !== 400,
+    });
     if (reservationRes.status !== 200 && reservationRes.status !== 201) {
+        reservationRejected.add(1, { status: String(reservationRes.status) });
         sleep(randomIntBetween(1, 2));
         return;
     }
@@ -273,27 +281,32 @@ function randomIntBetween(min, max) {
 // - 나머지는 범위 내 랜덤 좌석 (중복 없이)
 //   예: [223812, 224055]
 // - 1석이면 항상 랜덤으로 1개만 뽑음
-function pickRandomSeats(count, seatStart, seatEnd) {
+function pickRandomSeats(count, schedule) {
+    // 예약은 한 객차 안의 좌석만 받는다(validateSingleTrainCar).
+    // 스케줄 좌석 범위 전체에서 뽑으면 다른 객차가 섞여 400으로 거절된다.
+    const cars = schedule.cars || [];
+    const car = cars.length > 0
+        ? cars[Math.floor(Math.random() * cars.length)]
+        : { seatStart: schedule.seatStart, seatEnd: schedule.seatEnd };
+
+    const capacity = car.seatEnd - car.seatStart + 1;
+    const pickCount = Math.min(count, capacity);
     const seats = [];
 
-    // 2석 이상 + 70% 확률 → 연속 좌석 시도
-    if (count > 1 && Math.random() < 0.7) {
-        // 시작점을 범위 내에서 랜덤 선택 (끝에서 count만큼 여유를 둠)
-        const start = randomIntBetween(seatStart, seatEnd - count + 1);
-        for (let i = 0; i < count; i++) {
-            seats.push(start + i);  // 시작점부터 연속으로 추가
+    // 70% 확률로 연속 좌석. 나란히 앉는 실제 패턴에 가깝다
+    if (pickCount > 1 && Math.random() < 0.7) {
+        const start = randomIntBetween(car.seatStart, car.seatEnd - pickCount + 1);
+        for (let i = 0; i < pickCount; i++) {
+            seats.push(start + i);
         }
         return seats;
     }
 
-    // 랜덤 좌석: 중복 없이 count개를 뽑을 때까지 반복
-    const totalRange = seatEnd - seatStart + 1;
-    const maxPick = Math.min(count, totalRange);
-    while (seats.length < maxPick) {
-        const seatId = randomIntBetween(seatStart, seatEnd);
-        if (seats.indexOf(seatId) === -1) {  // 중복 체크
+    while (seats.length < pickCount) {
+        const seatId = randomIntBetween(car.seatStart, car.seatEnd);
+        if (seats.indexOf(seatId) === -1) {
             seats.push(seatId);
         }
     }
-    return seats.sort((a, b) => a - b);  // 오름차순 정렬
+    return seats.sort((a, b) => a - b);
 }

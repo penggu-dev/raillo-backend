@@ -12,6 +12,7 @@
 #   4. MySQL, Valkey 도달 대기
 #   5. raillo-server readiness 대기 (관리 포트 8091)
 #   6. batch trainInitialize 실행 (역·열차·좌석·스케줄 적재)
+#   6-1. 운행일 보충(trainMonthlySchedule), 정적 캐시 적재(trainStaticCacheLoad)
 #   7. 회원 100명 생성 (generate_members.py)
 #   8. k6용 schedule-config.json 생성 (generate_k6_schedule_config.py)
 #
@@ -111,6 +112,31 @@ if [ "$schedule_count" -gt 0 ]; then
 else
   docker compose -f compose-test.yaml --profile batch run --rm \
     raillo-batch --job=trainInitialize
+fi
+
+# ------------------------------------------------------------------------------
+# 6-1. 지난 운행일 보충과 Redis 캐시 적재
+#      스케줄은 DB에, 캐시는 Redis에 있다. 둘은 따로 사라진다.
+#      - 운행일이 모두 지나면 DB에 행이 있어도 검색이 0건이다
+#      - Redis만 비면 DB는 멀쩡한데 예약이 "좌석을 찾을 수 없습니다"로 실패한다
+# ------------------------------------------------------------------------------
+log "5-1/8 운행일 보충 (trainMonthlySchedule)"
+future_count=$(docker exec raillo-test-mysql mysql -uraillo -praillo-local raillo -Nse \
+  "SELECT COUNT(*) FROM train_schedule WHERE operation_date >= CURDATE()" 2>/dev/null || echo "0")
+if [ "$future_count" -gt 0 ]; then
+  log "    오늘 이후 스케줄 $future_count 건 존재. 스킵."
+else
+  docker compose -f compose-test.yaml --profile batch run --rm \
+    raillo-batch --job=trainMonthlySchedule
+fi
+
+log "5-2/8 정적 캐시 적재 (trainStaticCacheLoad)"
+seat_cache=$(docker exec raillo-backend-v2-redis-1 valkey-cli --scan --pattern 'train:seat:*' 2>/dev/null | head -1)
+if [ -n "$seat_cache" ]; then
+  log "    좌석 캐시 존재. 스킵."
+else
+  docker compose -f compose-test.yaml --profile batch run --rm \
+    raillo-batch --job=trainStaticCacheLoad
 fi
 
 # ------------------------------------------------------------------------------
