@@ -17,6 +17,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -27,7 +28,8 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", uniqueConstraints =
+	@UniqueConstraint(name = "uk_orders_order_code", columnNames = "order_code"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order extends BaseEntity {
@@ -44,8 +46,8 @@ public class Order extends BaseEntity {
 	@Comment("멤버 ID")
 	private Member member;
 
-	@Column(nullable = false)
-	@Comment("주문번호 (토스 페이먼츠 orderId)")
+	@Column(name = "order_code", nullable = false)
+	@Comment("주문번호 (토스 페이먼츠 orderId). unique 제약이 유일성의 최종 방어다")
 	private String orderCode;
 
 	@Enumerated(EnumType.STRING)

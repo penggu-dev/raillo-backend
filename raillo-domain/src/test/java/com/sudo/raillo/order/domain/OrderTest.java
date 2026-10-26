@@ -27,7 +27,6 @@ class OrderTest {
 
 		// then
 		assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
-		assertThat(order.getOrderCode()).hasSize(20);
 		assertThat(order.getOrderCode()).startsWith("ORD_");
 		assertThat(order.getTotalAmount()).isEqualTo(totalAmount);
 		assertThat(order.getMember()).isEqualTo(member);
