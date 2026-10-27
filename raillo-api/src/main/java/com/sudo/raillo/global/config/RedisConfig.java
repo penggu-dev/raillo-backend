@@ -39,6 +39,10 @@ public class RedisConfig {
 	@Value("${spring.data.redis.lettuce.pool.max-wait:500ms}")
 	private Duration poolMaxWait;
 
+	// 팩토리를 직접 만들어 Boot 자동 설정이 적용되지 않으므로 여기서 건다. 없으면 Lettuce 기본값 60초다
+	@Value("${spring.data.redis.timeout:1s}")
+	private Duration commandTimeout;
+
 	@Bean
 	public RedisConnectionFactory redisConnectionFactory() {
 
@@ -54,7 +58,9 @@ public class RedisConfig {
 		poolConfig.setMaxWait(poolMaxWait);
 
 		LettucePoolingClientConfiguration.LettucePoolingClientConfigurationBuilder clientConfig =
-			LettucePoolingClientConfiguration.builder().poolConfig(poolConfig);
+			LettucePoolingClientConfiguration.builder()
+				.poolConfig(poolConfig)
+				.commandTimeout(commandTimeout);
 		if (sslEnabled) {
 			clientConfig.useSsl();
 		}

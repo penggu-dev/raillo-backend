@@ -218,6 +218,11 @@ git config core.hooksPath .githooks
 - 결정: `maxSurge` 1, `maxUnavailable` 0으로 새 파드가 Ready가 된 뒤 기존 파드를 내린다. CPU limit을 없애고 API CPU request를 500m으로 낮춰 두 파드가 app 노드에 들어가게 한다. 내려가는 파드는 preStop 5초 동안 Service에서 빠지고, Spring graceful shutdown(최대 30초)으로 진행 중인 요청을 마친다. `terminationGracePeriodSeconds`는 이 둘보다 긴 45초다.
 - 결과: 배포 중에도 요청을 받는다. 잠시 두 인스턴스가 함께 돌지만 결제 Outbox Worker는 `SKIP LOCKED`로 같은 행을 잡지 않는다. request를 낮춘 만큼 노드 CPU가 붐비면 API가 1 CPU를 보장받지 못한다.
 
+### Redis 명령 타임아웃은 1초로 둔다
+- 맥락: `RedisConfig`가 연결 팩토리를 직접 만들어 Boot의 `spring.data.redis.timeout` 자동 설정이 적용되지 않았다. 명령 타임아웃이 Lettuce 기본값 60초라, Redis가 멈추면 예약 생성과 결제 직전 조회가 그동안 요청 스레드를 붙잡았다.
+- 결정: `RedisConfig`에서 `spring.data.redis.timeout`(기본 1s)을 읽어 명령 타임아웃으로 건다. 모든 명령과 파이프라인에 같이 적용된다. 연결 타임아웃과 풀 상한은 그대로다.
+- 결과: Redis가 응답하지 않으면 1초 안에 실패한다. 예약 생성은 응답을 받지 못한 점유를 1회 재실행하므로 최악 몇 초 안에 끝난다([예약 문서](../reservation/README.md)). 1초를 넘는 정상 명령은 실패로 바뀌므로 큰 파이프라인을 추가하면 지연을 확인한다.
+
 ### test DB 배치는 열차 캐시를 적재하지 않는다
 - 맥락: `test` DB도 운행이 매일 늘어야 한다. 그런데 Batch의 Redis는 운영 Valkey이고, 운행 캐시 키(`{schedule:{id}}:*`)는 운행 ID로 정해져 `raillo`와 `test`의 ID가 겹친다. 그대로 적재하면 운영 예약이 읽는 캐시를 test 데이터로 덮는다.
 - 결정: test CronJob은 운행 적재 Step이 없는 `trainDailyScheduleOnly`를 돌린다. 회원 정리는 Redis를 쓰지 않아 같은 Job을 쓴다.
