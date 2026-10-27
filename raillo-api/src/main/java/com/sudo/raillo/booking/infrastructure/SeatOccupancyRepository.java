@@ -232,10 +232,13 @@ public class SeatOccupancyRepository {
 		}
 	}
 
-	/** 스크립트 실행 실패를 로그로 남기고 에러 코드로 바꾼다. 실패 코드가 메서드마다 달라 코드는 호출자가 정한다. */
+	/**
+	 * 스크립트 실행 실패를 로그로 남기고 에러 코드로 바꾼다. 실패 코드가 메서드마다 달라 코드는 호출자가 정한다.
+	 * 원인 예외를 싣는다. 호출자가 응답을 받지 못한 실패인지 보고 재시도를 정한다.
+	 */
 	private static BusinessException scriptFailure(String label, String ctx, Exception e, BookingError error) {
 		log.error("[{} 스크립트 오류] {}, error={}", label, ctx, e.getMessage(), e);
-		return new BusinessException(error);
+		return new BusinessException(error, e);
 	}
 
 	/**

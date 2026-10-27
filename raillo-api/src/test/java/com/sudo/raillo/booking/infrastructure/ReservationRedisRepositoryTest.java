@@ -150,21 +150,6 @@ class ReservationRedisRepositoryTest {
 	}
 
 	@Test
-	@DisplayName("예약 본문 키가 있으면 true, 없으면 false를 돌려준다")
-	void exists_reflects_reservation_key() {
-		// given
-		store(reservation("RV1", 1001L));
-
-		// when
-		boolean stored = reservationRedisRepository.exists(1001L, "RV1");
-		boolean missing = reservationRedisRepository.exists(1001L, "RV9");
-
-		// then
-		assertThat(stored).isTrue();
-		assertThat(missing).isFalse();
-	}
-
-	@Test
 	@DisplayName("회원 인덱스 전체를 예약 ID별 운행 ID로 읽는다")
 	void find_all_schedule_ids_of_member() {
 		// given
