@@ -25,6 +25,8 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -77,16 +79,14 @@ public class ReservationService {
 
 		SeatOccupancyResult result;
 		try {
-			result = seatOccupancyRepository.occupy(toOccupyCommand(reservation, ttl));
+			result = occupyWithRetry(reservation, ttl);
 		} catch (RuntimeException e) {
-			// 응답 타임아웃처럼 스크립트가 이미 저장했을 수 있으니, 저장됐으면 성공으로 보고 인덱스를 남긴다.
-			// 데이터 오염은 스크립트가 아무것도 쓰지 않았다는 확정 신호이므로 이 구제 대상이 아니다
-			if (isCorrupted(e) || !isStored(reservation)) {
+			// 앞선 실행이 저장했는지 모르므로 자기 점유와 본문까지 되돌린다. 자기 값인 field만 지우므로 다른 점유는 남는다.
+			// 해제가 실패하면 인덱스를 남긴다. 지우면 점유가 남았을 때 회원이 그 예약을 찾아 취소할 수 없다
+			if (releaseQuietly(reservation)) {
 				rollbackMemberIndex(memberNo, reservationId);
-				throw e;
 			}
-			log.warn("[좌석 점유 응답 실패 - 저장 확인] reservationId={}, error={}", reservationId, e.getMessage());
-			result = SeatOccupancyResult.succeeded();
+			throw e;
 		}
 
 		if (!result.success()) {
@@ -226,16 +226,43 @@ public class ReservationService {
 		return Math.max(1L, seconds);
 	}
 
-	private static boolean isCorrupted(RuntimeException e) {
-		return e instanceof BusinessException business
-			&& business.getErrorCode() == BookingError.SEAT_OCCUPANCY_CORRUPTED;
+	/**
+	 * 응답을 받지 못한 실패만 1회 다시 실행한다.
+	 *
+	 * <p>스크립트는 같은 예약 ID에 멱등이다. 자기 점유 값은 충돌 검사를 통과하고 본문은 같은 값으로 덮인다.
+	 * 그래서 앞선 실행이 저장했든 안 했든, 서버에서 늦게 실행되든 재실행 결과가 최종 결과다.
+	 * 재실행은 field와 본문의 TTL을 다시 걸어 실제 만료가 {@code expiresAt}보다 재시도 시간만큼 늦어진다.</p>
+	 *
+	 * <p>응답을 받은 실패(스크립트 오류, 데이터 오염)는 다시 실행해도 같으므로 재시도하지 않는다.</p>
+	 */
+	private SeatOccupancyResult occupyWithRetry(Reservation reservation, Duration ttl) {
+		SeatOccupancyCommand command = toOccupyCommand(reservation, ttl);
+		try {
+			return seatOccupancyRepository.occupy(command);
+		} catch (RuntimeException e) {
+			if (!isResponseLost(e)) {
+				throw e;
+			}
+			log.warn("[좌석 점유 응답 실패 - 재시도] reservationId={}, error={}",
+				reservation.reservationId(), e.getCause().getMessage());
+			return seatOccupancyRepository.occupy(command);
+		}
 	}
 
-	private boolean isStored(Reservation reservation) {
+	/** 명령을 보내지 못했거나 보낸 뒤 응답을 받지 못한 실패. 둘 다 서버의 실행 여부를 확정할 수 없다. */
+	private static boolean isResponseLost(RuntimeException e) {
+		Throwable cause = e.getCause();
+		return cause instanceof QueryTimeoutException || cause instanceof RedisConnectionFailureException;
+	}
+
+	/** @return 해제했으면 true. 실패하면 남은 점유와 본문은 TTL로 사라진다 */
+	private boolean releaseQuietly(Reservation reservation) {
 		try {
-			return reservationRedisRepository.exists(reservation.trainScheduleId(), reservation.reservationId());
+			seatOccupancyRepository.release(toReleaseCommand(reservation));
+			return true;
 		} catch (RuntimeException e) {
-			log.warn("[예약 저장 여부 확인 실패] reservationId={}, error={}", reservation.reservationId(), e.getMessage());
+			log.error("[좌석 점유 보상 실패 - 회원 인덱스 유지] reservationId={}, memberNo={}, error={}",
+				reservation.reservationId(), reservation.memberNo(), e.getMessage());
 			return false;
 		}
 	}

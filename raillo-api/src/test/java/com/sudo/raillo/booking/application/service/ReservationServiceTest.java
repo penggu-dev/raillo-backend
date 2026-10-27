@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -18,6 +20,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.QueryTimeoutException;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
@@ -74,6 +78,17 @@ class ReservationServiceTest {
 
 	private Object memberIndexValue(String reservationId) {
 		return stringRedisTemplate.opsForHash().get(ReservationCacheKey.memberReservations(MEMBER_NO), reservationId);
+	}
+
+	/** 저장소가 응답을 받지 못한 실패를 감싸 올리는 형태 */
+	private static BusinessException responseLost(RuntimeException cause) {
+		return new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR, cause);
+	}
+
+	private void assertNothingLeft(String reservationId) {
+		assertThat(memberIndexValue(reservationId)).isNull();
+		assertThat(stringRedisTemplate.hasKey(ReservationCacheKey.reservation(SCHEDULE_ID, reservationId))).isFalse();
+		assertThat(seatOccupancyTestHelper.entries(SCHEDULE_ID, CAR_ID)).isEmpty();
 	}
 
 	@Nested
@@ -148,77 +163,137 @@ class ReservationServiceTest {
 		}
 
 		@Test
-		@DisplayName("점유 스크립트가 실패하면 예외가 전파되고 회원 인덱스는 되돌려진다")
-		void script_failure_rolls_back_index() {
-			// given
-			doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR))
+		@DisplayName("응답을 받은 스크립트 실패는 재시도하지 않고 좌석 점유, 예약 본문, 회원 인덱스를 모두 되돌린다")
+		void script_failure_rolls_back_all_without_retry() {
+			// given - 원인이 타임아웃이나 연결 실패가 아니면 Redis가 응답한 오류다
+			doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR,
+				new RedisSystemException("ERR user_script", new IllegalStateException("script error"))))
 				.when(seatOccupancyRepository).occupy(any());
 			Reservation reservation = reservation("RV1", 11L);
 
-			// when
-
-			// then
+			// when & then
 			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
-			assertThat(memberIndexValue("RV1")).isNull();
+			verify(seatOccupancyRepository, times(1)).occupy(any());
+			assertNothingLeft("RV1");
 		}
 
 		@Test
-		@DisplayName("점유 스크립트가 저장을 마친 뒤 응답만 실패하면 예약을 성공으로 처리하고 회원 인덱스를 유지한다")
-		void keeps_reservation_when_script_stored_but_response_failed() {
-			// given - 스크립트는 실행되고 클라이언트에는 오류가 돌아온 상황
+		@DisplayName("스크립트가 저장을 마친 뒤 응답 타임아웃이 나면 재실행으로 성공하고 회원 인덱스를 유지한다")
+		void retries_when_stored_but_response_timed_out() {
+			// given - 스크립트는 실행되고 클라이언트에는 타임아웃이 돌아온 상황
 			doAnswer(invocation -> {
 				invocation.callRealMethod();
-				throw new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
-			}).when(seatOccupancyRepository).occupy(any());
+				throw responseLost(new QueryTimeoutException("redis timeout"));
+			}).doCallRealMethod().when(seatOccupancyRepository).occupy(any());
 			Reservation reservation = reservation("RV1", 11L);
 
 			// when
 			reservationService.reserve(reservation, TTL);
 
-			// then
+			// then - 재실행은 자기 점유 값이라 충돌 없이 성공한다
+			verify(seatOccupancyRepository, times(2)).occupy(any());
 			assertThat(memberIndexValue("RV1")).isEqualTo(String.valueOf(SCHEDULE_ID));
 			assertThat(stringRedisTemplate.hasKey(ReservationCacheKey.reservation(SCHEDULE_ID, "RV1"))).isTrue();
 			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("R:RV1");
 		}
 
 		@Test
-		@DisplayName("점유 스크립트가 데이터 오염을 알리면 본문이 저장돼 있어도 구제하지 않고 회원 인덱스를 되돌린다")
-		void does_not_rescue_corruption_even_when_stored() {
-			// given - 저장은 됐지만 오염을 알린 상황. 저장 여부 확인은 통과한다
+		@DisplayName("명령을 보내지 못해 연결 실패가 나면 재실행으로 예약을 저장한다")
+		void retries_when_connection_failed_before_store() {
+			// given
+			doThrow(responseLost(new RedisConnectionFailureException("connection refused")))
+				.doCallRealMethod()
+				.when(seatOccupancyRepository).occupy(any());
+			Reservation reservation = reservation("RV1", 11L);
+
+			// when
+			reservationService.reserve(reservation, TTL);
+
+			// then
+			verify(seatOccupancyRepository, times(2)).occupy(any());
+			assertThat(memberIndexValue("RV1")).isEqualTo(String.valueOf(SCHEDULE_ID));
+			assertThat(stringRedisTemplate.hasKey(ReservationCacheKey.reservation(SCHEDULE_ID, "RV1"))).isTrue();
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("R:RV1");
+		}
+
+		@Test
+		@DisplayName("재실행 전에 다른 예약이 좌석을 점유하면 충돌 예외가 발생하고 회원 인덱스는 남지 않는다")
+		void retry_conflicts_with_other_reservation() {
+			// given - 첫 실행은 저장하지 못했고 그사이 다른 예약이 좌석을 잡은 상황
+			doAnswer(invocation -> {
+				seatOccupancyTestHelper.markReserved(SCHEDULE_ID, CAR_ID, 11L, 0, 1, "OTHER");
+				throw responseLost(new QueryTimeoutException("redis timeout"));
+			}).doCallRealMethod().when(seatOccupancyRepository).occupy(any());
+			Reservation reservation = reservation("RV1", 11L);
+
+			// when & then
+			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_CONFLICT_WITH_RESERVATION);
+			assertThat(memberIndexValue("RV1")).isNull();
+			assertThat(seatOccupancyTestHelper.valueOf(SCHEDULE_ID, CAR_ID, 11L, 0)).isEqualTo("R:OTHER");
+		}
+
+		@Test
+		@DisplayName("재실행도 응답을 받지 못하면 좌석 점유, 예약 본문, 회원 인덱스를 모두 되돌린다")
+		void rolls_back_all_when_retry_also_fails() {
+			// given - 첫 실행은 저장을 마쳤고 두 번 모두 타임아웃이 돌아온 상황
+			doAnswer(invocation -> {
+				invocation.callRealMethod();
+				throw responseLost(new QueryTimeoutException("redis timeout"));
+			}).doThrow(responseLost(new QueryTimeoutException("redis timeout")))
+				.when(seatOccupancyRepository).occupy(any());
+			Reservation reservation = reservation("RV1", 11L);
+
+			// when & then
+			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
+				.isInstanceOf(BusinessException.class)
+				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
+			verify(seatOccupancyRepository, times(2)).occupy(any());
+			assertNothingLeft("RV1");
+		}
+
+		@Test
+		@DisplayName("데이터 오염은 재시도하지 않고 좌석 점유, 예약 본문, 회원 인덱스를 모두 되돌린다")
+		void does_not_retry_corruption() {
+			// given - 저장은 됐지만 오염을 알린 상황
 			doAnswer(invocation -> {
 				invocation.callRealMethod();
 				throw new BusinessException(BookingError.SEAT_OCCUPANCY_CORRUPTED);
 			}).when(seatOccupancyRepository).occupy(any());
 			Reservation reservation = reservation("RV1", 11L);
 
-			// when
-
-			// then 오염은 스크립트가 아무것도 쓰지 않았다는 확정 신호라 타임아웃 구제 대상이 아니다
+			// when & then
 			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_CORRUPTED);
-			assertThat(memberIndexValue("RV1")).isNull();
+			verify(seatOccupancyRepository, times(1)).occupy(any());
+			assertNothingLeft("RV1");
 		}
 
 		@Test
-		@DisplayName("점유 스크립트가 실패하고 저장 여부 확인도 실패하면 회원 인덱스를 되돌리고 원래 예외를 던진다")
-		void rolls_back_index_when_store_check_fails() {
-			// given
-			doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR))
+		@DisplayName("되돌리기 중 좌석 점유 해제가 실패하면 회원 인덱스를 남겨 회원이 예약을 찾아 취소할 수 있게 한다")
+		void keeps_index_when_release_fails() {
+			// given - 첫 실행은 저장을 마쳤고 두 번 모두 타임아웃, 해제도 실패한 상황
+			doAnswer(invocation -> {
+				invocation.callRealMethod();
+				throw responseLost(new QueryTimeoutException("redis timeout"));
+			}).doThrow(responseLost(new QueryTimeoutException("redis timeout")))
 				.when(seatOccupancyRepository).occupy(any());
-			doThrow(new QueryTimeoutException("redis timeout"))
-				.when(reservationRedisRepository).exists(anyLong(), anyString());
+			doThrow(new BusinessException(BookingError.SEAT_OCCUPANCY_RELEASE_FAILED))
+				.when(seatOccupancyRepository).release(any());
 			Reservation reservation = reservation("RV1", 11L);
 
-			// when
-
-			// then
+			// when & then
 			assertThatThrownBy(() -> reservationService.reserve(reservation, TTL))
 				.isInstanceOf(BusinessException.class)
 				.hasFieldOrPropertyWithValue("errorCode", BookingError.SEAT_OCCUPANCY_SCRIPT_ERROR);
-			assertThat(memberIndexValue("RV1")).isNull();
+			assertThat(memberIndexValue("RV1")).isEqualTo(String.valueOf(SCHEDULE_ID));
+			assertThat(reservationService.getMyReservations(MEMBER_NO))
+				.extracting(Reservation::reservationId)
+				.containsExactly("RV1");
 		}
 
 		@Test
