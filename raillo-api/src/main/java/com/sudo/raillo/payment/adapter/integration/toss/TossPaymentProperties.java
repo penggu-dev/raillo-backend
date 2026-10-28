@@ -20,6 +20,9 @@ public record TossPaymentProperties(
 	@NotNull @DefaultValue("3s") Duration connectTimeout,
 	@NotNull @DefaultValue("15s") Duration readTimeout,
 	@NotNull @DefaultValue("2s") Duration connectionRequestTimeout,
+	@NotNull @DefaultValue("10s") Duration queryBudget,
+	@Positive @DefaultValue("3") int queryMaxAttempts,
+	@NotNull @DefaultValue("200ms") Duration queryBackoffBase,
 	@Positive @DefaultValue("100") int maxConnectionsPerRoute,
 	@Positive @DefaultValue("200") int maxTotal,
 	@NotNull @DefaultValue("60s") Duration keepAliveDuration,
@@ -30,6 +33,7 @@ public record TossPaymentProperties(
 	public record WorkerHttp(
 		@NotNull @DefaultValue("20s") Duration readTimeout,
 		@NotNull @DefaultValue("5s") Duration connectionRequestTimeout,
+		@NotNull @DefaultValue("20s") Duration queryBudget,
 		@Positive @DefaultValue("10") int maxConnectionsPerRoute,
 		@Positive @DefaultValue("10") int maxTotal
 	) {}

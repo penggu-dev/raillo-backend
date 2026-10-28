@@ -123,9 +123,11 @@ public class TossPaymentClientConfig {
 	@Bean
 	@Primary
 	public TossPaymentClient tossPaymentClient(
-		@Qualifier("tossPaymentRestClient") RestClient restClient, ObjectMapper objectMapper, TossApiMetrics metrics
+		@Qualifier("tossPaymentRestClient") RestClient restClient, ObjectMapper objectMapper, TossApiMetrics metrics,
+		TossPaymentProperties properties
 	) {
-		return new TossPaymentClient(restClient, objectMapper, metrics, "user");
+		return new TossPaymentClient(restClient, objectMapper, metrics, "user",
+			new QueryRetryPolicy(properties.queryMaxAttempts(), properties.queryBudget(), properties.queryBackoffBase()));
 	}
 
 	@Bean

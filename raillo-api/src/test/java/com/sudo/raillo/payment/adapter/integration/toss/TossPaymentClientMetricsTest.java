@@ -7,6 +7,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 
 import org.junit.jupiter.api.DisplayName;
@@ -68,7 +69,8 @@ class TossPaymentClientMetricsTest {
 		@Bean
 		public TossPaymentClient tossPaymentClient(RestClient tossPaymentRestClient, ObjectMapper objectMapper,
 			TossApiMetrics tossApiMetrics) {
-			return new TossPaymentClient(tossPaymentRestClient, objectMapper, tossApiMetrics, "user");
+			return new TossPaymentClient(tossPaymentRestClient, objectMapper, tossApiMetrics, "user",
+				new QueryRetryPolicy(3, Duration.ofMillis(500), Duration.ofMillis(10)));
 		}
 	}
 

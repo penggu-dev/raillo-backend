@@ -34,10 +34,6 @@ public class TossPaymentClient {
 
 	private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
-	/** 응답 본문 읽기에 실패했을 때 결제 조회를 다시 하는 최대 횟수(스펙 9장). */
-	private static final int QUERY_BODY_MAX_RETRIES = 2;
-	private static final long QUERY_BODY_RETRY_INTERVAL_MILLIS = 200L;
-
 	private final RestClient tossPaymentRestClient;
 	private final ObjectMapper objectMapper;
 	private final TossApiMetrics tossApiMetrics;
@@ -45,6 +41,8 @@ public class TossPaymentClient {
 	/** 지표가 사용자 경로와 Worker 경로를 구분하는 이름. */
 	@Getter
 	private final String callPath;
+
+	private final QueryRetryPolicy queryRetryPolicy;
 
 	/**
 	 * 토스페이먼츠 결제 승인 API 호출
@@ -84,52 +82,78 @@ public class TossPaymentClient {
 	}
 
 	/**
-	 * 토스페이먼츠 결제 조회 API 호출 (GET /v1/payments/{paymentKey}). Toss 응답 유실로 PaymentAttempt가 IN_PROGRESS로 남은 상태에서 실제 상태를 확인해 로컬을 정정하는 데 사용한다.
+	 * 토스페이먼츠 결제 조회 API 호출. Toss 응답 유실로 PaymentAttempt가 IN_PROGRESS로 남은 상태에서
+	 * 실제 상태를 확인해 로컬을 정정하는 데 쓴다.
 	 *
-	 * <p>Toss 오류 응답은 그 상태와 코드의 {@link TossPaymentException}으로 던진다. 응답 헤더는 받았지만 본문을 읽거나
-	 * 해석하지 못하면 최대 {@value #QUERY_BODY_MAX_RETRIES}회 다시 조회한다. 헤더 수신 전 실패는 Apache 재시도가 이미 다뤘으므로
-	 * 다시 조회하지 않는다. 끝내 결과를 알 수 없으면 {@code QUERY_UNCERTAIN_{원인}} 코드의 예외를 던진다.
+	 * <p>재시도는 이 루프 한 곳에만 있다. 전송 계층은 {@code disableAutomaticRetries}로 꺼져 있다.
+	 * 4xx는 확정이라 바로 던지고, 전송 실패와 5xx와 본문 읽기 실패는 {@link QueryRetryPolicy}의
+	 * 횟수와 예산 안에서 다시 보낸다.</p>
 	 */
 	public TossPaymentQueryResponse queryPayment(String paymentKey) {
 		log.info("[TOSS] 결제 조회 요청: paymentKey={}", paymentKey);
 
-		for (int retry = 0; ; retry++) {
-			try {
-				TossPaymentQueryResponse response = tossPaymentRestClient.get()
-					.uri("/v1/payments/{paymentKey}", paymentKey)
-					.exchange((req, res) -> {
-						if (res.getStatusCode().isError()) {
-							handleErrorResponse(res, "query");
-						}
-						try {
-							return res.bodyTo(TossPaymentQueryResponse.class);
-						} catch (RuntimeException e) {
-							throw new QueryBodyReadException(e);
-						}
-					});
+		long startedAt = System.nanoTime();
+		RuntimeException lastFailure = null;
+		String lastCause = "UNKNOWN";
 
+		for (int attempt = 1; ; attempt++) {
+			if (queryRetryPolicy.exhausted(attempt, elapsedMillis(startedAt))) {
+				throw queryUncertain(lastCause, statusOf(lastCause), lastFailure, phaseOf(lastFailure));
+			}
+			try {
+				TossPaymentQueryResponse response = exchangeQuery(paymentKey);
 				log.info("[TOSS] 결제 조회 성공: paymentKey={}, status={}, method={}",
 					response.paymentKey(), response.status(), response.method());
 				return response;
 
 			} catch (TossPaymentException e) {
-				throw e;
+				if (e.isDefinitiveFailure()) {
+					throw e;
+				}
+				lastFailure = e;
+				lastCause = "SERVER";
 			} catch (QueryBodyReadException e) {
-				if (retry < QUERY_BODY_MAX_RETRIES && sleepBeforeQueryRetry()) {
-					log.warn("[TOSS] 결제 조회 응답 본문 읽기 실패, 다시 조회: paymentKey={}, retry={}",
-						paymentKey, retry + 1, e.getCause());
-					continue;
-				}
-				// 헤더를 이미 받은 뒤의 실패이므로 요청은 나감
-				throw queryUncertain("BODY", HttpStatus.BAD_GATEWAY, e.getCause(), DeliveryPhase.NO_RESPONSE);
-			} catch (Exception e) {
-				DeliveryPhase phase = phaseOf(e);
-				if (isTimeout(e)) {
-					throw queryUncertain("TIMEOUT", HttpStatus.GATEWAY_TIMEOUT, e, phase);
-				}
-				throw queryUncertain("IO", HttpStatus.BAD_GATEWAY, e, phase);
+				lastFailure = e;
+				lastCause = "BODY";
+			} catch (RuntimeException e) {
+				lastFailure = e;
+				lastCause = isTimeout(e) ? "TIMEOUT" : "IO";
+			}
+
+			log.warn("[TOSS] 결제 조회 실패: paymentKey={}, attempt={}, cause={}",
+				paymentKey, attempt, lastCause, lastFailure);
+
+			if (queryRetryPolicy.exhausted(attempt + 1, elapsedMillis(startedAt))) {
+				throw queryUncertain(lastCause, statusOf(lastCause), lastFailure, phaseOf(lastFailure));
+			}
+			if (!sleepBeforeRetry(queryRetryPolicy.backoffMillis(attempt))) {
+				throw queryUncertain(lastCause, statusOf(lastCause), lastFailure, phaseOf(lastFailure));
 			}
 		}
+	}
+
+	private TossPaymentQueryResponse exchangeQuery(String paymentKey) {
+		return tossPaymentRestClient.get()
+			.uri("/v1/payments/{paymentKey}", paymentKey)
+			.exchange((req, res) -> {
+				if (res.getStatusCode().isError()) {
+					handleErrorResponse(res, "query");
+				}
+				try {
+					return res.bodyTo(TossPaymentQueryResponse.class);
+				} catch (RuntimeException e) {
+					throw new QueryBodyReadException(e);
+				}
+			});
+	}
+
+	private static long elapsedMillis(long startedAtNanos) {
+		return (System.nanoTime() - startedAtNanos) / 1_000_000L;
+	}
+
+	/** 본문을 이미 받은 뒤의 실패는 502, 응답 대기 초과는 504로 둔다. 기존 분류와 같다. */
+	private static HttpStatus statusOf(String cause) {
+		return "TIMEOUT".equals(cause) ? HttpStatus.GATEWAY_TIMEOUT : HttpStatus.BAD_GATEWAY;
 	}
 
 	private TossPaymentException queryUncertain(String cause, HttpStatus status, Throwable e, DeliveryPhase phase) {
@@ -140,9 +164,9 @@ public class TossPaymentClient {
 	}
 
 	/** @return 기다린 뒤 다시 조회해도 되면 true, 인터럽트되면 false */
-	private boolean sleepBeforeQueryRetry() {
+	private static boolean sleepBeforeRetry(long millis) {
 		try {
-			Thread.sleep(QUERY_BODY_RETRY_INTERVAL_MILLIS);
+			Thread.sleep(millis);
 			return true;
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
@@ -181,6 +205,9 @@ public class TossPaymentClient {
 	 * 분류되므로 넣지 않는다.</p>
 	 */
 	private static DeliveryPhase phaseOf(Throwable e) {
+		if (e == null) {
+			return DeliveryPhase.NO_RESPONSE;
+		}
 		for (Throwable cause = e; cause != null; cause = cause.getCause()) {
 			if (cause instanceof ConnectionRequestTimeoutException
 				|| cause instanceof ConnectTimeoutException
@@ -195,6 +222,9 @@ public class TossPaymentClient {
 
 	/** 연결, 커넥션 획득, 읽기 timeout은 모두 InterruptedIOException 계열이다. */
 	private static boolean isTimeout(Throwable e) {
+		if (e == null) {
+			return false;
+		}
 		for (Throwable cause = e; cause != null; cause = cause.getCause()) {
 			if (cause instanceof InterruptedIOException) {
 				return true;

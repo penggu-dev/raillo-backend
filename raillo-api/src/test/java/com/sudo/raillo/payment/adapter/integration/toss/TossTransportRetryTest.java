@@ -63,16 +63,16 @@ class TossTransportRetryTest {
 	}
 
 	@Test
-	@DisplayName("GET은 503에 전송 계층이 재시도한다")
-	void get_serverError_isRetriedByTransport() throws Exception {
+	@DisplayName("GET도 전송 계층에서는 재시도하지 않는다")
+	void get_serverError_isNotRetriedByTransport() throws Exception {
 		try (StubHttpServer server = StubHttpServer.start(503);
 			 CloseableHttpClient httpClient = httpClient()) {
 
 			exchange(restClient(server.baseUrl(), httpClient), "GET", "/v1/payments/key");
 
 			assertThat(server.requestCount())
-				.as("TossGetRetryStrategy가 최대 2회 재시도한다")
-				.isEqualTo(3);
+				.as("재시도는 TossPaymentClient의 애플리케이션 계층 루프 한 곳에만 있다")
+				.isEqualTo(1);
 		}
 	}
 }

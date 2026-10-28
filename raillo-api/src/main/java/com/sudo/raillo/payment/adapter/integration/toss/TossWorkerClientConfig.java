@@ -45,9 +45,11 @@ public class TossWorkerClientConfig {
 
 	@Bean
 	public TossPaymentClient tossWorkerPaymentClient(
-		@Qualifier("tossWorkerRestClient") RestClient restClient, ObjectMapper objectMapper, TossApiMetrics metrics
+		@Qualifier("tossWorkerRestClient") RestClient restClient, ObjectMapper objectMapper, TossApiMetrics metrics,
+		TossPaymentProperties properties
 	) {
-		return new TossPaymentClient(restClient, objectMapper, metrics, "worker");
+		return new TossPaymentClient(restClient, objectMapper, metrics, "worker",
+			new QueryRetryPolicy(properties.queryMaxAttempts(), properties.worker().queryBudget(), properties.queryBackoffBase()));
 	}
 
 	@Bean

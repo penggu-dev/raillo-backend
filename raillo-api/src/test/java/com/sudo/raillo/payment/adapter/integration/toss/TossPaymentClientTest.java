@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 
 import org.junit.jupiter.api.DisplayName;
@@ -81,7 +82,8 @@ class TossPaymentClientTest {
 		@Bean
 		public TossPaymentClient tossPaymentClient(RestClient tossPaymentRestClient, ObjectMapper objectMapper,
 			TossApiMetrics tossApiMetrics) {
-			return new TossPaymentClient(tossPaymentRestClient, objectMapper, tossApiMetrics, "user");
+			return new TossPaymentClient(tossPaymentRestClient, objectMapper, tossApiMetrics, "user",
+				new QueryRetryPolicy(3, Duration.ofMillis(500), Duration.ofMillis(10)));
 		}
 	}
 
@@ -93,6 +95,12 @@ class TossPaymentClientTest {
 
 	@Autowired
 	private ObjectMapper objectMapper;
+
+	@Autowired
+	private RestClient tossPaymentRestClient;
+
+	@Autowired
+	private TossApiMetrics tossApiMetrics;
 
 	@Nested
 	@DisplayName("confirmPayment")
@@ -485,10 +493,10 @@ class TossPaymentClientTest {
 			""";
 
 		@Test
-		@DisplayName("조회의 결과 불명 경로는 전송 단계가 붙어도 결과 불명으로 남는다")
+		@DisplayName("조회의 결과 불명 경로는 재시도를 다 써도 결과 불명으로 남는다")
 		void queryUncertain_staysOutcomeUnknown() {
 			// given
-			server.expect(requestTo(QUERY_URL)).andExpect(method(GET))
+			server.expect(ExpectedCount.times(3), requestTo(QUERY_URL)).andExpect(method(GET))
 				.andRespond(withException(new SocketTimeoutException("read timed out")));
 
 			// when & then
@@ -505,10 +513,10 @@ class TossPaymentClientTest {
 		}
 
 		@Test
-		@DisplayName("조회가 커넥션 획득 타임아웃이면 NOT_REACHED로 분류된다")
+		@DisplayName("조회가 커넥션 획득 타임아웃을 반복해도 NOT_REACHED로 분류된다")
 		void query_connectionRequestTimeout_notReached() {
 			// given
-			server.expect(requestTo(QUERY_URL)).andExpect(method(GET))
+			server.expect(ExpectedCount.times(3), requestTo(QUERY_URL)).andExpect(method(GET))
 				.andRespond(withException(new ConnectionRequestTimeoutException("pool exhausted")));
 
 			// when & then
@@ -568,10 +576,10 @@ class TossPaymentClientTest {
 		}
 
 		@Test
-		@DisplayName("응답 헤더를 받기 전에 timeout이 나면 다시 조회하지 않고 QUERY_UNCERTAIN_TIMEOUT 코드와 504 상태의 TossPaymentException이 발생한다")
-		void does_not_retry_on_timeout() {
+		@DisplayName("응답 헤더를 받기 전 timeout이 반복되면 재시도 끝에 QUERY_UNCERTAIN_TIMEOUT 코드와 504 상태의 TossPaymentException이 발생한다")
+		void retriesThenFails_onRepeatedTimeout() {
 			// given
-			server.expect(ExpectedCount.once(), requestTo(QUERY_URL)).andExpect(method(GET))
+			server.expect(ExpectedCount.times(3), requestTo(QUERY_URL)).andExpect(method(GET))
 				.andRespond(withException(new SocketTimeoutException("read timed out")));
 
 			// when & then
@@ -583,10 +591,10 @@ class TossPaymentClientTest {
 		}
 
 		@Test
-		@DisplayName("응답 헤더를 받기 전에 timeout이 아닌 IO 오류가 나면 다시 조회하지 않고 QUERY_UNCERTAIN_IO 코드와 502 상태의 TossPaymentException이 발생한다")
-		void does_not_retry_on_non_timeout_io_failure() {
+		@DisplayName("응답 헤더를 받기 전 timeout이 아닌 IO 오류가 반복되면 재시도 끝에 QUERY_UNCERTAIN_IO 코드와 502 상태의 TossPaymentException이 발생한다")
+		void retriesThenFails_onRepeatedNonTimeoutIoFailure() {
 			// given
-			server.expect(ExpectedCount.once(), requestTo(QUERY_URL)).andExpect(method(GET))
+			server.expect(ExpectedCount.times(3), requestTo(QUERY_URL)).andExpect(method(GET))
 				.andRespond(withException(new SocketException("Connection reset")));
 
 			// when & then
@@ -629,6 +637,59 @@ class TossPaymentClientTest {
 				response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 				return response;
 			};
+		}
+	}
+
+	@Nested
+	@DisplayName("조회 재시도 단일화")
+	class QueryRetry {
+
+		@Test
+		@DisplayName("5xx는 총 3회까지만 호출한다")
+		void serverError_retriesUpToThreeCalls() {
+			server.expect(ExpectedCount.times(3), requestTo("https://api.tosspayments.com/v1/payments/pk_1"))
+				.andExpect(method(GET))
+				.andRespond(withServerError().body("{\"code\":\"X\",\"message\":\"x\"}")
+					.contentType(MediaType.APPLICATION_JSON));
+
+			assertThatThrownBy(() -> tossPaymentClient.queryPayment("pk_1"))
+				.isInstanceOf(TossPaymentException.class)
+				.hasMessageContaining("결제 조회 결과를 확인하지 못했습니다");
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("4xx는 재시도하지 않고 한 번에 끝난다")
+		void clientError_doesNotRetry() {
+			server.expect(ExpectedCount.once(), requestTo("https://api.tosspayments.com/v1/payments/pk_2"))
+				.andExpect(method(GET))
+				.andRespond(withBadRequest().body("{\"code\":\"REJECT_CARD_PAYMENT\",\"message\":\"카드 결제가 거절되었습니다.\"}")
+					.contentType(MediaType.APPLICATION_JSON));
+
+			assertThatThrownBy(() -> tossPaymentClient.queryPayment("pk_2"))
+				.isInstanceOf(TossPaymentException.class)
+				.hasFieldOrPropertyWithValue("errorCode", "REJECT_CARD_PAYMENT")
+				.hasFieldOrPropertyWithValue("httpStatus", 400);
+
+			server.verify();
+		}
+
+		@Test
+		@DisplayName("예산을 넘기면 횟수가 남아도 멈춘다")
+		void budgetExceeded_stopsEarly() {
+			TossPaymentClient shortBudget = new TossPaymentClient(tossPaymentRestClient, objectMapper, tossApiMetrics, "user",
+				new QueryRetryPolicy(10, Duration.ofMillis(1), Duration.ofMillis(10)));
+
+			server.expect(ExpectedCount.once(), requestTo("https://api.tosspayments.com/v1/payments/pk_3"))
+				.andExpect(method(GET))
+				.andRespond(withServerError().body("{\"code\":\"X\",\"message\":\"x\"}")
+					.contentType(MediaType.APPLICATION_JSON));
+
+			assertThatThrownBy(() -> shortBudget.queryPayment("pk_3"))
+				.isInstanceOf(TossPaymentException.class);
+
+			server.verify();
 		}
 	}
 

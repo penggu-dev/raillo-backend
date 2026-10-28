@@ -57,7 +57,9 @@ final class TossHttpClients {
 				.setConnectionRequestTimeout(Timeout.of(connectionRequestTimeout))
 				.setResponseTimeout(Timeout.of(responseTimeout))
 				.build())
-			.setRetryStrategy(new TossGetRetryStrategy())
+			// 전략을 지정하지 않으면 Apache가 DefaultHttpRequestRetryStrategy를 끼운다. 그 기본값은
+			// 응답 코드 경로에서 멱등성을 보지 않아 429, 503을 받은 승인 POST를 다시 보낸다.
+			.disableAutomaticRetries()
 			.evictIdleConnections(TimeValue.of(evictIdleAfter))
 			.evictExpiredConnections()
 			.build();

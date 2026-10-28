@@ -78,10 +78,15 @@ payment:
       connect-timeout: 3s
       read-timeout: 15s
       connection-request-timeout: 2s
+      query-budget: 10s
+      query-max-attempts: 3
+      query-backoff-base: 200ms
       max-connections-per-route: 100
       max-total: 200
       keep-alive-duration: 60s
       evict-idle-after: 30s
+      worker:
+        query-budget: 20s
 
 raillo:
   payment:
