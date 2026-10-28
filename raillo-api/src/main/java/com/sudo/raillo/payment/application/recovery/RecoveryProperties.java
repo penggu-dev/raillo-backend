@@ -10,7 +10,7 @@ public record RecoveryProperties(
 	@DefaultValue("false") boolean enabled,
 	@DefaultValue("30s") Duration pollingInterval,
 	@DefaultValue("2m") Duration staleAfter,
-	@DefaultValue("20") int batchSize,
+	@DefaultValue("6") int batchSize,
 	@DefaultValue("5m") Duration leaseDuration,
 	@DefaultValue("1m") Duration initialBackoff,
 	@DefaultValue("30m") Duration maxBackoff,

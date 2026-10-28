@@ -132,7 +132,8 @@ raillo:
       enabled: true
       polling-interval: 30s
       stale-after: 2m
-      batch-size: 20
+      # 조회 한 건 최악 38초(#290) x 6 = 3.8분으로 lease 5분 안에 들어온다. 잠정값, 본 산정은 #305
+      batch-size: 6
       lease-duration: 5m
       initial-backoff: 1m
       max-backoff: 30m

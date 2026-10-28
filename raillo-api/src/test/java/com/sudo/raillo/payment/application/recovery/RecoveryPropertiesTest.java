@@ -25,11 +25,29 @@ class RecoveryPropertiesTest {
 		assertThat(properties.enabled()).isFalse();
 		assertThat(properties.pollingInterval()).isEqualTo(Duration.ofSeconds(30));
 		assertThat(properties.staleAfter()).isEqualTo(Duration.ofMinutes(2));
-		assertThat(properties.batchSize()).isEqualTo(20);
+		assertThat(properties.batchSize()).isEqualTo(6);
 		assertThat(properties.leaseDuration()).isEqualTo(Duration.ofMinutes(5));
 		assertThat(properties.initialBackoff()).isEqualTo(Duration.ofMinutes(1));
 		assertThat(properties.maxBackoff()).isEqualTo(Duration.ofMinutes(30));
 		assertThat(properties.maxWait()).isEqualTo(Duration.ofHours(24));
+	}
+
+	@Test
+	@DisplayName("배치 전체가 lease 안에 끝나는 크기여야 다른 파드가 같은 행을 집지 않는다")
+	void bind_batchSizeFitsWithinLease() {
+		// given
+		// 조회 한 건의 Worker 경로 최악 비용. query-budget 20s + 호출 1회 18s (#290 설계 6, 7)
+		Duration worstPerAttempt = Duration.ofSeconds(38);
+		Binder binder = new Binder(new MapConfigurationPropertySource(Map.of()));
+
+		// when
+		RecoveryProperties properties = binder.bindOrCreate("raillo.payment.recovery", RecoveryProperties.class);
+
+		// then
+		// claim이 batch 전체에 같은 만료를 찍고 Worker는 직렬로 처리하므로,
+		// 마지막 행의 처리가 끝나는 시각이 lease 안이어야 한다.
+		assertThat(worstPerAttempt.multipliedBy(properties.batchSize()))
+			.isLessThan(properties.leaseDuration());
 	}
 
 	@Test
