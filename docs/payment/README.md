@@ -131,6 +131,10 @@ Enum
 | 수동 확인 대상 | 409 `PAYMENT_117` | 고객센터 |
 | 확정 단계에서 시도에 저장된 결제 키가 없음 | 500 `PAYMENT_119` | 다시 시도하지 않는다. 서버 오류이며 운영 확인이 필요하다 |
 
+Toss 호출에는 confirm, query(사용자), query(Worker)별로 서킷 브레이커가 걸려 있다. 회로가 열리면 호출이
+나가지 않는데, 이것도 미도달이 확정이므로 새 분류를 만들지 않고 위 표를 그대로 쓴다. confirm은 미전송과
+같은 503 `PAYMENT_118`로, query는 결과 불명과 같이 좌석을 유지하고 재조회로 넘어간다.
+
 ## 설계 결정
 
 ### 승인은 시작, Toss 호출, 확정 세 단계로 나눈다
@@ -172,3 +176,13 @@ Enum
 - 맥락: `attemptId`가 `paymentKey`에서 결정되므로, 실패로 기록하면 그 `paymentKey`로는 다시 승인할 수 없다. 그런데 요청이 Toss에 가지도 않았다면 다시 보내도 위험이 없다.
 - 결정: 미도달이 확정인 실패는 `NOT_SENT`로 기록하고 503으로 응답한다. 다시 오면 같은 시도를 진행 중으로 되돌려 승인을 다시 보낸다.
 - 결과: 일시적인 연결 실패로 결제창을 처음부터 다시 열 필요가 없다. 다시 보낼 때도 예약 생존과 결제 상태를 새 승인처럼 다시 확인한다.
+
+### 재시도는 전송 계층이 아니라 조회 한 곳에서만 한다
+- 맥락: 전송 계층에 재시도 전략을 지정하지 않으면 Apache HttpClient가 기본 전략(`DefaultHttpRequestRetryStrategy`)을 끼운다. 그 기본값은 응답 코드 경로에서 멱등성을 보지 않아 429, 503을 받은 승인(POST) 요청도 다시 보낸다. 이중 청구로 이어진다.
+- 결정: 전송 계층은 `disableAutomaticRetries()`로 재시도를 끈다. 재시도는 `TossPaymentClient.queryPayment`의 루프 한 곳에만 두고 횟수와 경과 시간 두 축으로 막는다. 예산은 다음 시도를 시작하기 전에만 검사하므로 조회 한 건의 최대 비용은 `budget + 호출 1회`다(사용자 경로 20초, Worker 경로 38초). `read-timeout`도 confirm과 query를 나눈다. 승인은 응답을 못 받으면 결과 불명이 되어 좌석이 묶이고 복구 경로로 넘어가므로 길게 두고, 조회는 멱등이라 짧게 끊어도 다시 조회하면 된다. 값(`query-max-attempts`, `query-budget`, `query-backoff-base`, `read-timeout`, `query-read-timeout`)은 `application-prod.yml`의 `toss.api`에 있다.
+- 결과: 승인(POST)은 전송 계층과 애플리케이션 계층 어디서도 자동 재시도되지 않아, 재시도 경로가 결과 불명 409를 받은 승객이 같은 요청을 다시 보내는 한 곳뿐이다. 대신 조회 한 건이 재시도마다 실패 지표를 올린다. 5xx가 와서 재시도하는 동안은 Toss가 돌려준 코드 그대로 `incrementFailure`가 매번 올라가고(로그와 지표에 Toss별 코드가 남는다), 재시도를 다 쓰고 포기하면 원인을 `QUERY_UNCERTAIN_SERVER`로 수렴시켜 `queryUncertain`이 한 번 더 올라간다. 5xx 세 번이면 한 건이 최대 네 번까지 지표를 움직인다. 전송 계층이 재시도하던 때는 한 건이 한 번이었다. 집계 의미가 바뀐 것이고 모니터링 규칙을 다시 맞출 때 참고한다.
+
+### 서킷 브레이커는 기존 실패 분류에 얹는다
+- 맥락: confirm과 query(사용자, Worker)는 커넥션 풀이 달라(`TossPaymentClientConfig`, `TossWorkerClientConfig`) 브레이커도 `toss-confirm`, `toss-query-user`, `toss-query-worker` 셋으로 나눈다. 카드 거절 같은 4xx 확정 실패가 몰려도 게이트웨이는 멀쩡하므로 회로를 열면 안 된다(`DefinitiveFailurePredicate`).
+- 결정: 회로가 열리면 `CallNotPermittedException`이 던져지고, `TossPaymentClient`는 이를 `DeliveryPhase.NOT_REACHED`로 번역해 기존 미도달 분류를 그대로 쓴다. 새 에러 코드도 새 응답 분기도 만들지 않는다.
+- 결과: 임계값(`failure-rate-threshold`, `slow-call-duration-threshold`, `sliding-window-size` 등)은 `application-prod.yml`의 `resilience4j.circuitbreaker`에 있다. 측정치가 아니라 타임아웃 예산과 예약 TTL(10분)에서 역산한 추정치이며, #276 부하 측정과 #305 뒤에 조정한다.
