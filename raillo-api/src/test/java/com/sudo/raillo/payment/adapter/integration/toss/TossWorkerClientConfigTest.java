@@ -91,4 +91,24 @@ class TossWorkerClientConfigTest {
 		assertThat(userQueryBreaker.getName()).isEqualTo("toss-query-user");
 		assertThat(workerQueryBreaker.getName()).isEqualTo("toss-query-worker");
 	}
+
+	/**
+	 * 생성자의 1~2번 자리가 둘 다 {@code RestClient}라 순서를 바꿔 넘겨도 컴파일된다.
+	 * 실제 배선이 맞는지는 Bean 이름으로 확인해야 한다.
+	 */
+	@Test
+	@DisplayName("사용자와 Worker 경로가 각자의 조회 RestClient로 배선된다")
+	void queryRestClientsAreWiredToTheirOwnPath() {
+		// given
+		TossPaymentClient userClient = context.getBean("tossPaymentClient", TossPaymentClient.class);
+		TossPaymentClient workerClient = context.getBean("tossWorkerPaymentClient", TossPaymentClient.class);
+
+		// when
+		Object userQueryRestClient = ReflectionTestUtils.getField(userClient, "tossQueryRestClient");
+		Object workerQueryRestClient = ReflectionTestUtils.getField(workerClient, "tossQueryRestClient");
+
+		// then
+		assertThat(userQueryRestClient).isSameAs(context.getBean("tossQueryRestClient"));
+		assertThat(workerQueryRestClient).isSameAs(context.getBean("tossWorkerQueryRestClient"));
+	}
 }

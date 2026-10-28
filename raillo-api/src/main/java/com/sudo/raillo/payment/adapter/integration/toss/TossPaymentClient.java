@@ -81,8 +81,8 @@ public class TossPaymentClient {
 
 			return response;
 
-		} catch (CallNotPermittedException open) {
-			throw circuitOpen("confirm", open);
+		} catch (CallNotPermittedException e) {
+			throw circuitOpen("confirm");
 		} catch (TossPaymentException e) {
 			throw e;
 		} catch (Exception e) {
@@ -115,8 +115,8 @@ public class TossPaymentClient {
 					response.paymentKey(), response.status(), response.method());
 				return response;
 
-			} catch (CallNotPermittedException open) {
-				throw circuitOpen("query", open);
+			} catch (CallNotPermittedException e) {
+				throw circuitOpen("query");
 			} catch (TossPaymentException e) {
 				if (e.isDefinitiveFailure()) {
 					throw e;
@@ -259,7 +259,7 @@ public class TossPaymentClient {
 	 * 남기면 장애 시점에 로그가 폭증한다. 원인은 자명하므로 warn으로 충분하고, 상태 전이 자체는
 	 * Resilience4j 이벤트와 지표로 본다(#290 Task 7).</p>
 	 */
-	private TossPaymentException circuitOpen(String operation, CallNotPermittedException open) {
+	private TossPaymentException circuitOpen(String operation) {
 		String errorCode = operation.toUpperCase() + "_CIRCUIT_OPEN";
 		log.warn("[TOSS] {} 회로 열림: errorCode={}", operation, errorCode);
 		tossApiMetrics.incrementFailure(operation, 0, errorCode, DeliveryPhase.NOT_REACHED);
@@ -301,8 +301,8 @@ public class TossPaymentClient {
 
 			return response;
 
-		} catch (CallNotPermittedException open) {
-			throw circuitOpen("cancel", open);
+		} catch (CallNotPermittedException e) {
+			throw circuitOpen("cancel");
 		} catch (TossPaymentException e) {
 			throw e;
 		} catch (Exception e) {
