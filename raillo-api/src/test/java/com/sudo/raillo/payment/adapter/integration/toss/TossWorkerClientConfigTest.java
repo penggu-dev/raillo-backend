@@ -13,6 +13,8 @@ import com.sudo.raillo.payment.application.recovery.PaymentRecoveryWorker;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
 import com.sudo.raillo.support.annotation.ServiceTest;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+
 @ServiceTest
 @DisplayName("Worker 전용 Toss 클라이언트")
 class TossWorkerClientConfigTest {
@@ -68,5 +70,25 @@ class TossWorkerClientConfigTest {
 		assertThat(workerPool.getDefaultMaxPerRoute()).isEqualTo(properties.worker().maxConnectionsPerRoute());
 		assertThat(userPool.getMaxTotal()).isEqualTo(properties.maxTotal());
 		assertThat(userPool.getDefaultMaxPerRoute()).isEqualTo(properties.maxConnectionsPerRoute());
+	}
+
+	/**
+	 * 두 클라이언트의 {@code queryBreaker} 필드 타입이 같아 인자를 바꿔 넘겨도 컴파일과 다른 테스트는 통과한다.
+	 * 실제 배선이 맞는지는 이름으로 확인해야 한다.
+	 */
+	@Test
+	@DisplayName("사용자와 Worker 경로가 각자의 조회 브레이커로 배선된다")
+	void queryBreakersAreWiredToTheirOwnPath() {
+		// given
+		TossPaymentClient userClient = context.getBean("tossPaymentClient", TossPaymentClient.class);
+		TossPaymentClient workerClient = context.getBean("tossWorkerPaymentClient", TossPaymentClient.class);
+
+		// when
+		CircuitBreaker userQueryBreaker = (CircuitBreaker)ReflectionTestUtils.getField(userClient, "queryBreaker");
+		CircuitBreaker workerQueryBreaker = (CircuitBreaker)ReflectionTestUtils.getField(workerClient, "queryBreaker");
+
+		// then
+		assertThat(userQueryBreaker.getName()).isEqualTo("toss-query-user");
+		assertThat(workerQueryBreaker.getName()).isEqualTo("toss-query-worker");
 	}
 }

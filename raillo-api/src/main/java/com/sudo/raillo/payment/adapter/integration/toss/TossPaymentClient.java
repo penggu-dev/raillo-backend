@@ -16,6 +16,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.RestClient;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import tools.jackson.databind.ObjectMapper;
 import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
@@ -45,6 +47,9 @@ public class TossPaymentClient {
 
 	private final QueryRetryPolicy queryRetryPolicy;
 
+	private final CircuitBreaker confirmBreaker;
+	private final CircuitBreaker queryBreaker;
+
 	/**
 	 * 토스페이먼츠 결제 승인 API 호출
 	 *
@@ -60,21 +65,24 @@ public class TossPaymentClient {
 			command.paymentKey(), command.orderId(), command.amount());
 
 		try {
-			TossPaymentConfirmResponse response = tossPaymentRestClient.post()
-				.uri("/v1/payments/confirm")
-				.body(command)
-				.exchange((req, res) -> {
-					if (res.getStatusCode().isError()) {
-						handleErrorResponse(res, "confirm");
-					}
-					return res.bodyTo(TossPaymentConfirmResponse.class);
-				});
+			TossPaymentConfirmResponse response = confirmBreaker.executeSupplier(() ->
+				tossPaymentRestClient.post()
+					.uri("/v1/payments/confirm")
+					.body(command)
+					.exchange((req, res) -> {
+						if (res.getStatusCode().isError()) {
+							handleErrorResponse(res, "confirm");
+						}
+						return res.bodyTo(TossPaymentConfirmResponse.class);
+					}));
 
 			log.info("[TOSS] 결제 승인 성공: paymentKey={}, orderId={}, status={}",
 				response.paymentKey(), response.orderId(), response.status());
 
 			return response;
 
+		} catch (CallNotPermittedException open) {
+			throw circuitOpen("confirm", open);
 		} catch (TossPaymentException e) {
 			throw e;
 		} catch (Exception e) {
@@ -107,6 +115,8 @@ public class TossPaymentClient {
 					response.paymentKey(), response.status(), response.method());
 				return response;
 
+			} catch (CallNotPermittedException open) {
+				throw circuitOpen("query", open);
 			} catch (TossPaymentException e) {
 				if (e.isDefinitiveFailure()) {
 					throw e;
@@ -134,7 +144,7 @@ public class TossPaymentClient {
 	}
 
 	private TossPaymentQueryResponse exchangeQuery(String paymentKey) {
-		return tossQueryRestClient.get()
+		return queryBreaker.executeSupplier(() -> tossQueryRestClient.get()
 			.uri("/v1/payments/{paymentKey}", paymentKey)
 			.exchange((req, res) -> {
 				if (res.getStatusCode().isError()) {
@@ -145,7 +155,7 @@ public class TossPaymentClient {
 				} catch (RuntimeException e) {
 					throw new QueryBodyReadException(e);
 				}
-			});
+			}));
 	}
 
 	private static long elapsedMillis(long startedAtNanos) {
@@ -243,6 +253,21 @@ public class TossPaymentClient {
 	}
 
 	/**
+	 * 회로가 열려 호출이 나가지 않은 실패. 게이트웨이 미도달이 확정이므로 기존 NOT_REACHED 분류를 그대로 쓴다.
+	 *
+	 * <p>차단 한 번당 한 번 불린다. 열린 30초 동안의 모든 요청이 여기를 지나므로 error와 스택트레이스로
+	 * 남기면 장애 시점에 로그가 폭증한다. 원인은 자명하므로 warn으로 충분하고, 상태 전이 자체는
+	 * Resilience4j 이벤트와 지표로 본다(#290 Task 7).</p>
+	 */
+	private TossPaymentException circuitOpen(String operation, CallNotPermittedException open) {
+		String errorCode = operation.toUpperCase() + "_CIRCUIT_OPEN";
+		log.warn("[TOSS] {} 회로 열림: errorCode={}", operation, errorCode);
+		tossApiMetrics.incrementFailure(operation, 0, errorCode, DeliveryPhase.NOT_REACHED);
+		return new TossPaymentException(0, errorCode,
+			"결제 시스템이 일시적으로 불안정합니다. 잠시 후 다시 시도해주세요.", DeliveryPhase.NOT_REACHED);
+	}
+
+	/**
 	 * 토스페이먼츠 결제 취소 API 호출
 	 *
 	 * @param paymentKey 결제 키
@@ -259,22 +284,25 @@ public class TossPaymentClient {
 			paymentKey, request.cancelReason(), request.cancelAmount(), idempotencyKey);
 
 		try {
-			TossPaymentCancelResponse response = tossPaymentRestClient.post()
-				.uri("/v1/payments/{paymentKey}/cancel", paymentKey)
-				.header(IDEMPOTENCY_KEY_HEADER, idempotencyKey)
-				.body(request)
-				.exchange((req, res) -> {
-					if (res.getStatusCode().isError()) {
-						handleErrorResponse(res, "cancel");
-					}
-					return res.bodyTo(TossPaymentCancelResponse.class);
-				});
+			TossPaymentCancelResponse response = confirmBreaker.executeSupplier(() ->
+				tossPaymentRestClient.post()
+					.uri("/v1/payments/{paymentKey}/cancel", paymentKey)
+					.header(IDEMPOTENCY_KEY_HEADER, idempotencyKey)
+					.body(request)
+					.exchange((req, res) -> {
+						if (res.getStatusCode().isError()) {
+							handleErrorResponse(res, "cancel");
+						}
+						return res.bodyTo(TossPaymentCancelResponse.class);
+					}));
 
 			log.info("[TOSS] 결제 취소 성공: paymentKey={}, status={}, balanceAmount={}, cancelCount={}",
 				response.paymentKey(), response.status(), response.balanceAmount(), response.getCancelCount());
 
 			return response;
 
+		} catch (CallNotPermittedException open) {
+			throw circuitOpen("cancel", open);
 		} catch (TossPaymentException e) {
 			throw e;
 		} catch (Exception e) {

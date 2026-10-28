@@ -158,6 +158,9 @@ class PaymentConfirmServiceTest {
 	@MockitoSpyBean
 	private PaymentAttemptManager paymentAttemptManager;
 
+	@MockitoSpyBean
+	private PaymentSeatGuard paymentSeatGuard;
+
 	private Member member;
 	private String memberNo;
 	private TrainScheduleResult trainScheduleResult;
@@ -1403,6 +1406,37 @@ class PaymentConfirmServiceTest {
 		assertThat(attempt.getErrorCode()).isEqualTo("CONFIRM_NOT_SENT");
 		assertThat(paymentRepository.findById(attempt.getPaymentId()).orElseThrow().getPaymentStatus())
 			.isEqualTo(PaymentStatus.PENDING);
+	}
+
+	@Test
+	@DisplayName("회로가 열려 승인이 나가지 않으면 attempt는 NOT_SENT로, Payment는 PENDING으로 남는다")
+	void confirmPayment_circuitOpen_marksAttemptNotSent() {
+		// given
+		BigDecimal amount = BigDecimal.valueOf(50000);
+		String paymentKey = "toss_pk_circuit_open";
+		Reservation reservation = createReservationWithHold(amount);
+		PaymentPrepareResult prepared = paymentPreparer.prepare(
+			new PaymentPrepareCommand(List.of(reservation.reservationId())), memberNo);
+
+		given(tossPaymentClient.confirmPayment(any(PaymentConfirmCommand.class)))
+			.willThrow(new TossPaymentException(0, "CONFIRM_CIRCUIT_OPEN",
+				"결제 시스템이 일시적으로 불안정합니다. 잠시 후 다시 시도해주세요.", DeliveryPhase.NOT_REACHED));
+
+		PaymentConfirmCommand request = new PaymentConfirmCommand(paymentKey, prepared.orderCode(), amount);
+
+		// when
+		assertThatThrownBy(() -> paymentConfirmer.confirm(request, memberNo))
+			.isInstanceOf(TossPaymentException.class);
+
+		// then
+		PaymentAttempt attempt = paymentAttemptRepository
+			.findByAttemptId(forApproval(paymentKey)).orElseThrow();
+		assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.NOT_SENT);
+		assertThat(attempt.getErrorCode()).isEqualTo("CONFIRM_CIRCUIT_OPEN");
+		assertThat(paymentRepository.findById(attempt.getPaymentId()).orElseThrow().getPaymentStatus())
+			.isEqualTo(PaymentStatus.PENDING);
+		// 요청이 나가지 않은 것이 확정이므로 좌석을 보호할 필요가 없다. 호출되면 isNotReached()와 isOutcomeUnknown() 분기가 섞인 회귀다.
+		verify(paymentSeatGuard, never()).holdQuietly(any(), any(), any());
 	}
 
 	@Test

@@ -26,6 +26,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
@@ -70,7 +71,8 @@ class TossPaymentClientMetricsTest {
 		public TossPaymentClient tossPaymentClient(RestClient tossPaymentRestClient, ObjectMapper objectMapper,
 			TossApiMetrics tossApiMetrics) {
 			return new TossPaymentClient(tossPaymentRestClient, tossPaymentRestClient, objectMapper, tossApiMetrics, "user",
-				new QueryRetryPolicy(3, Duration.ofMillis(500), Duration.ofMillis(10)));
+				new QueryRetryPolicy(3, Duration.ofMillis(500), Duration.ofMillis(10)),
+				CircuitBreaker.ofDefaults("test"), CircuitBreaker.ofDefaults("test"));
 		}
 	}
 

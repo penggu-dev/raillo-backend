@@ -21,6 +21,7 @@ import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 import com.sudo.raillo.payment.application.PaymentApprovalReconciler;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -139,10 +140,13 @@ public class TossPaymentClientConfig {
 	public TossPaymentClient tossPaymentClient(
 		@Qualifier("tossPaymentRestClient") RestClient restClient,
 		@Qualifier("tossQueryRestClient") RestClient queryRestClient,
-		ObjectMapper objectMapper, TossApiMetrics metrics, TossPaymentProperties properties
+		ObjectMapper objectMapper, TossApiMetrics metrics, TossPaymentProperties properties,
+		@Qualifier("tossConfirmBreaker") CircuitBreaker confirmBreaker,
+		@Qualifier("tossQueryUserBreaker") CircuitBreaker queryUserBreaker
 	) {
 		return new TossPaymentClient(restClient, queryRestClient, objectMapper, metrics, "user",
-			new QueryRetryPolicy(properties.queryMaxAttempts(), properties.queryBudget(), properties.queryBackoffBase()));
+			new QueryRetryPolicy(properties.queryMaxAttempts(), properties.queryBudget(), properties.queryBackoffBase()),
+			confirmBreaker, queryUserBreaker);
 	}
 
 	@Bean

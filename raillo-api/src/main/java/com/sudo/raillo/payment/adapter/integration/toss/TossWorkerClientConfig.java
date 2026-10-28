@@ -13,6 +13,8 @@ import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 import com.sudo.raillo.payment.application.PaymentApprovalReconciler;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+
 /** 복구 Worker 전용 Toss 호출 설정. 사용자 경로와 커넥션 풀을 나눈다. */
 @Configuration
 public class TossWorkerClientConfig {
@@ -61,10 +63,13 @@ public class TossWorkerClientConfig {
 	public TossPaymentClient tossWorkerPaymentClient(
 		@Qualifier("tossWorkerRestClient") RestClient restClient,
 		@Qualifier("tossWorkerQueryRestClient") RestClient queryRestClient,
-		ObjectMapper objectMapper, TossApiMetrics metrics, TossPaymentProperties properties
+		ObjectMapper objectMapper, TossApiMetrics metrics, TossPaymentProperties properties,
+		@Qualifier("tossConfirmBreaker") CircuitBreaker confirmBreaker,
+		@Qualifier("tossQueryWorkerBreaker") CircuitBreaker queryWorkerBreaker
 	) {
 		return new TossPaymentClient(restClient, queryRestClient, objectMapper, metrics, "worker",
-			new QueryRetryPolicy(properties.queryMaxAttempts(), properties.worker().queryBudget(), properties.queryBackoffBase()));
+			new QueryRetryPolicy(properties.queryMaxAttempts(), properties.worker().queryBudget(), properties.queryBackoffBase()),
+			confirmBreaker, queryWorkerBreaker);
 	}
 
 	@Bean

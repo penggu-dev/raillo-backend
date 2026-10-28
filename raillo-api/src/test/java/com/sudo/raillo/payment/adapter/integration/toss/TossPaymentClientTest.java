@@ -37,6 +37,7 @@ import com.sudo.raillo.payment.domain.exception.PaymentError;
 import com.sudo.raillo.payment.adapter.integration.toss.TossPaymentException;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.hc.client5.http.ConnectTimeoutException;
@@ -83,7 +84,8 @@ class TossPaymentClientTest {
 		public TossPaymentClient tossPaymentClient(RestClient tossPaymentRestClient, ObjectMapper objectMapper,
 			TossApiMetrics tossApiMetrics) {
 			return new TossPaymentClient(tossPaymentRestClient, tossPaymentRestClient, objectMapper, tossApiMetrics, "user",
-				new QueryRetryPolicy(3, Duration.ofMillis(500), Duration.ofMillis(10)));
+				new QueryRetryPolicy(3, Duration.ofMillis(500), Duration.ofMillis(10)),
+				CircuitBreaker.ofDefaults("test"), CircuitBreaker.ofDefaults("test"));
 		}
 	}
 
@@ -680,7 +682,8 @@ class TossPaymentClientTest {
 		void budgetExceeded_stopsEarly() {
 			TossPaymentClient shortBudget = new TossPaymentClient(
 				tossPaymentRestClient, tossPaymentRestClient, objectMapper, tossApiMetrics, "user",
-				new QueryRetryPolicy(10, Duration.ofMillis(1), Duration.ofMillis(10)));
+				new QueryRetryPolicy(10, Duration.ofMillis(1), Duration.ofMillis(10)),
+				CircuitBreaker.ofDefaults("test"), CircuitBreaker.ofDefaults("test"));
 
 			server.expect(ExpectedCount.once(), requestTo("https://api.tosspayments.com/v1/payments/pk_3"))
 				.andExpect(method(GET))
