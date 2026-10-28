@@ -19,6 +19,7 @@ public record TossPaymentProperties(
 	String version,
 	@NotNull @DefaultValue("3s") Duration connectTimeout,
 	@NotNull @DefaultValue("15s") Duration readTimeout,
+	@NotNull @DefaultValue("5s") Duration queryReadTimeout,
 	@NotNull @DefaultValue("2s") Duration connectionRequestTimeout,
 	@NotNull @DefaultValue("10s") Duration queryBudget,
 	@Positive @DefaultValue("3") int queryMaxAttempts,
@@ -32,6 +33,7 @@ public record TossPaymentProperties(
 	/** 복구 Worker 전용 Toss 호출 예산. */
 	public record WorkerHttp(
 		@NotNull @DefaultValue("20s") Duration readTimeout,
+		@NotNull @DefaultValue("10s") Duration queryReadTimeout,
 		@NotNull @DefaultValue("5s") Duration connectionRequestTimeout,
 		@NotNull @DefaultValue("20s") Duration queryBudget,
 		@Positive @DefaultValue("10") int maxConnectionsPerRoute,

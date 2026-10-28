@@ -35,6 +35,7 @@ public class TossPaymentClient {
 	private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
 	private final RestClient tossPaymentRestClient;
+	private final RestClient tossQueryRestClient;
 	private final ObjectMapper objectMapper;
 	private final TossApiMetrics tossApiMetrics;
 
@@ -133,7 +134,7 @@ public class TossPaymentClient {
 	}
 
 	private TossPaymentQueryResponse exchangeQuery(String paymentKey) {
-		return tossPaymentRestClient.get()
+		return tossQueryRestClient.get()
 			.uri("/v1/payments/{paymentKey}", paymentKey)
 			.exchange((req, res) -> {
 				if (res.getStatusCode().isError()) {

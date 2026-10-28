@@ -82,7 +82,7 @@ class TossPaymentClientTest {
 		@Bean
 		public TossPaymentClient tossPaymentClient(RestClient tossPaymentRestClient, ObjectMapper objectMapper,
 			TossApiMetrics tossApiMetrics) {
-			return new TossPaymentClient(tossPaymentRestClient, objectMapper, tossApiMetrics, "user",
+			return new TossPaymentClient(tossPaymentRestClient, tossPaymentRestClient, objectMapper, tossApiMetrics, "user",
 				new QueryRetryPolicy(3, Duration.ofMillis(500), Duration.ofMillis(10)));
 		}
 	}
@@ -678,7 +678,8 @@ class TossPaymentClientTest {
 		@Test
 		@DisplayName("예산을 넘기면 횟수가 남아도 멈춘다")
 		void budgetExceeded_stopsEarly() {
-			TossPaymentClient shortBudget = new TossPaymentClient(tossPaymentRestClient, objectMapper, tossApiMetrics, "user",
+			TossPaymentClient shortBudget = new TossPaymentClient(
+				tossPaymentRestClient, tossPaymentRestClient, objectMapper, tossApiMetrics, "user",
 				new QueryRetryPolicy(10, Duration.ofMillis(1), Duration.ofMillis(10)));
 
 			server.expect(ExpectedCount.once(), requestTo("https://api.tosspayments.com/v1/payments/pk_3"))

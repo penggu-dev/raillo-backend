@@ -119,14 +119,29 @@ public class TossPaymentClientConfig {
 			.build();
 	}
 
+	/** 조회 전용. 커넥션 풀은 confirm과 공유하고 응답 타임아웃만 다르게 쓴다. */
+	@Bean
+	public RestClient tossQueryRestClient(
+		@Qualifier("tossHttpClient") CloseableHttpClient tossHttpClient, TossPaymentProperties properties
+	) {
+		HttpComponentsClientHttpRequestFactory factory =
+			new HttpComponentsClientHttpRequestFactory(tossHttpClient);
+		factory.setReadTimeout(properties.queryReadTimeout());
+
+		return TossHttpClients.restClientBuilder(properties.baseUrl(), properties.secretKey())
+			.requestFactory(factory)
+			.build();
+	}
+
 	/** 사용자 경로 빈. Worker 경로 빈과 타입이 같으므로 기존 주입 지점이 이쪽으로 해석되도록 {@code @Primary}를 둔다. */
 	@Bean
 	@Primary
 	public TossPaymentClient tossPaymentClient(
-		@Qualifier("tossPaymentRestClient") RestClient restClient, ObjectMapper objectMapper, TossApiMetrics metrics,
-		TossPaymentProperties properties
+		@Qualifier("tossPaymentRestClient") RestClient restClient,
+		@Qualifier("tossQueryRestClient") RestClient queryRestClient,
+		ObjectMapper objectMapper, TossApiMetrics metrics, TossPaymentProperties properties
 	) {
-		return new TossPaymentClient(restClient, objectMapper, metrics, "user",
+		return new TossPaymentClient(restClient, queryRestClient, objectMapper, metrics, "user",
 			new QueryRetryPolicy(properties.queryMaxAttempts(), properties.queryBudget(), properties.queryBackoffBase()));
 	}
 

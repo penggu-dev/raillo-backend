@@ -76,7 +76,8 @@ payment:
       secret-key: ${TOSS_SECRET_KEY}
       version: v1
       connect-timeout: 3s
-      read-timeout: 15s
+      read-timeout: 15s          # confirm. 응답을 못 받으면 결과 불명이라 길게 둔다
+      query-read-timeout: 5s     # query는 멱등이라 짧게 끊어도 다시 조회하면 된다
       connection-request-timeout: 2s
       query-budget: 10s
       query-max-attempts: 3
@@ -87,6 +88,7 @@ payment:
       evict-idle-after: 30s
       worker:
         query-budget: 20s
+        query-read-timeout: 10s
 
 raillo:
   payment:

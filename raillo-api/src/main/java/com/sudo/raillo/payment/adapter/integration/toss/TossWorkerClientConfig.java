@@ -43,12 +43,27 @@ public class TossWorkerClientConfig {
 			.build();
 	}
 
+	/** 조회 전용. 커넥션 풀은 confirm과 공유하고 응답 타임아웃만 다르게 쓴다. */
+	@Bean
+	public RestClient tossWorkerQueryRestClient(
+		@Qualifier("tossWorkerHttpClient") CloseableHttpClient tossWorkerHttpClient, TossPaymentProperties properties
+	) {
+		HttpComponentsClientHttpRequestFactory factory =
+			new HttpComponentsClientHttpRequestFactory(tossWorkerHttpClient);
+		factory.setReadTimeout(properties.worker().queryReadTimeout());
+
+		return TossHttpClients.restClientBuilder(properties.baseUrl(), properties.secretKey())
+			.requestFactory(factory)
+			.build();
+	}
+
 	@Bean
 	public TossPaymentClient tossWorkerPaymentClient(
-		@Qualifier("tossWorkerRestClient") RestClient restClient, ObjectMapper objectMapper, TossApiMetrics metrics,
-		TossPaymentProperties properties
+		@Qualifier("tossWorkerRestClient") RestClient restClient,
+		@Qualifier("tossWorkerQueryRestClient") RestClient queryRestClient,
+		ObjectMapper objectMapper, TossApiMetrics metrics, TossPaymentProperties properties
 	) {
-		return new TossPaymentClient(restClient, objectMapper, metrics, "worker",
+		return new TossPaymentClient(restClient, queryRestClient, objectMapper, metrics, "worker",
 			new QueryRetryPolicy(properties.queryMaxAttempts(), properties.worker().queryBudget(), properties.queryBackoffBase()));
 	}
 
