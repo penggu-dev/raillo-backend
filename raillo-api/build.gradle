@@ -44,6 +44,9 @@ dependencies {
     // Actuator & Prometheus
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // Resilience4j — Spring Boot BOM이 버전을 관리하지 않아 명시한다
+    implementation 'io.github.resilience4j:resilience4j-spring-boot4:2.4.0'
 }
 
 // compose.yaml·.env가 루트에 있어 bootRun cwd를 루트로 고정 (임시).
