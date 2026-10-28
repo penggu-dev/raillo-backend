@@ -50,4 +50,23 @@ class TossWorkerClientConfigTest {
 		assertThat(workerGateway).isNotSameAs(userGateway);
 		assertThat(workerPool).isNotSameAs(userPool);
 	}
+
+	@Test
+	@DisplayName("Worker 풀은 Worker 전용 상한을 받는다")
+	void workerPoolUsesWorkerLimits() {
+		// given
+		PoolingHttpClientConnectionManager userPool =
+			context.getBean("tossHttpConnectionManager", PoolingHttpClientConnectionManager.class);
+		PoolingHttpClientConnectionManager workerPool =
+			context.getBean("tossWorkerHttpConnectionManager", PoolingHttpClientConnectionManager.class);
+		TossPaymentProperties properties = context.getBean(TossPaymentProperties.class);
+
+		// when & then
+		assertThat(workerPool.getMaxTotal())
+			.as("Worker 풀이 사용자 풀 크기를 받으면 추출이 접근자를 뒤섞은 것이다")
+			.isEqualTo(properties.worker().maxTotal());
+		assertThat(workerPool.getDefaultMaxPerRoute()).isEqualTo(properties.worker().maxConnectionsPerRoute());
+		assertThat(userPool.getMaxTotal()).isEqualTo(properties.maxTotal());
+		assertThat(userPool.getDefaultMaxPerRoute()).isEqualTo(properties.maxConnectionsPerRoute());
+	}
 }
