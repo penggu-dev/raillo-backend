@@ -185,4 +185,4 @@ Toss 호출에는 confirm, query(사용자), query(Worker)별로 서킷 브레�
 ### 서킷 브레이커는 기존 실패 분류에 얹는다
 - 맥락: confirm과 query(사용자, Worker)는 커넥션 풀이 달라(`TossPaymentClientConfig`, `TossWorkerClientConfig`) 브레이커도 `toss-confirm`, `toss-query-user`, `toss-query-worker` 셋으로 나눈다. 카드 거절 같은 4xx 확정 실패가 몰려도 게이트웨이는 멀쩡하므로 회로를 열면 안 된다(`DefinitiveFailurePredicate`).
 - 결정: 회로가 열리면 `CallNotPermittedException`이 던져지고, `TossPaymentClient`는 이를 `DeliveryPhase.NOT_REACHED`로 번역해 기존 미도달 분류를 그대로 쓴다. 새 에러 코드도 새 응답 분기도 만들지 않는다.
-- 결과: 임계값(`failure-rate-threshold`, `slow-call-duration-threshold`, `sliding-window-size` 등)은 `application-prod.yml`의 `resilience4j.circuitbreaker`에 있다. 측정치가 아니라 타임아웃 예산과 예약 TTL(10분)에서 역산한 추정치이며, #276 부하 측정과 #305 뒤에 조정한다.
+- 결과: 임계값(`failure-rate-threshold`, `slow-call-duration-threshold`, `sliding-window-size` 등)은 `application.yml`의 `resilience4j.circuitbreaker`에 있다. 측정치가 아니라 타임아웃 예산과 예약 TTL(10분)에서 역산한 추정치이며, #276 부하 측정과 #305 뒤에 조정한다.

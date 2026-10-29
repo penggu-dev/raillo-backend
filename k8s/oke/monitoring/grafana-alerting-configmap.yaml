@@ -323,7 +323,7 @@ data:
                 model:
                   refId: A
                   instant: true
-                  expr: sum(increase(toss_api_failure_total{phase="NOT_REACHED"}[10m]))
+                  expr: sum(increase(toss_api_failure_total{phase="NOT_REACHED", toss_code!~".*_CIRCUIT_OPEN"}[10m]))
               - refId: C
                 datasourceUid: __expr__
                 model:
