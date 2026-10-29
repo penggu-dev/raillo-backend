@@ -58,7 +58,9 @@ class TossTransportRetryTest {
 
 			exchange(restClient(server.baseUrl(), httpClient), "POST", "/v1/payments/confirm");
 
-			assertThat(server.requestCount()).isEqualTo(1);
+			assertThat(server.requestCount())
+				.as("승인 요청은 멱등하지 않아 전송 계층이 다시 보내면 이중 청구가 된다")
+				.isEqualTo(1);
 		}
 	}
 

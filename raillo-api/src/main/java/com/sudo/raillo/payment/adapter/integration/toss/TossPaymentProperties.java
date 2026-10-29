@@ -38,13 +38,29 @@ public record TossPaymentProperties(
 		@NotNull @DefaultValue("20s") Duration queryBudget,
 		@Positive @DefaultValue("10") int maxConnectionsPerRoute,
 		@Positive @DefaultValue("10") int maxTotal
-	) {}
+	) {
+		public WorkerHttp {
+			requireQueryNotSlowerThanConfirm("payment.toss.api.worker", queryReadTimeout, readTimeout);
+		}
+	}
 
 	public TossPaymentProperties {
 		if (secretKey != null && secretKey.startsWith("${")) {
 			throw new IllegalStateException(
 				"TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다. .env 파일을 확인하세요."
 			);
+		}
+		requireQueryNotSlowerThanConfirm("payment.toss.api", queryReadTimeout, readTimeout);
+	}
+
+	/**
+	 * 조회는 멱등이라 짧게 끊어도 다시 조회하면 되므로 confirm보다 길면 설계 전제가 깨진다
+	 * (docs/payment/README.md "재시도는 전송 계층이 아니라 조회 한 곳에서만 한다").
+	 */
+	private static void requireQueryNotSlowerThanConfirm(String prefix, Duration queryReadTimeout, Duration readTimeout) {
+		if (queryReadTimeout != null && readTimeout != null && queryReadTimeout.compareTo(readTimeout) >= 0) {
+			throw new IllegalArgumentException(
+				"%s.query-read-timeout(%s)는 read-timeout(%s)보다 짧아야 한다".formatted(prefix, queryReadTimeout, readTimeout));
 		}
 	}
 }

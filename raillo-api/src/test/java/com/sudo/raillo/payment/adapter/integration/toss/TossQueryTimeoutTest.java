@@ -9,6 +9,7 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 /** 같은 커넥션 풀 위에서 confirm과 query가 다른 응답 타임아웃을 쓰는지 본다. */
@@ -33,9 +34,11 @@ class TossQueryTimeoutTest {
 			assertThatThrownBy(() -> queryClient.get().uri("/v1/payments/k")
 				.exchange((req, res) -> res.getStatusCode().value(), false))
 				.as("query는 300ms에 끊긴다")
-				.isNotNull();
+				.isInstanceOf(ResourceAccessException.class)
+				.hasCauseInstanceOf(java.io.InterruptedIOException.class);
 
-			int confirmStatus = confirmClient.get().uri("/v1/payments/k")
+			int confirmStatus = confirmClient.post().uri("/v1/payments/k")
+				.body("{}")
 				.<Integer>exchange((req, res) -> res.getStatusCode().value(), false);
 			assertThat(confirmStatus)
 				.as("confirm은 클라이언트 기본값 2초를 쓰므로 800ms 응답을 받는다")

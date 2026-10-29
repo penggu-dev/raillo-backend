@@ -120,7 +120,7 @@ class TossCircuitBreakerTest {
 
 		assertThatThrownBy(() -> client.queryPayment("pk_1"))
 			.isInstanceOf(TossPaymentException.class)
-			.extracting("errorCode").isEqualTo("QUERY_CIRCUIT_OPEN");
+			.extracting("errorCode").isEqualTo("QUERY_UNCERTAIN_CIRCUIT_OPEN");
 
 		mockServer.verify();   // expect를 걸지 않아 예상 밖 요청이 오면 MockRestServiceServer가 AssertionError를 던진다
 	}

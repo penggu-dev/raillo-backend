@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
@@ -111,12 +112,7 @@ public class TossPaymentClientConfig {
 	) {
 		return TossHttpClients.restClientBuilder(properties.baseUrl(), properties.secretKey())
 			.requestFactory(new HttpComponentsClientHttpRequestFactory(tossHttpClient))
-			.requestInterceptor((request, body, execution) -> {
-				log.debug("[TOSS] → {} {}", request.getMethod(), request.getURI());
-				log.debug("[TOSS] → headers: {}", maskSensitiveHeaders(request.getHeaders()));
-				log.debug("[TOSS] → body: {}", new String(body, StandardCharsets.UTF_8));
-				return execution.execute(request, body);
-			})
+			.requestInterceptor(requestLoggingInterceptor())
 			.build();
 	}
 
@@ -131,7 +127,17 @@ public class TossPaymentClientConfig {
 
 		return TossHttpClients.restClientBuilder(properties.baseUrl(), properties.secretKey())
 			.requestFactory(factory)
+			.requestInterceptor(requestLoggingInterceptor())
 			.build();
+	}
+
+	private ClientHttpRequestInterceptor requestLoggingInterceptor() {
+		return (request, body, execution) -> {
+			log.debug("[TOSS] → {} {}", request.getMethod(), request.getURI());
+			log.debug("[TOSS] → headers: {}", maskSensitiveHeaders(request.getHeaders()));
+			log.debug("[TOSS] → body: {}", new String(body, StandardCharsets.UTF_8));
+			return execution.execute(request, body);
+		};
 	}
 
 	/** 사용자 경로 빈. Worker 경로 빈과 타입이 같으므로 기존 주입 지점이 이쪽으로 해석되도록 {@code @Primary}를 둔다. */

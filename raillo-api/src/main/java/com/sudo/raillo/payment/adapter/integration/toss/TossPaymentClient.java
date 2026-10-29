@@ -19,12 +19,11 @@ import org.springframework.web.client.RestClient;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import tools.jackson.databind.ObjectMapper;
-import com.sudo.raillo.global.exception.BusinessException;
 import com.sudo.raillo.payment.adapter.observability.TossApiMetrics;
 import com.sudo.raillo.payment.application.command.PaymentConfirmCommand;
 import com.sudo.raillo.payment.application.exception.DeliveryPhase;
+import com.sudo.raillo.payment.application.exception.PaymentGatewayException;
 import com.sudo.raillo.payment.application.required.PaymentGateway;
-import com.sudo.raillo.payment.domain.exception.PaymentError;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -107,7 +106,7 @@ public class TossPaymentClient {
 
 		for (int attempt = 1; ; attempt++) {
 			if (queryRetryPolicy.exhausted(attempt, elapsedMillis(startedAt))) {
-				throw queryUncertain(lastCause, statusOf(lastCause), lastFailure, phaseOf(lastFailure));
+				throw queryUncertain(lastCause, statusOf(lastCause), lastFailure, phaseOfFailure(lastFailure));
 			}
 			try {
 				TossPaymentQueryResponse response = exchangeQuery(paymentKey);
@@ -135,10 +134,10 @@ public class TossPaymentClient {
 				paymentKey, attempt, lastCause, lastFailure);
 
 			if (queryRetryPolicy.exhausted(attempt + 1, elapsedMillis(startedAt))) {
-				throw queryUncertain(lastCause, statusOf(lastCause), lastFailure, phaseOf(lastFailure));
+				throw queryUncertain(lastCause, statusOf(lastCause), lastFailure, phaseOfFailure(lastFailure));
 			}
 			if (!sleepBeforeRetry(queryRetryPolicy.backoffMillis(attempt))) {
-				throw queryUncertain(lastCause, statusOf(lastCause), lastFailure, phaseOf(lastFailure));
+				throw queryUncertain(lastCause, statusOf(lastCause), lastFailure, phaseOfFailure(lastFailure));
 			}
 		}
 	}
@@ -156,6 +155,22 @@ public class TossPaymentClient {
 					throw new QueryBodyReadException(e);
 				}
 			}));
+	}
+
+	/**
+	 * 조회 재시도가 소진됐을 때 기록할 phase를 정한다. {@code lastFailure}가 게이트웨이 응답에서 난
+	 * {@link PaymentGatewayException}이면 그 자신의 판정 메서드로 phase를 역산하고, 전송 단계에서 난
+	 * 예외(타임아웃, 본문 읽기 실패 등)면 {@link #phaseOf(Throwable)}로 원인 체인을 본다. 두 경로를
+	 * 섞으면 게이트웨이가 분명히 응답한 5xx가 NO_RESPONSE로 기록된다.
+	 */
+	private static DeliveryPhase phaseOfFailure(RuntimeException lastFailure) {
+		if (lastFailure instanceof PaymentGatewayException gatewayException) {
+			if (gatewayException.isNotReached()) {
+				return DeliveryPhase.NOT_REACHED;
+			}
+			return gatewayException.getHttpStatus() > 0 ? DeliveryPhase.ANSWERED : DeliveryPhase.NO_RESPONSE;
+		}
+		return phaseOf(lastFailure);
 	}
 
 	private static long elapsedMillis(long startedAtNanos) {
@@ -258,9 +273,15 @@ public class TossPaymentClient {
 	 * <p>차단 한 번당 한 번 불린다. 열린 30초 동안의 모든 요청이 여기를 지나므로 error와 스택트레이스로
 	 * 남기면 장애 시점에 로그가 폭증한다. 원인은 자명하므로 warn으로 충분하고, 상태 전이 자체는
 	 * Resilience4j 이벤트와 지표로 본다(#290 Task 7).</p>
+	 *
+	 * <p>조회는 {@code PaymentApprovalReconciler.uncertainCode}가 접두사 {@code QUERY_UNCERTAIN_}을
+	 * 덧붙인다. 여기서 미리 그 접두사를 붙여두면 중복 접두가 되지 않는다. confirm, cancel은 그 경로를
+	 * 타지 않으므로 코드 형태를 그대로 둔다.</p>
 	 */
 	private TossPaymentException circuitOpen(String operation) {
-		String errorCode = operation.toUpperCase() + "_CIRCUIT_OPEN";
+		String errorCode = "query".equals(operation)
+			? PaymentGateway.QUERY_UNCERTAIN_PREFIX + "CIRCUIT_OPEN"
+			: operation.toUpperCase() + "_CIRCUIT_OPEN";
 		log.warn("[TOSS] {} 회로 열림: errorCode={}", operation, errorCode);
 		tossApiMetrics.incrementFailure(operation, 0, errorCode, DeliveryPhase.NOT_REACHED);
 		return new TossPaymentException(0, errorCode,
